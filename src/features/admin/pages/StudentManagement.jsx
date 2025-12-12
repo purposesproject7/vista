@@ -1,10 +1,10 @@
 // src/features/admin/pages/StudentManagement.jsx
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../../shared/components/Navbar';
-import AdminTabs from '../components/AdminTabs';
-import AcademicFilterSelector from '../components/AcademicFilterSelector';
-import StudentList from '../components/StudentList';
-import StudentDetailsModal from '../components/StudentDetailsModal';
+import AdminTabs from '../components/shared/AdminTabs';
+import AcademicFilterSelector from '../components/student-management/AcademicFilterSelector';
+import StudentList from '../components/student-management/StudentList';
+import StudentDetailsModal from '../components/student-management/StudentDetailsModal';
 import { useToast } from '../../../shared/hooks/useToast';
 import api from '../../../services/api';
 import { generateDummyStudents } from '../../../shared/utils/dummyStudentData';

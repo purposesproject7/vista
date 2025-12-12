@@ -1,4 +1,4 @@
-// src/features/admin/components/AdminTabs.jsx
+// src/features/admin/components/shared/AdminTabs.jsx
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 

@@ -1,38 +1,32 @@
-// src/features/admin/components/requests/RequestFilters.jsx
-import React from 'react';
-import Card from '../../../../shared/components/Card';
-import Select from '../../../../shared/components/Select';
+// src/features/admin/components/request-management/requests/RequestFilters.jsx
+import React, { useMemo } from 'react';
+import Card from '../../../../../shared/components/Card';
+import Select from '../../../../../shared/components/Select';
+import { SCHOOLS, PROGRAMMES_BY_SCHOOL, REQUEST_CATEGORIES, REQUEST_STATUSES } from '../../../../../shared/constants/config';
 
 const RequestFilters = ({ filters, onFilterChange, onReset }) => {
-  const schoolOptions = [
+  const schoolOptions = useMemo(() => [
     { value: '', label: 'All Schools' },
-    { value: 'School of Engineering', label: 'School of Engineering' },
-    { value: 'School of Business', label: 'School of Business' },
-    { value: 'School of Arts & Sciences', label: 'School of Arts & Sciences' },
-    { value: 'School of Law', label: 'School of Law' }
-  ];
+    ...SCHOOLS.map(school => ({ value: school.name, label: school.name }))
+  ], []);
 
-  const programOptions = [
-    { value: '', label: 'All Programs' },
-    { value: 'Computer Science', label: 'Computer Science' },
-    { value: 'Electronics', label: 'Electronics' },
-    { value: 'Mechanical', label: 'Mechanical' },
-    { value: 'MBA', label: 'MBA' },
-    { value: 'BBA', label: 'BBA' }
-  ];
+  const programOptions = useMemo(() => {
+    const allPrograms = Object.values(PROGRAMMES_BY_SCHOOL).flat();
+    return [
+      { value: '', label: 'All Programs' },
+      ...allPrograms.map(program => ({ value: program.name, label: program.name }))
+    ];
+  }, []);
 
-  const categoryOptions = [
+  const categoryOptions = useMemo(() => [
     { value: '', label: 'All Categories' },
-    { value: 'guide', label: 'Guide Requests' },
-    { value: 'panel', label: 'Panel Requests' }
-  ];
+    ...REQUEST_CATEGORIES.map(cat => ({ value: cat.id, label: `${cat.name} Requests` }))
+  ], []);
 
-  const statusOptions = [
+  const statusOptions = useMemo(() => [
     { value: '', label: 'All Status' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'approved', label: 'Approved' },
-    { value: 'rejected', label: 'Rejected' }
-  ];
+    ...REQUEST_STATUSES.map(status => ({ value: status.id, label: status.name }))
+  ], []);
 
   return (
     <Card className="mb-6">

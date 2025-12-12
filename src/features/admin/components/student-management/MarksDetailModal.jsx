@@ -1,8 +1,8 @@
-// src/features/admin/components/MarksDetailModal.jsx
+// src/features/admin/components/student-management/MarksDetailModal.jsx
 import React from 'react';
-import Modal from '../../../shared/components/Modal';
-import Card from '../../../shared/components/Card';
-import Badge from '../../../shared/components/Badge';
+import Modal from '../../../../shared/components/Modal';
+import Card from '../../../../shared/components/Card';
+import Badge from '../../../../shared/components/Badge';
 import { 
   ChartBarIcon,
   AcademicCapIcon,

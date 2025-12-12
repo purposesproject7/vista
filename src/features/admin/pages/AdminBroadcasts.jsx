@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MegaphoneIcon } from '@heroicons/react/24/outline';
 import Navbar from '../../../shared/components/Navbar';
-import AdminTabs from '../components/AdminTabs';
+import AdminTabs from '../components/shared/AdminTabs';
 import BroadcastForm from '../components/broadcasts/BroadcastForm';
 import BroadcastHistory from '../components/broadcasts/BroadcastHistory';
 import { useToast } from '../../../shared/hooks/useToast';

@@ -1,6 +1,6 @@
-// src/features/admin/components/MarksCard.jsx
+// src/features/admin/components/student-management/MarksCard.jsx
 import React from 'react';
-import Card from '../../../shared/components/Card';
+import Card from '../../../../shared/components/Card';
 import { ChartBarIcon } from '@heroicons/react/24/outline';
 
 const MarksCard = ({ marks, onClick }) => {

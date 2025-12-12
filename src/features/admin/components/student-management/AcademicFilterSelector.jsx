@@ -1,9 +1,9 @@
-// src/features/admin/components/AcademicFilterSelector.jsx
+// src/features/admin/components/student-management/AcademicFilterSelector.jsx
 import React, { useState, useEffect } from 'react';
-import Select from '../../../shared/components/Select';
-import Card from '../../../shared/components/Card';
+import Select from '../../../../shared/components/Select';
+import Card from '../../../../shared/components/Card';
 import { AcademicCapIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import api from '../../../services/api';
+import api from '../../../../services/api';
 
 const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
   const [loading, setLoading] = useState(false);

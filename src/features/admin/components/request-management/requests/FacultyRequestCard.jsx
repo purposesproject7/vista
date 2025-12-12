@@ -1,9 +1,9 @@
-// src/features/admin/components/requests/FacultyRequestCard.jsx
+// src/features/admin/components/request-management/requests/FacultyRequestCard.jsx
 import React, { useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon, UserIcon } from '@heroicons/react/24/outline';
-import Card from '../../../../shared/components/Card';
-import Badge from '../../../../shared/components/Badge';
-import Button from '../../../../shared/components/Button';
+import Card from '../../../../../shared/components/Card';
+import Badge from '../../../../../shared/components/Badge';
+import Button from '../../../../../shared/components/Button';
 import RequestItem from './RequestItem';
 
 const FacultyRequestCard = ({ 

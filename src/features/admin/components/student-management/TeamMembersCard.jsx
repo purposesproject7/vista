@@ -1,7 +1,7 @@
-// src/features/admin/components/TeamMembersCard.jsx
+// src/features/admin/components/student-management/TeamMembersCard.jsx
 import React from 'react';
-import Card from '../../../shared/components/Card';
-import Button from '../../../shared/components/Button';
+import Card from '../../../../shared/components/Card';
+import Button from '../../../../shared/components/Button';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 
 const TeamMembersCard = ({ teammates, onNavigateToStudent, onCloseModal }) => {

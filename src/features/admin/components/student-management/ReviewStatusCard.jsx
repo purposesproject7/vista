@@ -1,7 +1,7 @@
-// src/features/admin/components/ReviewStatusCard.jsx
+// src/features/admin/components/student-management/ReviewStatusCard.jsx
 import React from 'react';
-import Card from '../../../shared/components/Card';
-import Badge from '../../../shared/components/Badge';
+import Card from '../../../../shared/components/Card';
+import Badge from '../../../../shared/components/Badge';
 import { 
   DocumentTextIcon, 
   CheckCircleIcon, 

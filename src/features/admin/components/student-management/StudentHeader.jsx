@@ -1,6 +1,6 @@
-// src/features/admin/components/StudentHeader.jsx
+// src/features/admin/components/student-management/StudentHeader.jsx
 import React from 'react';
-import Card from '../../../shared/components/Card';
+import Card from '../../../../shared/components/Card';
 import { UserIcon } from '@heroicons/react/24/outline';
 
 const StudentHeader = ({ student }) => {

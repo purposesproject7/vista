@@ -1,6 +1,6 @@
-// src/features/admin/components/ContactCard.jsx
+// src/features/admin/components/student-management/ContactCard.jsx
 import React from 'react';
-import Card from '../../../shared/components/Card';
+import Card from '../../../../shared/components/Card';
 import { EnvelopeIcon, PhoneIcon } from '@heroicons/react/24/outline';
 
 const InfoRow = ({ icon: Icon, label, value }) => (

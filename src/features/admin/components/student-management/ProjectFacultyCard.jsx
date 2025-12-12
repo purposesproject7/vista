@@ -1,6 +1,6 @@
-// src/features/admin/components/ProjectFacultyCard.jsx
+// src/features/admin/components/student-management/ProjectFacultyCard.jsx
 import React from 'react';
-import Card from '../../../shared/components/Card';
+import Card from '../../../../shared/components/Card';
 import { 
   DocumentTextIcon, 
   AcademicCapIcon, 

@@ -1,8 +1,8 @@
 // src/features/admin/pages/RequestManagement.jsx
 import React from 'react';
 import Navbar from '../../../shared/components/Navbar';
-import AdminTabs from '../components/AdminTabs';
-import RequestList from '../components/RequestList';
+import AdminTabs from '../components/shared/AdminTabs';
+import RequestList from '../components/request-management/RequestList';
 
 const RequestManagement = () => {
   return (

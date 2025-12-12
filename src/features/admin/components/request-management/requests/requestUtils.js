@@ -1,4 +1,5 @@
-// src/features/admin/components/requests/requestUtils.js
+// src/features/admin/components/request-management/requests/requestUtils.js
+import { SCHOOLS, PROGRAMMES_BY_SCHOOL } from '../../../../../shared/constants/config';
 
 export const formatDate = (dateString) => {
   const date = new Date(dateString);
@@ -8,46 +9,51 @@ export const formatDate = (dateString) => {
 };
 
 // Generate mock request data
-export const generateMockRequests = () => [
-  {
-    id: 1,
-    facultyId: 1,
-    facultyName: 'Dr. John Smith',
-    studentName: 'Rahul Sharma',
-    category: 'guide',
-    projectTitle: 'AI-Based Traffic Management System',
-    message: 'Requesting extension for Review 3 due to pending dataset collection from traffic authority. Need 2 more weeks to complete implementation.',
-    status: 'pending',
-    date: '2025-12-10',
-    school: 'School of Engineering',
-    program: 'Computer Science'
-  },
-  {
-    id: 2,
-    facultyId: 1,
-    facultyName: 'Dr. John Smith',
-    studentName: 'Priya Patel',
-    category: 'panel',
-    projectTitle: 'AI-Based Traffic Management System',
-    message: 'Panel member unavailable for scheduled review. Requesting reschedule to next week.',
-    status: 'pending',
-    date: '2025-12-09',
-    school: 'School of Engineering',
-    program: 'Computer Science'
-  },
-  {
-    id: 3,
-    facultyId: 2,
-    facultyName: 'Dr. Sarah Johnson',
-    studentName: 'Amit Kumar',
-    category: 'guide',
-    projectTitle: 'Blockchain for Supply Chain',
-    message: 'Medical emergency in family. Requesting postponement of Review 2 by one week.',
-    status: 'pending',
-    date: '2025-12-09',
-    school: 'School of Engineering',
-    program: 'Computer Science'
-  },
+export const generateMockRequests = () => {
+  const scopePrograms = PROGRAMMES_BY_SCHOOL['1']; // SCOPE
+  const sensePrograms = PROGRAMMES_BY_SCHOOL['2']; // SENSE
+  const selectPrograms = PROGRAMMES_BY_SCHOOL['3']; // SELECT
+
+  return [
+    {
+      id: 1,
+      facultyId: 1,
+      facultyName: 'Dr. John Smith',
+      studentName: 'Rahul Sharma',
+      category: 'guide',
+      projectTitle: 'AI-Based Traffic Management System',
+      message: 'Requesting extension for Review 3 due to pending dataset collection from traffic authority. Need 2 more weeks to complete implementation.',
+      status: 'pending',
+      date: '2025-12-10',
+      school: SCHOOLS[0].name, // SCOPE
+      program: scopePrograms[0].name // B.Tech CSE
+    },
+    {
+      id: 2,
+      facultyId: 1,
+      facultyName: 'Dr. John Smith',
+      studentName: 'Priya Patel',
+      category: 'panel',
+      projectTitle: 'AI-Based Traffic Management System',
+      message: 'Panel member unavailable for scheduled review. Requesting reschedule to next week.',
+      status: 'pending',
+      date: '2025-12-09',
+      school: SCHOOLS[0].name, // SCOPE
+      program: scopePrograms[0].name // B.Tech CSE
+    },
+    {
+      id: 3,
+      facultyId: 2,
+      facultyName: 'Dr. Sarah Johnson',
+      studentName: 'Amit Kumar',
+      category: 'guide',
+      projectTitle: 'Blockchain for Supply Chain',
+      message: 'Medical emergency in family. Requesting postponement of Review 2 by one week.',
+      status: 'pending',
+      date: '2025-12-09',
+      school: SCHOOLS[0].name, // SCOPE
+      program: scopePrograms[0].name // B.Tech CSE
+    },
   {
     id: 4,
     facultyId: 3,
@@ -58,8 +64,8 @@ export const generateMockRequests = () => [
     message: 'Hardware components delayed in shipment. Requesting 10-day extension for Review 3 demonstration.',
     status: 'approved',
     date: '2025-12-08',
-    school: 'School of Engineering',
-    program: 'Electronics',
+    school: SCHOOLS[1].name, // SENSE
+    program: sensePrograms[0].name, // B.Tech ECE
     approvalReason: 'Valid reason. Extension approved until Dec 20.'
   },
   {
@@ -72,8 +78,8 @@ export const generateMockRequests = () => [
     message: 'Conflict with final exams scheduled on same day as review. Requesting alternate date.',
     status: 'pending',
     date: '2025-12-11',
-    school: 'School of Engineering',
-    program: 'Computer Science'
+    school: SCHOOLS[0].name, // SCOPE
+    program: scopePrograms[0].name // B.Tech CSE
   },
   {
     id: 6,
@@ -85,8 +91,8 @@ export const generateMockRequests = () => [
     message: 'Client feedback delayed. Need additional time to incorporate revisions in final presentation.',
     status: 'pending',
     date: '2025-12-10',
-    school: 'School of Business',
-    program: 'MBA'
+    school: SCHOOLS[3].name, // VITBS
+    program: PROGRAMMES_BY_SCHOOL['4'][1].name // MBA
   },
   {
     id: 7,
@@ -98,8 +104,8 @@ export const generateMockRequests = () => [
     message: 'Server issues affecting demo environment. IT team working on fix. Requesting 3-day postponement.',
     status: 'rejected',
     date: '2025-12-07',
-    school: 'School of Business',
-    program: 'MBA',
+    school: SCHOOLS[3].name, // VITBS
+    program: PROGRAMMES_BY_SCHOOL['4'][1].name, // MBA
     rejectionReason: 'Insufficient notice. Please ensure technical setup is verified 48 hours before review.'
   },
   {
@@ -112,10 +118,11 @@ export const generateMockRequests = () => [
     message: 'Awaiting survey data from municipal corporation. Requesting extension to complete analysis phase.',
     status: 'pending',
     date: '2025-12-11',
-    school: 'School of Arts & Sciences',
-    program: 'Economics'
+    school: SCHOOLS[2].name, // SELECT
+    program: selectPrograms[0].name // B.Tech Mech
   }
 ];
+};
 
 // Group requests by faculty
 export const groupRequestsByFaculty = (requests) => {

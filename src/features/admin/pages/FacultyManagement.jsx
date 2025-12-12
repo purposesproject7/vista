@@ -1,7 +1,7 @@
 // src/features/admin/pages/FacultyManagement.jsx
 import React from 'react';
 import Navbar from '../../../shared/components/Navbar';
-import AdminTabs from '../components/AdminTabs';
+import AdminTabs from '../components/shared/AdminTabs';
 import Card from '../../../shared/components/Card';
 import { AcademicCapIcon } from '@heroicons/react/24/outline';
 

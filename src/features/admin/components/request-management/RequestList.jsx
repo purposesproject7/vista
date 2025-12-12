@@ -1,9 +1,9 @@
-// src/features/admin/components/RequestList.jsx
+// src/features/admin/components/request-management/RequestList.jsx
 import React, { useState, useMemo } from 'react';
-import Card from '../../../shared/components/Card';
-import Button from '../../../shared/components/Button';
-import Modal from '../../../shared/components/Modal';
-import { useToast } from '../../../shared/hooks/useToast';
+import Card from '../../../../shared/components/Card';
+import Button from '../../../../shared/components/Button';
+import Modal from '../../../../shared/components/Modal';
+import { useToast } from '../../../../shared/hooks/useToast';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import RequestFilters from './requests/RequestFilters';
 import FacultyRequestCard from './requests/FacultyRequestCard';

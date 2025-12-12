@@ -1,6 +1,6 @@
-// src/features/admin/components/StudentDetailsModal.jsx
+// src/features/admin/components/student-management/StudentDetailsModal.jsx
 import React, { useState } from 'react';
-import Modal from '../../../shared/components/Modal';
+import Modal from '../../../../shared/components/Modal';
 import MarksDetailModal from './MarksDetailModal';
 import StudentHeader from './StudentHeader';
 import ProjectFacultyCard from './ProjectFacultyCard';

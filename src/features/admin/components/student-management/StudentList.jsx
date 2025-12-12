@@ -1,10 +1,10 @@
-// src/features/admin/components/StudentList.jsx
+// src/features/admin/components/student-management/StudentList.jsx
 import React, { useState } from 'react';
-import Card from '../../../shared/components/Card';
-import Button from '../../../shared/components/Button';
-import Badge from '../../../shared/components/Badge';
-import EmptyState from '../../../shared/components/EmptyState';
-import LoadingSpinner from '../../../shared/components/LoadingSpinner';
+import Card from '../../../../shared/components/Card';
+import Button from '../../../../shared/components/Button';
+import Badge from '../../../../shared/components/Badge';
+import EmptyState from '../../../../shared/components/EmptyState';
+import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
 import { 
   UserGroupIcon, 
   PhoneIcon, 

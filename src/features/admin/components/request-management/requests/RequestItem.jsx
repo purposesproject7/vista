@@ -1,7 +1,7 @@
-// src/features/admin/components/requests/RequestItem.jsx
+// src/features/admin/components/request-management/requests/RequestItem.jsx
 import React from 'react';
-import Badge from '../../../../shared/components/Badge';
-import Button from '../../../../shared/components/Button';
+import Badge from '../../../../../shared/components/Badge';
+import Button from '../../../../../shared/components/Button';
 import { formatDate } from './requestUtils';
 
 const RequestItem = ({ request, onApprove, onReject }) => {

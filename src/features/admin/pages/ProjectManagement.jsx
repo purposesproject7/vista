@@ -1,7 +1,7 @@
 // src/features/admin/pages/ProjectManagement.jsx
 import React from 'react';
 import Navbar from '../../../shared/components/Navbar';
-import AdminTabs from '../components/AdminTabs';
+import AdminTabs from '../components/shared/AdminTabs';
 import Card from '../../../shared/components/Card';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
 
