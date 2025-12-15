@@ -1,10 +1,22 @@
+import mongoose from "mongoose";
+import Project from "../models/projectSchema.js";
+import Panel from "../models/panelSchema.js";
+import Student from "../models/studentSchema.js";
+import Faculty from "../models/facultySchema.js";
+import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
+import ComponentLibrary from "../models/componentLibrarySchema.js";
+import MarkingSchema from "../models/markingSchema.js";
+import Marks from "../models/marksSchema.js";
+import departmentConfig from "../models/departmentConfigSchema.js";
+import { logger } from "../utils/logger.js";
+import MasterData from "../models/masterDataSchema.js";
 import { FacultyService } from "../services/facultyService.js";
 import { PanelService } from "../services/panelService.js";
 import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
-import { RequestService } from "../services/requestService.js";
 import { BroadcastService } from "../services/broadcastService.js";
+import { RequestService } from "../services/requestService.js";
 
 // Faculty Management
 export async function createFaculty(req, res) {
@@ -1183,6 +1195,449 @@ export async function updatePanel(req, res) {
       success: true,
       message: "Panel updated successfully.",
       data: panel,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+// ===== MASTER DATA =====
+
+export async function getMasterData(req, res) {
+  try {
+    const masterData = await MasterData.findOne().lean();
+
+    if (!masterData) {
+      return res.status(404).json({
+        success: false,
+        message: "Master data not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: masterData,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function createSchool(req, res) {
+  try {
+    const { name, code, displayName } = req.body;
+
+    const masterData = await MasterData.findOne();
+    if (!masterData) {
+      return res.status(404).json({
+        success: false,
+        message: "Master data not initialized.",
+      });
+    }
+
+    // Check duplicate code
+    const exists = masterData.schools.find((s) => s.code === code);
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: "School code already exists.",
+      });
+    }
+
+    masterData.schools.push({
+      name,
+      code,
+      displayName: displayName || name,
+      isActive: true,
+    });
+
+    await masterData.save();
+
+    logger.info("school_created", {
+      name,
+      code,
+      createdBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "School created successfully.",
+      data: masterData.schools[masterData.schools.length - 1],
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateSchool(req, res) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const masterData = await MasterData.findOne();
+    if (!masterData) {
+      return res.status(404).json({
+        success: false,
+        message: "Master data not found.",
+      });
+    }
+
+    const school = masterData.schools.id(id);
+    if (!school) {
+      return res.status(404).json({
+        success: false,
+        message: "School not found.",
+      });
+    }
+
+    Object.assign(school, updates);
+    await masterData.save();
+
+    logger.info("school_updated", {
+      schoolId: id,
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "School updated successfully.",
+      data: school,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function createDepartment(req, res) {
+  try {
+    const { name, code, school, specializations } = req.body;
+
+    const masterData = await MasterData.findOne();
+    if (!masterData) {
+      return res.status(404).json({
+        success: false,
+        message: "Master data not initialized.",
+      });
+    }
+
+    // Check duplicate code
+    const exists = masterData.departments.find((d) => d.code === code);
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: "Department code already exists.",
+      });
+    }
+
+    masterData.departments.push({
+      name,
+      code,
+      school,
+      specializations: specializations || [],
+      isActive: true,
+    });
+
+    await masterData.save();
+
+    logger.info("department_created", {
+      name,
+      code,
+      school,
+      createdBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Department created successfully.",
+      data: masterData.departments[masterData.departments.length - 1],
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateDepartment(req, res) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const masterData = await MasterData.findOne();
+    if (!masterData) {
+      return res.status(404).json({
+        success: false,
+        message: "Master data not found.",
+      });
+    }
+
+    const department = masterData.departments.id(id);
+    if (!department) {
+      return res.status(404).json({
+        success: false,
+        message: "Department not found.",
+      });
+    }
+
+    Object.assign(department, updates);
+    await masterData.save();
+
+    logger.info("department_updated", {
+      departmentId: id,
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Department updated successfully.",
+      data: department,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function createAcademicYear(req, res) {
+  try {
+    const { year, isActive, isCurrent } = req.body;
+
+    const masterData = await MasterData.findOne();
+    if (!masterData) {
+      return res.status(404).json({
+        success: false,
+        message: "Master data not initialized.",
+      });
+    }
+
+    // Check duplicate year
+    const exists = masterData.academicYears.find((y) => y.year === year);
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: "Academic year already exists.",
+      });
+    }
+
+    // If setting as current, unset others
+    if (isCurrent) {
+      masterData.academicYears.forEach((y) => {
+        y.isCurrent = false;
+      });
+    }
+
+    masterData.academicYears.push({
+      year,
+      isActive: isActive !== undefined ? isActive : true,
+      isCurrent: isCurrent || false,
+    });
+
+    await masterData.save();
+
+    logger.info("academic_year_created", {
+      year,
+      createdBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Academic year created successfully.",
+      data: masterData.academicYears[masterData.academicYears.length - 1],
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+// ===== DEPARTMENT CONFIG =====
+
+export async function getDepartmentConfig(req, res) {
+  try {
+    const { academicYear, school, department } = req.query;
+
+    const config = await departmentConfig
+      .findOne({
+        academicYear,
+        school,
+        department,
+      })
+      .lean();
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Department config not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function createDepartmentConfig(req, res) {
+  try {
+    const {
+      academicYear,
+      school,
+      department,
+      maxTeamSize,
+      minTeamSize,
+      maxPanelSize,
+      minPanelSize,
+      featureLocks,
+    } = req.body;
+
+    // Check if already exists
+    const existing = await departmentConfig.findOne({
+      academicYear,
+      school,
+      department,
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Department config already exists for this context.",
+      });
+    }
+
+    const config = new departmentConfig({
+      academicYear,
+      school,
+      department,
+      maxTeamSize: maxTeamSize || 4,
+      minTeamSize: minTeamSize || 1,
+      maxPanelSize: maxPanelSize || 5,
+      minPanelSize: minPanelSize || 3,
+      featureLocks: featureLocks || [],
+    });
+
+    await config.save();
+
+    logger.info("department_config_created", {
+      configId: config._id,
+      academicYear,
+      school,
+      department,
+      createdBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Department config created successfully.",
+      data: config,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateDepartmentConfig(req, res) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const config = await departmentConfig.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true },
+    );
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Department config not found.",
+      });
+    }
+
+    logger.info("department_config_updated", {
+      configId: id,
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Department config updated successfully.",
+      data: config,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateFeatureLock(req, res) {
+  try {
+    const { id } = req.params;
+    const { featureName, deadline, isLocked } = req.body;
+
+    const config = await departmentConfig.findById(id);
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Department config not found.",
+      });
+    }
+
+    // Find or create feature lock
+    let featureLock = config.featureLocks.find(
+      (fl) => fl.featureName === featureName,
+    );
+
+    if (featureLock) {
+      if (deadline !== undefined) featureLock.deadline = deadline;
+      if (isLocked !== undefined) featureLock.isLocked = isLocked;
+    } else {
+      config.featureLocks.push({
+        featureName,
+        deadline: deadline || null,
+        isLocked: isLocked || false,
+      });
+    }
+
+    await config.save();
+
+    logger.info("feature_lock_updated", {
+      configId: id,
+      featureName,
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Feature lock updated successfully.",
+      data: config,
     });
   } catch (error) {
     res.status(400).json({

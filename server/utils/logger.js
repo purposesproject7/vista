@@ -17,7 +17,7 @@ const consoleFormat = combine(
   }),
 );
 
-const logger = createLogger({
+export const logger = createLogger({
   level: process.env.LOG_LEVEL || "info",
   transports: [
     new transports.Console({ format: consoleFormat }),
@@ -41,5 +41,3 @@ export function safeMeta(obj) {
     return { note: "unserializable_meta" };
   }
 }
-
-export default logger;

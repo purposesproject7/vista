@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import connectDB from "./utils/db.js";
-import Faculty from "./models/facultySchema.js";
+import connectDB from "./db.js";
+import Faculty from "../models/facultySchema.js";
 
 if (!process.env.MONGOOSE_CONNECTION_STRING) {
   console.error("MONGOOSE_CONNECTION_STRING missing. Check .env and path.");

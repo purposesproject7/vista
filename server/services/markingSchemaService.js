@@ -1,4 +1,4 @@
-import MarkingSchema from "../models/markingSchemaModel.js";
+import MarkingSchema from "../models/markingSchema.js";
 import { logger } from "../utils/logger.js";
 
 export class MarkingSchemaService {

@@ -1,13 +1,17 @@
 import { logger } from "../utils/logger.js";
+import Faculty from "../models/facultySchema.js";
+import Project from "../models/projectSchema.js";
 
 /**
  * Validate required fields in request body
  * @param {string[]} requiredFields - Array of required field names
  */
-export const validateRequired = (requiredFields) => {
+export const validateRequired = (requiredFields, source = "body") => {
   return (req, res, next) => {
+    const data = source === "query" ? req.query : req.body;
+
     const missingFields = requiredFields.filter((field) => {
-      const value = req.body[field];
+      const value = data[field];
       return value === undefined || value === null || value === "";
     });
 
