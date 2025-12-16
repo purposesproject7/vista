@@ -1,120 +1,154 @@
 import MarkingSchema from "../models/markingSchema.js";
+import ComponentLibrary from "../models/componentLibrarySchema.js";
 import { logger } from "../utils/logger.js";
 
 export class MarkingSchemaService {
   /**
-   * Validate marking schema structure
+   * Validate marking schema data
    */
   static validateMarkingSchema(data) {
-    const { school, department, academicYear, reviews, requiresContribution } =
-      data;
     const errors = [];
 
-    if (!school || !department || !academicYear) {
-      errors.push("School, department, and academic year are required.");
+    if (!data.academicYear) {
+      errors.push("Academic year is required");
     }
 
-    if (!Array.isArray(reviews) || reviews.length === 0) {
-      errors.push("At least one review is required.");
+    if (!data.school) {
+      errors.push("School is required");
     }
 
-    // Validate requiresContribution
+    if (!data.department) {
+      errors.push("Department is required");
+    }
+
     if (
-      requiresContribution !== undefined &&
-      typeof requiresContribution !== "boolean"
+      !data.reviews ||
+      !Array.isArray(data.reviews) ||
+      data.reviews.length === 0
     ) {
-      errors.push("requiresContribution must be a boolean.");
+      errors.push("At least one review is required");
     }
 
-    let totalWeight = 0;
+    // Validate reviews
+    if (data.reviews) {
+      data.reviews.forEach((review, index) => {
+        const reviewNum = index + 1;
 
-    reviews?.forEach((review, index) => {
-      // Required fields
-      if (!review.reviewName || !review.displayName) {
-        errors.push(
-          `Review ${index + 1}: reviewName and displayName are required.`,
-        );
-      }
-
-      if (
-        !review.facultyType ||
-        !["guide", "panel", "both"].includes(review.facultyType)
-      ) {
-        errors.push(
-          `Review ${index + 1}: facultyType must be 'guide', 'panel', or 'both'.`,
-        );
-      }
-
-      // Deadline validation
-      if (!review.deadline?.from || !review.deadline?.to) {
-        errors.push(
-          `Review ${index + 1}: deadline with 'from' and 'to' dates is required.`,
-        );
-      } else {
-        const fromDate = new Date(review.deadline.from);
-        const toDate = new Date(review.deadline.to);
-
-        if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-          errors.push(`Review ${index + 1}: Invalid date format.`);
+        if (!review.reviewName) {
+          errors.push(`Review ${reviewNum}: reviewName is required`);
         }
 
-        if (fromDate >= toDate) {
+        if (!review.displayName) {
+          errors.push(`Review ${reviewNum}: displayName is required`);
+        }
+
+        // ✅ Keep facultyType
+        if (!review.facultyType) {
+          errors.push(`Review ${reviewNum}: facultyType is required`);
+        } else if (!["guide", "panel", "both"].includes(review.facultyType)) {
           errors.push(
-            `Review ${index + 1}: 'from' date must be before 'to' date.`,
+            `Review ${reviewNum}: facultyType must be 'guide', 'panel', or 'both'`,
           );
         }
-      }
 
-      // Components validation
-      if (review.components && Array.isArray(review.components)) {
-        let reviewWeight = 0;
-        review.components.forEach((comp, cIndex) => {
-          if (!comp.name || typeof comp.weight !== "number") {
-            errors.push(
-              `Review ${index + 1}, Component ${cIndex + 1}: name and weight are required.`,
-            );
-          }
+        // Validate components
+        if (!review.components || !Array.isArray(review.components)) {
+          errors.push(`Review ${reviewNum}: components array is required`);
+        } else if (review.components.length === 0) {
+          errors.push(
+            `Review ${reviewNum}: at least one component is required`,
+          );
+        } else {
+          review.components.forEach((comp, compIndex) => {
+            const compNum = compIndex + 1;
 
-          if (comp.weight < 0) {
-            errors.push(
-              `Review ${index + 1}, Component ${cIndex + 1}: weight cannot be negative.`,
-            );
-          }
-
-          reviewWeight += comp.weight || 0;
-
-          // Validate subcomponents
-          if (comp.subComponents && Array.isArray(comp.subComponents)) {
-            let subWeight = 0;
-            comp.subComponents.forEach((sub, sIndex) => {
-              if (!sub.name || typeof sub.weight !== "number") {
-                errors.push(
-                  `Review ${index + 1}, Component ${cIndex + 1}, SubComponent ${sIndex + 1}: name and weight required.`,
-                );
-              }
-              subWeight += sub.weight || 0;
-            });
-
-            if (Math.abs(subWeight - comp.weight) > 0.01) {
+            if (!comp.name) {
               errors.push(
-                `Review ${index + 1}, Component ${cIndex + 1}: subcomponent weights don't match component weight.`,
+                `Review ${reviewNum}, Component ${compNum}: name is required`,
+              );
+            }
+
+            // ✅ Changed from weight to maxMarks
+            if (comp.maxMarks === undefined || comp.maxMarks === null) {
+              errors.push(
+                `Review ${reviewNum}, Component ${compNum}: maxMarks is required`,
+              );
+            } else if (typeof comp.maxMarks !== "number" || comp.maxMarks < 0) {
+              errors.push(
+                `Review ${reviewNum}, Component ${compNum}: maxMarks must be a positive number`,
+              );
+            }
+
+            // Validate componentId if provided
+            if (
+              comp.componentId &&
+              !comp.componentId.match(/^[0-9a-fA-F]{24}$/)
+            ) {
+              errors.push(
+                `Review ${reviewNum}, Component ${compNum}: invalid componentId format`,
+              );
+            }
+          });
+        }
+
+        // Validate deadline if provided
+        if (review.deadline) {
+          if (review.deadline.from && review.deadline.to) {
+            const from = new Date(review.deadline.from);
+            const to = new Date(review.deadline.to);
+
+            if (from >= to) {
+              errors.push(
+                `Review ${reviewNum}: deadline 'from' must be before 'to'`,
               );
             }
           }
-        });
-
-        totalWeight += reviewWeight;
-      }
-    });
-
-    // Total weight validation (optional, can be configured)
-    if (totalWeight > 0 && Math.abs(totalWeight - 100) > 0.01) {
-      errors.push(
-        `Total weight across all reviews must equal 100. Current: ${totalWeight}`,
-      );
+        }
+      });
     }
 
     return errors;
+  }
+
+  /**
+   * Validate component IDs exist in component library
+   */
+  static async validateComponentIds(
+    components,
+    academicYear,
+    school,
+    department,
+  ) {
+    const library = await ComponentLibrary.findOne({
+      academicYear,
+      school,
+      department,
+    });
+
+    if (!library) {
+      throw new Error(
+        "Component library not found for this department. Please create component library first.",
+      );
+    }
+
+    const validComponentIds = library.components.map((c) => c._id.toString());
+    const errors = [];
+
+    for (const comp of components) {
+      if (comp.componentId) {
+        if (!validComponentIds.includes(comp.componentId.toString())) {
+          errors.push(
+            `Component "${comp.name}" with ID ${comp.componentId} not found in library`,
+          );
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(errors.join("; "));
+    }
+
+    return true;
   }
 
   /**
@@ -127,26 +161,43 @@ export class MarkingSchemaService {
       academicYear,
       reviews,
       requiresContribution,
-      contributionTypes,
-      totalWeightage,
+      contributionType,
     } = data;
 
-    // Validate
+    // Validate basic structure
     const validationErrors = this.validateMarkingSchema(data);
     if (validationErrors.length > 0) {
       throw new Error(validationErrors.join("; "));
     }
 
-    // Clean reviews (remove requiresContribution from individual reviews if present)
-    const cleanedReviews = reviews.map((review) => ({
+    // Validate component IDs if provided
+    for (const review of reviews) {
+      if (review.components && review.components.length > 0) {
+        const hasComponentIds = review.components.some((c) => c.componentId);
+        if (hasComponentIds) {
+          await this.validateComponentIds(
+            review.components,
+            academicYear,
+            school,
+            department,
+          );
+        }
+      }
+    }
+
+    // Clean and prepare reviews
+    const cleanedReviews = reviews.map((review, index) => ({
       reviewName: review.reviewName,
       displayName: review.displayName || review.reviewName,
-      facultyType: review.facultyType,
-      components: review.components || [],
-      deadline: review.deadline,
-      pptRequired: review.pptRequired || false,
-      draftRequired: review.draftRequired || false,
-      order: review.order || 0,
+      facultyType: review.facultyType, // ✅ Keep facultyType
+      components: (review.components || []).map((comp) => ({
+        componentId: comp.componentId || null,
+        name: comp.name,
+        maxMarks: comp.maxMarks, // ✅ Changed from weight to maxMarks
+        description: comp.description || "",
+      })),
+      deadline: review.deadline || null,
+      order: review.order !== undefined ? review.order : index,
       isActive: review.isActive !== undefined ? review.isActive : true,
     }));
 
@@ -156,10 +207,11 @@ export class MarkingSchemaService {
       academicYear,
       reviews: cleanedReviews,
       requiresContribution: requiresContribution || false,
-      contributionTypes: contributionTypes || [],
-      totalWeightage: totalWeightage || 100,
+      contributionType: contributionType || "none",
+      isActive: true,
     };
 
+    // Check if schema already exists
     const existingSchema = await MarkingSchema.findOne({
       school,
       department,
@@ -168,22 +220,35 @@ export class MarkingSchemaService {
 
     let schema;
     if (existingSchema) {
+      // Update existing schema
       Object.assign(existingSchema, schemaData);
       schema = await existingSchema.save();
+
+      if (createdBy) {
+        logger.info("marking_schema_updated", {
+          schemaId: schema._id,
+          academicYear,
+          school,
+          department,
+          reviewCount: cleanedReviews.length,
+          updatedBy: createdBy,
+        });
+      }
     } else {
+      // Create new schema
       schema = new MarkingSchema(schemaData);
       await schema.save();
-    }
 
-    if (createdBy) {
-      logger.info("marking_schema_updated", {
-        schemaId: schema._id,
-        academicYear,
-        school,
-        department,
-        reviewCount: cleanedReviews.length,
-        updatedBy: createdBy,
-      });
+      if (createdBy) {
+        logger.info("marking_schema_created", {
+          schemaId: schema._id,
+          academicYear,
+          school,
+          department,
+          reviewCount: cleanedReviews.length,
+          createdBy,
+        });
+      }
     }
 
     return schema;
@@ -197,51 +262,102 @@ export class MarkingSchemaService {
       academicYear,
       school,
       department,
+      isActive: true,
     }).lean();
 
     if (!schema) {
-      throw new Error("Marking schema not found.");
+      throw new Error("Marking schema not found for this department.");
     }
 
     return schema;
   }
 
   /**
-   * Update deadlines for reviews
+   * Get all marking schemas with filters
    */
-  static async updateDeadlines(
-    academicYear,
-    school,
-    department,
-    deadlines,
-    updatedBy = null,
-  ) {
-    const schema = await MarkingSchema.findOne({
-      academicYear,
-      school,
-      department,
-    });
+  static async getMarkingSchemas(filters = {}) {
+    const query = { isActive: true };
+
+    if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.school) query.school = filters.school;
+    if (filters.department) query.department = filters.department;
+
+    return await MarkingSchema.find(query).sort({ createdAt: -1 }).lean();
+  }
+
+  /**
+   * Update marking schema
+   */
+  static async updateMarkingSchema(id, updates, updatedBy = null) {
+    const schema = await MarkingSchema.findById(id);
 
     if (!schema) {
       throw new Error("Marking schema not found.");
     }
 
-    deadlines.forEach(({ reviewName, deadline }) => {
-      const review = schema.reviews.find((r) => r.reviewName === reviewName);
-      if (review) {
-        review.deadline = deadline;
-      }
-    });
+    // Validate if reviews are being updated
+    if (updates.reviews) {
+      const validationData = {
+        academicYear: schema.academicYear,
+        school: schema.school,
+        department: schema.department,
+        reviews: updates.reviews,
+      };
 
+      const validationErrors = this.validateMarkingSchema(validationData);
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors.join("; "));
+      }
+
+      // Validate component IDs if provided
+      for (const review of updates.reviews) {
+        if (review.components && review.components.length > 0) {
+          const hasComponentIds = review.components.some((c) => c.componentId);
+          if (hasComponentIds) {
+            await this.validateComponentIds(
+              review.components,
+              schema.academicYear,
+              schema.school,
+              schema.department,
+            );
+          }
+        }
+      }
+    }
+
+    // Apply updates
+    Object.assign(schema, updates);
     await schema.save();
 
     if (updatedBy) {
-      logger.info("marking_schema_deadlines_updated", {
-        schemaId: schema._id,
-        academicYear,
-        school,
-        department,
+      logger.info("marking_schema_updated", {
+        schemaId: id,
+        updatedFields: Object.keys(updates),
         updatedBy,
+      });
+    }
+
+    return schema;
+  }
+
+  /**
+   * Delete marking schema
+   */
+  static async deleteMarkingSchema(id, deletedBy = null) {
+    const schema = await MarkingSchema.findById(id);
+
+    if (!schema) {
+      throw new Error("Marking schema not found.");
+    }
+
+    // Soft delete
+    schema.isActive = false;
+    await schema.save();
+
+    if (deletedBy) {
+      logger.info("marking_schema_deleted", {
+        schemaId: id,
+        deletedBy,
       });
     }
 

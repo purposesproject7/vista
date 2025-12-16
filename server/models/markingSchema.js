@@ -17,7 +17,7 @@ const componentSchema = new mongoose.Schema(
       required: true,
     },
     name: { type: String, required: true },
-    weight: { type: Number, required: true },
+    maxMarks: { type: Number, required: true },
     subComponents: [subComponentSchema],
     description: { type: String },
   },
