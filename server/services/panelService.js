@@ -1,7 +1,7 @@
 import Panel from "../models/panelSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
-import departmentConfig from "../models/departmentConfigSchema.js";
+import DepartmentConfig from "../models/departmentConfigSchema.js";
 import { logger } from "../utils/logger.js";
 
 export class PanelService {
@@ -30,12 +30,24 @@ export class PanelService {
       throw new Error(`Faculty not found: ${missing.join(", ")}`);
     }
 
+    // Validate all faculties are from the same school and department
+    const invalidMembers = faculties.filter(
+      (f) => f.school !== school || f.department !== department,
+    );
+
+    if (invalidMembers.length > 0) {
+      throw new Error(
+        `All panel members must be from ${school} - ${department}. Invalid: ${invalidMembers.map((f) => f.employeeId).join(", ")}`,
+      );
+    }
+
     // Validate panel size
-    const config = await departmentConfig.findOne({
+    const config = await DepartmentConfig.findOne({
       academicYear,
       school,
       department,
     });
+
     if (config) {
       if (
         faculties.length < config.minPanelSize ||
@@ -60,6 +72,7 @@ export class PanelService {
       school,
       department,
       venue,
+      dateTime,
       specializations = [],
     } = data;
 
@@ -75,24 +88,26 @@ export class PanelService {
     const members = faculties.map((faculty, index) => ({
       faculty: faculty._id,
       role: index === 0 ? "chair" : "member",
+      addedAt: new Date(),
     }));
 
     // Get config for maxProjects
-    const config = await departmentConfig.findOne({
+    const config = await DepartmentConfig.findOne({
       academicYear,
       school,
       department,
     });
 
     const panel = new Panel({
-      panelName: `Panel-${Date.now()}`,
+      panelName: `Panel-${school}-${department}-${Date.now()}`,
       members,
-      venue: venue || "",
+      venue: venue || "TBD",
+      dateTime: dateTime || null,
       academicYear,
       school,
       department,
-      specializations,
-      maxProjects: config?.maxPanelSize * 2 || 10,
+      specializations: specializations.length > 0 ? specializations : [],
+      maxProjects: config?.maxProjectsPerPanel || 10,
       assignedProjectsCount: 0,
       isActive: true,
     });
@@ -132,6 +147,65 @@ export class PanelService {
   }
 
   /**
+   * ✅ NEW: Update panel (generic update method)
+   */
+  static async updatePanel(id, updates, updatedBy = null) {
+    const panel = await Panel.findById(id);
+
+    if (!panel) {
+      throw new Error("Panel not found.");
+    }
+
+    // Allowed fields to update
+    const allowedFields = [
+      "panelName",
+      "venue",
+      "dateTime",
+      "specializations",
+      "maxProjects",
+      "isActive",
+    ];
+
+    const validUpdates = {};
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        validUpdates[field] = updates[field];
+      }
+    }
+
+    // If memberEmployeeIds provided, update members
+    if (updates.memberEmployeeIds) {
+      const faculties = await this.validatePanelMembers(
+        updates.memberEmployeeIds,
+        panel.academicYear,
+        panel.school,
+        panel.department,
+      );
+
+      panel.members = faculties.map((faculty, index) => ({
+        faculty: faculty._id,
+        role: index === 0 ? "chair" : "member",
+        addedAt: new Date(),
+      }));
+    }
+
+    // Apply other updates
+    Object.assign(panel, validUpdates);
+
+    await panel.save();
+
+    if (updatedBy) {
+      logger.info("panel_updated", {
+        panelId: id,
+        updatedFields: Object.keys(validUpdates),
+        updatedBy,
+      });
+    }
+
+    return panel;
+  }
+
+  /**
    * Assign panel to project
    */
   static async assignPanelToProject(panelId, projectId, assignedBy = null) {
@@ -143,9 +217,34 @@ export class PanelService {
     if (!panel) throw new Error("Panel not found.");
     if (!project) throw new Error("Project not found.");
 
+    // Verify same academic context
+    if (
+      panel.academicYear !== project.academicYear ||
+      panel.school !== project.school ||
+      panel.department !== project.department
+    ) {
+      throw new Error(
+        "Panel and project must belong to the same academic context.",
+      );
+    }
+
     // Check capacity
     if (panel.assignedProjectsCount >= panel.maxProjects) {
-      throw new Error("Panel has reached maximum capacity.");
+      throw new Error(
+        `Panel has reached maximum capacity (${panel.maxProjects} projects).`,
+      );
+    }
+
+    // Check if project already has this panel
+    if (project.panel?.toString() === panelId.toString()) {
+      throw new Error("Project already assigned to this panel.");
+    }
+
+    // If project had a previous panel, decrement its count
+    if (project.panel) {
+      await Panel.findByIdAndUpdate(project.panel, {
+        $inc: { assignedProjectsCount: -1 },
+      });
     }
 
     // Assign panel
@@ -206,80 +305,97 @@ export class PanelService {
    * Auto-create panels based on available faculty
    */
   static async autoCreatePanels(
-    departments,
-    school,
     academicYear,
-    panelSize = 3,
+    school,
+    department,
     createdBy = null,
   ) {
     const results = {
-      created: 0,
+      panelsCreated: 0,
       errors: 0,
       details: [],
     };
 
-    for (const department of departments) {
-      try {
-        // Get available faculty for this department
-        const faculties = await Faculty.find({
-          school: { $in: [school] },
-          department: { $in: [department] },
-          role: "faculty",
-          specialization: { $exists: true, $ne: [] },
-        }).lean();
+    try {
+      // Get department config
+      const config = await DepartmentConfig.findOne({
+        academicYear,
+        school,
+        department,
+      });
 
-        if (faculties.length < panelSize) {
-          results.errors++;
-          results.details.push({
-            department,
-            error: `Not enough faculty. Need ${panelSize}, found ${faculties.length}`,
-          });
-          continue;
-        }
+      if (!config) {
+        throw new Error(
+          `Department configuration not found for ${school} - ${department}`,
+        );
+      }
 
-        // Group faculty by specialization
-        const bySpecialization = {};
-        faculties.forEach((f) => {
-          f.specialization.forEach((spec) => {
-            if (!bySpecialization[spec]) bySpecialization[spec] = [];
-            bySpecialization[spec].push(f);
-          });
+      const panelSize = config.minPanelSize || 3;
+
+      // Get available faculty for this department
+      const faculties = await Faculty.find({
+        school,
+        department,
+        role: "faculty",
+      }).lean();
+
+      if (faculties.length < panelSize) {
+        results.errors++;
+        results.details.push({
+          error: `Not enough faculty. Need ${panelSize}, found ${faculties.length}`,
         });
+        return results;
+      }
 
-        // Create panels for each specialization
-        for (const [specialization, specFaculty] of Object.entries(
-          bySpecialization,
-        )) {
-          const panelCount = Math.floor(specFaculty.length / panelSize);
+      // Group faculty by specialization
+      const bySpecialization = {};
+      faculties.forEach((f) => {
+        const spec = f.specialization || "General";
+        if (!bySpecialization[spec]) bySpecialization[spec] = [];
+        bySpecialization[spec].push(f);
+      });
 
-          for (let i = 0; i < panelCount; i++) {
+      // Create panels for each specialization
+      for (const [specialization, specFaculty] of Object.entries(
+        bySpecialization,
+      )) {
+        const panelCount = Math.floor(specFaculty.length / panelSize);
+
+        for (let i = 0; i < panelCount; i++) {
+          try {
             const panelMembers = specFaculty.slice(
               i * panelSize,
               (i + 1) * panelSize,
             );
 
-            const panel = await this.createPanel(
+            await this.createPanel(
               {
                 memberEmployeeIds: panelMembers.map((f) => f.employeeId),
                 academicYear,
                 school,
                 department,
                 specializations: [specialization],
-                venue: "",
+                venue: `Panel Room ${results.panelsCreated + 1}`,
               },
               createdBy,
             );
 
-            results.created++;
+            results.panelsCreated++;
+          } catch (error) {
+            results.errors++;
+            results.details.push({
+              specialization,
+              panelIndex: i,
+              error: error.message,
+            });
           }
         }
-      } catch (error) {
-        results.errors++;
-        results.details.push({
-          department,
-          error: error.message,
-        });
       }
+    } catch (error) {
+      results.errors++;
+      results.details.push({
+        error: error.message,
+      });
     }
 
     return results;
@@ -288,7 +404,7 @@ export class PanelService {
   /**
    * Auto-assign panels to projects based on specialization
    */
-  static async autoAssignPanelsToProjects(
+  static async autoAssignPanels(
     academicYear,
     school,
     department,
@@ -303,14 +419,14 @@ export class PanelService {
     });
 
     const results = {
-      assigned: 0,
+      projectsAssigned: 0,
       errors: 0,
       details: [],
     };
 
     for (const project of projects) {
       try {
-        // Find suitable panel
+        // Find suitable panel based on specialization
         const panel = await Panel.findOne({
           academicYear,
           school,
@@ -320,21 +436,38 @@ export class PanelService {
           $expr: { $lt: ["$assignedProjectsCount", "$maxProjects"] },
         }).sort({ assignedProjectsCount: 1 });
 
-        if (!panel) {
+        // If no specialization match, find any available panel
+        const fallbackPanel =
+          panel ||
+          (await Panel.findOne({
+            academicYear,
+            school,
+            department,
+            isActive: true,
+            $expr: { $lt: ["$assignedProjectsCount", "$maxProjects"] },
+          }).sort({ assignedProjectsCount: 1 }));
+
+        if (!fallbackPanel) {
           results.errors++;
           results.details.push({
             projectId: project._id,
+            projectName: project.name,
             error: "No available panel found",
           });
           continue;
         }
 
-        await this.assignPanelToProject(panel._id, project._id, assignedBy);
-        results.assigned++;
+        await this.assignPanelToProject(
+          fallbackPanel._id,
+          project._id,
+          assignedBy,
+        );
+        results.projectsAssigned++;
       } catch (error) {
         results.errors++;
         results.details.push({
           projectId: project._id,
+          projectName: project.name,
           error: error.message,
         });
       }
@@ -348,11 +481,14 @@ export class PanelService {
    */
   static async deletePanel(panelId, deletedBy = null) {
     // Check if panel has assigned projects
-    const projectCount = await Project.countDocuments({ panel: panelId });
+    const projectCount = await Project.countDocuments({
+      panel: panelId,
+      status: "active",
+    });
 
     if (projectCount > 0) {
       throw new Error(
-        `Cannot delete panel with ${projectCount} assigned projects.`,
+        `Cannot delete panel with ${projectCount} assigned active projects.`,
       );
     }
 
@@ -367,6 +503,21 @@ export class PanelService {
         panelId,
         deletedBy,
       });
+    }
+
+    return panel;
+  }
+
+  /**
+   * Get panel by ID
+   */
+  static async getPanelById(panelId) {
+    const panel = await Panel.findById(panelId)
+      .populate("members.faculty", "name employeeId emailId specialization")
+      .lean();
+
+    if (!panel) {
+      throw new Error("Panel not found.");
     }
 
     return panel;
