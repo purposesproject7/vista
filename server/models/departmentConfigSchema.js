@@ -8,15 +8,18 @@ const featureLockSchema = new mongoose.Schema(
         "faculty_creation",
         "panel_creation",
         "student_upload",
+        "student_modification",
+        "project_creation",
         "marking_schema_edit",
         "guide_assignment",
         "panel_assignment",
         "guide_reassignment",
         "team_merging",
+        "team_splitting",
       ],
       required: true,
     },
-    deadline: { type: Date, required: true }, // Global deadline
+    deadline: { type: Date, required: true },
     isLocked: { type: Boolean, default: false },
   },
   { _id: false },
@@ -29,14 +32,52 @@ const departmentConfigSchema = new mongoose.Schema(
     department: { type: String, required: true },
 
     // Team size constraints
-    maxTeamSize: { type: Number, required: true, default: 4, min: 1, max: 10 },
-    minTeamSize: { type: Number, required: true, default: 1, min: 1 },
+    minTeamSize: {
+      type: Number,
+      required: true,
+      default: 1,
+      min: 1,
+      validate: {
+        validator: function (value) {
+          return value <= this.maxTeamSize;
+        },
+        message: "minTeamSize cannot be greater than maxTeamSize",
+      },
+    },
+    maxTeamSize: {
+      type: Number,
+      required: true,
+      default: 4,
+      min: 1,
+      max: 10,
+    },
 
     // Panel size constraints
-    maxPanelSize: { type: Number, required: true, default: 5, min: 1, max: 10 },
-    minPanelSize: { type: Number, required: true, default: 3, min: 1 },
+    minPanelSize: {
+      type: Number,
+      required: true,
+      default: 3,
+      min: 1,
+      validate: {
+        validator: function (value) {
+          return value <= this.maxPanelSize;
+        },
+        message: "minPanelSize cannot be greater than maxPanelSize",
+      },
+    },
+    maxPanelSize: {
+      type: Number,
+      required: true,
+      default: 5,
+      min: 1,
+      max: 10,
+    },
 
-    // Feature locks with deadlines for project coordinators
+    // Project limits
+    maxProjectsPerGuide: { type: Number, required: true, default: 8, min: 1 },
+    maxProjectsPerPanel: { type: Number, required: true, default: 10, min: 1 },
+
+    // Feature locks with deadlines
     featureLocks: [featureLockSchema],
   },
   { timestamps: true },
@@ -47,24 +88,9 @@ departmentConfigSchema.index(
   { unique: true },
 );
 
-// Validation: minPanelSize <= maxPanelSize
-departmentConfigSchema.pre("save", function (next) {
-  if (this.minPanelSize > this.maxPanelSize) {
-    return next(new Error("minPanelSize cannot be greater than maxPanelSize"));
-  }
-  next();
-});
-
-// Validation: minTeamSize <= maxTeamSize
-departmentConfigSchema.pre("save", function (next) {
-  if (this.minTeamSize > this.maxTeamSize) {
-    return next(new Error("minTeamSize cannot be greater than maxTeamSize"));
-  }
-  next();
-});
-
-const departmentConfig = mongoose.model(
-  "departmentConfig",
+const DepartmentConfig = mongoose.model(
+  "DepartmentConfig",
   departmentConfigSchema,
 );
-export default departmentConfig;
+
+export default DepartmentConfig;

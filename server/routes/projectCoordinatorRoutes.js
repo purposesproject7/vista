@@ -61,7 +61,15 @@ router.delete(
 router.get("/students", coordinatorController.getStudentList);
 
 router.post(
-  "/students/upload",
+  "/student",
+  checkCoordinatorPermission("canUploadStudents"),
+  checkFeatureLock("student_upload"),
+  validateRequired(["regNo", "name", "emailId"]),
+  coordinatorController.createStudent,
+);
+
+router.post(
+  "/student/bulk",
   checkCoordinatorPermission("canUploadStudents"),
   checkFeatureLock("student_upload"),
   validateRequired(["students"]),
@@ -70,7 +78,8 @@ router.post(
 
 router.put(
   "/students/:regNo",
-  checkCoordinatorPermission("canEditStudents"),
+  checkCoordinatorPermission("canModifyStudents"),
+  checkFeatureLock("student_modification"),
   coordinatorController.updateStudent,
 );
 
@@ -79,6 +88,8 @@ router.delete(
   checkCoordinatorPermission("canDeleteStudents"),
   coordinatorController.deleteStudent,
 );
+
+router.get("/students/:regNo", coordinatorController.getStudentByRegNo);
 
 /**
  * Project management

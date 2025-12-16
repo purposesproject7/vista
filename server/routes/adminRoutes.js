@@ -169,6 +169,31 @@ router.delete(
  */
 router.get("/students", adminController.getAllStudents);
 
+router.post(
+  "/student",
+  validateRequired([
+    "regNo",
+    "name",
+    "emailId",
+    "school",
+    "department",
+    "academicYear",
+  ]),
+  adminController.createStudent,
+);
+
+router.post(
+  "/student/bulk",
+  validateRequired(["students", "academicYear", "school", "department"]),
+  adminController.bulkUploadStudents,
+);
+
+router.put("/students/:regNo", adminController.updateStudent);
+
+router.delete("/students/:regNo", adminController.deleteStudent);
+
+router.get("/students/:regNo", adminController.getStudentByRegNo);
+
 /**
  * Projects & best project flag
  */

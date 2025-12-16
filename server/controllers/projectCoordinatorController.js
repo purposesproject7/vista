@@ -239,78 +239,66 @@ export async function deleteFaculty(req, res) {
 
 // ==================== Student Management ====================
 
-export async function uploadStudents(req, res) {
-  try {
-    const { students } = req.body;
-    const context = getCoordinatorContext(req);
-
-    const results = await StudentService.uploadStudents(
-      students,
-      context.academicYear,
-      context.school,
-      context.department,
-      req.user._id,
-    );
-
-    logger.info("students_uploaded_by_coordinator", {
-      created: results.created,
-      updated: results.updated,
-      errors: results.errors,
-      coordinatorId: req.coordinator._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: `Upload complete: ${results.created} created, ${results.updated} updated, ${results.errors} errors.`,
-      data: results,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
+/**
+ * Get student list (project coordinator)
+ */
 export async function getStudentList(req, res) {
   try {
-    const context = getCoordinatorContext(req);
-    const filters = { ...req.query, ...context };
+    const coordinator = req.coordinator; // From requireProjectCoordinator middleware
 
-    const students = await StudentService.getFilteredStudents(filters);
+    const filters = {
+      academicYear: coordinator.academicYear,
+      school: coordinator.school,
+      department: coordinator.department,
+      regNo: req.query.regNo,
+      name: req.query.name,
+      specialization: req.query.specialization,
+    };
+
+    const students = await StudentService.getStudentList(filters);
 
     res.status(200).json({
       success: true,
-      data: students,
       count: students.length,
+      data: students,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(400).json({
       success: false,
       message: error.message,
     });
   }
 }
 
-export async function updateStudent(req, res) {
+/**
+ * Get student by registration number (project coordinator)
+ */
+export async function getStudentByRegNo(req, res) {
   try {
-    if (!req.coordinator.isPrimary) {
-      return res.status(403).json({
+    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+
+    if (!student) {
+      return res.status(404).json({
         success: false,
-        message: "Only primary coordinator can edit students.",
+        message: "Student not found",
       });
     }
 
-    const { regNo } = req.params;
-    const student = await StudentService.updateStudent(
-      regNo,
-      req.body,
-      req.user._id,
-    );
+    // Verify student belongs to coordinator's department
+    const coordinator = req.coordinator;
+    if (
+      student.school !== coordinator.school ||
+      student.department !== coordinator.department ||
+      student.academicYear !== coordinator.academicYear
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view students from your department",
+      });
+    }
 
     res.status(200).json({
       success: true,
-      message: "Student updated successfully.",
       data: student,
     });
   } catch (error) {
@@ -321,21 +309,168 @@ export async function updateStudent(req, res) {
   }
 }
 
-export async function deleteStudent(req, res) {
+/**
+ * Create individual student (project coordinator)
+ */
+export async function createStudent(req, res) {
   try {
-    if (!req.coordinator.isPrimary) {
-      return res.status(403).json({
+    const coordinator = req.coordinator;
+    const { regNo, name, emailId, phoneNumber } = req.body;
+
+    // Check if student already exists
+    const existing = await StudentService.getStudentByRegNo(regNo);
+    if (existing) {
+      return res.status(400).json({
         success: false,
-        message: "Only primary coordinator can delete students.",
+        message: `Student with registration number ${regNo} already exists`,
       });
     }
 
-    const { regNo } = req.params;
-    await StudentService.deleteStudent(regNo, req.user._id);
+    // Use bulk upload with single student
+    const result = await StudentService.uploadStudents(
+      [{ regNo, name, emailId, phoneNumber }],
+      coordinator.academicYear,
+      coordinator.school,
+      coordinator.department,
+      req.user._id,
+    );
+
+    if (result.created === 1) {
+      const student = await StudentService.getStudentByRegNo(regNo);
+
+      res.status(201).json({
+        success: true,
+        message: "Student created successfully",
+        data: student,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.details[0]?.error || "Failed to create student",
+      });
+    }
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Bulk upload students (project coordinator)
+ */
+export async function uploadStudents(req, res) {
+  try {
+    const coordinator = req.coordinator;
+    const { students } = req.body;
+
+    if (!Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "students array is required and cannot be empty",
+      });
+    }
+
+    const result = await StudentService.uploadStudents(
+      students,
+      coordinator.academicYear,
+      coordinator.school,
+      coordinator.department,
+      req.user._id,
+    );
 
     res.status(200).json({
       success: true,
-      message: "Student deleted successfully.",
+      message: `Bulk upload completed. Created: ${result.created}, Updated: ${result.updated}, Errors: ${result.errors}`,
+      data: result,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Update student (project coordinator)
+ */
+export async function updateStudent(req, res) {
+  try {
+    const coordinator = req.coordinator;
+    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    // Verify student belongs to coordinator's department
+    if (
+      student.school !== coordinator.school ||
+      student.department !== coordinator.department ||
+      student.academicYear !== coordinator.academicYear
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only update students from your department",
+      });
+    }
+
+    const updatedStudent = await StudentService.updateStudent(
+      req.params.regNo,
+      req.body,
+      req.user._id,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Student updated successfully",
+      data: updatedStudent,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Delete student (project coordinator)
+ */
+export async function deleteStudent(req, res) {
+  try {
+    const coordinator = req.coordinator;
+    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    // Verify student belongs to coordinator's department
+    if (
+      student.school !== coordinator.school ||
+      student.department !== coordinator.department ||
+      student.academicYear !== coordinator.academicYear
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only delete students from your department",
+      });
+    }
+
+    await StudentService.deleteStudent(req.params.regNo, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Student deleted successfully",
     });
   } catch (error) {
     res.status(400).json({

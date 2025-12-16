@@ -1,4 +1,4 @@
-import departmentConfig from "../models/departmentConfigSchema.js";
+import DepartmentConfig from "../models/departmentConfigSchema.js";
 import { logger } from "../utils/logger.js";
 
 /**

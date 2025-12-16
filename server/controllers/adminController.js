@@ -7,7 +7,7 @@ import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import ComponentLibrary from "../models/componentLibrarySchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import Marks from "../models/marksSchema.js";
-import departmentConfig from "../models/departmentConfigSchema.js";
+import DepartmentConfig from "../models/departmentConfigSchema.js";
 import { logger } from "../utils/logger.js";
 import MasterData from "../models/masterDataSchema.js";
 import { FacultyService } from "../services/facultyService.js";
@@ -547,17 +547,188 @@ export async function markAsBestProject(req, res) {
 
 // ===== STUDENT MANAGEMENT =====
 
+/**
+ * Get all students (admin)
+ */
 export async function getAllStudents(req, res) {
   try {
-    const students = await StudentService.getStudentList(req.query);
+    const filters = {
+      academicYear: req.query.academicYear,
+      school: req.query.school,
+      department: req.query.department,
+      specialization: req.query.specialization,
+      regNo: req.query.regNo,
+      name: req.query.name,
+    };
+
+    const students = await StudentService.getStudentList(filters);
 
     res.status(200).json({
       success: true,
-      data: students,
       count: students.length,
+      data: students,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Get student by registration number (admin)
+ */
+export async function getStudentByRegNo(req, res) {
+  try {
+    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: student,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Create individual student (admin)
+ */
+export async function createStudent(req, res) {
+  try {
+    const {
+      regNo,
+      name,
+      emailId,
+      phoneNumber,
+      school,
+      department,
+      academicYear,
+    } = req.body;
+
+    // Check if student already exists
+    const existing = await StudentService.getStudentByRegNo(regNo);
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: `Student with registration number ${regNo} already exists`,
+      });
+    }
+
+    // Use bulk upload with single student
+    const result = await StudentService.uploadStudents(
+      [{ regNo, name, emailId, phoneNumber }],
+      academicYear,
+      school,
+      department,
+      req.user._id,
+    );
+
+    if (result.created === 1) {
+      const student = await StudentService.getStudentByRegNo(regNo);
+
+      res.status(201).json({
+        success: true,
+        message: "Student created successfully",
+        data: student,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.details[0]?.error || "Failed to create student",
+      });
+    }
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Bulk upload students (admin)
+ */
+export async function bulkUploadStudents(req, res) {
+  try {
+    const { students, academicYear, school, department } = req.body;
+
+    if (!Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "students array is required and cannot be empty",
+      });
+    }
+
+    const result = await StudentService.uploadStudents(
+      students,
+      academicYear,
+      school,
+      department,
+      req.user._id,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk upload completed. Created: ${result.created}, Updated: ${result.updated}, Errors: ${result.errors}`,
+      data: result,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Update student (admin)
+ */
+export async function updateStudent(req, res) {
+  try {
+    const student = await StudentService.updateStudent(
+      req.params.regNo,
+      req.body,
+      req.user._id,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Student updated successfully",
+      data: student,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Delete student (admin)
+ */
+export async function deleteStudent(req, res) {
+  try {
+    await StudentService.deleteStudent(req.params.regNo, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Student deleted successfully",
+    });
+  } catch (error) {
+    res.status(400).json({
       success: false,
       message: error.message,
     });
@@ -620,6 +791,98 @@ export async function assignProjectCoordinator(req, res) {
       });
     }
 
+    // Fetch global deadlines from DepartmentConfig
+    const departmentConfig = await DepartmentConfig.findOne({
+      academicYear,
+      school,
+      department,
+    });
+
+    if (!departmentConfig) {
+      return res.status(404).json({
+        success: false,
+        message: "Department configuration not found. Please create it first.",
+      });
+    }
+
+    // Create a mapping of feature locks to deadlines
+    const globalDeadlines = {};
+    departmentConfig.featureLocks.forEach((lock) => {
+      globalDeadlines[lock.featureName] = lock.deadline;
+    });
+
+    // Build default permissions with global deadlines
+    const defaultPermissions = {
+      canEdit: {
+        enabled: true,
+        useGlobalDeadline: false, // No deadline for basic permissions
+      },
+      canView: {
+        enabled: true,
+        useGlobalDeadline: false,
+      },
+      canCreateFaculty: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.faculty_creation,
+      },
+      canCreatePanels: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.panel_creation,
+      },
+      canAssignPanels: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.panel_assignment,
+      },
+      canUploadStudents: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.student_upload,
+      },
+      canModifyStudents: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.student_modification,
+      },
+      canCreateProjects: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.project_creation,
+      },
+      canAssignGuides: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.guide_assignment,
+      },
+      canReassignGuides: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.guide_reassignment,
+      },
+      canMergeTeams: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.team_merging,
+      },
+      canSplitTeams: {
+        enabled: true,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.team_splitting,
+      },
+      canEditMarkingSchema: {
+        enabled: isPrimary || false,
+        useGlobalDeadline: true,
+        deadline: globalDeadlines.marking_schema_edit,
+      },
+    };
+
+    // Merge with provided permissions (if any)
+    const finalPermissions = permissions
+      ? mergePermissions(defaultPermissions, permissions)
+      : defaultPermissions;
+
     // If setting as primary, unset others
     if (isPrimary) {
       await ProjectCoordinator.updateMany(
@@ -634,21 +897,14 @@ export async function assignProjectCoordinator(req, res) {
       school,
       department,
       isPrimary: isPrimary || false,
-      permissions: permissions || {
-        canEdit: { enabled: true, useGlobalDeadline: true },
-        canView: { enabled: true, useGlobalDeadline: true },
-        canCreateFaculty: { enabled: true, useGlobalDeadline: true },
-        canCreatePanels: { enabled: true, useGlobalDeadline: true },
-        canUploadStudents: { enabled: true, useGlobalDeadline: true },
-        canAssignGuides: { enabled: true, useGlobalDeadline: true },
-        canReassignGuides: { enabled: true, useGlobalDeadline: true },
-        canMergeTeams: { enabled: true, useGlobalDeadline: true },
-        canEditMarkingSchema: { enabled: isPrimary, useGlobalDeadline: true },
-      },
+      permissions: finalPermissions,
       isActive: true,
     });
 
     await coordinator.save();
+
+    // Populate faculty details before sending response
+    await coordinator.populate("faculty", "name emailId employeeId");
 
     logger.info("project_coordinator_assigned", {
       coordinatorId: coordinator._id,
@@ -656,6 +912,7 @@ export async function assignProjectCoordinator(req, res) {
       academicYear,
       school,
       department,
+      isPrimary,
       assignedBy: req.user._id,
     });
 
@@ -665,11 +922,40 @@ export async function assignProjectCoordinator(req, res) {
       data: coordinator,
     });
   } catch (error) {
+    logger.error("assign_project_coordinator_error", {
+      error: error.message,
+      stack: error.stack,
+    });
+
     res.status(400).json({
       success: false,
       message: error.message,
     });
   }
+}
+
+// Helper function to merge permissions
+function mergePermissions(defaultPerms, customPerms) {
+  const merged = { ...defaultPerms };
+
+  for (const [key, value] of Object.entries(customPerms)) {
+    if (merged[key]) {
+      merged[key] = {
+        enabled:
+          value.enabled !== undefined ? value.enabled : merged[key].enabled,
+        useGlobalDeadline:
+          value.useGlobalDeadline !== undefined
+            ? value.useGlobalDeadline
+            : merged[key].useGlobalDeadline,
+        deadline:
+          value.useGlobalDeadline === false && value.deadline
+            ? value.deadline
+            : merged[key].deadline,
+      };
+    }
+  }
+
+  return merged;
 }
 
 export async function updateProjectCoordinator(req, res) {
@@ -1746,7 +2032,7 @@ export async function createDepartmentConfig(req, res) {
     } = req.body;
 
     // Check if already exists
-    const existing = await departmentConfig.findOne({
+    const existing = await DepartmentConfig.findOne({
       academicYear,
       school,
       department,
@@ -1759,7 +2045,7 @@ export async function createDepartmentConfig(req, res) {
       });
     }
 
-    const config = new departmentConfig({
+    const config = new DepartmentConfig({
       academicYear,
       school,
       department,
@@ -1834,7 +2120,7 @@ export async function updateFeatureLock(req, res) {
     const { id } = req.params;
     const { featureName, deadline, isLocked } = req.body;
 
-    const config = await departmentConfig.findById(id);
+    const config = await DepartmentConfig.findById(id);
     if (!config) {
       return res.status(404).json({
         success: false,
