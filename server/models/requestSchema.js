@@ -26,6 +26,11 @@ const requestSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    semester: {
+      type: String,
+      required: true,
+      enum: ["Fall Semester", "Winter Semester"],
+    },
     reviewType: {
       type: String,
       required: true,
@@ -59,8 +64,8 @@ const requestSchema = new mongoose.Schema(
   },
 );
 
-requestSchema.index({ faculty: 1, academicYear: 1 });
-requestSchema.index({ student: 1, academicYear: 1 });
+requestSchema.index({ faculty: 1, academicYear: 1, semester: 1 });
+requestSchema.index({ student: 1, academicYear: 1, semester: 1 });
 requestSchema.index({ status: 1, createdAt: -1 });
 
 const Request = mongoose.model("Request", requestSchema);

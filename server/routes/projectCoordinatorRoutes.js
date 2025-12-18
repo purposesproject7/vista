@@ -77,19 +77,19 @@ router.post(
 );
 
 router.put(
-  "/students/:regNo",
+  "/student/:regNo",
   checkCoordinatorPermission("canModifyStudents"),
   checkFeatureLock("student_modification"),
   coordinatorController.updateStudent,
 );
 
 router.delete(
-  "/students/:regNo",
+  "/student/:regNo",
   checkCoordinatorPermission("canDeleteStudents"),
   coordinatorController.deleteStudent,
 );
 
-router.get("/students/:regNo", coordinatorController.getStudentByRegNo);
+router.get("/student/:regNo", coordinatorController.getStudentByRegNo);
 
 /**
  * Project management

@@ -4,7 +4,6 @@ const schoolSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true },
     code: { type: String, required: true, unique: true },
-    displayName: { type: String },
     isActive: { type: Boolean, default: true },
   },
   { _id: true },
@@ -15,7 +14,6 @@ const departmentSchema = new mongoose.Schema(
     school: { type: String, required: true },
     name: { type: String, required: true },
     code: { type: String, required: true },
-    displayName: { type: String },
     specializations: [String],
     isActive: { type: Boolean, default: true },
   },
@@ -31,11 +29,24 @@ const academicYearSchema = new mongoose.Schema(
   { _id: true },
 );
 
+const semesterSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      enum: ["Fall Semester", "Winter Semester"],
+    },
+    isActive: { type: Boolean, default: true },
+  },
+  { _id: true },
+);
+
 const masterDataSchema = new mongoose.Schema(
   {
     schools: [schoolSchema],
     departments: [departmentSchema],
     academicYears: [academicYearSchema],
+    semesters: [semesterSchema],
   },
   { timestamps: true },
 );

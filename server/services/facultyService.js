@@ -34,15 +34,15 @@ export class FacultyService {
       }
     }
 
-    if (!Array.isArray(data.school) || data.school.length === 0) {
-      errors.push("School must be a non-empty array.");
+    if (!data.school || typeof data.school !== "string") {
+      errors.push("School must be a string.");
     }
 
     if (
       data.role === "faculty" &&
-      (!Array.isArray(data.specialization) || data.specialization.length === 0)
+      (!data.specialization || typeof data.specialization !== "string")
     ) {
-      errors.push("Faculty must have at least one specialization.");
+      errors.push("Faculty must have a specialization.");
     }
 
     return errors;
@@ -107,12 +107,9 @@ export class FacultyService {
       employeeId: data.employeeId.trim().toUpperCase(),
       phoneNumber: data.phoneNumber.trim(),
       role: data.role || "faculty",
-      school: data.school.map((s) => s.trim()),
-      department: Array.isArray(data.department)
-        ? data.department.map((d) => d.trim())
-        : [],
-      specialization:
-        data.role === "admin" ? [] : data.specialization.map((sp) => sp.trim()),
+      school: data.school.trim(),
+      department: data.department.trim(),
+      specialization: data.specialization ? data.specialization.trim() : "",
     });
 
     await newFaculty.save();

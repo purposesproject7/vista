@@ -6,61 +6,48 @@ import { logger } from "../utils/logger.js";
  * Base JWT authentication middleware
  * Verifies token and attaches user to request
  */
-export const authenticate = async (req, res, next) => {
+export async function authenticate(req, res, next) {
   try {
-    const token = req.header("Authorization")?.split(" ")[1];
+    const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Access denied. No token provided.",
+        message: "Authentication required. Please provide a valid token.",
       });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const faculty = await Faculty.findById(decoded.id).select("-password");
 
-    // Fetch full faculty details
-    const faculty = await Faculty.findById(decoded.id)
-      .select("-password")
-      .lean();
-
-    if (!faculty) {
-      return res.status(404).json({
+    if (!faculty || !faculty.isActive) {
+      return res.status(401).json({
         success: false,
-        message: "Faculty not found.",
+        message: "Invalid token or inactive account.",
       });
     }
 
-    // Attach user to request
+    // Attach to request
     req.user = {
-      ...decoded,
-      ...faculty,
       _id: faculty._id,
+      name: faculty.name,
+      emailId: faculty.emailId,
+      employeeId: faculty.employeeId,
+      role: faculty.role,
+      school: faculty.school,
+      department: faculty.department,
+      specialization: faculty.specialization,
+      isProjectCoordinator: faculty.isProjectCoordinator, // ✅ Include flag
     };
 
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid token.",
-      });
-    }
-
-    if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({
-        success: false,
-        message: "Token expired.",
-      });
-    }
-
-    logger.error("auth_middleware_error", { error: error.message });
-    return res.status(500).json({
+    res.status(401).json({
       success: false,
-      message: "Authentication error.",
+      message: "Invalid or expired token.",
     });
   }
-};
+}
 
 /**
  * Generate JWT token for login

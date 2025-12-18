@@ -1,42 +1,82 @@
+import Faculty from "../models/facultySchema.js";
 import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
-import { logger } from "../utils/logger.js";
 
 /**
- * Middleware for role-based access control
- * @param {...string} allowedRoles - Roles that can access the route
+ * Require specific role
  */
-export const requireRole = (...allowedRoles) => {
+export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message: "Authentication required",
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      logger.warn("unauthorized_access_attempt", {
-        userId: req.user._id,
-        userRole: req.user.role,
-        requiredRoles: allowedRoles,
-        path: req.path,
-      });
+    // Admin has access to everything
+    if (req.user.role === "admin") {
+      return next();
+    }
 
+    // Check if user has required role
+    if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `Access denied. Required role: ${allowedRoles.join(" or ")}.`,
+        message: `Access denied. Required roles: ${roles.join(", ")}`,
       });
     }
 
     next();
   };
-};
+}
 
 /**
- * Verify user is a project coordinator for the specified context
- * Expects academicYear, school, department in query or body
+ * Check if user is a project coordinator
  */
-export const requireProjectCoordinator = async (req, res, next) => {
+export async function requireProjectCoordinator(req, res, next) {
+  try {
+    // Check if faculty has coordinator flag
+    if (!req.user.isProjectCoordinator) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. You are not a project coordinator.",
+      });
+    }
+
+    // Get coordinator assignment(s)
+    const coordinators = await ProjectCoordinator.find({
+      faculty: req.user._id,
+      isActive: true,
+    }).populate("faculty", "name emailId employeeId");
+
+    if (coordinators.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "No active coordinator assignments found.",
+      });
+    }
+
+    // Attach to request
+    req.coordinators = coordinators;
+
+    // If single assignment, attach directly
+    if (coordinators.length === 1) {
+      req.coordinator = coordinators[0];
+    }
+
+    next();
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Validate coordinator context
+ */
+export function validateCoordinatorContext(req, res, next) {
   try {
     const { academicYear, school, department } =
       req.body || req.query || req.params;
@@ -44,99 +84,79 @@ export const requireProjectCoordinator = async (req, res, next) => {
     if (!academicYear || !school || !department) {
       return res.status(400).json({
         success: false,
-        message:
-          "Missing required parameters: academicYear, school, department.",
+        message: "academicYear, school, and department are required",
       });
     }
 
-    const coordinator = await ProjectCoordinator.findOne({
-      faculty: req.user._id,
-      academicYear,
-      school,
-      department,
-      isActive: true,
-    }).lean();
+    // Find matching coordinator assignment
+    const coordinator = req.coordinators.find(
+      (c) =>
+        c.academicYear === academicYear &&
+        c.school === school &&
+        c.department === department,
+    );
 
     if (!coordinator) {
-      logger.warn("project_coordinator_access_denied", {
-        userId: req.user._id,
-        academicYear,
-        school,
-        department,
-      });
-
       return res.status(403).json({
         success: false,
-        message: "Not authorized as project coordinator for this context.",
+        message:
+          "You are not assigned as coordinator for this academic context",
       });
     }
 
-    // Attach coordinator info to request
     req.coordinator = coordinator;
     next();
   } catch (error) {
-    logger.error("project_coordinator_check_error", { error: error.message });
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Error verifying coordinator access.",
+      message: error.message,
     });
   }
-};
+}
 
 /**
- * Check specific permission for project coordinator
- * @param {string} permission - Permission key (e.g., 'canCreateFaculty')
+ * Check coordinator permission
  */
-export const checkCoordinatorPermission = (permission) => {
+export function checkCoordinatorPermission(permissionName) {
   return (req, res, next) => {
-    if (!req.coordinator) {
-      return res.status(403).json({
-        success: false,
-        message: "Project coordinator context required.",
-      });
-    }
+    try {
+      const coordinator = req.coordinator;
 
-    const perm = req.coordinator.permissions?.[permission];
-
-    if (!perm || !perm.enabled) {
-      return res.status(403).json({
-        success: false,
-        message: `Permission '${permission}' is disabled.`,
-      });
-    }
-
-    // Check deadline if not using global deadline
-    if (!perm.useGlobalDeadline && perm.deadline) {
-      if (new Date() > new Date(perm.deadline)) {
+      if (!coordinator) {
         return res.status(403).json({
           success: false,
-          message: `Permission '${permission}' has expired.`,
-          deadline: perm.deadline,
+          message: "Coordinator context not found",
         });
       }
+
+      const permission = coordinator.permissions[permissionName];
+
+      if (!permission || !permission.enabled) {
+        return res.status(403).json({
+          success: false,
+          message: `Permission denied: ${permissionName}`,
+        });
+      }
+
+      // Check deadline
+      if (permission.useGlobalDeadline && permission.deadline) {
+        const now = new Date();
+        const deadline = new Date(permission.deadline);
+
+        if (now > deadline) {
+          return res.status(403).json({
+            success: false,
+            message: `Deadline has passed. Deadline was ${deadline.toISOString()}`,
+          });
+        }
+      }
+
+      next();
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
     }
-
-    next();
   };
-};
-
-/**
- * Verify primary project coordinator status
- */
-export const requirePrimaryCoordinator = (req, res, next) => {
-  if (!req.coordinator) {
-    return res.status(403).json({
-      success: false,
-      message: "Project coordinator context required.",
-    });
-  }
-
-  if (!req.coordinator.isPrimary) {
-    return res.status(403).json({
-      success: false,
-      message: "Only primary project coordinator can perform this action.",
-    });
-  }
-
-  next();
-};
+}

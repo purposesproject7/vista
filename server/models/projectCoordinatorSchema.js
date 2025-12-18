@@ -19,6 +19,11 @@ const projectCoordinatorSchema = new mongoose.Schema(
     school: { type: String, required: true },
     department: { type: String, required: true },
     academicYear: { type: String, required: true },
+    semester: {
+      type: String,
+      required: true,
+      enum: ["Fall Semester", "Winter Semester"],
+    },
 
     isPrimary: { type: Boolean, default: false },
 
@@ -59,10 +64,10 @@ const projectCoordinatorSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-projectCoordinatorSchema.index({ school: 1, department: 1, academicYear: 1 });
-projectCoordinatorSchema.index({ faculty: 1, academicYear: 1 });
+projectCoordinatorSchema.index({ school: 1, department: 1, academicYear: 1, semester: 1 });
+projectCoordinatorSchema.index({ faculty: 1, academicYear: 1, semester: 1 });
 projectCoordinatorSchema.index(
-  { school: 1, department: 1, academicYear: 1, isPrimary: 1 },
+  { school: 1, department: 1, academicYear: 1, semester: 1, isPrimary: 1 },
   {
     unique: true,
     partialFilterExpression: { isPrimary: true },

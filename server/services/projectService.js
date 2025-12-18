@@ -14,6 +14,7 @@ export class ProjectService {
     const query = {};
 
     if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.semester) query.semester = filters.semester;
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
     if (filters.status) query.status = filters.status;
@@ -33,6 +34,7 @@ export class ProjectService {
   static async getGuideProjects(filters = {}) {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.semester) query.semester = filters.semester;
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
 
@@ -65,6 +67,7 @@ export class ProjectService {
   static async getPanelProjects(filters = {}) {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.semester) query.semester = filters.semester;
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
 

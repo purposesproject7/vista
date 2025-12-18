@@ -135,6 +135,7 @@ export class PanelService {
     const query = { isActive: true };
 
     if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.semester) query.semester = filters.semester;
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
     if (filters.specialization) {

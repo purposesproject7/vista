@@ -132,9 +132,10 @@ export async function getAllPanels(req, res) {
 
 export async function getMarkingSchema(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, semester, school, department } = req.query;
     const schema = await MarkingSchemaService.getMarkingSchema(
       academicYear,
+      semester,
       school,
       department,
     );
@@ -768,16 +769,27 @@ export async function assignProjectCoordinator(req, res) {
     const {
       facultyId,
       academicYear,
+      semester,
       school,
       department,
       isPrimary,
       permissions,
     } = req.body;
 
+    // Verify faculty exists
+    const faculty = await Faculty.findById(facultyId);
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: "Faculty not found",
+      });
+    }
+
     // Check if already exists
     const existing = await ProjectCoordinator.findOne({
       faculty: facultyId,
       academicYear,
+      semester,
       school,
       department,
       isActive: true,
@@ -791,9 +803,10 @@ export async function assignProjectCoordinator(req, res) {
       });
     }
 
-    // Fetch global deadlines from DepartmentConfig
+    // Fetch global deadlines
     const departmentConfig = await DepartmentConfig.findOne({
       academicYear,
+      semester,
       school,
       department,
     });
@@ -805,22 +818,16 @@ export async function assignProjectCoordinator(req, res) {
       });
     }
 
-    // Create a mapping of feature locks to deadlines
+    // Build deadline mapping
     const globalDeadlines = {};
     departmentConfig.featureLocks.forEach((lock) => {
       globalDeadlines[lock.featureName] = lock.deadline;
     });
 
-    // Build default permissions with global deadlines
+    // Default permissions with global deadlines
     const defaultPermissions = {
-      canEdit: {
-        enabled: true,
-        useGlobalDeadline: false, // No deadline for basic permissions
-      },
-      canView: {
-        enabled: true,
-        useGlobalDeadline: false,
-      },
+      canEdit: { enabled: true, useGlobalDeadline: false },
+      canView: { enabled: true, useGlobalDeadline: false },
       canCreateFaculty: {
         enabled: true,
         useGlobalDeadline: true,
@@ -878,22 +885,24 @@ export async function assignProjectCoordinator(req, res) {
       },
     };
 
-    // Merge with provided permissions (if any)
+    // Merge custom permissions if provided
     const finalPermissions = permissions
       ? mergePermissions(defaultPermissions, permissions)
       : defaultPermissions;
 
-    // If setting as primary, unset others
+    // If primary, unset others
     if (isPrimary) {
       await ProjectCoordinator.updateMany(
-        { academicYear, school, department, isPrimary: true },
+        { academicYear, semester, school, department, isPrimary: true },
         { $set: { isPrimary: false } },
       );
     }
 
+    // Create coordinator assignment
     const coordinator = new ProjectCoordinator({
       faculty: facultyId,
       academicYear,
+      semester,
       school,
       department,
       isPrimary: isPrimary || false,
@@ -903,7 +912,11 @@ export async function assignProjectCoordinator(req, res) {
 
     await coordinator.save();
 
-    // Populate faculty details before sending response
+    // Set flag on faculty
+    faculty.isProjectCoordinator = true;
+    await faculty.save();
+
+    // Populate response
     await coordinator.populate("faculty", "name emailId employeeId");
 
     logger.info("project_coordinator_assigned", {
@@ -934,7 +947,7 @@ export async function assignProjectCoordinator(req, res) {
   }
 }
 
-// Helper function to merge permissions
+// Helper: Merge permissions
 function mergePermissions(defaultPerms, customPerms) {
   const merged = { ...defaultPerms };
 
@@ -2022,6 +2035,7 @@ export async function createDepartmentConfig(req, res) {
   try {
     const {
       academicYear,
+      semester,
       school,
       department,
       maxTeamSize,
@@ -2034,6 +2048,7 @@ export async function createDepartmentConfig(req, res) {
     // Check if already exists
     const existing = await DepartmentConfig.findOne({
       academicYear,
+      semester,
       school,
       department,
     });
@@ -2047,6 +2062,7 @@ export async function createDepartmentConfig(req, res) {
 
     const config = new DepartmentConfig({
       academicYear,
+      semester,
       school,
       department,
       maxTeamSize: maxTeamSize || 4,

@@ -188,11 +188,11 @@ router.post(
   adminController.bulkUploadStudents,
 );
 
-router.put("/students/:regNo", adminController.updateStudent);
+router.put("/student/:regNo", adminController.updateStudent);
 
-router.delete("/students/:regNo", adminController.deleteStudent);
+router.delete("/student/:regNo", adminController.deleteStudent);
 
-router.get("/students/:regNo", adminController.getStudentByRegNo);
+router.get("/student/:regNo", adminController.getStudentByRegNo);
 
 /**
  * Projects & best project flag

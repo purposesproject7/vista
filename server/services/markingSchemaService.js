@@ -13,6 +13,10 @@ export class MarkingSchemaService {
       errors.push("Academic year is required");
     }
 
+    if (!data.semester) {
+      errors.push("Semester is required");
+    }
+
     if (!data.school) {
       errors.push("School is required");
     }
@@ -116,11 +120,13 @@ export class MarkingSchemaService {
   static async validateComponentIds(
     components,
     academicYear,
+    semester,
     school,
     department,
   ) {
     const library = await ComponentLibrary.findOne({
       academicYear,
+      semester,
       school,
       department,
     });
@@ -159,6 +165,7 @@ export class MarkingSchemaService {
       school,
       department,
       academicYear,
+      semester,
       reviews,
       requiresContribution,
       contributionType,
@@ -178,6 +185,7 @@ export class MarkingSchemaService {
           await this.validateComponentIds(
             review.components,
             academicYear,
+            semester,
             school,
             department,
           );
@@ -205,6 +213,7 @@ export class MarkingSchemaService {
       school,
       department,
       academicYear,
+      semester,
       reviews: cleanedReviews,
       requiresContribution: requiresContribution || false,
       contributionType: contributionType || "none",
@@ -216,6 +225,7 @@ export class MarkingSchemaService {
       school,
       department,
       academicYear,
+      semester,
     });
 
     let schema;
@@ -257,9 +267,10 @@ export class MarkingSchemaService {
   /**
    * Get marking schema
    */
-  static async getMarkingSchema(academicYear, school, department) {
+  static async getMarkingSchema(academicYear, semester, school, department) {
     const schema = await MarkingSchema.findOne({
       academicYear,
+      semester,
       school,
       department,
       isActive: true,
@@ -279,6 +290,7 @@ export class MarkingSchemaService {
     const query = { isActive: true };
 
     if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.semester) query.semester = filters.semester;
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
 

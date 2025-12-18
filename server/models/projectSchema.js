@@ -73,6 +73,11 @@ const projectSchema = new mongoose.Schema(
     reviewPanels: [reviewPanelAssignmentSchema],
 
     academicYear: { type: String, required: true },
+    semester: {
+      type: String,
+      required: true,
+      enum: ["Fall Semester", "Winter Semester"],
+    },
     school: { type: String, required: true },
     department: { type: String, required: true },
     specialization: { type: String, required: true },

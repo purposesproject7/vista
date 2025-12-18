@@ -34,8 +34,8 @@ export class StudentService {
 
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
-    if (filters.specialization) query.specialization = filters.specialization;
     if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.semester) query.semester = filters.semester;
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
     if (filters.name) query.name = new RegExp(filters.name, "i");
 
@@ -55,8 +55,6 @@ export class StudentService {
       "school",
       "department",
       "PAT",
-      "requiresContribution",
-      "contributionType",
     ];
 
     const validUpdates = {};
@@ -64,27 +62,6 @@ export class StudentService {
       if (updates[field] !== undefined) {
         validUpdates[field] = updates[field];
       }
-    }
-
-    // Validate contribution type
-    if (updates.contributionType) {
-      const validTypes = [
-        "none",
-        "Patent Filed",
-        "Journal Publication",
-        "Book Chapter Contribution",
-      ];
-
-      if (!validTypes.includes(updates.contributionType)) {
-        throw new Error(
-          `Invalid contribution type. Must be one of: ${validTypes.join(", ")}`,
-        );
-      }
-    }
-
-    // If requiresContribution is false, force contributionType to 'none'
-    if (updates.requiresContribution === false) {
-      validUpdates.contributionType = "none";
     }
 
     // Validate school/department change
