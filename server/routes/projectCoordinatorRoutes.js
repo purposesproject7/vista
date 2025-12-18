@@ -14,7 +14,7 @@ const router = express.Router();
 
 // Authentication and role guards
 router.use(authenticate);
-router.use(requireRole("project_coordinator"));
+// router.use(requireRole("project_coordinator")); // Removed: Role is "faculty", check isProjectCoordinator instead
 router.use(requireProjectCoordinator);
 
 /**
@@ -91,6 +91,13 @@ router.get("/student/:regNo", coordinatorController.getStudentByRegNo);
  * Project management
  */
 router.get("/projects", coordinatorController.getProjectList);
+
+router.post(
+  "/projects/bulk",
+  checkCoordinatorPermission("canCreateProjects"),
+  validateRequired(["projects"]),
+  coordinatorController.createProjectsBulk,
+);
 
 router.post(
   "/projects",

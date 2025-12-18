@@ -30,8 +30,12 @@ function getCoordinatorContext(req) {
  * Helper: Verify context ownership
  */
 function verifyContext(item, coordinator) {
+  // If item has an academicYear field, it must match
+  if (item.academicYear && item.academicYear !== coordinator.academicYear) {
+    return false;
+  }
+
   return (
-    item.academicYear === coordinator.academicYear &&
     item.school === coordinator.school &&
     item.department === coordinator.department
   );
@@ -545,12 +549,14 @@ export async function createProject(req, res) {
     }
 
     // Validate specialization match
+    /*
     if (guide.specialization !== req.body.specialization) {
       return res.status(400).json({
         success: false,
         message: `Specialization mismatch. Guide specializes in ${guide.specialization}, but project requires ${req.body.specialization}.`,
       });
     }
+    */
 
     const project = await ProjectService.createProject(req.body, req.user._id);
 
@@ -566,6 +572,49 @@ export async function createProject(req, res) {
         projectId: project._id,
         name: project.name,
       },
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function createProjectsBulk(req, res) {
+  try {
+    const context = getCoordinatorContext(req);
+    const { projects } = req.body;
+
+    if (!Array.isArray(projects) || projects.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide an array of projects.",
+      });
+    }
+
+    // Enrich projects with context
+    const enrichedProjects = projects.map((p) => ({
+      ...p,
+      academicYear: context.academicYear,
+      school: context.school,
+      department: context.department,
+    }));
+
+    const results = await ProjectService.createProjectsBulk(
+      enrichedProjects,
+      req.user._id,
+    );
+
+    logger.info("bulk_projects_created_by_coordinator", {
+      count: results.created,
+      coordinatorId: req.coordinator._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk creation completed. Created: ${results.created}, Failed: ${results.failed}`,
+      data: results,
     });
   } catch (error) {
     res.status(400).json({
@@ -688,12 +737,14 @@ export async function assignGuide(req, res) {
     }
 
     // Validate specialization match
+    /*
     if (guide.specialization !== project.specialization) {
       return res.status(400).json({
         success: false,
         message: `Specialization mismatch blocked. Guide specializes in ${guide.specialization}, but project requires ${project.specialization}.`,
       });
     }
+    */
 
     // Check max projects per guide
     const config = await DepartmentConfig.findOne(getCoordinatorContext(req));
@@ -779,12 +830,14 @@ export async function reassignGuide(req, res) {
     }
 
     // Validate specialization match
+    /*
     if (newGuide.specialization !== project.specialization) {
       return res.status(400).json({
         success: false,
         message: `Specialization mismatch blocked. New guide specializes in ${newGuide.specialization}, but project requires ${project.specialization}.`,
       });
     }
+    */
 
     const oldGuideFacultyId = project.guideFaculty;
 

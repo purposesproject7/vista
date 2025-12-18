@@ -254,6 +254,60 @@ export class ProjectService {
   }
 
   /**
+   * Create multiple projects
+   */
+  static async createProjectsBulk(data, createdBy) {
+    let projectsToCreate = [];
+
+    if (Array.isArray(data)) {
+      projectsToCreate = data;
+    } else if (
+      typeof data === "object" &&
+      data !== null &&
+      Array.isArray(data.projects)
+    ) {
+      const { school, department, academicYear, guideFacultyEmpId, projects } =
+        data;
+      projectsToCreate = projects.map((p) => ({
+        ...p,
+        school: p.school || school,
+        department: p.department || department,
+        academicYear: p.academicYear || academicYear,
+        guideFacultyEmpId: p.guideFacultyEmpId || guideFacultyEmpId,
+      }));
+    } else {
+      throw new Error(
+        "Invalid input for bulk creation. Expected array of projects or object with projects array.",
+      );
+    }
+
+    const results = {
+      total: projectsToCreate.length,
+      created: 0,
+      failed: 0,
+      errors: [],
+      projects: [],
+    };
+
+    for (const [index, projectData] of projectsToCreate.entries()) {
+      try {
+        const project = await this.createProject(projectData, createdBy);
+        results.created++;
+        results.projects.push(project);
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          index,
+          name: projectData.name,
+          error: error.message,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Create single project
    */
   static async createProject(data, createdBy) {
@@ -275,11 +329,13 @@ export class ProjectService {
     }
 
     // Validate specialization match
+    /*
     if (guide.specialization !== specialization) {
       throw new Error(
         `Specialization mismatch. Guide specializes in ${guide.specialization}, but project requires ${specialization}.`,
       );
     }
+    */
 
     // Check team size limits
     const config = await DepartmentConfig.findOne({
@@ -318,13 +374,30 @@ export class ProjectService {
     // Create or update students
     const studentIds = [];
     for (const studentData of students) {
-      let student = await Student.findOne({ regNo: studentData.regNo });
+      let regNo;
+      let isString = false;
+
+      if (typeof studentData === "string") {
+        regNo = studentData;
+        isString = true;
+      } else {
+        regNo = studentData.regNo;
+      }
+
+      let student = await Student.findOne({ regNo });
 
       if (student) {
-        // Update existing student
-        Object.assign(student, studentData);
-        await student.save();
+        // Update existing student only if full data provided
+        if (!isString) {
+          Object.assign(student, studentData);
+          await student.save();
+        }
       } else {
+        if (isString) {
+          throw new Error(
+            `Student with Reg No ${regNo} not found. Please provide full student details to create new student.`,
+          );
+        }
         // Create new student
         student = new Student({
           ...studentData,
@@ -375,52 +448,7 @@ export class ProjectService {
     return project;
   }
 
-  /**
-   * Create multiple projects (bulk)
-   */
-  static async createProjectsBulk(data, createdBy) {
-    const { school, department, academicYear, guideFacultyEmpId, projects } =
-      data;
 
-    const results = {
-      created: 0,
-      errors: 0,
-      errorDetails: [],
-      projectIds: [],
-    };
-
-    for (const projectData of projects) {
-      try {
-        const project = await this.createProject(
-          {
-            ...projectData,
-            school,
-            department,
-            academicYear,
-            guideFacultyEmpId:
-              projectData.guideFacultyEmpId || guideFacultyEmpId,
-          },
-          createdBy,
-        );
-
-        results.created++;
-        results.projectIds.push(project._id);
-      } catch (error) {
-        results.errors++;
-        results.errorDetails.push({
-          projectName: projectData.name,
-          error: error.message,
-        });
-
-        logger.error("bulk_project_creation_error", {
-          projectName: projectData.name,
-          error: error.message,
-        });
-      }
-    }
-
-    return results;
-  }
 
   /**
    * Update project details

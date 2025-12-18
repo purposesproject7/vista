@@ -193,7 +193,7 @@ export async function createProjectsBulk(req, res) {
 
     res.status(201).json({
       success: true,
-      message: `Bulk creation completed: ${results.created} created, ${results.errors} errors.`,
+      message: `Bulk creation completed: ${results.created} created, ${results.failed} errors.`,
       data: results,
     });
   } catch (error) {
