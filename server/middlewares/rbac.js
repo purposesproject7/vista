@@ -139,7 +139,7 @@ export function checkCoordinatorPermission(permissionName) {
       }
 
       // Check deadline
-      if (permission.useGlobalDeadline && permission.deadline) {
+      if (permission.deadline) {
         const now = new Date();
         const deadline = new Date(permission.deadline);
 

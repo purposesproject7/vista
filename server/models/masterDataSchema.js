@@ -29,24 +29,11 @@ const academicYearSchema = new mongoose.Schema(
   { _id: true },
 );
 
-const semesterSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      enum: ["Fall Semester", "Winter Semester"],
-    },
-    isActive: { type: Boolean, default: true },
-  },
-  { _id: true },
-);
-
 const masterDataSchema = new mongoose.Schema(
   {
     schools: [schoolSchema],
     departments: [departmentSchema],
     academicYears: [academicYearSchema],
-    semesters: [semesterSchema],
   },
   { timestamps: true },
 );

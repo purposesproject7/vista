@@ -37,8 +37,7 @@ let state = {
         schoolCode: "SCOPE",
         deptCode: "CSE",
         deptName: "Computer Science",
-        academicYear: "2024-2025",
-        semester: "Fall Semester"
+        academicYear: "2024-2025"
     }
 };
 
@@ -157,13 +156,12 @@ async function runTests() {
 
     // --- Admin: Department Config ---
     console.log(`\n${colors.yellow}--- Admin: Department Config Tests ---${colors.reset}`);
-    const configQuery = `academicYear=${encodeURIComponent(state.data.academicYear)}&semester=${encodeURIComponent(state.data.semester)}&school=${encodeURIComponent(state.data.schoolCode)}&department=${encodeURIComponent(state.data.deptName)}`;
+    const configQuery = `academicYear=${encodeURIComponent(state.data.academicYear)}&school=${encodeURIComponent(state.data.schoolCode)}&department=${encodeURIComponent(state.data.deptName)}`;
     let configRes = await request('GET', `/admin/department-config?${configQuery}`, null, state.tokens.admin);
     
     if (configRes.status !== 200) {
         const deptConfigData = {
             academicYear: state.data.academicYear,
-            semester: state.data.semester,
             school: state.data.schoolCode,
             department: state.data.deptName,
             minTeamSize: 1,
@@ -189,7 +187,6 @@ async function runTests() {
     } else {
         const componentLibData = {
             academicYear: state.data.academicYear,
-            semester: state.data.semester,
             school: state.data.schoolCode,
             department: state.data.deptName,
             components: [
@@ -220,7 +217,6 @@ async function runTests() {
     if (state.ids.component) {
         const markingSchemaData = {
             academicYear: state.data.academicYear,
-            semester: state.data.semester,
             school: state.data.schoolCode,
             department: state.data.deptName,
             reviews: [
@@ -316,7 +312,6 @@ async function runTests() {
         school: state.data.schoolCode,
         department: state.data.deptName,
         academicYear: state.data.academicYear,
-        semester: state.data.semester,
         PAT: false
     };
     let stuRes = await request('POST', '/admin/student', studentData, state.tokens.admin);
@@ -330,7 +325,6 @@ async function runTests() {
         const coordinatorData = {
             facultyId: state.ids.faculty,
             academicYear: state.data.academicYear,
-            semester: state.data.semester,
             school: state.data.schoolCode,
             department: state.data.deptName,
             isPrimary: true,
@@ -354,7 +348,6 @@ async function runTests() {
             students: [studentData.regNo],
             guideFacultyEmpId: facultyData.employeeId,
             academicYear: state.data.academicYear,
-            semester: state.data.semester,
             school: state.data.schoolCode,
             department: state.data.deptName,
             specialization: "Data Science",
@@ -375,7 +368,6 @@ async function runTests() {
             panelName: "Panel " + timestamp,
             venue: "Room 301",
             academicYear: state.data.academicYear,
-            semester: state.data.semester,
             school: state.data.schoolCode,
             department: state.data.deptName,
             specializations: ["Data Science"],
@@ -405,7 +397,6 @@ async function runTests() {
             project: state.ids.project,
             reviewType: "review1",
             academicYear: state.data.academicYear,
-            semester: state.data.semester,
             facultyRole: "guide",
             componentMarks: [
                 {

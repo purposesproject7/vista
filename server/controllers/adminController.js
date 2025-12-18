@@ -132,10 +132,9 @@ export async function getAllPanels(req, res) {
 
 export async function getMarkingSchema(req, res) {
   try {
-    const { academicYear, semester, school, department } = req.query;
+    const { academicYear, school, department } = req.query;
     const schema = await MarkingSchemaService.getMarkingSchema(
       academicYear,
-      semester,
       school,
       department,
     );
@@ -283,7 +282,7 @@ export async function autoCreatePanels(req, res) {
       departments,
       school,
       academicYear,
-      panelSize || 3,
+      panelSize || 2,
       req.user._id,
     );
 
@@ -769,7 +768,6 @@ export async function assignProjectCoordinator(req, res) {
     const {
       facultyId,
       academicYear,
-      semester,
       school,
       department,
       isPrimary,
@@ -789,7 +787,6 @@ export async function assignProjectCoordinator(req, res) {
     const existing = await ProjectCoordinator.findOne({
       faculty: facultyId,
       academicYear,
-      semester,
       school,
       department,
       isActive: true,
@@ -806,7 +803,6 @@ export async function assignProjectCoordinator(req, res) {
     // Fetch global deadlines
     const departmentConfig = await DepartmentConfig.findOne({
       academicYear,
-      semester,
       school,
       department,
     });
@@ -826,63 +822,68 @@ export async function assignProjectCoordinator(req, res) {
 
     // Default permissions with global deadlines
     const defaultPermissions = {
-      canEdit: { enabled: true, useGlobalDeadline: false },
-      canView: { enabled: true, useGlobalDeadline: false },
+      canEdit: { enabled: true },
+      canView: { enabled: true },
       canCreateFaculty: {
         enabled: true,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.faculty_creation,
       },
+      canEditFaculty: { enabled: isPrimary || false },
+      canDeleteFaculty: { enabled: isPrimary || false },
+
       canCreatePanels: {
         enabled: true,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.panel_creation,
       },
+      canEditPanels: { enabled: isPrimary || false },
+      canDeletePanels: { enabled: isPrimary || false },
       canAssignPanels: {
         enabled: true,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.panel_assignment,
       },
+      canReassignPanels: { enabled: isPrimary || false },
+
       canUploadStudents: {
         enabled: true,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.student_upload,
       },
       canModifyStudents: {
         enabled: true,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.student_modification,
       },
+      canDeleteStudents: { enabled: isPrimary || false },
+
       canCreateProjects: {
         enabled: true,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.project_creation,
       },
+      canEditProjects: { enabled: isPrimary || false },
+      canDeleteProjects: { enabled: isPrimary || false },
+
       canAssignGuides: {
         enabled: true,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.guide_assignment,
       },
       canReassignGuides: {
-        enabled: true,
-        useGlobalDeadline: true,
+        enabled: isPrimary || false,
         deadline: globalDeadlines.guide_reassignment,
       },
       canMergeTeams: {
-        enabled: true,
-        useGlobalDeadline: true,
+        enabled: isPrimary || false,
         deadline: globalDeadlines.team_merging,
       },
       canSplitTeams: {
-        enabled: true,
-        useGlobalDeadline: true,
+        enabled: isPrimary || false,
         deadline: globalDeadlines.team_splitting,
       },
       canEditMarkingSchema: {
         enabled: isPrimary || false,
-        useGlobalDeadline: true,
         deadline: globalDeadlines.marking_schema_edit,
       },
+      canManageRequests: { enabled: isPrimary || false },
+      canCreateBroadcasts: { enabled: true },
+      canEditBroadcasts: { enabled: isPrimary || false },
+      canDeleteBroadcasts: { enabled: isPrimary || false },
     };
 
     // Merge custom permissions if provided
@@ -893,7 +894,7 @@ export async function assignProjectCoordinator(req, res) {
     // If primary, unset others
     if (isPrimary) {
       await ProjectCoordinator.updateMany(
-        { academicYear, semester, school, department, isPrimary: true },
+        { academicYear, school, department, isPrimary: true },
         { $set: { isPrimary: false } },
       );
     }
@@ -902,7 +903,6 @@ export async function assignProjectCoordinator(req, res) {
     const coordinator = new ProjectCoordinator({
       faculty: facultyId,
       academicYear,
-      semester,
       school,
       department,
       isPrimary: isPrimary || false,
@@ -956,14 +956,8 @@ function mergePermissions(defaultPerms, customPerms) {
       merged[key] = {
         enabled:
           value.enabled !== undefined ? value.enabled : merged[key].enabled,
-        useGlobalDeadline:
-          value.useGlobalDeadline !== undefined
-            ? value.useGlobalDeadline
-            : merged[key].useGlobalDeadline,
         deadline:
-          value.useGlobalDeadline === false && value.deadline
-            ? value.deadline
-            : merged[key].deadline,
+          value.deadline !== undefined ? value.deadline : merged[key].deadline,
       };
     }
   }
@@ -2004,7 +1998,7 @@ export async function getDepartmentConfig(req, res) {
   try {
     const { academicYear, school, department } = req.query;
 
-    const config = await departmentConfig
+    const config = await DepartmentConfig
       .findOne({
         academicYear,
         school,
@@ -2035,7 +2029,6 @@ export async function createDepartmentConfig(req, res) {
   try {
     const {
       academicYear,
-      semester,
       school,
       department,
       maxTeamSize,
@@ -2048,7 +2041,6 @@ export async function createDepartmentConfig(req, res) {
     // Check if already exists
     const existing = await DepartmentConfig.findOne({
       academicYear,
-      semester,
       school,
       department,
     });
@@ -2062,7 +2054,6 @@ export async function createDepartmentConfig(req, res) {
 
     const config = new DepartmentConfig({
       academicYear,
-      semester,
       school,
       department,
       maxTeamSize: maxTeamSize || 4,
@@ -2100,7 +2091,7 @@ export async function updateDepartmentConfig(req, res) {
     const { id } = req.params;
     const updates = req.body;
 
-    const config = await departmentConfig.findByIdAndUpdate(
+    const config = await DepartmentConfig.findByIdAndUpdate(
       id,
       { $set: updates },
       { new: true, runValidators: true },
@@ -2161,6 +2152,49 @@ export async function updateFeatureLock(req, res) {
     }
 
     await config.save();
+
+    // Propagate deadline update to all project coordinators in this department
+    if (deadline !== undefined) {
+      const permissionMap = {
+        faculty_creation: "canCreateFaculty",
+        panel_creation: "canCreatePanels",
+        student_upload: "canUploadStudents",
+        student_modification: "canModifyStudents",
+        project_creation: "canCreateProjects",
+        marking_schema_edit: "canEditMarkingSchema",
+        guide_assignment: "canAssignGuides",
+        panel_assignment: "canAssignPanels",
+        guide_reassignment: "canReassignGuides",
+        team_merging: "canMergeTeams",
+        team_splitting: "canSplitTeams",
+      };
+
+      const permissionField = permissionMap[featureName];
+
+      if (permissionField) {
+        await ProjectCoordinator.updateMany(
+          {
+            academicYear: config.academicYear,
+            school: config.school,
+            department: config.department,
+            isActive: true,
+          },
+          {
+            $set: {
+              [`permissions.${permissionField}.deadline`]: deadline,
+            },
+          },
+        );
+
+        logger.info("coordinator_deadlines_propagated", {
+          featureName,
+          permissionField,
+          deadline,
+          school: config.school,
+          department: config.department,
+        });
+      }
+    }
 
     logger.info("feature_lock_updated", {
       configId: id,

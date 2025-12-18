@@ -66,9 +66,9 @@ export async function getProjectById(req, res) {
  */
 export async function getProjectsByStudent(req, res) {
   try {
-    const { studentId } = req.params;
+    const { regNo } = req.params;
 
-    const projects = await ProjectService.getProjectsByStudent(studentId);
+    const projects = await ProjectService.getProjectsByStudent(regNo);
 
     res.status(200).json({
       success: true,
@@ -78,7 +78,7 @@ export async function getProjectsByStudent(req, res) {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error fetching student projects.",
+      message: error.message || "Error fetching student projects.",
     });
   }
 }
@@ -88,9 +88,9 @@ export async function getProjectsByStudent(req, res) {
  */
 export async function getProjectsByGuide(req, res) {
   try {
-    const { facultyId } = req.params;
+    const { employeeId } = req.params;
 
-    const projects = await ProjectService.getProjectsByGuide(facultyId);
+    const projects = await ProjectService.getProjectsByGuide(employeeId);
 
     res.status(200).json({
       success: true,
@@ -100,7 +100,7 @@ export async function getProjectsByGuide(req, res) {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Error fetching guide projects.",
+      message: error.message || "Error fetching guide projects.",
     });
   }
 }
@@ -230,7 +230,7 @@ export async function updateProjectDetails(req, res) {
 
     res.status(200).json({
       success: true,
-      message: `Successfully updated project and ${studentUpdates?.length || 0} students.`,
+      message: `Successfully updated project and ${result.studentsUpdated || 0} students.`,
       data: result,
     });
   } catch (error) {
@@ -241,10 +241,11 @@ export async function updateProjectDetails(req, res) {
 
     res.status(500).json({
       success: false,
-      message: "Server error during project update.",
+      message: error.message || "Server error during project update.",
     });
   }
 }
+
 
 /**
  * Delete project

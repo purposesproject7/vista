@@ -4,7 +4,6 @@ const permissionSchema = new mongoose.Schema(
   {
     enabled: { type: Boolean, default: true },
     deadline: { type: Date }, // Individual deadline for this coordinator
-    useGlobalDeadline: { type: Boolean, default: true }, // If true, use DepartmentConfig deadline
   },
   { _id: false },
 );
@@ -19,11 +18,6 @@ const projectCoordinatorSchema = new mongoose.Schema(
     school: { type: String, required: true },
     department: { type: String, required: true },
     academicYear: { type: String, required: true },
-    semester: {
-      type: String,
-      required: true,
-      enum: ["Fall Semester", "Winter Semester"],
-    },
 
     isPrimary: { type: Boolean, default: false },
 
@@ -34,17 +28,25 @@ const projectCoordinatorSchema = new mongoose.Schema(
 
       // Faculty management
       canCreateFaculty: permissionSchema,
+      canEditFaculty: permissionSchema,
+      canDeleteFaculty: permissionSchema,
 
       // Panel management
       canCreatePanels: permissionSchema,
+      canEditPanels: permissionSchema,
+      canDeletePanels: permissionSchema,
       canAssignPanels: permissionSchema,
+      canReassignPanels: permissionSchema,
 
       // Student management
       canUploadStudents: permissionSchema,
       canModifyStudents: permissionSchema,
+      canDeleteStudents: permissionSchema,
 
       // Project management
       canCreateProjects: permissionSchema,
+      canEditProjects: permissionSchema,
+      canDeleteProjects: permissionSchema,
 
       // Guide management
       canAssignGuides: permissionSchema,
@@ -56,6 +58,14 @@ const projectCoordinatorSchema = new mongoose.Schema(
 
       // Schema management
       canEditMarkingSchema: permissionSchema,
+
+      // Request management
+      canManageRequests: permissionSchema,
+
+      // Broadcast management
+      canCreateBroadcasts: permissionSchema,
+      canEditBroadcasts: permissionSchema,
+      canDeleteBroadcasts: permissionSchema,
     },
 
     assignedAt: { type: Date, default: Date.now },
@@ -64,10 +74,10 @@ const projectCoordinatorSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-projectCoordinatorSchema.index({ school: 1, department: 1, academicYear: 1, semester: 1 });
-projectCoordinatorSchema.index({ faculty: 1, academicYear: 1, semester: 1 });
+projectCoordinatorSchema.index({ school: 1, department: 1, academicYear: 1 });
+projectCoordinatorSchema.index({ faculty: 1, academicYear: 1 });
 projectCoordinatorSchema.index(
-  { school: 1, department: 1, academicYear: 1, semester: 1, isPrimary: 1 },
+  { school: 1, department: 1, academicYear: 1, isPrimary: 1 },
   {
     unique: true,
     partialFilterExpression: { isPrimary: true },

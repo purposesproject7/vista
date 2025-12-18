@@ -7,12 +7,11 @@ export class RequestService {
    * Get all requests with filters
    */
   static async getAllRequests(filters = {}) {
-    const { facultyType, academicYear, semester, school, department, status } = filters;
+    const { facultyType, academicYear, school, department, status } = filters;
 
     const query = {};
     if (facultyType) query.facultyType = facultyType;
     if (academicYear) query.academicYear = academicYear;
-    if (semester) query.semester = semester;
     if (status) query.status = status;
 
     // Build faculty match for populate

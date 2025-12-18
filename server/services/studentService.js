@@ -35,7 +35,6 @@ export class StudentService {
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
     if (filters.academicYear) query.academicYear = filters.academicYear;
-    if (filters.semester) query.semester = filters.semester;
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
     if (filters.name) query.name = new RegExp(filters.name, "i");
 

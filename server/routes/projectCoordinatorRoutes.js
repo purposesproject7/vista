@@ -31,7 +31,6 @@ router.get("/faculty", coordinatorController.getFacultyList);
 router.post(
   "/faculty",
   checkCoordinatorPermission("canCreateFaculty"),
-  checkFeatureLock("faculty_creation"),
   validateRequired([
     "name",
     "emailId",
@@ -63,7 +62,6 @@ router.get("/students", coordinatorController.getStudentList);
 router.post(
   "/student",
   checkCoordinatorPermission("canUploadStudents"),
-  checkFeatureLock("student_upload"),
   validateRequired(["regNo", "name", "emailId"]),
   coordinatorController.createStudent,
 );
@@ -71,7 +69,6 @@ router.post(
 router.post(
   "/student/bulk",
   checkCoordinatorPermission("canUploadStudents"),
-  checkFeatureLock("student_upload"),
   validateRequired(["students"]),
   coordinatorController.uploadStudents,
 );
@@ -79,7 +76,6 @@ router.post(
 router.put(
   "/student/:regNo",
   checkCoordinatorPermission("canModifyStudents"),
-  checkFeatureLock("student_modification"),
   coordinatorController.updateStudent,
 );
 
@@ -99,7 +95,6 @@ router.get("/projects", coordinatorController.getProjectList);
 router.post(
   "/projects",
   checkCoordinatorPermission("canCreateProjects"),
-  checkFeatureLock("project_creation"),
   validateRequired([
     "name",
     "students",
@@ -107,8 +102,6 @@ router.post(
     "specialization",
     "type",
   ]),
-  validateTeamSize,
-  validateSpecialization,
   coordinatorController.createProject,
 );
 
@@ -130,18 +123,14 @@ router.delete(
 router.put(
   "/projects/:projectId/assign-guide",
   checkCoordinatorPermission("canAssignGuides"),
-  checkFeatureLock("guide_assignment"),
   validateRequired(["guideFacultyEmpId"]),
-  validateSpecialization,
   coordinatorController.assignGuide,
 );
 
 router.put(
   "/projects/:projectId/reassign-guide",
   checkCoordinatorPermission("canReassignGuides"),
-  checkFeatureLock("guide_reassignment"),
   validateRequired(["newGuideFacultyEmpId", "reason"]),
-  validateSpecialization,
   coordinatorController.reassignGuide,
 );
 
@@ -153,16 +142,13 @@ router.get("/panels", coordinatorController.getPanelList);
 router.post(
   "/panels",
   checkCoordinatorPermission("canCreatePanels"),
-  checkFeatureLock("panel_creation"),
   validateRequired(["memberEmployeeIds"]),
-  validatePanelSize,
   coordinatorController.createPanel,
 );
 
 router.post(
   "/panels/auto-create",
   checkCoordinatorPermission("canCreatePanels"),
-  checkFeatureLock("panel_creation"),
   coordinatorController.autoCreatePanels,
 );
 
@@ -170,7 +156,6 @@ router.put(
   "/panels/:id/members",
   checkCoordinatorPermission("canEditPanels"),
   validateRequired(["memberEmployeeIds"]),
-  validatePanelSize,
   coordinatorController.updatePanelMembers,
 );
 
@@ -186,7 +171,6 @@ router.delete(
 router.post(
   "/projects/:projectId/assign-panel",
   checkCoordinatorPermission("canAssignPanels"),
-  checkFeatureLock("panel_assignment"),
   validateRequired(["panelId"]),
   coordinatorController.assignPanel,
 );
@@ -201,8 +185,6 @@ router.post(
 router.post(
   "/panels/auto-assign",
   checkCoordinatorPermission("canAssignPanels"),
-  checkFeatureLock("panel_assignment"),
-  validateSpecialization,
   coordinatorController.autoAssignPanels,
 );
 
@@ -222,18 +204,14 @@ router.put(
 router.post(
   "/teams/merge",
   checkCoordinatorPermission("canMergeTeams"),
-  checkFeatureLock("team_merging"),
   validateRequired(["projectId1", "projectId2", "reason"]),
-  validateTeamSize,
   coordinatorController.mergeTeams,
 );
 
 router.post(
   "/teams/split",
   checkCoordinatorPermission("canSplitTeams"),
-  checkFeatureLock("team_splitting"),
   validateRequired(["projectId", "studentIds", "reason"]),
-  validateTeamSize,
   coordinatorController.splitTeam,
 );
 

@@ -57,11 +57,6 @@ const markingSchemaModel = new mongoose.Schema(
     school: { type: String, required: true },
     department: { type: String, required: true },
     academicYear: { type: String, required: true },
-    semester: {
-      type: String,
-      required: true,
-      enum: ["Fall Semester", "Winter Semester"],
-    },
 
     reviews: [reviewSchema],
 
@@ -82,7 +77,7 @@ const markingSchemaModel = new mongoose.Schema(
 );
 
 markingSchemaModel.index(
-  { school: 1, department: 1, academicYear: 1, semester: 1 },
+  { school: 1, department: 1, academicYear: 1 },
   { unique: true },
 );
 

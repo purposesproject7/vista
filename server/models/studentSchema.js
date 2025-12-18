@@ -11,11 +11,6 @@ const studentSchema = new mongoose.Schema(
     school: { type: String, required: true },
     department: { type: String, required: true },
     academicYear: { type: String, required: true },
-    semester: {
-      type: String,
-      required: true,
-      enum: ["Fall Semester", "Winter Semester"],
-    },
 
     isActive: { type: Boolean, default: true },
 
@@ -54,8 +49,8 @@ const studentSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-studentSchema.index({ regNo: 1, academicYear: 1, semester: 1 }, { unique: true });
-studentSchema.index({ school: 1, department: 1, academicYear: 1, semester: 1 });
+studentSchema.index({ regNo: 1, academicYear: 1 }, { unique: true });
+studentSchema.index({ school: 1, department: 1, academicYear: 1 });
 studentSchema.index({ emailId: 1 });
 
 const Student = mongoose.model("Student", studentSchema);

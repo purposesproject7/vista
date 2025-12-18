@@ -26,11 +26,6 @@ const panelSchema = new mongoose.Schema(
     venue: { type: String, required: false },
 
     academicYear: { type: String, required: true },
-    semester: {
-      type: String,
-      required: true,
-      enum: ["Fall Semester", "Winter Semester"],
-    },
     school: { type: String, required: true },
     department: { type: String, required: true },
 
@@ -44,7 +39,7 @@ const panelSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-panelSchema.index({ school: 1, department: 1, academicYear: 1, semester: 1 });
+panelSchema.index({ school: 1, department: 1, academicYear: 1 });
 panelSchema.index({ specializations: 1 });
 panelSchema.index({ isActive: 1, assignedProjectsCount: 1 });
 

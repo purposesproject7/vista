@@ -135,7 +135,6 @@ export class PanelService {
     const query = { isActive: true };
 
     if (filters.academicYear) query.academicYear = filters.academicYear;
-    if (filters.semester) query.semester = filters.semester;
     if (filters.school) query.school = filters.school;
     if (filters.department) query.department = filters.department;
     if (filters.specialization) {
@@ -305,102 +304,128 @@ export class PanelService {
   /**
    * Auto-create panels based on available faculty
    */
-  static async autoCreatePanels(
-    academicYear,
-    school,
-    department,
-    createdBy = null,
-  ) {
-    const results = {
-      panelsCreated: 0,
-      errors: 0,
-      details: [],
-    };
+// services/panelService.js
 
-    try {
-      // Get department config
-      const config = await DepartmentConfig.findOne({
-        academicYear,
-        school,
-        department,
-      });
+static async autoCreatePanels(
+  academicYear,
+  school,
+  department,
+  panelSize = null,
+  createdBy = null,
+) {
+  const results = {
+    panelsCreated: 0,
+    errors: 0,
+    details: [],
+  };
 
-      if (!config) {
-        throw new Error(
-          `Department configuration not found for ${school} - ${department}`,
-        );
-      }
+  try {
+    // Get department config
+    const config = await DepartmentConfig.findOne({
+      academicYear,
+      school,
+      department,
+    });
 
-      const panelSize = config.minPanelSize || 3;
-
-      // Get available faculty for this department
-      const faculties = await Faculty.find({
-        school,
-        department,
-        role: "faculty",
-      }).lean();
-
-      if (faculties.length < panelSize) {
-        results.errors++;
-        results.details.push({
-          error: `Not enough faculty. Need ${panelSize}, found ${faculties.length}`,
-        });
-        return results;
-      }
-
-      // Group faculty by specialization
-      const bySpecialization = {};
-      faculties.forEach((f) => {
-        const spec = f.specialization || "General";
-        if (!bySpecialization[spec]) bySpecialization[spec] = [];
-        bySpecialization[spec].push(f);
-      });
-
-      // Create panels for each specialization
-      for (const [specialization, specFaculty] of Object.entries(
-        bySpecialization,
-      )) {
-        const panelCount = Math.floor(specFaculty.length / panelSize);
-
-        for (let i = 0; i < panelCount; i++) {
-          try {
-            const panelMembers = specFaculty.slice(
-              i * panelSize,
-              (i + 1) * panelSize,
-            );
-
-            await this.createPanel(
-              {
-                memberEmployeeIds: panelMembers.map((f) => f.employeeId),
-                academicYear,
-                school,
-                department,
-                specializations: [specialization],
-                venue: `Panel Room ${results.panelsCreated + 1}`,
-              },
-              createdBy,
-            );
-
-            results.panelsCreated++;
-          } catch (error) {
-            results.errors++;
-            results.details.push({
-              specialization,
-              panelIndex: i,
-              error: error.message,
-            });
-          }
-        }
-      }
-    } catch (error) {
-      results.errors++;
-      results.details.push({
-        error: error.message,
-      });
+    if (!config) {
+      throw new Error(
+        `Department configuration not found for ${school} - ${department}`,
+      );
     }
 
-    return results;
+    // Use requested team size if provided, else config minPanelSize or 3
+    const effectivePanelSize = panelSize || config.minPanelSize || 3;
+
+    // Get available faculty for this department
+    let faculties = await Faculty.find({
+      school,
+      department,
+      role: "faculty",
+    })
+      .sort({ employeeId: 1 }) // sort by employeeId -> lower = more experienced
+      .lean();
+
+    if (faculties.length < 2) {
+      results.errors++;
+      results.details.push({
+        error: `Not enough faculty to form even a single panel. Found ${faculties.length}`,
+      });
+      return results;
+    }
+
+    // Group faculty by specialization (default "General")
+    const bySpecialization = {};
+    faculties.forEach((f) => {
+      const spec = f.specialization || "General";
+      if (!bySpecialization[spec]) bySpecialization[spec] = [];
+      bySpecialization[spec].push(f);
+    });
+
+    // For each specialization, create balanced panels
+    for (const [specialization, specFacultyRaw] of Object.entries(
+      bySpecialization,
+    )) {
+      // Ensure sorted by employeeId within specialization
+      const specFaculty = [...specFacultyRaw].sort((a, b) =>
+        a.employeeId.localeCompare(b.employeeId),
+      );
+
+      const n = specFaculty.length;
+      if (n === 0) continue;
+
+      let left = 0;
+      let right = n - 1;
+
+      while (left <= right) {
+        const panelMembers = [];
+
+        // Build a panel up to effectivePanelSize members
+        for (let k = 0; k < effectivePanelSize && left <= right; k++) {
+          // Alternate: most experienced (left) then least experienced (right)
+          if (k % 2 === 0) {
+            panelMembers.push(specFaculty[left]);
+            left++;
+          } else {
+            panelMembers.push(specFaculty[right]);
+            right--;
+          }
+        }
+
+        // Create panel even if last one has < effectivePanelSize members
+        try {
+          await this.createPanel(
+            {
+              memberEmployeeIds: panelMembers.map((f) => f.employeeId),
+              academicYear,
+              school,
+              department,
+              specializations: [specialization],
+              venue: `Panel Room ${results.panelsCreated + 1}`,
+            },
+            createdBy,
+          );
+
+          results.panelsCreated++;
+        } catch (error) {
+          results.errors++;
+          results.details.push({
+            specialization,
+            panelIndex: results.panelsCreated,
+            error: error.message,
+          });
+        }
+      }
+    }
+  } catch (error) {
+    results.errors++;
+    results.details.push({
+      error: error.message,
+    });
   }
+
+  return results;
+}
+
 
   /**
    * Auto-assign panels to projects based on specialization

@@ -14,11 +14,11 @@ router.get("/list", projectController.getProjectList);
 // Get single project by ID
 router.get("/:id", projectController.getProjectById);
 
-// Get projects by student ID
-router.get("/student/:studentId", projectController.getProjectsByStudent);
+// Get projects by student Reg No
+router.get("/student/:regNo", projectController.getProjectsByStudent);
 
-// Get projects by guide faculty ID
-router.get("/guide/:facultyId", projectController.getProjectsByGuide);
+// Get projects by guide faculty Employee ID
+router.get("/guide/:employeeId", projectController.getProjectsByGuide);
 
 // Get projects by panel ID
 router.get("/panel/:panelId", projectController.getProjectsByPanel);

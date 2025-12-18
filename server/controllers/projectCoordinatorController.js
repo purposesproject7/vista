@@ -398,6 +398,13 @@ export async function uploadStudents(req, res) {
  */
 export async function updateStudent(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can update students.",
+      });
+    }
+
     const coordinator = req.coordinator;
     const student = await StudentService.getStudentByRegNo(req.params.regNo);
 
@@ -444,6 +451,13 @@ export async function updateStudent(req, res) {
  */
 export async function deleteStudent(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can delete students.",
+      });
+    }
+
     const coordinator = req.coordinator;
     const student = await StudentService.getStudentByRegNo(req.params.regNo);
 
@@ -631,6 +645,13 @@ export async function deleteProject(req, res) {
 
 export async function assignGuide(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can assign guides.",
+      });
+    }
+
     const { projectId } = req.params;
     const { guideFacultyEmpId } = req.body;
 
@@ -713,6 +734,13 @@ export async function assignGuide(req, res) {
 
 export async function reassignGuide(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can reassign guides.",
+      });
+    }
+
     const { projectId } = req.params;
     const { newGuideFacultyEmpId, reason } = req.body;
 
@@ -1060,6 +1088,13 @@ export async function deletePanel(req, res) {
 
 export async function assignPanel(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can assign panels.",
+      });
+    }
+
     const { projectId } = req.params;
     const { panelId } = req.body;
 
@@ -1089,6 +1124,18 @@ export async function assignPanel(req, res) {
       return res.status(403).json({
         success: false,
         message: "Project and panel must be in your department.",
+      });
+    }
+
+    // Validate specialization match
+    if (
+      panel.specializations &&
+      panel.specializations.length > 0 &&
+      !panel.specializations.includes(project.specialization)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(", ")}], but project requires ${project.specialization}.`,
       });
     }
 
@@ -1127,6 +1174,13 @@ export async function assignPanel(req, res) {
 
 export async function assignReviewPanel(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can assign review panels.",
+      });
+    }
+
     const { projectId } = req.params;
     const { reviewType, panelId } = req.body;
 
@@ -1156,6 +1210,18 @@ export async function assignReviewPanel(req, res) {
       return res.status(403).json({
         success: false,
         message: "Project and panel must be in your department.",
+      });
+    }
+
+    // Validate specialization match
+    if (
+      panel.specializations &&
+      panel.specializations.length > 0 &&
+      !panel.specializations.includes(project.specialization)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(", ")}], but project requires ${project.specialization}.`,
       });
     }
 
@@ -1215,6 +1281,13 @@ export async function assignReviewPanel(req, res) {
 
 export async function autoAssignPanels(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can auto-assign panels.",
+      });
+    }
+
     const context = getCoordinatorContext(req);
 
     const result = await PanelService.autoAssignPanels(
@@ -1239,6 +1312,13 @@ export async function autoAssignPanels(req, res) {
 
 export async function reassignPanel(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can reassign panels.",
+      });
+    }
+
     const { projectId } = req.params;
     const { panelId, reason } = req.body;
 
@@ -1302,6 +1382,13 @@ export async function reassignPanel(req, res) {
 
 export async function mergeTeams(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can merge teams.",
+      });
+    }
+
     const { projectId1, projectId2, reason } = req.body;
 
     const [project1, project2] = await Promise.all([
@@ -1388,6 +1475,13 @@ export async function mergeTeams(req, res) {
 
 export async function splitTeam(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can split teams.",
+      });
+    }
+
     const { projectId, studentIds, reason } = req.body;
 
     const project = await Project.findById(projectId).populate("students");
@@ -1745,6 +1839,13 @@ export async function createBroadcast(req, res) {
 
 export async function updateBroadcast(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can update broadcasts.",
+      });
+    }
+
     const { id } = req.params;
 
     const broadcast = await BroadcastMessage.findById(id);
@@ -1756,12 +1857,8 @@ export async function updateBroadcast(req, res) {
       });
     }
 
-    if (broadcast.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only edit broadcasts you created.",
-      });
-    }
+    // Removed check for createdBy since only primary can edit now
+    // if (broadcast.createdBy.toString() !== req.user._id.toString()) { ... }
 
     Object.assign(broadcast, req.body);
     await broadcast.save();
@@ -1781,6 +1878,13 @@ export async function updateBroadcast(req, res) {
 
 export async function deleteBroadcast(req, res) {
   try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can delete broadcasts.",
+      });
+    }
+
     const { id } = req.params;
 
     const broadcast = await BroadcastMessage.findById(id);
@@ -1792,12 +1896,8 @@ export async function deleteBroadcast(req, res) {
       });
     }
 
-    if (broadcast.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only delete broadcasts you created.",
-      });
-    }
+    // Removed check for createdBy since only primary can delete now
+    // if (broadcast.createdBy.toString() !== req.user._id.toString()) { ... }
 
     await BroadcastMessage.findByIdAndDelete(id);
 
