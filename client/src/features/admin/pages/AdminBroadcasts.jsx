@@ -1,16 +1,14 @@
 // src/features/admin/pages/AdminBroadcasts.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { MegaphoneIcon } from '@heroicons/react/24/outline';
 import Navbar from '../../../shared/components/Navbar';
 import AdminTabs from '../components/shared/AdminTabs';
 import BroadcastForm from '../components/broadcasts/BroadcastForm';
 import BroadcastHistory from '../components/broadcasts/BroadcastHistory';
 import { useToast } from '../../../shared/hooks/useToast';
+import api from '../../../services/api';
 import {
   toDatetimeLocalValue,
   fromDatetimeLocalValue,
-  schoolOptions,
-  departmentOptions,
   generateMockBroadcasts
 } from '../components/broadcasts/broadcastUtils';
 
@@ -18,6 +16,13 @@ const DEFAULT_HISTORY_LIMIT = 25;
 
 const AdminBroadcasts = () => {
   const { showToast } = useToast();
+  
+  // Options from database
+  const [schoolOptions, setSchoolOptions] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [yearOptions, setYearOptions] = useState([]);
+  const [semesterOptions, setSemesterOptions] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -34,6 +39,33 @@ const AdminBroadcasts = () => {
   const [includeExpired, setIncludeExpired] = useState(false);
   const [historyLimit, setHistoryLimit] = useState(DEFAULT_HISTORY_LIMIT);
   const [editingBroadcastId, setEditingBroadcastId] = useState(null);
+
+  // Fetch schools, departments, years, and semesters from database
+  const fetchOptions = useCallback(async () => {
+    try {
+      setOptionsLoading(true);
+      // TODO: Replace with actual API calls
+      // const [schoolsRes, deptsRes, yearsRes, semestersRes] = await Promise.all([
+      //   api.get('/admin/schools'),
+      //   api.get('/admin/departments'),
+      //   api.get('/admin/academic-years'),
+      //   api.get('/admin/semesters')
+      // ]);
+      
+      // Mock data for now - in production, replace with API data
+      setTimeout(() => {
+        setSchoolOptions(['SCOPE', 'SENSE', 'SELECT', 'VITBS']);
+        setDepartmentOptions(['CSE', 'IT', 'ECE', 'EEE', 'Mechanical', 'Civil']);
+        setYearOptions(['2024-25', '2023-24', '2022-23']);
+        setSemesterOptions(['Fall Semester', 'Winter Semester', 'Summer Semester']);
+        setOptionsLoading(false);
+      }, 500);
+    } catch (err) {
+      console.error('Failed to load options:', err);
+      showToast('Unable to load dropdown options', 'error');
+      setOptionsLoading(false);
+    }
+  }, [showToast]);
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -107,6 +139,10 @@ const AdminBroadcasts = () => {
       setHistoryLoading(false);
     }
   }, [historyLimit, includeExpired, showToast]);
+
+  useEffect(() => {
+    fetchOptions();
+  }, [fetchOptions]);
 
   useEffect(() => {
     fetchHistory();
@@ -218,23 +254,6 @@ const AdminBroadcasts = () => {
         {/* Admin Tabs */}
         <AdminTabs />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <MegaphoneIcon className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Broadcast Center</h1>
-              <p className="text-sm text-gray-600">
-                
-              </p>
-            </div>
-          </div>
-          <p className="text-sm text-blue-600 mt-2">{activeAudienceDescription}</p>
-        </div>
-
-
         {/* Broadcast Form */}
         <BroadcastForm
           formData={formData}

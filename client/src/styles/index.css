@@ -1,6 +1,14 @@
 /* src/styles/index.css - REPLACE ENTIRE FILE */
 @import "tailwindcss";
 
+/* VISTA Brand Font */
+.vista-brand {
+  font-family: "BBH Hegarty", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: 0.02em;
+}
+
 /* Light Mode */
 html, body, #root {
   background-color: #f8fafc !important;

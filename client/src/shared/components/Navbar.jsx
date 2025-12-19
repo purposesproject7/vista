@@ -24,7 +24,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-blue-600">
+            <h1 className="vista-brand text-2xl font-bold text-blue-600">
               VISTA
             </h1>
             <p className="text-sm text-gray-600 mt-1">
@@ -36,17 +36,8 @@ const Navbar = () => {
             <UserMenu 
               user={user} 
               onChangePassword={() => setIsChangePasswordOpen(true)}
+              onLogout={handleLogout}
             />
-            
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleLogout}
-              className="flex items-center gap-2"
-            >
-              <ArrowRightOnRectangleIcon className="w-4 h-4" />
-              Logout
-            </Button>
           </div>
         </div>
       </div>

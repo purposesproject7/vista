@@ -1,8 +1,8 @@
 // src/shared/components/UserMenu.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { UserCircleIcon, KeyIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { UserCircleIcon, KeyIcon, ChevronDownIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 
-const UserMenu = ({ user, onChangePassword }) => {
+const UserMenu = ({ user, onChangePassword, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -44,6 +44,17 @@ const UserMenu = ({ user, onChangePassword }) => {
           >
             <KeyIcon className="w-4 h-4 text-gray-500" />
             Change Password
+          </button>
+          <div className="border-t border-gray-200 my-1"></div>
+          <button
+            onClick={() => {
+              setIsOpen(false);
+              onLogout();
+            }}
+            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+          >
+            <ArrowRightOnRectangleIcon className="w-4 h-4 text-red-500" />
+            Logout
           </button>
         </div>
       )}

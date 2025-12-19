@@ -207,92 +207,57 @@ const AdminReports = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Report Types */}
-          <div className="lg:col-span-1">
-            <Card className="p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Report Type</h3>
-              <div className="space-y-2">
-                {reportTypes.map((report) => {
-                  const Icon = report.icon;
-                  return (
-                    <button
-                      key={report.id}
-                      onClick={() => setSelectedReport(report.id)}
-                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                        selectedReport === report.id
-                          ? `border-${report.color}-500 bg-${report.color}-50`
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Icon className={`h-5 w-5 mt-0.5 ${
-                          selectedReport === report.id 
-                            ? `text-${report.color}-600` 
-                            : 'text-gray-400'
-                        }`} />
-                        <div className="flex-1">
-                          <p className={`font-medium text-sm ${
-                            selectedReport === report.id 
-                              ? `text-${report.color}-900` 
-                              : 'text-gray-900'
-                          }`}>
-                            {report.name}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {report.description}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </Card>
+        {/* Report Types */}
+        <div className="mb-6 bg-white rounded-lg shadow-sm p-2">
+          <div className="flex flex-wrap gap-2">
+            {reportTypes.map((report) => {
+              const Icon = report.icon;
+              const isActive = selectedReport === report.id;
+              
+              return (
+                <button
+                  key={report.id}
+                  onClick={() => setSelectedReport(report.id)}
+                  className={`
+                    flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium text-sm transition-all whitespace-nowrap
+                    ${isActive 
+                      ? 'bg-blue-600 text-white shadow-md' 
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                    }
+                  `}
+                  title={report.description}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{report.name}</span>
+                </button>
+              );
+            })}
           </div>
+        </div>
 
-          {/* Filters and Preview */}
-          <div className="lg:col-span-2">
-            {!selectedReport ? (
-              <Card className="p-12 text-center">
-                <DocumentArrowDownIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Select a Report Type
-                </h3>
+        {/* Filters and Preview */}
+        <div>
+          {!selectedReport ? (
+            <Card className="p-12 text-center">
+              <DocumentArrowDownIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Select a Report Type
+              </h3>
+              <p className="text-sm text-gray-600">
+                Choose a report type from above to configure filters and generate Excel export
+              </p>
+            </Card>
+          ) : (
+            <Card className="p-6">
+              <div className="mb-6">
                 <p className="text-sm text-gray-600">
-                  Choose a report type from the left to configure filters and generate Excel export
+                  {selectedReportData?.description}
                 </p>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                {/* Report Header */}
-                <Card className="p-6">
-                  <div className="flex items-start gap-4">
-                    {selectedReportData && (
-                      <>
-                        <div className={`p-3 rounded-lg bg-${selectedReportData.color}-100`}>
-                          {React.createElement(selectedReportData.icon, {
-                            className: `h-8 w-8 text-${selectedReportData.color}-600`
-                          })}
-                        </div>
-                        <div className="flex-1">
-                          <h2 className="text-xl font-bold text-gray-900">
-                            {selectedReportData.name}
-                          </h2>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {selectedReportData.description}
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </Card>
-
-                {/* Filters */}
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Configure Filters
-                  </h3>
+              </div>
+              
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Configure Filters
+              </h3>
                   
                   {selectedReportData?.isMaster ? (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -496,19 +461,17 @@ const AdminReports = () => {
                   )}
 
                   <div className="mt-6 pt-6 border-t border-gray-200">
-                    <Button
-                      onClick={handleGenerateReport}
-                      disabled={!validateFilters()}
-                      className="w-full md:w-auto"
-                    >
-                      <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
-                      Generate Excel Report
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-            )}
-          </div>
+                  <Button
+                    onClick={handleGenerateReport}
+                    disabled={!validateFilters()}
+                    className="w-full md:w-auto"
+                  >
+                    <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
+                    Generate Excel Report
+                  </Button>
+                </div>
+              </Card>
+          )}
         </div>
       </div>
     </div>
