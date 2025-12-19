@@ -185,7 +185,7 @@ router.post(
 router.post(
   "/projects/assign-review-panel",
   checkCoordinatorPermission("canAssignPanels"),
-  validateRequired(["projectId", "reviewType", "panelId"]),
+  validateRequired(["projectId", "reviewType"]),
   coordinatorController.assignReviewPanel,
 );
 
@@ -201,7 +201,7 @@ router.post(
 router.put(
   "/projects/reassign-panel",
   checkCoordinatorPermission("canReassignPanels"),
-  validateRequired(["projectId", "panelId", "reason"]),
+  validateRequired(["projectId", "reason"]),
   coordinatorController.reassignPanel,
 );
 
