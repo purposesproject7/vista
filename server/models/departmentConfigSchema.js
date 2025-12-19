@@ -56,7 +56,7 @@ const departmentConfigSchema = new mongoose.Schema(
     minPanelSize: {
       type: Number,
       required: true,
-      default: 3,
+      default: 1,
       min: 1,
       validate: {
         validator: function (value) {

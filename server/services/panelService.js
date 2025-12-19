@@ -49,12 +49,13 @@ export class PanelService {
     });
 
     if (config) {
+      const minSize = 1; // Enforce min panel size as 1
       if (
-        faculties.length < config.minPanelSize ||
+        faculties.length < minSize ||
         faculties.length > config.maxPanelSize
       ) {
         throw new Error(
-          `Panel size must be between ${config.minPanelSize} and ${config.maxPanelSize}.`,
+          `Panel size must be between ${minSize} and ${config.maxPanelSize}.`,
         );
       }
     }
@@ -87,7 +88,6 @@ export class PanelService {
     // Build panel members array
     const members = faculties.map((faculty, index) => ({
       faculty: faculty._id,
-      role: index === 0 ? "chair" : "member",
       addedAt: new Date(),
     }));
 
@@ -184,7 +184,6 @@ export class PanelService {
 
       panel.members = faculties.map((faculty, index) => ({
         faculty: faculty._id,
-        role: index === 0 ? "chair" : "member",
         addedAt: new Date(),
       }));
     }
@@ -284,7 +283,6 @@ export class PanelService {
 
     panel.members = faculties.map((faculty, index) => ({
       faculty: faculty._id,
-      role: index === 0 ? "chair" : "member",
       addedAt: new Date(),
     }));
 
@@ -333,8 +331,11 @@ static async autoCreatePanels(
       );
     }
 
-    // Use requested team size if provided, else config minPanelSize or 3
-    const effectivePanelSize = panelSize || config.minPanelSize || 3;
+    // Use requested team size if provided, else config minPanelSize or 2
+    let effectivePanelSize = parseInt(panelSize);
+    if (isNaN(effectivePanelSize) || effectivePanelSize <= 0) {
+      effectivePanelSize = config.minPanelSize || 2;
+    }
 
     // Get available faculty for this department
     let faculties = await Faculty.find({

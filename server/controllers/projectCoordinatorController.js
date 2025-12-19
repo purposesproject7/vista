@@ -960,11 +960,13 @@ export async function createPanel(req, res) {
 export async function autoCreatePanels(req, res) {
   try {
     const context = getCoordinatorContext(req);
+    const { panelSize } = req.body;
 
     const result = await PanelService.autoCreatePanels(
       context.academicYear,
       context.school,
       context.department,
+      panelSize || null,
       req.user._id,
     );
 
@@ -1053,7 +1055,6 @@ export async function updatePanelMembers(req, res) {
     // Update panel members (not creating new panel)
     panel.members = members.map((m) => ({
       faculty: m._id,
-      role: "member",
     }));
 
     panel.history = panel.history || [];
