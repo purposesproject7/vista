@@ -371,46 +371,35 @@ export class ProjectService {
       }
     }
 
-    // Create or update students
+    // Validate and assign students
     const studentIds = [];
     for (const studentData of students) {
       let regNo;
-      let isString = false;
 
       if (typeof studentData === "string") {
         regNo = studentData;
-        isString = true;
-      } else {
+      } else if (studentData && studentData.regNo) {
         regNo = studentData.regNo;
+      } else {
+        throw new Error("Invalid student data. Expected Reg No.");
       }
 
-      let student = await Student.findOne({ regNo });
+      const student = await Student.findOne({ regNo });
 
-      if (student) {
-        // Update existing student only if full data provided
-        if (!isString) {
-          Object.assign(student, studentData);
-          await student.save();
-        }
-      } else {
-        if (isString) {
-          throw new Error(
-            `Student with Reg No ${regNo} not found. Please provide full student details to create new student.`,
-          );
-        }
-        // Create new student
-        student = new Student({
-          ...studentData,
-          academicYear,
-          school,
-          department,
-        });
-        await student.save();
+      if (!student) {
+        throw new Error(`Student with Reg No ${regNo} not found.`);
+      }
 
-        logger.info("student_created_with_project", {
-          studentId: student._id,
-          regNo: student.regNo,
-        });
+      // Check if student is already assigned to an active project
+      const existingProject = await Project.findOne({
+        students: student._id,
+        status: "active",
+      });
+
+      if (existingProject) {
+        throw new Error(
+          `Student ${regNo} is already assigned to project '${existingProject.name}'.`,
+        );
       }
 
       studentIds.push(student._id);

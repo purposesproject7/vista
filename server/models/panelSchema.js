@@ -26,6 +26,12 @@ const panelSchema = new mongoose.Schema(
 
     specializations: [String],
 
+    type: {
+      type: String,
+      enum: ["regular", "temporary"],
+      default: "regular",
+    },
+
     maxProjects: { type: Number, default: 10 },
     assignedProjectsCount: { type: Number, default: 0 },
 

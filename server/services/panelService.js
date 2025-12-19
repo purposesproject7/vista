@@ -75,6 +75,7 @@ export class PanelService {
       venue,
       dateTime,
       specializations = [],
+      type = "regular",
     } = data;
 
     // Validate members
@@ -107,6 +108,7 @@ export class PanelService {
       school,
       department,
       specializations: specializations.length > 0 ? specializations : [],
+      type,
       maxProjects: config?.maxProjectsPerPanel || 10,
       assignedProjectsCount: 0,
       isActive: true,
@@ -599,5 +601,82 @@ static async autoCreatePanels(
     }
 
     return panel;
+  }
+
+  /**
+   * Reassign project to a different panel
+   */
+  static async reassignProjectToPanel(
+    projectId,
+    newPanelId,
+    reason,
+    performedBy,
+    skipSpecializationCheck = false,
+  ) {
+    const [project, newPanel] = await Promise.all([
+      Project.findById(projectId),
+      Panel.findById(newPanelId),
+    ]);
+
+    if (!project) throw new Error("Project not found.");
+    if (!newPanel) throw new Error("Target panel not found.");
+
+    // Verify context
+    if (
+      project.academicYear !== newPanel.academicYear ||
+      project.school !== newPanel.school ||
+      project.department !== newPanel.department
+    ) {
+      throw new Error(
+        "Project and panel must be in the same academic context.",
+      );
+    }
+
+    // Check capacity
+    if (newPanel.assignedProjectsCount >= newPanel.maxProjects) {
+      throw new Error(`Target panel is full (Max: ${newPanel.maxProjects}).`);
+    }
+
+    // Specialization check
+    if (!skipSpecializationCheck) {
+      if (
+        newPanel.specializations &&
+        newPanel.specializations.length > 0 &&
+        !newPanel.specializations.includes(project.specialization)
+      ) {
+        throw new Error(
+          `Specialization mismatch. Panel: [${newPanel.specializations.join(", ")}], Project: ${project.specialization}`,
+        );
+      }
+    }
+
+    const oldPanelId = project.panel;
+
+    // Decrement old panel count
+    if (oldPanelId) {
+      await Panel.findByIdAndUpdate(oldPanelId, {
+        $inc: { assignedProjectsCount: -1 },
+      });
+    }
+
+    // Increment new panel count
+    newPanel.assignedProjectsCount += 1;
+    await newPanel.save();
+
+    // Update project
+    project.panel = newPanelId;
+    project.history = project.history || [];
+    project.history.push({
+      action: "panel_reassigned",
+      previousPanel: oldPanelId,
+      newPanel: newPanelId,
+      reason,
+      performedBy,
+      performedAt: new Date(),
+    });
+
+    await project.save();
+
+    return { project, oldPanelId, newPanelId };
   }
 }

@@ -1458,6 +1458,27 @@ export async function assignPanelToProject(req, res) {
   try {
     const { panelId, projectId } = req.body;
 
+    // Fetch project and panel to validate specialization
+    const [project, panel] = await Promise.all([
+      Project.findById(projectId),
+      Panel.findById(panelId),
+    ]);
+
+    if (!project) throw new Error("Project not found.");
+    if (!panel) throw new Error("Panel not found.");
+
+    // Validate specialization match
+    if (
+      panel.specializations &&
+      panel.specializations.length > 0 &&
+      !panel.specializations.includes(project.specialization)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(", ")}], but project requires ${project.specialization}.`,
+      });
+    }
+
     const result = await PanelService.assignPanelToProject(
       panelId,
       projectId,
