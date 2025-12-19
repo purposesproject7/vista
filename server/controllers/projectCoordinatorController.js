@@ -1338,6 +1338,14 @@ export async function assignReviewPanel(req, res) {
 
 export async function autoAssignPanels(req, res) {
   try {
+    // Only primary coordinator can auto-assign panels
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can auto-assign panels.",
+      });
+    }
+
     const context = getCoordinatorContext(req);
     const { buffer } = req.body;
 
