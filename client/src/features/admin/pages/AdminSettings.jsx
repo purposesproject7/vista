@@ -6,6 +6,7 @@ import AcademicDataSettings from '../components/settings/AcademicDataSettings';
 import ProgramSettings from '../components/settings/ProgramSettings';
 import TeamSettings from '../components/settings/TeamSettings';
 import RubricSettings from '../components/settings/RubricSettings';
+import ModificationSettings from '../components/settings/ModificationSettings';
 import RoleManagement from '../components/RoleManagement';
 import SchedulerManagement from '../components/SchedulerManagement';
 import { INITIAL_FACULTY } from '../components/faculty-management/facultyData';
@@ -26,7 +27,8 @@ import {
   UserGroupIcon,
   KeyIcon,
   ClockIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  PencilSquareIcon
 } from '@heroicons/react/24/outline';
 
 const AdminSettings = () => {
@@ -110,6 +112,12 @@ const AdminSettings = () => {
       label: 'Rubrics', 
       icon: DocumentTextIcon,
       description: 'Manage rubric templates'
+    },
+    { 
+      id: 'modification', 
+      label: 'Modification', 
+      icon: PencilSquareIcon,
+      description: 'Modify project assignments'
     }
   ];
 
@@ -265,6 +273,10 @@ const AdminSettings = () => {
               schedules={schedules}
               setSchedules={setSchedules}
             />
+          )}
+
+          {activeTab === 'modification' && (
+            <ModificationSettings />
           )}
         </div>
       </div>
