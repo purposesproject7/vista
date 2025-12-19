@@ -75,6 +75,7 @@ export class PanelService {
       venue,
       dateTime,
       specializations = [],
+      type = "regular",
     } = data;
 
     // Validate members
@@ -107,6 +108,7 @@ export class PanelService {
       school,
       department,
       specializations: specializations.length > 0 ? specializations : [],
+      type,
       maxProjects: config?.maxProjectsPerPanel || 10,
       assignedProjectsCount: 0,
       isActive: true,

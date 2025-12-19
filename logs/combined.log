@@ -1,0 +1,2 @@
+{"database":"test","host":"ac-qo38lrr-shard-00-00.kjfjv3y.mongodb.net","level":"info","message":"database_connected","timestamp":"2025-12-18T12:51:34.791Z"}
+{"error":"Schema hasn't been registered for model \"BroadcastMessage\".\nUse mongoose.model(name, schema)","level":"error","message":"broadcast_index_scan_failed","timestamp":"2025-12-18T12:51:34.792Z"}

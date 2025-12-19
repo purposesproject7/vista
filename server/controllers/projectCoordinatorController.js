@@ -1210,11 +1210,37 @@ export async function assignPanel(req, res) {
 
 export async function assignReviewPanel(req, res) {
   try {
-    const { projectId, reviewType, panelId } = req.body;
+    const { projectId, reviewType, panelId, memberEmployeeIds } = req.body;
+    const context = getCoordinatorContext(req);
+
+    let targetPanelId = panelId;
+
+    // Case 1: Create Temp Panel (Change Faculty)
+    if (memberEmployeeIds && memberEmployeeIds.length > 0) {
+      const newPanel = await PanelService.createPanel(
+        {
+          memberEmployeeIds,
+          academicYear: context.academicYear,
+          school: context.school,
+          department: context.department,
+          venue: "TBD (Review Panel)",
+          specializations: [], // Temp panel
+          type: "temporary",
+        },
+        req.user._id,
+      );
+      targetPanelId = newPanel._id;
+    } else if (!targetPanelId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Either panelId or memberEmployeeIds must be provided for review panel assignment.",
+      });
+    }
 
     const [project, panel] = await Promise.all([
       Project.findById(projectId),
-      Panel.findById(panelId),
+      Panel.findById(targetPanelId),
     ]);
 
     if (!project) {
@@ -1241,7 +1267,8 @@ export async function assignReviewPanel(req, res) {
       });
     }
 
-    // Validate specialization match
+    // Specialization check skipped for manual review panel assignment as per requirement
+    /*
     if (
       panel.specializations &&
       panel.specializations.length > 0 &&
@@ -1252,6 +1279,7 @@ export async function assignReviewPanel(req, res) {
         message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(", ")}], but project requires ${project.specialization}.`,
       });
     }
+    */
 
     // Validate review type exists in marking schema
     const schema = await MarkingSchema.findOne(getCoordinatorContext(req));
@@ -1274,13 +1302,13 @@ export async function assignReviewPanel(req, res) {
     );
 
     if (existingIdx >= 0) {
-      project.reviewPanels[existingIdx].panel = panelId;
+      project.reviewPanels[existingIdx].panel = targetPanelId;
       project.reviewPanels[existingIdx].assignedBy = req.user._id;
       project.reviewPanels[existingIdx].assignedAt = new Date();
     } else {
       project.reviewPanels.push({
         reviewType,
-        panel: panelId,
+        panel: targetPanelId,
         assignedBy: req.user._id,
         assignedAt: new Date(),
       });
@@ -1291,13 +1319,14 @@ export async function assignReviewPanel(req, res) {
     logger.info("review_panel_assigned_by_coordinator", {
       projectId,
       reviewType,
-      panelId,
+      panelId: targetPanelId,
       coordinatorId: req.coordinator._id,
     });
 
     res.status(200).json({
       success: true,
       message: `Panel assigned to ${reviewType} successfully.`,
+      data: { projectId, reviewType, panelId: targetPanelId },
     });
   } catch (error) {
     res.status(400).json({
@@ -1362,6 +1391,7 @@ export async function reassignPanel(req, res) {
           department: context.department,
           venue: "TBD (Reassignment)",
           specializations: [], // Temp panel, skip strict specialization
+          type: "temporary",
         },
         req.user._id,
       );

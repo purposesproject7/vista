@@ -201,7 +201,7 @@ router.post(
 router.put(
   "/projects/reassign-panel",
   checkCoordinatorPermission("canReassignPanels"),
-  validateRequired(["projectId", "panelId", "reason"]),
+  validateRequired(["projectId", "reason"]),
   coordinatorController.reassignPanel,
 );
 
