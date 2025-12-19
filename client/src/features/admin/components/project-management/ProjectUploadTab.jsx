@@ -1,19 +1,21 @@
 // src/features/admin/components/project-management/ProjectUploadTab.jsx
 import React, { useState, useCallback } from 'react';
-import { ArrowUpTrayIcon, PlusCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, PlusCircleIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import AcademicFilterSelector from '../student-management/AcademicFilterSelector';
 import Button from '../../../../shared/components/Button';
 import Card from '../../../../shared/components/Card';
 import Input from '../../../../shared/components/Input';
-import Select from '../../../../shared/components/Select';
-import ProjectBulkUploadModal from './ProjectBulkUploadModal';
+import ExcelUpload from '../../../../shared/components/ExcelUpload';
 import * as adminApi from '../../services/adminApi';
 import { useToast } from '../../../../shared/hooks/useToast';
 
 const ProjectUploadTab = () => {
   const [filters, setFilters] = useState(null);
-  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [activeUploadMode, setActiveUploadMode] = useState('single'); // 'single' or 'bulk'
   const [isAddingProject, setIsAddingProject] = useState(false);
+  const [parsedData, setParsedData] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     guideFacultyEmpId: '',
@@ -23,20 +25,46 @@ const ProjectUploadTab = () => {
   });
   const { showToast } = useToast();
 
+  const templateColumns = ['name', 'guideFacultyEmpId', 'teamMembers', 'type', 'specialization'];
+
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);
   }, []);
 
-  const handleBulkUpload = useCallback(async (projectList) => {
-    try {
-      await adminApi.bulkUploadProjects(projectList);
-      showToast(`Successfully uploaded ${projectList.length} projects`, 'success');
-      return { success: true };
-    } catch (error) {
-      console.error('Error bulk uploading projects:', error);
-      throw error;
+  const handleDataParsed = (data) => {
+    setParsedData(data);
+    setUploadStatus(null);
+  };
+
+  const handleBulkUpload = async () => {
+    if (parsedData.length === 0) {
+      setUploadStatus({ success: false, message: 'No data to upload' });
+      return;
     }
-  }, [showToast]);
+
+    try {
+      setIsUploading(true);
+      setUploadStatus(null);
+
+      const enrichedData = parsedData.map(project => ({
+        ...project,
+        schoolId: filters?.school,
+        programId: filters?.programme,
+        yearId: filters?.year,
+        semesterId: filters?.semester
+      }));
+
+      await adminApi.bulkUploadProjects(enrichedData);
+      setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} projects` });
+      showToast('Projects uploaded successfully', 'success');
+      setParsedData([]);
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadStatus({ success: false, message: error.response?.data?.message || 'Failed to upload projects' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -106,20 +134,68 @@ const ProjectUploadTab = () => {
       {/* Upload Options - only show when filters are complete */}
       {filters && (
         <>
-          <div className="flex flex-wrap gap-3 mb-4">
-            <Button size="sm" onClick={() => setIsBulkUploadOpen(true)}>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Button 
+              size="sm" 
+              variant={activeUploadMode === 'bulk' ? 'primary' : 'secondary'}
+              onClick={() => setActiveUploadMode('bulk')}
+            >
               <ArrowUpTrayIcon className="w-4 h-4 mr-1" />
               Bulk Upload
             </Button>
-            <span className="text-xs text-gray-500 self-center">
+            <Button 
+              size="sm" 
+              variant={activeUploadMode === 'single' ? 'primary' : 'secondary'}
+              onClick={() => setActiveUploadMode('single')}
+            >
+              <PlusCircleIcon className="w-4 h-4 mr-1" />
+              Single Entry
+            </Button>
+            <span className="text-xs text-gray-500 self-center ml-2">
               {filters.schoolName} → {filters.programmeName} → {filters.yearName} → {filters.semesterName}
             </span>
           </div>
 
+          {/* Bulk Upload Section */}
+          {activeUploadMode === 'bulk' && (
+            <Card>
+              <div className="p-4 space-y-4">
+                <h3 className="text-base font-semibold text-gray-900">Bulk Upload Projects</h3>
+                
+                <ExcelUpload
+                  onDataParsed={handleDataParsed}
+                  templateColumns={templateColumns}
+                  entityName="Projects"
+                  maxFileSize={5 * 1024 * 1024}
+                />
+
+                <p className="text-xs text-gray-500">
+                  <strong>Note:</strong> Team members should be comma-separated registration numbers.
+                </p>
+
+                {uploadStatus && (
+                  <div className={`p-3 rounded-lg flex items-center gap-2 ${uploadStatus.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                    {uploadStatus.success ? <CheckCircleIcon className="w-4 h-4" /> : <XCircleIcon className="w-4 h-4" />}
+                    <span className="text-sm">{uploadStatus.message}</span>
+                  </div>
+                )}
+
+                {parsedData.length > 0 && (
+                  <div className="flex justify-end pt-3 border-t">
+                    <Button onClick={handleBulkUpload} disabled={isUploading} size="sm">
+                      {isUploading ? 'Uploading...' : `Upload ${parsedData.length} Projects`}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
           {/* Single Project Form */}
-          <Card>
-            <div className="p-4">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">Add Single Project</h3>
+          {activeUploadMode === 'single' && (
+            <Card>
+              <div className="p-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Add Single Project</h3>
 
               <form onSubmit={handleSubmitSingleProject} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -174,6 +250,7 @@ const ProjectUploadTab = () => {
                   <Button
                     type="button"
                     variant="secondary"
+                    size="sm"
                     onClick={() => setFormData({
                       name: '',
                       guideFacultyEmpId: '',
@@ -184,21 +261,14 @@ const ProjectUploadTab = () => {
                   >
                     Clear Form
                   </Button>
-                  <Button type="submit" disabled={isAddingProject}>
+                  <Button type="submit" disabled={isAddingProject} size="sm">
                     {isAddingProject ? 'Adding...' : 'Add Project'}
                   </Button>
                 </div>
               </form>
-            </div>
-          </Card>
-
-          {/* Bulk Upload Modal */}
-          <ProjectBulkUploadModal
-            isOpen={isBulkUploadOpen}
-            onClose={() => setIsBulkUploadOpen(false)}
-            onUpload={handleBulkUpload}
-            filters={filters}
-          />
+              </div>
+            </Card>
+          )}
         </>
       )}
     </div>
