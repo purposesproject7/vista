@@ -9,6 +9,7 @@ import ProjectCreation from '../components/project-management/ProjectCreation';
 import Card from '../../../shared/components/Card';
 import Button from '../../../shared/components/Button';
 import { useToast } from '../../../shared/hooks/useToast';
+import { getFilteredData } from '../data/sampleData';
 
 const ProjectManagement = () => {
   const [activeTab, setActiveTab] = useState('view');
@@ -51,71 +52,12 @@ const ProjectManagement = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Generate mock projects with marks data
-      setProjects([
-        {
-          id: 'PROJ001',
-          title: 'AI-Based Chatbot System',
-          description: 'Developing an intelligent chatbot using NLP techniques',
-          guide: { name: 'Dr. Rajesh Kumar', employeeID: 'EMP001' },
-          team: [
-            { name: 'John Doe', regNo: '21BCE1001' },
-            { name: 'Jane Smith', regNo: '21BCE1002' },
-            { name: 'Mike Johnson', regNo: '21BCE1003' }
-          ],
-          marksByStudent: {
-            '21BCE1001': [
-              {
-                reviewName: 'Review 1',
-                components: [
-                  { name: 'Concept', score: 18, max: 20 },
-                  { name: 'Implementation', score: 16, max: 20 },
-                  { name: 'Presentation', score: 17, max: 20 }
-                ]
-              },
-              {
-                reviewName: 'Review 2',
-                components: [
-                  { name: 'Progress', score: 19, max: 20 },
-                  { name: 'Technical Depth', score: 17, max: 20 }
-                ]
-              }
-            ],
-            '21BCE1002': [
-              {
-                reviewName: 'Review 1',
-                components: [
-                  { name: 'Concept', score: 16, max: 20 },
-                  { name: 'Implementation', score: 14, max: 20 },
-                  { name: 'Presentation', score: 15, max: 20 }
-                ]
-              }
-            ]
-          }
-        },
-        {
-          id: 'PROJ002',
-          title: 'Web-Based Project Management Tool',
-          description: 'Creating a collaborative project management platform',
-          guide: { name: 'Dr. Priya Sharma', employeeID: 'EMP002' },
-          team: [
-            { name: 'Sarah Williams', regNo: '21BCE1004' },
-            { name: 'Tom Brown', regNo: '21BCE1005' }
-          ],
-          marksByStudent: {
-            '21BCE1004': [
-              {
-                reviewName: 'Review 1',
-                components: [
-                  { name: 'Concept', score: 20, max: 20 },
-                  { name: 'Implementation', score: 19, max: 20 }
-                ]
-              }
-            ]
-          }
-        }
-      ]);
-      showToast('Projects loaded successfully', 'success');
+      // Get filtered projects based on selected year and semester
+      if (filters) {
+        const filteredProjects = getFilteredData(filters.year, filters.semester, 'projects');
+        setProjects(filteredProjects);
+        showToast(`Loaded ${filteredProjects.length} projects for ${filters.year}-26, Semester ${filters.semester}`, 'success');
+      }
     } catch (error) {
       console.error('Error fetching projects:', error);
       showToast('Failed to load projects', 'error');

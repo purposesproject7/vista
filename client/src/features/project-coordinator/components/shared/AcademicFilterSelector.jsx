@@ -94,11 +94,11 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-blue-600 transition-all duration-500"
-                style={{ width: `${(completedSteps / 4) * 100}%` }}
+                style={{ width: `${(completedSteps / 2) * 100}%` }}
               />
             </div>
           </div>
-          <span className="text-xs font-semibold text-gray-600">{completedSteps}/4</span>
+          <span className="text-xs font-semibold text-gray-600">{completedSteps}/2</span>
         </div>
         
         {allSelected && (

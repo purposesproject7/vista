@@ -9,6 +9,7 @@ import StudentCreate from '../components/student-management/StudentCreate';
 import Card from '../../../shared/components/Card';
 import Button from '../../../shared/components/Button';
 import { useToast } from '../../../shared/hooks/useToast';
+import { getFilteredData } from '../data/sampleData';
 
 const StudentManagement = () => {
   const [filters, setFilters] = useState(null);
@@ -50,28 +51,12 @@ const StudentManagement = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Generate mock students
-      const mockStudents = Array.from({ length: 12 }, (_, i) => ({
-        id: `STU${String(i + 1).padStart(4, '0')}`,
-        regNo: `21BCE${1000 + i}`,
-        name: `Student ${i + 1}`,
-        email: `student${i + 1}@vitstudent.ac.in`,
-        phone: `+91 9${String(i).padStart(9, '0')}`,
-        guide: 'Dr. Rajesh Kumar',
-        panelMember: 'Dr. Priya Sharma',
-        totalMarks: Math.floor(Math.random() * 100),
-        teammates: [
-          { id: `STU${String((i + 1) % 12).padStart(4, '0')}`, name: `Teammate ${(i + 1) % 12}` }
-        ],
-        reviewStatuses: [
-          { status: 'approved', faculty: 'Dr. A' },
-          { status: 'pending', faculty: 'Dr. B' },
-          { status: 'approved', faculty: 'Dr. C' }
-        ]
-      }));
-      
-      setStudents(mockStudents);
-      showToast('Students loaded successfully', 'success');
+      // Get filtered students based on selected year and semester
+      if (filters) {
+        const filteredStudents = getFilteredData(filters.year, filters.semester, 'students');
+        setStudents(filteredStudents);
+        showToast(`Loaded ${filteredStudents.length} students for ${filters.year}-26, Semester ${filters.semester}`, 'success');
+      }
     } catch (error) {
       console.error('Error fetching students:', error);
       showToast('Failed to load students', 'error');

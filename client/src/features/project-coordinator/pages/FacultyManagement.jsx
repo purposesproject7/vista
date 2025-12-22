@@ -3,15 +3,19 @@ import { useState, useEffect } from 'react';
 import { PlusCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
 import Navbar from '../../../shared/components/Navbar';
 import CoordinatorTabs from '../components/shared/CoordinatorTabs';
+import AcademicFilterSelector from '../components/shared/AcademicFilterSelector';
 import FacultyList from '../components/faculty-management/FacultyList';
 import FacultyModal from '../components/faculty-management/FacultyModal';
 import FacultyCreationTab from '../components/faculty-management/FacultyCreation';
+import Card from '../../../shared/components/Card';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useAuth } from '../../../shared/hooks/useAuth';
-import { INITIAL_FACULTY } from '../components/faculty-management/facultyData';
+import { getFilteredData } from '../data/sampleData';
 
 const FacultyManagement = () => {
-  const [faculty, setFaculty] = useState(INITIAL_FACULTY);
+  const [faculty, setFaculty] = useState([]);
+  const [filters, setFilters] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [isPrimary, setIsPrimary] = useState(true);
   const [activeTab, setActiveTab] = useState('view');
   const [showModal, setShowModal] = useState(false);
@@ -25,6 +29,7 @@ const FacultyManagement = () => {
   useEffect(() => {
     const fetchCoordinatorContext = async () => {
       try {
+        setLoading(true);
         // Get coordinator's school and programme from user data or API
         if (user && user.school && user.programme) {
           // Map school name to ID
@@ -60,11 +65,45 @@ const FacultyManagement = () => {
       } catch (error) {
         console.error('Error fetching coordinator context:', error);
         showToast('Error loading coordinator context', 'error');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchCoordinatorContext();
   }, [user, showToast]);
+
+  // Fetch faculty when filters change
+  useEffect(() => {
+    if (filters && activeTab === 'view') {
+      fetchFaculty();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, activeTab]);
+
+  const fetchFaculty = async () => {
+    try {
+      setLoading(true);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      // Get filtered faculty based on selected year and semester
+      if (filters) {
+        const filteredFaculty = getFilteredData(filters.year, filters.semester, 'faculty');
+        setFaculty(filteredFaculty);
+        showToast(`Loaded ${filteredFaculty.length} faculty members for ${filters.year}-26, Semester ${filters.semester}`, 'success');
+      }
+    } catch (error) {
+      console.error('Error fetching faculty:', error);
+      showToast('Failed to load faculty', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterComplete = (selectedFilters) => {
+    setFilters(selectedFilters);
+  };
 
   const facultyTabs = [
     {
@@ -131,7 +170,25 @@ const FacultyManagement = () => {
 
         {/* Tab Content */}
         {activeTab === 'view' && (
-          <FacultyList faculty={faculty} />
+          <div className="space-y-6">
+            {/* Filter Selector */}
+            <AcademicFilterSelector onFilterComplete={handleFilterComplete} />
+
+            {/* Faculty List */}
+            {filters && (
+              <>
+                {loading ? (
+                  <Card>
+                    <div className="py-12 flex justify-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    </div>
+                  </Card>
+                ) : (
+                  <FacultyList faculty={faculty} />
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {activeTab === 'create' && isPrimary && (

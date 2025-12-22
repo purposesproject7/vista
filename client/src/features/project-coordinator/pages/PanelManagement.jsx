@@ -4,6 +4,7 @@ import { PlusCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
 import Navbar from '../../../shared/components/Navbar';
 import CoordinatorTabs from '../components/shared/CoordinatorTabs';
 import PanelViewTab from '../components/panel-management/PanelViewTab';
+import PanelCreation from '../components/panel-management/PanelCreation';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import { useToast } from '../../../shared/hooks/useToast';
@@ -110,15 +111,7 @@ const PanelManagement = () => {
         {/* Tab Content */}
         <div>
           {activeTab === 'view' && <PanelViewTab isPrimary={isPrimary} />}
-          {activeTab === 'create' && isPrimary && (
-            <Card>
-              <div className="text-center py-12">
-                <PlusCircleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Panel Creation</h3>
-                <p className="text-gray-600 mb-6">Panel creation feature coming soon</p>
-              </div>
-            </Card>
-          )}
+          {activeTab === 'create' && isPrimary && <PanelCreation />}
         </div>
       </div>
     </div>

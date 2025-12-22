@@ -28,11 +28,18 @@ const Navbar = () => {
               VISTA
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              {user.role === 'faculty' ? 'Faculty Dashboard' : 'Admin Dashboard'}
+              {user.role === 'faculty' ? 'Faculty Dashboard' : user.role === 'project_coordinator' ? 'Project Coordinator Dashboard' : 'Admin Dashboard'}
             </p>
           </div>
           
           <div className="flex items-center gap-4">
+            <div className="text-right">
+              {user.role === 'project_coordinator' && (
+                <p className="text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-700 font-medium">
+                  {user.isPrimary ? 'Primary Coordinator' : 'Co-Coordinator'}
+                </p>
+              )}
+            </div>
             <UserMenu 
               user={user} 
               onChangePassword={() => setIsChangePasswordOpen(true)}

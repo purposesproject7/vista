@@ -5,6 +5,7 @@ import Button from '../../../../shared/components/Button';
 import Badge from '../../../../shared/components/Badge';
 import EmptyState from '../../../../shared/components/EmptyState';
 import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
+import StudentDetailsModal from './StudentDetailsModal';
 import { 
   UserGroupIcon, 
   PhoneIcon, 
@@ -17,12 +18,27 @@ import {
 
 const StudentList = ({ students = [], loading = false, onViewDetails, isPrimary = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const filteredStudents = students.filter(student => 
     student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.regNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleViewDetails = (student) => {
+    setSelectedStudent(student);
+    setShowModal(true);
+  };
+
+  const handleNavigateToStudent = (student) => {
+    // Find the student in the list by regNo or id
+    const foundStudent = students.find(s => s.regNo === student.regNo || s.id === student.id);
+    if (foundStudent) {
+      setSelectedStudent(foundStudent);
+    }
+  };
 
   const getPPTStatusBadge = (student) => {
     if (!student.reviewStatuses || student.reviewStatuses.length === 0) {
@@ -149,7 +165,7 @@ const StudentList = ({ students = [], loading = false, onViewDetails, isPrimary 
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => onViewDetails(student)}
+                    onClick={() => handleViewDetails(student)}
                     className="gap-2"
                   >
                     <EyeIcon className="w-4 h-4" />
@@ -166,7 +182,7 @@ const StudentList = ({ students = [], loading = false, onViewDetails, isPrimary 
                     {student.teammates.map((teammate) => (
                       <button
                         key={teammate.id}
-                        onClick={() => onViewDetails({ id: teammate.id })}
+                        onClick={() => handleViewDetails({ id: teammate.id })}
                         className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors border border-blue-200"
                       >
                         {teammate.name}
@@ -179,6 +195,18 @@ const StudentList = ({ students = [], loading = false, onViewDetails, isPrimary 
           ))}
         </div>
       )}
+
+      {/* Student Details Modal */}
+      <StudentDetailsModal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setSelectedStudent(null);
+        }}
+        student={selectedStudent}
+        onNavigateToStudent={handleNavigateToStudent}
+        students={students}
+      />
     </div>
   );
 };
