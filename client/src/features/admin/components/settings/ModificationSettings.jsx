@@ -23,16 +23,14 @@ const ModificationSettings = () => {
   // Academic context state
   const [academicContext, setAcademicContext] = useState({
     school: '',
-    department: '',
-    academicYear: '',
-    semester: ''
+    program: '',
+    academicYear: ''
   });
   
   const [contextOptions, setContextOptions] = useState({
     schools: [],
-    departments: [],
-    academicYears: [],
-    semesters: []
+    programs: [],
+    academicYears: []
   });
 
   // Faculty selection state
@@ -81,20 +79,16 @@ const ModificationSettings = () => {
           { value: 'SENSE', label: 'SENSE' },
           { value: 'SELECT', label: 'SELECT' }
         ],
-        departments: [
+        programs: [
           { value: 'CSE', label: 'Computer Science and Engineering' },
           { value: 'IT', label: 'Information Technology' },
           { value: 'ECE', label: 'Electronics and Communication' }
         ],
         academicYears: [
-          { value: '2025-26', label: '2025-26' },
-          { value: '2024-25', label: '2024-25' },
-          { value: '2023-24', label: '2023-24' }
-        ],
-        semesters: [
-          { value: 'Fall', label: 'Fall Semester' },
-          { value: 'Winter', label: 'Winter Semester' },
-          { value: 'Summer', label: 'Summer Semester' }
+          { value: '2025-26 Fall', label: '2025-26 Fall' },
+          { value: '2025-26 Winter', label: '2025-26 Winter' },
+          { value: '2024-25 Fall', label: '2024-25 Fall' },
+          { value: '2024-25 Winter', label: '2024-25 Winter' }
         ]
       });
     } catch (error) {
@@ -107,7 +101,7 @@ const ModificationSettings = () => {
 
   // Fetch faculty list when context is complete
   useEffect(() => {
-    if (academicContext.school && academicContext.department && academicContext.academicYear && academicContext.semester) {
+    if (academicContext.school && academicContext.program && academicContext.academicYear) {
       fetchFacultyList();
     }
   }, [academicContext]);
@@ -284,7 +278,7 @@ const ModificationSettings = () => {
     return facultyList.filter(f => f.employeeId !== selectedFaculty?.employeeId);
   }, [facultyList, selectedFaculty]);
 
-  const isContextComplete = academicContext.school && academicContext.department && academicContext.academicYear && academicContext.semester;
+  const isContextComplete = academicContext.school && academicContext.program && academicContext.academicYear;
 
   return (
     <div className="space-y-6">
@@ -315,39 +309,30 @@ const ModificationSettings = () => {
             Academic Context
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Select
               label="School"
               options={contextOptions.schools}
               value={academicContext.school}
-              onChange={(value) => setAcademicContext(prev => ({ ...prev, school: value, department: '' }))}
+              onChange={(value) => setAcademicContext(prev => ({ ...prev, school: value, program: '' }))}
               placeholder="Select school..."
             />
             
             <Select
-              label="Department"
-              options={contextOptions.departments}
-              value={academicContext.department}
-              onChange={(value) => setAcademicContext(prev => ({ ...prev, department: value }))}
-              placeholder="Select department..."
+              label="Program"
+              options={contextOptions.programs}
+              value={academicContext.program}
+              onChange={(value) => setAcademicContext(prev => ({ ...prev, program: value }))}
+              placeholder="Select program..."
               disabled={!academicContext.school}
             />
             
             <Select
-              label="Academic Year"
+              label="Academic Year & Semester"
               options={contextOptions.academicYears}
               value={academicContext.academicYear}
               onChange={(value) => setAcademicContext(prev => ({ ...prev, academicYear: value }))}
-              placeholder="Select year..."
-            />
-            
-            <Select
-              label="Semester"
-              options={contextOptions.semesters}
-              value={academicContext.semester}
-              onChange={(value) => setAcademicContext(prev => ({ ...prev, semester: value }))}
-              placeholder="Select semester..."
-              disabled={!academicContext.academicYear}
+              placeholder="Select year & semester..."
             />
           </div>
         </div>

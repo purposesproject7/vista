@@ -5,9 +5,8 @@ import Card from '../../../../shared/components/Card';
 import EmptyState from '../../../../shared/components/EmptyState';
 import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
 import ProjectDetailsModal from './ProjectDetailsModal';
-import { MOCK_PROJECTS } from '../../utils/mockProjectData';
 import { UserGroupIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
-import * as adminApi from '../../services/adminApi';
+import { fetchProjects } from '../../services/adminApi';
 import { useToast } from '../../../../shared/hooks/useToast';
 
 const ProjectViewTab = () => {
@@ -24,7 +23,7 @@ const ProjectViewTab = () => {
 
   // Fetch projects when filters change
   useEffect(() => {
-    const fetchProjects = async () => {
+    const loadProjects = async () => {
       if (!filters) {
         setProjects([]);
         return;
@@ -32,33 +31,27 @@ const ProjectViewTab = () => {
 
       try {
         setLoading(true);
-        const params = {
+        const response = await fetchProjects({
           school: filters.school,
-          department: filters.programme,
-          academicYear: filters.year,
-          semester: filters.semester
-        };
+          department: filters.department,
+          academicYear: filters.academicYear
+        });
         
-        const data = await adminApi.getAllProjects(params);
-        setProjects(data || []);
+        if (response.success) {
+          setProjects(response.projects || []);
+          showToast('Projects loaded successfully', 'success');
+        } else {
+          showToast(response.message || 'Failed to load projects', 'error');
+        }
       } catch (error) {
         console.error('Error fetching projects:', error);
-        showToast('Failed to load projects, using demo data', 'warning');
-        // Fallback to mock data
-        const filtered = MOCK_PROJECTS.filter(
-          project =>
-            project.schoolId === filters.school &&
-            project.programId === filters.programme &&
-            project.yearId === filters.year &&
-            project.semesterId === filters.semester
-        );
-        setProjects(filtered);
+        showToast(error.response?.data?.message || 'Failed to load projects', 'error');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProjects();
+    loadProjects();
   }, [filters, showToast]);
 
   return (
@@ -84,21 +77,21 @@ const ProjectViewTab = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {projects.map(project => {
                   const teamSize = project.teamMembers?.length || 0;
-                  const hasGuide = project.guideName && project.guideName !== 'Not Assigned';
+                  const guideName = project.guide?.name || 'Not Assigned';
 
                   return (
                     <Card
-                      key={project.id}
+                      key={project._id}
                       className="cursor-pointer hover:shadow-lg transition-all border-l-4 border-l-blue-500"
                       onClick={() => setSelectedProject(project)}
                     >
                       <div className="space-y-3">
                         <div>
                           <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
-                            {project.title}
+                            {project.name}
                           </h3>
                           <p className="text-xs text-gray-500">
-                            {project.type || 'Project'}
+                            {project.type || 'Capstone Project'}
                           </p>
                         </div>
 
@@ -109,11 +102,11 @@ const ProjectViewTab = () => {
                           </span>
                         </div>
 
-                        {hasGuide && (
+                        {guideName !== 'Not Assigned' && (
                           <div className="flex items-center gap-2 text-sm">
                             <AcademicCapIcon className="w-4 h-4 text-gray-400" />
                             <span className="text-gray-600 truncate">
-                              {project.guideName}
+                              {guideName}
                             </span>
                           </div>
                         )}

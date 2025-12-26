@@ -9,7 +9,8 @@ import ProjectCreation from '../components/project-management/ProjectCreation';
 import Card from '../../../shared/components/Card';
 import Button from '../../../shared/components/Button';
 import { useToast } from '../../../shared/hooks/useToast';
-import { getFilteredData } from '../data/sampleData';
+import { useAuth } from '../../../shared/hooks/useAuth';
+import { fetchProjects as apiFetchProjects } from '../services/coordinatorApi';
 
 const ProjectManagement = () => {
   const [activeTab, setActiveTab] = useState('view');
@@ -19,6 +20,7 @@ const ProjectManagement = () => {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   // Load coordinator permissions
   useEffect(() => {
@@ -49,18 +51,22 @@ const ProjectManagement = () => {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Get filtered projects based on selected year and semester
-      if (filters) {
-        const filteredProjects = getFilteredData(filters.year, filters.semester, 'projects');
-        setProjects(filteredProjects);
-        showToast(`Loaded ${filteredProjects.length} projects for ${filters.year}-26, Semester ${filters.semester}`, 'success');
+      const response = await apiFetchProjects({
+        school: user?.school,
+        department: user?.department,
+        academicYear: filters?.academicYear
+      });
+      
+      if (response.success) {
+        setProjects(response.projects || []);
+        showToast(`Loaded ${response.projects?.length || 0} projects`, 'success');
+      } else {
+        showToast(response.message || 'Failed to load projects', 'error');
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
-      showToast('Failed to load projects', 'error');
+      showToast(error.response?.data?.message || 'Failed to load projects', 'error');
     } finally {
       setLoading(false);
     }

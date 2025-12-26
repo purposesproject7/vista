@@ -4,11 +4,9 @@ import { ArrowUpTrayIcon, UserPlusIcon, CheckCircleIcon, XCircleIcon } from '@he
 import AcademicFilterSelector from '../student-management/AcademicFilterSelector';
 import Button from '../../../../shared/components/Button';
 import Card from '../../../../shared/components/Card';
-import Input from '../../../../shared/components/Input';
-import Select from '../../../../shared/components/Select';
 import ExcelUpload from '../../../../shared/components/ExcelUpload';
 import FacultyModal from './FacultyModal';
-import * as adminApi from '../../services/adminApi';
+import { createFaculty, bulkCreateFaculty } from '../../services/adminApi';
 import { useToast } from '../../../../shared/hooks/useToast';
 
 const FacultyUploadTab = () => {
@@ -20,7 +18,7 @@ const FacultyUploadTab = () => {
   const [uploadStatus, setUploadStatus] = useState(null);
   const { showToast } = useToast();
 
-  const templateColumns = ['name', 'employeeId', 'emailId', 'phoneNumber', 'specialization', 'role'];
+  const templateColumns = ['name', 'employeeId', 'emailId', 'phoneNumber', 'specialization', 'password', 'role'];
 
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);
@@ -41,21 +39,28 @@ const FacultyUploadTab = () => {
       setIsUploading(true);
       setUploadStatus(null);
 
+      // Enrich faculty data with academic context
       const enrichedData = parsedData.map(faculty => ({
         ...faculty,
-        schoolId: filters?.school,
-        programId: filters?.programme,
-        yearId: filters?.year,
-        semesterId: filters?.semester
+        school: filters.school,
+        department: filters.department,
+        role: faculty.role || 'faculty',
+        password: faculty.password || 'defaultPassword123' // Should require password in Excel
       }));
 
-      await adminApi.bulkUploadFaculty(enrichedData);
-      setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} faculty members` });
-      showToast('Faculty members uploaded successfully', 'success');
-      setParsedData([]);
+      const response = await bulkCreateFaculty(enrichedData);
+      
+      if (response.success) {
+        setUploadStatus({ success: true, message: response.message || `Successfully uploaded faculty members` });
+        showToast('Faculty members uploaded successfully', 'success');
+        setParsedData([]);
+      } else {
+        setUploadStatus({ success: false, message: response.message || 'Failed to upload faculty' });
+      }
     } catch (error) {
       console.error('Upload error:', error);
       setUploadStatus({ success: false, message: error.response?.data?.message || 'Failed to upload faculty' });
+      showToast(error.response?.data?.message || 'Failed to upload faculty', 'error');
     } finally {
       setIsUploading(false);
     }
@@ -65,19 +70,19 @@ const FacultyUploadTab = () => {
     try {
       const newFaculty = {
         ...facultyData,
-        schoolId: filters.school,
-        programId: filters.programme,
-        yearId: filters.year,
-        semesterId: filters.semester,
-        schoolName: filters.schoolName,
-        programmeName: filters.programmeName,
-        yearName: filters.yearName,
-        semesterName: filters.semesterName
+        school: filters.school,
+        department: filters.department,
+        role: facultyData.role || 'faculty'
       };
 
-      await adminApi.createFaculty(newFaculty);
-      showToast('Faculty member added successfully', 'success');
-      setIsSingleAddOpen(false);
+      const response = await createFaculty(newFaculty);
+      
+      if (response.success) {
+        showToast('Faculty member added successfully', 'success');
+        setIsSingleAddOpen(false);
+      } else {
+        showToast(response.message || 'Failed to add faculty', 'error');
+      }
     } catch (error) {
       console.error('Error adding faculty:', error);
       showToast(error.response?.data?.message || 'Failed to add faculty', 'error');
@@ -111,7 +116,7 @@ const FacultyUploadTab = () => {
               Add Faculty
             </Button>
             <span className="text-xs text-gray-500 self-center ml-2">
-              {filters.schoolName} → {filters.programmeName} → {filters.yearName} → {filters.semesterName}
+              {filters.school} → {filters.department} → {filters.academicYear}
             </span>
           </div>
 

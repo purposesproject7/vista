@@ -16,6 +16,12 @@ import Select from '../../../../shared/components/Select';
 import Badge from '../../../../shared/components/Badge';
 import EmptyState from '../../../../shared/components/EmptyState';
 import { useToast } from '../../../../shared/hooks/useToast';
+import { useAuth } from '../../../../shared/hooks/useAuth';
+import { 
+  fetchFaculty as apiFetchFaculty,
+  createPanel as apiCreatePanel,
+  bulkCreatePanels as apiBulkCreatePanels
+} from '../../services/coordinatorApi';
 
 const PanelCreation = () => {
   const [filters, setFilters] = useState(null);
@@ -24,6 +30,7 @@ const PanelCreation = () => {
   const [createdPanels, setCreatedPanels] = useState([]);
   const [availableFaculty, setAvailableFaculty] = useState([]);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   // Manual mode state
   const [manualForm, setManualForm] = useState({
@@ -75,19 +82,25 @@ const PanelCreation = () => {
   const fetchAvailableFaculty = useCallback(async (selectedFilters) => {
     try {
       setLoading(true);
-      // Simulate API call to get available faculty
-      await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Mock faculty data - in real implementation, fetch from backend
-      const mockFaculty = generateMockFaculty(50);
-      setAvailableFaculty(mockFaculty);
+      const response = await apiFetchFaculty({
+        school: user?.school,
+        department: user?.department,
+        academicYear: selectedFilters?.academicYear
+      });
+      
+      if (response.success) {
+        setAvailableFaculty(response.faculty || []);
+      } else {
+        showToast(response.message || 'Failed to fetch available faculty', 'error');
+      }
     } catch (error) {
       console.error('Error fetching faculty:', error);
-      showToast('Failed to fetch available faculty', 'error');
+      showToast(error.response?.data?.message || 'Failed to fetch available faculty', 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [user, showToast]);
 
   const generateMockFaculty = (count) => {
     const names = [

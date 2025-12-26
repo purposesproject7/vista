@@ -10,7 +10,7 @@ import FacultyCreationTab from '../components/faculty-management/FacultyCreation
 import Card from '../../../shared/components/Card';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useAuth } from '../../../shared/hooks/useAuth';
-import { getFilteredData } from '../data/sampleData';
+import { fetchFaculty as apiFetchFaculty, createFaculty as apiCreateFaculty, updateFaculty as apiUpdateFaculty, deleteFaculty as apiDeleteFaculty } from '../services/coordinatorApi';
 
 const FacultyManagement = () => {
   const [faculty, setFaculty] = useState([]);
@@ -84,18 +84,22 @@ const FacultyManagement = () => {
   const fetchFaculty = async () => {
     try {
       setLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Get filtered faculty based on selected year and semester
-      if (filters) {
-        const filteredFaculty = getFilteredData(filters.year, filters.semester, 'faculty');
-        setFaculty(filteredFaculty);
-        showToast(`Loaded ${filteredFaculty.length} faculty members for ${filters.year}-26, Semester ${filters.semester}`, 'success');
+      const response = await apiFetchFaculty({
+        school: user?.school,
+        department: user?.department,
+        academicYear: filters?.academicYear
+      });
+      
+      if (response.success) {
+        setFaculty(response.faculty || []);
+        showToast(`Loaded ${response.faculty?.length || 0} faculty members`, 'success');
+      } else {
+        showToast(response.message || 'Failed to load faculty', 'error');
       }
     } catch (error) {
       console.error('Error fetching faculty:', error);
-      showToast('Failed to load faculty', 'error');
+      showToast(error.response?.data?.message || 'Failed to load faculty', 'error');
     } finally {
       setLoading(false);
     }
@@ -208,20 +212,44 @@ const FacultyManagement = () => {
           setShowModal(false);
           setSelectedFaculty(null);
         }}
-        onSave={(formData) => {
-          if (selectedFaculty) {
-            // Update existing
-            setFaculty(faculty.map(f => f.id === selectedFaculty.id ? { ...selectedFaculty, ...formData } : f));
-            showToast('Faculty updated successfully', 'success');
-          } else {
-            // Add new
-            const newFaculty = {
-              ...formData,
-              id: `F${String(faculty.length + 1).padStart(3, '0')}`,
-              projects: []
-            };
-            setFaculty([...faculty, newFaculty]);
-            showToast('Faculty added successfully', 'success');
+        onSave={async (formData) => {
+          try {
+            if (selectedFaculty) {
+              // Update existing faculty
+              const response = await apiUpdateFaculty(selectedFaculty.id || selectedFaculty._id, formData);
+              
+              if (response.success) {
+                setFaculty(faculty.map(f => 
+                  (f.id === selectedFaculty.id || f._id === selectedFaculty._id) 
+                    ? { ...f, ...formData } 
+                    : f
+                ));
+                showToast('Faculty updated successfully', 'success');
+                setShowModal(false);
+                setSelectedFaculty(null);
+              } else {
+                showToast(response.message || 'Failed to update faculty', 'error');
+              }
+            } else {
+              // Create new faculty
+              const response = await apiCreateFaculty({
+                ...formData,
+                school: user?.school,
+                department: user?.department,
+                academicYear: filters?.academicYear
+              });
+              
+              if (response.success) {
+                setFaculty([...faculty, response.faculty]);
+                showToast('Faculty added successfully', 'success');
+                setShowModal(false);
+              } else {
+                showToast(response.message || 'Failed to create faculty', 'error');
+              }
+            }
+          } catch (error) {
+            console.error('Error saving faculty:', error);
+            showToast(error.response?.data?.message || 'Failed to save faculty', 'error');
           }
         }}
       />

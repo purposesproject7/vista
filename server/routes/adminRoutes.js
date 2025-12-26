@@ -46,6 +46,8 @@ router.post(
   adminController.createAcademicYear,
 );
 
+router.put("/master-data/academic-years/:id", adminController.updateAcademicYear);
+
 /**
  * Department configuration & feature locks
  */

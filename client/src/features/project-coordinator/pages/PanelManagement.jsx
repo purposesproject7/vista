@@ -8,25 +8,22 @@ import PanelCreation from '../components/panel-management/PanelCreation';
 import Button from '../../../shared/components/Button';
 import Card from '../../../shared/components/Card';
 import { useToast } from '../../../shared/hooks/useToast';
+import { useAuth } from '../../../shared/hooks/useAuth';
 
 const PanelManagement = () => {
   const [activeTab, setActiveTab] = useState('view');
   const [isPrimary, setIsPrimary] = useState(false);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   // Load coordinator permissions
   useEffect(() => {
     const fetchCoordinatorPermissions = async () => {
       try {
         setLoading(true);
-        // Simulate API call to get coordinator permissions
-        // In real implementation: const response = await api.get('/coordinator/permissions');
-        // setIsPrimary(response.data.isPrimary);
-        
-        // Mock data for now
-        await new Promise(resolve => setTimeout(resolve, 300));
-        setIsPrimary(true); // Mock: assuming user is primary coordinator
+        // Get isPrimary from user context
+        setIsPrimary(user?.isPrimary || false);
       } catch (error) {
         console.error('Error fetching coordinator permissions:', error);
         showToast('Error loading permissions', 'error');
@@ -36,7 +33,7 @@ const PanelManagement = () => {
     };
 
     fetchCoordinatorPermissions();
-  }, [showToast]);
+  }, [user, showToast]);
 
   const panelTabs = [
     {

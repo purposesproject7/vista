@@ -2013,6 +2013,89 @@ export async function createAcademicYear(req, res) {
   }
 }
 
+/**
+ * Update academic year
+ */
+export async function updateAcademicYear(req, res) {
+  try {
+    const { id } = req.params;
+    const { year, isActive } = req.body;
+
+    const masterData = await getOrCreateMasterData();
+
+    const academicYear = masterData.academicYears.id(id);
+
+    if (!academicYear) {
+      return res.status(404).json({
+        success: false,
+        message: "Academic year not found.",
+      });
+    }
+
+    // Handle soft delete
+    if (isActive !== undefined) {
+      academicYear.isActive = isActive;
+      await masterData.save();
+
+      logger.info("academic_year_deleted", {
+        yearId: id,
+        deletedBy: req.user._id,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Academic year deleted successfully.",
+        data: academicYear,
+      });
+    }
+
+    // Handle update
+    if (!year) {
+      return res.status(400).json({
+        success: false,
+        message: "Year field is required for update.",
+      });
+    }
+
+    // Check for duplicates (excluding current year)
+    const duplicate = masterData.academicYears.find(
+      (ay) => ay._id.toString() !== id && ay.year === year && ay.isActive !== false,
+    );
+
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        message: "Academic year already exists.",
+      });
+    }
+
+    academicYear.year = year;
+    await masterData.save();
+
+    logger.info("academic_year_updated", {
+      yearId: id,
+      year,
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Academic year updated successfully.",
+      data: academicYear,
+    });
+  } catch (error) {
+    logger.error("update_academic_year_error", {
+      error: error.message,
+      stack: error.stack,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: "Error updating academic year.",
+    });
+  }
+}
+
 // ===== DEPARTMENT CONFIG =====
 
 export async function getDepartmentConfig(req, res) {

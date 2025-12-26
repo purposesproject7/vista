@@ -4,18 +4,26 @@ import Card from '../../../../../shared/components/Card';
 import Button from '../../../../../shared/components/Button';
 import Modal from '../../../../../shared/components/Modal';
 import { useToast } from '../../../../../shared/hooks/useToast';
+import { useAuth } from '../../../../../shared/hooks/useAuth';
 import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import RequestFilters from './RequestFilters';
 import FacultyRequestCard from './FacultyRequestCard';
 import { 
-  generateMockRequests, 
   groupRequestsByFaculty, 
   applyFilters 
 } from './requestUtils';
+import { 
+  fetchRequests, 
+  approveRequest as apiApproveRequest,
+  rejectRequest as apiRejectRequest,
+  approveMultipleRequests as apiApproveMultipleRequests
+} from '../../../services/coordinatorApi';
 
 const RequestList = () => {
   const { showToast } = useToast();
-  const [requests, setRequests] = useState(generateMockRequests());
+  const { user } = useAuth();
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     school: '',
     program: '',
@@ -27,6 +35,34 @@ const RequestList = () => {
   const [selectedFacultyId, setSelectedFacultyId] = useState(null);
   const [approvalReason, setApprovalReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Fetch requests from API
+  React.useEffect(() => {
+    const loadRequests = async () => {
+      try {
+        setLoading(true);
+        const response = await fetchRequests({
+          school: user?.school,
+          department: user?.department
+        });
+        
+        if (response.success) {
+          setRequests(response.requests || []);
+        } else {
+          showToast(response.message || 'Failed to load requests', 'error');
+        }
+      } catch (error) {
+        console.error('Error fetching requests:', error);
+        showToast(error.response?.data?.message || 'Failed to load requests', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.school && user?.department) {
+      loadRequests();
+    }
+  }, [user, showToast]);
 
   // Apply filters and group by faculty
   const filteredRequests = useMemo(() => {
@@ -50,29 +86,51 @@ const RequestList = () => {
     });
   };
 
-  const handleApproveRequest = (requestId) => {
-    setRequests(prevRequests =>
-      prevRequests.map(request =>
-        request.id === requestId
-          ? { ...request, status: 'approved', approvalReason: 'Approved by coordinator' }
-          : request
-      )
-    );
-    showToast('Request approved successfully', 'success');
+  const handleApproveRequest = async (requestId) => {
+    try {
+      const response = await apiApproveRequest(requestId, 'Approved by coordinator');
+      
+      if (response.success) {
+        setRequests(prevRequests =>
+          prevRequests.map(request =>
+            request.id === requestId || request._id === requestId
+              ? { ...request, status: 'approved', approvalReason: 'Approved by coordinator' }
+              : request
+          )
+        );
+        showToast('Request approved successfully', 'success');
+      } else {
+        showToast(response.message || 'Failed to approve request', 'error');
+      }
+    } catch (error) {
+      console.error('Error approving request:', error);
+      showToast(error.response?.data?.message || 'Failed to approve request', 'error');
+    }
   };
 
-  const handleRejectRequest = (requestId) => {
+  const handleRejectRequest = async (requestId) => {
     const reason = window.prompt('Please provide a reason for rejection:');
     if (!reason) return;
 
-    setRequests(prevRequests =>
-      prevRequests.map(request =>
-        request.id === requestId
-          ? { ...request, status: 'rejected', rejectionReason: reason }
-          : request
-      )
-    );
-    showToast('Request rejected', 'success');
+    try {
+      const response = await apiRejectRequest(requestId, reason);
+      
+      if (response.success) {
+        setRequests(prevRequests =>
+          prevRequests.map(request =>
+            request.id === requestId || request._id === requestId
+              ? { ...request, status: 'rejected', rejectionReason: reason }
+              : request
+          )
+        );
+        showToast('Request rejected', 'success');
+      } else {
+        showToast(response.message || 'Failed to reject request', 'error');
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      showToast(error.response?.data?.message || 'Failed to reject request', 'error');
+    }
   };
 
   const handleOpenApproveAllModal = (facultyId) => {
@@ -88,31 +146,38 @@ const RequestList = () => {
 
     setIsProcessing(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setRequests(prevRequests =>
-        prevRequests.map(request =>
-          request.facultyId === selectedFacultyId && request.status === 'pending'
-            ? { ...request, status: 'approved', approvalReason }
-            : request
-        )
-      );
+    try {
+      const requestIds = pendingRequestsForFaculty.map(r => r.id || r._id);
+      const response = await apiApproveMultipleRequests(requestIds, approvalReason);
       
-      const faculty = facultyGroups.find(f => f.id === selectedFacultyId);
-      const pendingCount = requests.filter(
-        r => r.facultyId === selectedFacultyId && r.status === 'pending'
-      ).length;
-      
-      showToast(
-        `Successfully approved ${pendingCount} request${pendingCount !== 1 ? 's' : ''} for ${faculty?.name}`,
-        'success'
-      );
-      
-      setShowApproveAllModal(false);
-      setSelectedFacultyId(null);
-      setApprovalReason('');
+      if (response.success) {
+        setRequests(prevRequests =>
+          prevRequests.map(request =>
+            requestIds.includes(request.id || request._id)
+              ? { ...request, status: 'approved', approvalReason }
+              : request
+          )
+        );
+        
+        const faculty = facultyGroups.find(f => f.id === selectedFacultyId);
+        
+        showToast(
+          `Successfully approved ${requestIds.length} request${requestIds.length !== 1 ? 's' : ''} for ${faculty?.name}`,
+          'success'
+        );
+        
+        setShowApproveAllModal(false);
+        setSelectedFacultyId(null);
+        setApprovalReason('');
+      } else {
+        showToast(response.message || 'Failed to approve requests', 'error');
+      }
+    } catch (error) {
+      console.error('Error approving requests:', error);
+      showToast(error.response?.data?.message || 'Failed to approve requests', 'error');
+    } finally {
       setIsProcessing(false);
-    }, 1000);
+    }
   };
 
   const selectedFaculty = facultyGroups.find(f => f.id === selectedFacultyId);
@@ -127,27 +192,37 @@ const RequestList = () => {
         onReset={handleResetFilters}
       />
 
-      {/* Faculty Request Cards */}
-      <div className="space-y-4">
-        {facultyGroups.length === 0 ? (
-          <Card>
-            <div className="p-8 text-center text-gray-500">
-              <p>No requests found matching the selected filters</p>
-            </div>
-          </Card>
-        ) : (
-          facultyGroups.map((faculty) => (
-            <FacultyRequestCard
-              key={faculty.id}
-              faculty={faculty}
-              requests={faculty.requests}
-              onApproveRequest={handleApproveRequest}
-              onRejectRequest={handleRejectRequest}
-              onApproveAll={handleOpenApproveAllModal}
-            />
-          ))
-        )}
-      </div>
+      {/* Loading State */}
+      {loading ? (
+        <Card>
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-500">Loading requests...</p>
+          </div>
+        </Card>
+      ) : (
+        /* Faculty Request Cards */
+        <div className="space-y-4">
+          {facultyGroups.length === 0 ? (
+            <Card>
+              <div className="p-8 text-center text-gray-500">
+                <p>No requests found matching the selected filters</p>
+              </div>
+            </Card>
+          ) : (
+            facultyGroups.map((faculty) => (
+              <FacultyRequestCard
+                key={faculty.id}
+                faculty={faculty}
+                requests={faculty.requests}
+                onApproveRequest={handleApproveRequest}
+                onRejectRequest={handleRejectRequest}
+                onApproveAll={handleOpenApproveAllModal}
+              />
+            ))
+          )}
+        </div>
+      )}
 
       {/* Approve All Modal */}
       <Modal

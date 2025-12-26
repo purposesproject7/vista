@@ -15,6 +15,8 @@ import Badge from '../../../../shared/components/Badge';
 import EmptyState from '../../../../shared/components/EmptyState';
 import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
 import { useToast } from '../../../../shared/hooks/useToast';
+import { useAuth } from '../../../../shared/hooks/useAuth';
+import { fetchPanels as apiFetchPanels } from '../../services/coordinatorApi';
 
 const PanelViewTab = ({ isPrimary = false }) => {
   const [filters, setFilters] = useState(null);
@@ -24,6 +26,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [markingFilter, setMarkingFilter] = useState('all');
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   // Fetch panels when filters change
   useEffect(() => {
@@ -37,19 +40,25 @@ const PanelViewTab = ({ isPrimary = false }) => {
     try {
       setLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const response = await apiFetchPanels({
+        school: user?.school,
+        department: user?.department,
+        academicYear: filters?.academicYear
+      });
       
-      // Use mock data directly
-      setPanels(generateMockPanels());
-      showToast('Panels loaded successfully', 'success');
+      if (response.success) {
+        setPanels(response.panels || []);
+        showToast(`Loaded ${response.panels?.length || 0} panels`, 'success');
+      } else {
+        showToast(response.message || 'Failed to load panels', 'error');
+      }
     } catch (error) {
       console.error('Error fetching panels:', error);
-      showToast('Failed to load panels', 'error');
+      showToast(error.response?.data?.message || 'Failed to load panels', 'error');
     } finally {
       setLoading(false);
     }
-  }, [filters, showToast]);
+  }, [filters, user, showToast]);
 
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);
