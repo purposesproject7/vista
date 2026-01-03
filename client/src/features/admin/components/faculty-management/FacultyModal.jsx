@@ -1,75 +1,55 @@
 // src/features/admin/components/faculty-management/FacultyModal.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../../../../shared/components/Modal';
 import Input from '../../../../shared/components/Input';
 import Select from '../../../../shared/components/Select';
 import Button from '../../../../shared/components/Button';
-import { SCHOOLS, PROGRAMMES_BY_SCHOOL, YEARS } from '../../../../shared/constants/config';
 
 const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    phone: '',
+    employeeId: '',
+    emailId: '',
+    phoneNumber: '',
     school: '',
-    program: '',
-    year: '',
     department: '',
-    designation: '',
-    specialization: ''
+    specialization: '',
+    role: 'faculty'
   });
 
   useEffect(() => {
-    if (faculty) {
-      setFormData(faculty);
-    } else {
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        school: SCHOOLS[0]?.name || '',
-        program: '',
-        year: YEARS[0]?.label || '',
-        department: '',
-        designation: '',
-        specialization: ''
-      });
+    if (isOpen) {
+      if (faculty) {
+        // Map backend fields to form fields
+        setFormData({
+          name: faculty.name || '',
+          employeeId: faculty.employeeId || '',
+          emailId: faculty.emailId || faculty.email || '',
+          phoneNumber: faculty.phoneNumber || faculty.phone || '',
+          school: faculty.school || '',
+          department: faculty.department || '',
+          specialization: faculty.specialization || '',
+          role: faculty.role || 'faculty'
+        });
+      } else {
+        setFormData({
+          name: '',
+          employeeId: '',
+          emailId: '',
+          phoneNumber: '',
+          school: '',
+          department: '',
+          specialization: '',
+          role: 'faculty'
+        });
+      }
     }
   }, [faculty, isOpen]);
-
-  const schools = useMemo(() => 
-    SCHOOLS.map(school => ({ value: school.name, label: school.name })),
-  []);
-
-  const programs = useMemo(() => {
-    const allPrograms = Object.values(PROGRAMMES_BY_SCHOOL).flat();
-    return allPrograms.map(program => ({ value: program.name, label: program.name }));
-  }, []);
-
-  const years = useMemo(() => 
-    YEARS.map(year => ({ value: year.label, label: year.label })),
-  []);
-
-  const departments = [
-    { value: 'Computer Science', label: 'Computer Science' },
-    { value: 'Electronics', label: 'Electronics' },
-    { value: 'Mechanical', label: 'Mechanical' },
-    { value: 'Civil', label: 'Civil' },
-    { value: 'Business', label: 'Business' }
-  ];
-
-  const designations = [
-    { value: 'Professor', label: 'Professor' },
-    { value: 'Associate Professor', label: 'Associate Professor' },
-    { value: 'Assistant Professor', label: 'Assistant Professor' },
-    { value: 'Senior Lecturer', label: 'Senior Lecturer' },
-    { value: 'Lecturer', label: 'Lecturer' }
-  ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (!formData.name.trim() || !formData.email.trim()) {
+    if (!formData.name.trim() || !formData.emailId.trim()) {
       alert('Please fill in all required fields');
       return;
     }
@@ -78,7 +58,7 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
   };
 
   const handleChange = (field, value) => {
-    setFormData({ ...formData, [field]: value });
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -98,9 +78,22 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
             </label>
             <Input
               value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
+              onChange={(value) => handleChange('name', value)}
               placeholder="Dr. John Smith"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Employee ID <span className="text-red-500">*</span>
+            </label>
+            <Input
+              value={formData.employeeId}
+              onChange={(value) => handleChange('employeeId', value)}
+              placeholder="EMP001"
+              required
+              disabled={!!faculty}
             />
           </div>
 
@@ -111,8 +104,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
               </label>
               <Input
                 type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
+                value={formData.emailId}
+                onChange={(value) => handleChange('emailId', value)}
                 placeholder="john.smith@university.edu"
                 required
               />
@@ -124,8 +117,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
               </label>
               <Input
                 type="tel"
-                value={formData.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
+                value={formData.phoneNumber}
+                onChange={(value) => handleChange('phoneNumber', value)}
                 placeholder="+91 9876543210"
               />
             </div>
@@ -141,35 +134,12 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 School <span className="text-red-500">*</span>
               </label>
-              <Select
+              <Input
                 value={formData.school}
-                onChange={(e) => handleChange('school', e.target.value)}
-                options={schools}
+                onChange={(value) => handleChange('school', value)}
+                placeholder="School of Engineering"
                 required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Program <span className="text-red-500">*</span>
-              </label>
-              <Select
-                value={formData.program}
-                onChange={(e) => handleChange('program', e.target.value)}
-                options={programs}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Year <span className="text-red-500">*</span>
-              </label>
-              <Select
-                value={formData.year}
-                onChange={(e) => handleChange('year', e.target.value)}
-                options={years}
-                required
+                disabled={!!faculty}
               />
             </div>
 
@@ -177,23 +147,12 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Department <span className="text-red-500">*</span>
               </label>
-              <Select
+              <Input
                 value={formData.department}
-                onChange={(e) => handleChange('department', e.target.value)}
-                options={departments}
+                onChange={(value) => handleChange('department', value)}
+                placeholder="Computer Science"
                 required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Designation <span className="text-red-500">*</span>
-              </label>
-              <Select
-                value={formData.designation}
-                onChange={(e) => handleChange('designation', e.target.value)}
-                options={designations}
-                required
+                disabled={!!faculty}
               />
             </div>
 
@@ -203,8 +162,23 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty }) => {
               </label>
               <Input
                 value={formData.specialization}
-                onChange={(e) => handleChange('specialization', e.target.value)}
+                onChange={(value) => handleChange('specialization', value)}
                 placeholder="e.g., Machine Learning, IoT"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Role <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={formData.role}
+                onChange={(e) => handleChange('role', e.target.value)}
+                options={[
+                  { value: 'faculty', label: 'Faculty' },
+                  { value: 'admin', label: 'Admin' }
+                ]}
+                required
               />
             </div>
           </div>

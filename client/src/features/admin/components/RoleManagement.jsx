@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   UserGroupIcon, 
   StarIcon,
@@ -10,16 +10,14 @@ import {
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import Card from '../../../shared/components/Card';
 import Button from '../../../shared/components/Button';
+import LoadingSpinner from '../../../shared/components/LoadingSpinner';
 import { useToast } from '../../../shared/hooks/useToast';
+import { fetchProjectCoordinators, assignProjectCoordinator, updateCoordinatorPermissions, removeProjectCoordinator, fetchFaculty } from '../services/adminApi';
 
 const RoleManagement = ({
   schools,
   programsBySchool,
-  years,
-  semesters,
-  facultyData,
-  coordinatorAssignments: coordinatorAssignmentsProp,
-  setCoordinatorAssignments: setCoordinatorAssignmentsProp
+  years
 }) => {
   const { showToast } = useToast();
   
@@ -27,22 +25,13 @@ const RoleManagement = ({
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedProgramme, setSelectedProgramme] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
-  const [selectedSemester, setSelectedSemester] = useState('');
   
-  // Role assignments (stored globally in real app)
-  const [localCoordinatorAssignments, setLocalCoordinatorAssignments] = useState([
-    {
-      schoolId: 1,
-      programId: 1,
-      yearId: 2024,
-      semesterId: 1,
-      coordinators: ['F001', 'F002'],
-      mainCoordinator: 'F001'
-    }
-  ]);
-
-  const coordinatorAssignments = coordinatorAssignmentsProp ?? localCoordinatorAssignments;
-  const setCoordinatorAssignments = setCoordinatorAssignmentsProp ?? setLocalCoordinatorAssignments;
+  // Role assignments
+  const [coordinatorAssignments, setCoordinatorAssignments] = useState([]);
+  
+  // Faculty list
+  const [facultyList, setFacultyList] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   // Search and selection
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,95 +40,102 @@ const RoleManagement = ({
   // Get available programmes based on selected school
   const availableProgrammes = useMemo(() => {
     if (!selectedSchool) return [];
-    return programsBySchool?.[selectedSchool] || [];
-  }, [selectedSchool, programsBySchool]);
+    const schoolObj = schools.find(s => s.code === selectedSchool);
+    if (!schoolObj) return [];
+    return programsBySchool?.[schoolObj.code] || [];
+  }, [selectedSchool, programsBySchool, schools]);
 
   // Filter progress calculation
   const filtersComplete = useMemo(() => {
     const completed = [
       selectedSchool,
       selectedProgramme,
-      selectedYear,
-      selectedSemester
+      selectedYear
     ].filter(Boolean).length;
-    return { completed, total: 4, percentage: (completed / 4) * 100 };
-  }, [selectedSchool, selectedProgramme, selectedYear, selectedSemester]);
+    return { completed, total: 3, percentage: (completed / 3) * 100 };
+  }, [selectedSchool, selectedProgramme, selectedYear]);
+
+  // Load coordinators and faculty when context changes
+  useEffect(() => {
+    if (filtersComplete.completed === 3) {
+      loadCoordinatorsAndFaculty();
+    } else {
+      setCoordinatorAssignments([]);
+      setFacultyList([]);
+    }
+  }, [selectedSchool, selectedProgramme, selectedYear]);
+
+  const loadCoordinatorsAndFaculty = async () => {
+    setLoading(true);
+    try {
+      // Get year name
+      const yearObj = years.find(y => y.id === parseInt(selectedYear));
+      const schoolObj = schools.find(s => s.code === selectedSchool);
+      const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
+
+      if (!yearObj || !schoolObj || !programObj) {
+        return;
+      }
+
+      // Fetch coordinators for this context
+      const coordResponse = await fetchProjectCoordinators({
+        academicYear: yearObj.name,
+        school: schoolObj.code,
+        department: programObj.code
+      });
+
+      if (coordResponse.success) {
+        setCoordinatorAssignments(coordResponse.data || []);
+      }
+
+      // Fetch all faculty for this school/department
+      const facultyResponse = await fetchFaculty({
+        school: schoolObj.code,
+        department: programObj.code
+      });
+
+      if (facultyResponse.success) {
+        setFacultyList(facultyResponse.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      showToast('Failed to load coordinators and faculty', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get faculty for selected context
   const contextFaculty = useMemo(() => {
-    if (filtersComplete.completed !== 4) return [];
-    
-    return (facultyData || []).filter(
-      (faculty) =>
-        faculty.schoolId === parseInt(selectedSchool) &&
-        faculty.programId === parseInt(selectedProgramme) &&
-        faculty.yearId === parseInt(selectedYear) &&
-        faculty.semesterId === parseInt(selectedSemester)
-    );
-  }, [selectedSchool, selectedProgramme, selectedYear, selectedSemester, filtersComplete, facultyData]);
+    if (filtersComplete.completed !== 3) return [];
+    return facultyList.filter(f => f.role === 'faculty' || f.role === 'project-coordinator');
+  }, [facultyList, filtersComplete]);
 
   // Search filtered faculty
   const filteredFaculty = useMemo(() => {
-    if (!searchTerm) return contextFaculty;
-    
+    if (!searchTerm.trim()) return contextFaculty;
     const term = searchTerm.toLowerCase();
-    return contextFaculty.filter(
-      (faculty) =>
-        faculty.name.toLowerCase().includes(term) ||
-        faculty.id.toLowerCase().includes(term) ||
-        faculty.email.toLowerCase().includes(term)
+    return contextFaculty.filter(f =>
+      f.name.toLowerCase().includes(term) ||
+      f.employeeId.toLowerCase().includes(term) ||
+      f.email?.toLowerCase().includes(term)
     );
   }, [contextFaculty, searchTerm]);
 
-  // Get current context assignment
-  const currentAssignment = useMemo(() => {
-    if (filtersComplete.completed !== 4) return null;
-    
-    return coordinatorAssignments.find(
-      (assignment) =>
-        assignment.schoolId === parseInt(selectedSchool) &&
-        assignment.programId === parseInt(selectedProgramme) &&
-        assignment.yearId === parseInt(selectedYear) &&
-        assignment.semesterId === parseInt(selectedSemester)
-    );
-  }, [coordinatorAssignments, selectedSchool, selectedProgramme, selectedYear, selectedSemester, filtersComplete]);
-
-  // Get assigned coordinators with details
+  // Assigned coordinators
   const assignedCoordinators = useMemo(() => {
-    if (!currentAssignment) return [];
+    if (coordinatorAssignments.length === 0) return [];
     
-    return currentAssignment.coordinators
-      .map(id => contextFaculty.find(f => f.id === id))
-      .filter(Boolean);
-  }, [currentAssignment, contextFaculty]);
+    return coordinatorAssignments.map(coord => {
+      const faculty = facultyList.find(f => f._id === coord.facultyId?._id || f._id === coord.facultyId);
+      return {
+        ...coord,
+        faculty: faculty || coord.facultyId
+      };
+    }).filter(c => c.faculty);
+  }, [coordinatorAssignments, facultyList]);
 
   // Handlers
-  const handleSchoolChange = (value) => {
-    setSelectedSchool(value);
-    setSelectedProgramme('');
-    setSelectedYear('');
-    setSelectedSemester('');
-    setSelectedFaculty([]);
-  };
-
-  const handleProgrammeChange = (value) => {
-    setSelectedProgramme(value);
-    setSelectedYear('');
-    setSelectedSemester('');
-    setSelectedFaculty([]);
-  };
-
-  const handleYearChange = (value) => {
-    setSelectedYear(value);
-    setSelectedSemester('');
-    setSelectedFaculty([]);
-  };
-
-  const handleSemesterChange = (value) => {
-    setSelectedSemester(value);
-    setSelectedFaculty([]);
-  };
-
   const toggleFacultySelection = (facultyId) => {
     setSelectedFaculty(prev => 
       prev.includes(facultyId) 
@@ -148,112 +144,79 @@ const RoleManagement = ({
     );
   };
 
-  const handleAssignCoordinators = () => {
+  const handleAssignCoordinators = async () => {
     if (selectedFaculty.length === 0) {
       showToast('Please select at least one faculty member', 'error');
       return;
     }
 
-    const contextKey = {
-      schoolId: parseInt(selectedSchool),
-      programId: parseInt(selectedProgramme),
-      yearId: parseInt(selectedYear),
-      semesterId: parseInt(selectedSemester)
-    };
+    const yearObj = years.find(y => y.id === parseInt(selectedYear));
+    const schoolObj = schools.find(s => s.code === selectedSchool);
+    const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
 
-    const existingIndex = coordinatorAssignments.findIndex(
-      a => a.schoolId === contextKey.schoolId &&
-           a.programId === contextKey.programId &&
-           a.yearId === contextKey.yearId &&
-           a.semesterId === contextKey.semesterId
-    );
-
-    if (existingIndex >= 0) {
-      // Update existing assignment
-      const updated = [...coordinatorAssignments];
-      const currentMain = updated[existingIndex].mainCoordinator;
-
-      const mergedCoordinators = Array.from(
-        new Set([...(updated[existingIndex].coordinators || []), ...selectedFaculty])
-      );
-
-      updated[existingIndex] = {
-        ...contextKey,
-        coordinators: mergedCoordinators,
-        mainCoordinator: mergedCoordinators.includes(currentMain) ? currentMain : mergedCoordinators[0]
-      };
-      setCoordinatorAssignments(updated);
-    } else {
-      // Create new assignment
-      setCoordinatorAssignments([
-        ...coordinatorAssignments,
-        {
-          ...contextKey,
-          coordinators: selectedFaculty,
-          mainCoordinator: selectedFaculty[0]
-        }
-      ]);
+    if (!yearObj || !schoolObj || !programObj) {
+      showToast('Invalid context', 'error');
+      return;
     }
 
-    showToast(`${selectedFaculty.length} coordinator(s) assigned successfully`, 'success');
-    setSelectedFaculty([]);
-  };
-
-  const handleSetMainCoordinator = (facultyId) => {
-    const contextKey = {
-      schoolId: parseInt(selectedSchool),
-      programId: parseInt(selectedProgramme),
-      yearId: parseInt(selectedYear),
-      semesterId: parseInt(selectedSemester)
-    };
-
-    const index = coordinatorAssignments.findIndex(
-      a => a.schoolId === contextKey.schoolId &&
-           a.programId === contextKey.programId &&
-           a.yearId === contextKey.yearId &&
-           a.semesterId === contextKey.semesterId
-    );
-
-    if (index >= 0) {
-      const updated = [...coordinatorAssignments];
-      updated[index].mainCoordinator = facultyId;
-      setCoordinatorAssignments(updated);
-      showToast('Main coordinator updated successfully', 'success');
-    }
-  };
-
-  const handleRemoveCoordinator = (facultyId) => {
-    const contextKey = {
-      schoolId: parseInt(selectedSchool),
-      programId: parseInt(selectedProgramme),
-      yearId: parseInt(selectedYear),
-      semesterId: parseInt(selectedSemester)
-    };
-
-    const index = coordinatorAssignments.findIndex(
-      a => a.schoolId === contextKey.schoolId &&
-           a.programId === contextKey.programId &&
-           a.yearId === contextKey.yearId &&
-           a.semesterId === contextKey.semesterId
-    );
-
-    if (index >= 0) {
-      const updated = [...coordinatorAssignments];
-      const newCoordinators = updated[index].coordinators.filter(id => id !== facultyId);
-      
-      if (newCoordinators.length === 0) {
-        // Remove entire assignment if no coordinators left
-        updated.splice(index, 1);
-      } else {
-        updated[index].coordinators = newCoordinators;
-        // Update main coordinator if removed
-        if (updated[index].mainCoordinator === facultyId) {
-          updated[index].mainCoordinator = newCoordinators[0];
-        }
+    setLoading(true);
+    try {
+      // Assign each selected faculty as coordinator
+      for (const facultyId of selectedFaculty) {
+        await assignProjectCoordinator(
+          facultyId,
+          yearObj.name,
+          schoolObj.code,
+          programObj.code,
+          false
+        );
       }
+
+      showToast(`${selectedFaculty.length} coordinator(s) assigned successfully`, 'success');
+      setSelectedFaculty([]);
       
-      setCoordinatorAssignments(updated);
+      // Reload data
+      await loadCoordinatorsAndFaculty();
+    } catch (error) {
+      console.error('Error assigning coordinators:', error);
+      showToast(error.response?.data?.message || 'Failed to assign coordinators', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetMainCoordinator = async (coordinatorId) => {
+    setLoading(true);
+    try {
+      await updateCoordinatorPermissions(coordinatorId, {
+        isPrimary: true
+      });
+      
+      showToast('Main coordinator updated successfully', 'success');
+      await loadCoordinatorsAndFaculty();
+    } catch (error) {
+      console.error('Error setting main coordinator:', error);
+      showToast('Failed to update main coordinator', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveCoordinator = async (coordinatorId) => {
+    if (!window.confirm('Are you sure you want to remove this coordinator?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await removeProjectCoordinator(coordinatorId);
       showToast('Coordinator removed successfully', 'success');
+      await loadCoordinatorsAndFaculty();
+    } catch (error) {
+      console.error('Error removing coordinator:', error);
+      showToast('Failed to remove coordinator', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -261,202 +224,194 @@ const RoleManagement = ({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Role Management</h2>
-        <p className="text-sm text-gray-600">Assign Project Coordinators for each academic context</p>
+        <h2 className="text-xl font-bold text-gray-900">Role Management</h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Assign and manage project coordinators for specific academic contexts
+        </p>
       </div>
 
-      {/* Academic Context Selection */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Academic Context</h3>
-        
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">
-              Selection Progress: {filtersComplete.completed}/4
-            </span>
-            {filtersComplete.completed === 4 && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded">
-                <CheckCircleIcon className="h-4 w-4" />
-                Complete
-              </span>
-            )}
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${filtersComplete.percentage}%` }}
-            />
-          </div>
-        </div>
+      {/* Context Selection */}
+      <Card>
+        <div className="p-6">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">Academic Context</h3>
+          
+          <div className="space-y-4">
+            {/* Progress Bar */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">
+                  Selection Progress: {filtersComplete.completed}/3
+                </span>
+                <span className="text-sm text-gray-500">
+                  {Math.round(filtersComplete.percentage)}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${filtersComplete.percentage}%` }}
+                />
+              </div>
+            </div>
 
-        {/* Filters Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              School <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={selectedSchool}
-              onChange={(e) => handleSchoolChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            >
-              <option value="">Select School</option>
-              {(schools || []).map((school) => (
-                <option key={school.id} value={school.id}>
-                  {school.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Filter Dropdowns */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  School
+                </label>
+                <select
+                  value={selectedSchool}
+                  onChange={(e) => {
+                    setSelectedSchool(e.target.value);
+                    setSelectedProgramme('');
+                    setSelectedYear('');
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select School</option>
+                  {schools.map((school) => (
+                    <option key={school.code} value={school.code}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Programme <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={selectedProgramme}
-              onChange={(e) => handleProgrammeChange(e.target.value)}
-              disabled={!selectedSchool}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select Programme</option>
-              {availableProgrammes.map((programme) => (
-                <option key={programme.id} value={programme.id}>
-                  {programme.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Programme
+                </label>
+                <select
+                  value={selectedProgramme}
+                  onChange={(e) => {
+                    setSelectedProgramme(e.target.value);
+                    setSelectedYear('');
+                  }}
+                  disabled={!selectedSchool}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                >
+                  <option value="">Select Programme</option>
+                  {availableProgrammes.map((prog) => (
+                    <option key={prog.code} value={prog.code}>
+                      {prog.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Academic Year <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={selectedYear}
-              onChange={(e) => handleYearChange(e.target.value)}
-              disabled={!selectedProgramme}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select Year</option>
-              {(years || []).map((year) => (
-                <option key={year.id} value={year.id}>
-                  {year.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Semester <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={selectedSemester}
-              onChange={(e) => handleSemesterChange(e.target.value)}
-              disabled={!selectedYear}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Select Semester</option>
-              {(semesters || []).map((semester) => (
-                <option key={semester.id} value={semester.id}>
-                  {semester.name}
-                </option>
-              ))}
-            </select>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Academic Year & Semester
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  disabled={!selectedProgramme}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                >
+                  <option value="">Select Year</option>
+                  {years.map((year) => (
+                    <option key={year.id} value={year.id}>
+                      {year.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
 
-      {/* Faculty Selection - Only shown when context is complete */}
-      {filtersComplete.completed === 4 && (
-        <>
-          {/* Current Coordinators */}
-          {assignedCoordinators.length > 0 && (
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Current Project Coordinators ({assignedCoordinators.length})
-                </h3>
-                {assignedCoordinators.length > 1 && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <StarIconSolid className="h-4 w-4 text-yellow-500" />
-                    <span>Main Coordinator</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {assignedCoordinators.map((faculty) => {
-                  const isMain = currentAssignment?.mainCoordinator === faculty.id;
-                  return (
-                    <div
-                      key={faculty.id}
-                      className={`relative p-4 border-2 rounded-lg ${
-                        isMain 
-                          ? 'border-yellow-400 bg-yellow-50' 
-                          : 'border-gray-200 bg-white'
-                      }`}
-                    >
-                      {isMain && (
-                        <div className="absolute -top-2 -right-2">
-                          <StarIconSolid className="h-6 w-6 text-yellow-500" />
-                        </div>
-                      )}
-                      
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{faculty.name}</h4>
-                          <p className="text-sm text-gray-600">{faculty.designation}</p>
-                          <p className="text-sm text-gray-500 mt-1">ID: {faculty.id}</p>
-                          <p className="text-sm text-gray-500">{faculty.email}</p>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                          {!isMain && assignedCoordinators.length > 1 && (
-                            <button
-                              onClick={() => handleSetMainCoordinator(faculty.id)}
-                              className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                              title="Set as Main Coordinator"
-                            >
-                              <StarIcon className="h-5 w-5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleRemoveCoordinator(faculty.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Remove Coordinator"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {isMain && (
-                        <div className="mt-2 pt-2 border-t border-yellow-200">
-                          <span className="text-xs font-medium text-yellow-700">
-                            Main Project Coordinator
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          )}
-
-          {/* Faculty Selection */}
-          <Card className="p-6">
+      {/* Assigned Coordinators */}
+      {filtersComplete.completed === 3 && (
+        <Card>
+          <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <UserGroupIcon className="h-5 w-5 text-blue-600" />
+                Assigned Coordinators ({assignedCoordinators.length})
+              </h3>
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : assignedCoordinators.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <UserGroupIcon className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                <p>No coordinators assigned yet</p>
+                <p className="text-sm mt-2">Select faculty below to assign them as coordinators</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {assignedCoordinators.map((coord) => (
+                  <div
+                    key={coord._id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      {coord.isPrimary && (
+                        <StarIconSolid className="h-5 w-5 text-yellow-500" />
+                      )}
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {coord.faculty?.name || coord.facultyId?.name}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {coord.faculty?.employeeId || coord.facultyId?.employeeId}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {!coord.isPrimary && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleSetMainCoordinator(coord._id)}
+                          disabled={loading}
+                        >
+                          <StarIcon className="h-4 w-4 mr-1" />
+                          Set as Main
+                        </Button>
+                      )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleRemoveCoordinator(coord._id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={loading}
+                      >
+                        <TrashIcon className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Faculty Selection */}
+      {filtersComplete.completed === 3 && (
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900">
                 Assign New Coordinators
               </h3>
               {selectedFaculty.length > 0 && (
-                <Button onClick={handleAssignCoordinators} variant="primary">
-                  <PlusIcon className="h-5 w-5 mr-2" />
-                  Assign {selectedFaculty.length} Coordinator{selectedFaculty.length > 1 ? 's' : ''}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleAssignCoordinators}
+                  disabled={loading}
+                >
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Assign {selectedFaculty.length} Coordinator{selectedFaculty.length !== 1 ? 's' : ''}
                 </Button>
               )}
             </div>
@@ -465,89 +420,69 @@ const RoleManagement = ({
             <div className="mb-4">
               <input
                 type="text"
-                placeholder="Search by name, employee ID, or email..."
+                placeholder="Search faculty by name, ID, or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             {/* Faculty List */}
-            {filteredFaculty.length === 0 ? (
-              <div className="text-center py-12">
-                <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">
-                  {contextFaculty.length === 0 
-                    ? 'No faculty found for this academic context' 
-                    : 'No faculty match your search criteria'}
-                </p>
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <LoadingSpinner />
+              </div>
+            ) : filteredFaculty.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p>No faculty found for this context</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {filteredFaculty.map((faculty) => {
-                  const isSelected = selectedFaculty.includes(faculty.id);
-                  const isAlreadyAssigned = currentAssignment?.coordinators.includes(faculty.id);
-                  
+                  const isAssigned = assignedCoordinators.some(
+                    c => (c.faculty?._id || c.facultyId?._id || c.facultyId) === faculty._id
+                  );
+                  const isSelected = selectedFaculty.includes(faculty._id);
+
                   return (
                     <div
-                      key={faculty.id}
-                      onClick={() => !isAlreadyAssigned && toggleFacultySelection(faculty.id)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                        isAlreadyAssigned
-                          ? 'border-green-300 bg-green-50 opacity-60 cursor-not-allowed'
+                      key={faculty._id}
+                      onClick={() => !isAssigned && toggleFacultySelection(faculty._id)}
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-all cursor-pointer ${
+                        isAssigned
+                          ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-60'
                           : isSelected
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                          ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200'
+                          : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <input
-                            type="checkbox"
-                            checked={isSelected || isAlreadyAssigned}
-                            disabled={isAlreadyAssigned}
-                            onChange={() => {}}
-                            className="h-5 w-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                          />
-                          <div>
-                            <h4 className="font-semibold text-gray-900">{faculty.name}</h4>
-                            <div className="flex items-center gap-4 mt-1">
-                              <p className="text-sm text-gray-600">{faculty.designation}</p>
-                              <p className="text-sm text-gray-500">ID: {faculty.id}</p>
-                            </div>
-                            <p className="text-sm text-gray-500">{faculty.email}</p>
-                          </div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected || isAssigned}
+                          disabled={isAssigned}
+                          onChange={() => {}}
+                          className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                        />
+                        <div>
+                          <p className="font-medium text-gray-900">{faculty.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {faculty.employeeId} • {faculty.email}
+                          </p>
                         </div>
-                        
-                        {isAlreadyAssigned && (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                            <CheckCircleIcon className="h-4 w-4" />
-                            Already Assigned
-                          </span>
-                        )}
                       </div>
+                      {isAssigned && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          Already Assigned
+                        </span>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
-
-            {selectedFaculty.length > 1 && (
-              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <ExclamationTriangleIcon className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">Multiple Coordinators Selected</p>
-                    <p>
-                      The first selected faculty will be set as the Main Coordinator by default. 
-                      You can change this after assignment.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </Card>
-        </>
+          </div>
+        </Card>
       )}
     </div>
   );

@@ -35,7 +35,6 @@ router.post(
     "name",
     "emailId",
     "employeeId",
-    "password",
     "role",
     "specialization",
   ]),

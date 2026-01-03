@@ -90,6 +90,12 @@ export async function createFaculty(req, res) {
     req.body.school = context.school;
     req.body.department = context.department;
 
+    // Fixes 1 & 2: Enforce role 'faculty', prevent creating coordinators
+    // and set default password "Vit<empid>@123"
+    req.body.role = "faculty";
+    req.body.isProjectCoordinator = false;
+    req.body.password = `Vit${req.body.employeeId}@123`;
+
     const faculty = await FacultyService.createFaculty(req.body, req.user._id);
 
     logger.info("faculty_created_by_coordinator", {
@@ -960,7 +966,7 @@ export async function createPanel(req, res) {
 export async function autoCreatePanels(req, res) {
   try {
     const context = getCoordinatorContext(req);
-    const { panelSize } = req.body;
+    const { panelSize, facultyList } = req.body;
 
     const result = await PanelService.autoCreatePanels(
       context.academicYear,
@@ -968,6 +974,7 @@ export async function autoCreatePanels(req, res) {
       context.department,
       panelSize || null,
       req.user._id,
+      facultyList,
     );
 
     res.status(200).json({
@@ -2144,6 +2151,35 @@ export async function getStudentPerformanceReport(req, res) {
       success: true,
       data: performance,
       count: performance.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getDepartmentConfig(req, res) {
+  try {
+    const context = getCoordinatorContext(req);
+
+    const config = await DepartmentConfig.findOne({
+      academicYear: context.academicYear,
+      school: context.school,
+      department: context.department,
+    });
+
+    if (!config) {
+      return res.status(404).json({
+        success: false,
+        message: "Department configuration not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: config,
     });
   } catch (error) {
     res.status(500).json({

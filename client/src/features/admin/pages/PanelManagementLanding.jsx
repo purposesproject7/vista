@@ -1,11 +1,12 @@
 // src/features/admin/pages/PanelManagementLanding.jsx
 import React, { useState } from 'react';
-import { PlusCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { PlusCircleIcon, EyeIcon, LinkIcon } from '@heroicons/react/24/outline';
 import Navbar from '../../../shared/components/Navbar';
 import AdminTabs from '../components/shared/AdminTabs';
 import PanelCreationTab from '../components/panel-management/PanelCreationTab';
 import PanelViewTab from '../components/panel-management/PanelViewTab';
 import PanelSummaryTab from '../components/panel-management/PanelSummaryTab';
+import ProjectPanelAssignment from '../components/panel-management/ProjectPanelAssignment';
 
 const PanelManagementLanding = () => {
   const [activeTab, setActiveTab] = useState('create');
@@ -22,6 +23,12 @@ const PanelManagementLanding = () => {
       label: 'Panel View',
       icon: EyeIcon,
       description: 'View existing panels'
+    },
+    {
+      id: 'assign',
+      label: 'Project Assignment',
+      icon: LinkIcon,
+      description: 'Assign projects to panels'
     },
     {
       id: 'summary',
@@ -72,8 +79,9 @@ const PanelManagementLanding = () => {
         {/* Panel Content */}
         <div>
           {activeTab === 'create' && <PanelCreationTab />}
-          {activeTab === 'summary' && <PanelSummaryTab />}
           {activeTab === 'view' && <PanelViewTab />}
+          {activeTab === 'assign' && <ProjectPanelAssignment />}
+          {activeTab === 'summary' && <PanelSummaryTab />}
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import FacultyList from './FacultyList';
 import FacultyModal from './FacultyModal';
 import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
 import { useToast } from '../../../../shared/hooks/useToast';
-import { INITIAL_FACULTY } from './facultyData';
+import { fetchFaculty, updateFaculty, deleteFaculty } from '../../services/adminApi';
 
 const FacultyViewTab = () => {
   const [filters, setFilters] = useState(null);
@@ -27,29 +27,27 @@ const FacultyViewTab = () => {
   // Fetch faculty when filters change
   useEffect(() => {
     if (filters) {
-      fetchFaculty();
+      loadFaculty();
     }
   }, [filters]);
 
-  const fetchFaculty = async () => {
+  const loadFaculty = async () => {
     setLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Filter the mock data based on applied filters
-      const filteredData = INITIAL_FACULTY.filter(member => {
-        if (member.schoolId !== parseInt(filters.school)) return false;
-        if (member.programId !== parseInt(filters.programme)) return false;
-        if (member.yearId !== parseInt(filters.year)) return false;
-        if (member.semesterId !== parseInt(filters.semester)) return false;
-        return true;
+      const response = await fetchFaculty({
+        school: filters.school,
+        department: filters.department,
+        academicYear: filters.academicYear
       });
-
-      setAllFaculty(filteredData);
-      setSearchQuery('');
+      
+      if (response.success) {
+        setAllFaculty(response.faculty || []);
+      } else {
+        showToast(response.message || 'Failed to load faculty', 'error');
+      }
     } catch (error) {
-      showToast('Error fetching faculty data', 'error');
+      console.error('Error fetching faculty:', error);
+      showToast(error.response?.data?.message || 'Error fetching faculty data', 'error');
     } finally {
       setLoading(false);
     }
@@ -61,17 +59,10 @@ const FacultyViewTab = () => {
 
     const query = searchQuery.toLowerCase();
     return allFaculty.filter(member => {
-      if (member.name.toLowerCase().includes(query)) return true;
-      if (member.id.toLowerCase().includes(query)) return true;
-      if (member.email.toLowerCase().includes(query)) return true;
-      
-      if (member.projects && member.projects.length > 0) {
-        return member.projects.some(project => 
-          project.title.toLowerCase().includes(query) ||
-          project.studentName.toLowerCase().includes(query) ||
-          project.studentRegNo.toLowerCase().includes(query)
-        );
-      }
+      if (member.name?.toLowerCase().includes(query)) return true;
+      if (member.employeeId?.toLowerCase().includes(query)) return true;
+      if (member.email?.toLowerCase().includes(query)) return true;
+      if (member.specialization?.some(s => s.toLowerCase().includes(query))) return true;
       
       return false;
     });
@@ -79,20 +70,20 @@ const FacultyViewTab = () => {
 
   const handleEditFaculty = async (facultyData) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const response = await updateFaculty(selectedFaculty.employeeId, facultyData);
       
-      const updatedFaculty = allFaculty.map(member => 
-        member.id === selectedFaculty.id 
-          ? { ...member, ...facultyData }
-          : member
-      );
-      
-      setAllFaculty(updatedFaculty);
-      showToast('Faculty member updated successfully', 'success');
-      setIsModalOpen(false);
-      setSelectedFaculty(null);
+      if (response.success) {
+        // Reload faculty list to get updated data
+        await loadFaculty();
+        showToast('Faculty member updated successfully', 'success');
+        setIsModalOpen(false);
+        setSelectedFaculty(null);
+      } else {
+        showToast(response.message || 'Failed to update faculty', 'error');
+      }
     } catch (error) {
-      showToast('Error updating faculty member', 'error');
+      console.error('Error updating faculty:', error);
+      showToast(error.response?.data?.message || 'Error updating faculty member', 'error');
     }
   };
 
@@ -103,14 +94,19 @@ const FacultyViewTab = () => {
     
     if (confirmDelete) {
       try {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        const response = await deleteFaculty(member.employeeId);
         
-        const updatedFaculty = allFaculty.filter(f => f.id !== member.id);
-        setAllFaculty(updatedFaculty);
-        
-        showToast('Faculty member deleted successfully', 'success');
+        if (response.success) {
+          // Remove from local state
+          const updatedFaculty = allFaculty.filter(f => f._id !== member._id);
+          setAllFaculty(updatedFaculty);
+          showToast('Faculty member deleted successfully', 'success');
+        } else {
+          showToast(response.message || 'Failed to delete faculty', 'error');
+        }
       } catch (error) {
-        showToast('Error deleting faculty member', 'error');
+        console.error('Error deleting faculty:', error);
+        showToast(error.response?.data?.message || 'Error deleting faculty member', 'error');
       }
     }
   };
@@ -168,7 +164,7 @@ const FacultyViewTab = () => {
               setSelectedFaculty(null);
             }}
             onSave={handleEditFaculty}
-            initialData={selectedFaculty}
+            faculty={selectedFaculty}
           />
         </>
       )}

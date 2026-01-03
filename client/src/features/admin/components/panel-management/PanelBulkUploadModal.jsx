@@ -26,9 +26,8 @@ const PanelBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
       return {
         ...panel,
         school: filters?.school,
-        department: filters?.programme,
-        academicYear: filters?.year,
-        semester: filters?.semester,
+        department: filters?.department,
+        academicYear: filters?.academicYear,
         memberEmployeeIds
       };
     });
@@ -93,7 +92,7 @@ const PanelBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
             <li>memberEmployeeIds: Enter comma-separated faculty employee IDs</li>
             <li>Minimum 2 members required per panel</li>
             <li>panelType: Review, Final, Viva, etc.</li>
-            {filters && <li>Panels will be added to: {filters.schoolName || 'Selected School'} - {filters.programmeName || 'Selected Programme'}</li>}
+            {filters && <li>Panels will be added to: {filters.school} - {filters.department} ({filters.academicYear})</li>}
           </ul>
         </div>
 

@@ -46,15 +46,28 @@ const ProjectUploadTab = () => {
       setIsUploading(true);
       setUploadStatus(null);
 
-      const enrichedData = parsedData.map(project => ({
-        ...project,
-        schoolId: filters?.school,
-        programId: filters?.programme,
-        yearId: filters?.year,
-        semesterId: filters?.semester
-      }));
+      const enrichedData = parsedData.map(project => {
+        const teamMembersArray = typeof project.teamMembers === 'string'
+          ? project.teamMembers.split(',').map(m => m.trim())
+          : project.teamMembers || [];
+        
+        return {
+          name: project.name,
+          guideFacultyEmpId: project.guideFacultyEmpId,
+          teamMembers: teamMembersArray,
+          type: project.type || 'Capstone Project',
+          specialization: project.specialization || '',
+          school: filters.school,
+          department: filters.department,
+          academicYear: filters.academicYear
+        };
+      });
 
-      await adminApi.bulkUploadProjects(enrichedData);
+      const response = await adminApi.bulkCreateProjects(enrichedData);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to upload projects');
+      }
       setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} projects` });
       showToast('Projects uploaded successfully', 'success');
       setParsedData([]);
@@ -66,8 +79,7 @@ const ProjectUploadTab = () => {
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  const handleInputChange = (name, value) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -95,19 +107,18 @@ const ProjectUploadTab = () => {
         name: formData.name,
         guideFacultyEmpId: formData.guideFacultyEmpId,
         teamMembers: teamMembersArray,
-        type: formData.type || 'Research',
+        type: formData.type || 'Capstone Project',
         specialization: formData.specialization || '',
-        schoolId: filters.school,
-        programId: filters.programme,
-        yearId: filters.year,
-        semesterId: filters.semester,
-        schoolName: filters.schoolName,
-        programmeName: filters.programmeName,
-        yearName: filters.yearName,
-        semesterName: filters.semesterName
+        school: filters.school,
+        department: filters.department,
+        academicYear: filters.academicYear
       };
 
-      await adminApi.createProject(projectData);
+      const response = await adminApi.createProject(projectData);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create project');
+      }
       showToast('Project added successfully', 'success');
       
       // Reset form
@@ -152,7 +163,7 @@ const ProjectUploadTab = () => {
               Single Entry
             </Button>
             <span className="text-xs text-gray-500 self-center ml-2">
-              {filters.schoolName} → {filters.programmeName} → {filters.yearName} → {filters.semesterName}
+              {filters.school} → {filters.department} → {filters.academicYear}
             </span>
           </div>
 
@@ -203,7 +214,7 @@ const ProjectUploadTab = () => {
                     label="Project Name"
                     name="name"
                     value={formData.name}
-                    onChange={handleInputChange}
+                    onChange={(value) => handleInputChange('name', value)}
                     placeholder="e.g., AI-Based Traffic Management System"
                     required
                   />
@@ -212,7 +223,7 @@ const ProjectUploadTab = () => {
                     label="Guide Faculty Employee ID"
                     name="guideFacultyEmpId"
                     value={formData.guideFacultyEmpId}
-                    onChange={handleInputChange}
+                    onChange={(value) => handleInputChange('guideFacultyEmpId', value)}
                     placeholder="e.g., FAC001"
                     required
                   />
@@ -221,7 +232,7 @@ const ProjectUploadTab = () => {
                     label="Team Members (Reg Numbers)"
                     name="teamMembers"
                     value={formData.teamMembers}
-                    onChange={handleInputChange}
+                    onChange={(value) => handleInputChange('teamMembers', value)}
                     placeholder="e.g., 21BCI0001, 21BCI0002, 21BCI0003"
                   />
                   
@@ -229,7 +240,7 @@ const ProjectUploadTab = () => {
                     label="Project Type"
                     name="type"
                     value={formData.type}
-                    onChange={handleInputChange}
+                    onChange={(value) => handleInputChange('type', value)}
                     placeholder="e.g., Research, Development, Innovation"
                   />
 
@@ -237,7 +248,7 @@ const ProjectUploadTab = () => {
                     label="Specialization"
                     name="specialization"
                     value={formData.specialization}
-                    onChange={handleInputChange}
+                    onChange={(value) => handleInputChange('specialization', value)}
                     placeholder="e.g., Machine Learning, IoT, Blockchain"
                   />
                 </div>

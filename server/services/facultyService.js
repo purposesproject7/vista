@@ -108,7 +108,7 @@ export class FacultyService {
       phoneNumber: data.phoneNumber.trim(),
       role: data.role || "faculty",
       school: data.school.trim(),
-      department: data.department.trim(),
+      department: data.department ? data.department.trim() : undefined,
       specialization: data.specialization ? data.specialization.trim() : "",
     });
 

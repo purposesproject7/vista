@@ -99,8 +99,16 @@ export class PanelService {
       department,
     });
 
+    // Auto-generate panel name if not provided
+    let panelName = data.panelName;
+    if (!panelName) {
+      // "keep the faculties as the panel name"
+      const facultyNames = faculties.map(f => f.name).join(" & ");
+      panelName = facultyNames.length > 50 ? facultyNames.substring(0, 47) + "..." : facultyNames;
+    }
+
     const panel = new Panel({
-      panelName: `Panel-${school}-${department}-${Date.now()}`,
+      panelName,
       members,
       venue: venue || "TBD",
       dateTime: dateTime || null,
@@ -304,130 +312,139 @@ export class PanelService {
   /**
    * Auto-create panels based on available faculty
    */
-// services/panelService.js
+  // services/panelService.js
 
-static async autoCreatePanels(
-  academicYear,
-  school,
-  department,
-  panelSize = null,
-  createdBy = null,
-) {
-  const results = {
-    panelsCreated: 0,
-    errors: 0,
-    details: [],
-  };
+  static async autoCreatePanels(
+    academicYear,
+    school,
+    department,
+    panelSize = null,
+    createdBy = null,
+    facultyList = null,
+  ) {
+    const results = {
+      panelsCreated: 0,
+      errors: 0,
+      details: [],
+    };
 
-  try {
-    // Get department config
-    const config = await DepartmentConfig.findOne({
-      academicYear,
-      school,
-      department,
-    });
-
-    if (!config) {
-      throw new Error(
-        `Department configuration not found for ${school} - ${department}`,
-      );
-    }
-
-    // Use requested team size if provided, else config minPanelSize or 2
-    let effectivePanelSize = parseInt(panelSize);
-    if (isNaN(effectivePanelSize) || effectivePanelSize <= 0) {
-      effectivePanelSize = config.minPanelSize || 2;
-    }
-
-    // Get available faculty for this department
-    let faculties = await Faculty.find({
-      school,
-      department,
-      role: "faculty",
-    })
-      .sort({ employeeId: 1 }) // sort by employeeId -> lower = more experienced
-      .lean();
-
-    if (faculties.length < 2) {
-      results.errors++;
-      results.details.push({
-        error: `Not enough faculty to form even a single panel. Found ${faculties.length}`,
+    try {
+      // Get department config
+      const config = await DepartmentConfig.findOne({
+        academicYear,
+        school,
+        department,
       });
-      return results;
-    }
 
-    // Group faculty by specialization (default "General")
-    const bySpecialization = {};
-    faculties.forEach((f) => {
-      const spec = f.specialization || "General";
-      if (!bySpecialization[spec]) bySpecialization[spec] = [];
-      bySpecialization[spec].push(f);
-    });
+      if (!config) {
+        throw new Error(
+          `Department configuration not found for ${school} - ${department}`,
+        );
+      }
 
-    // For each specialization, create balanced panels
-    for (const [specialization, specFacultyRaw] of Object.entries(
-      bySpecialization,
-    )) {
-      // Ensure sorted by employeeId within specialization
-      const specFaculty = [...specFacultyRaw].sort((a, b) =>
-        a.employeeId.localeCompare(b.employeeId),
-      );
+      // Use requested team size if provided, else config minPanelSize or 2
+      let effectivePanelSize = parseInt(panelSize);
+      if (isNaN(effectivePanelSize) || effectivePanelSize <= 0) {
+        effectivePanelSize = config.minPanelSize || 2;
+      }
 
-      const n = specFaculty.length;
-      if (n === 0) continue;
+      // Prepare query
+      const query = {
+        school,
+        department,
+        role: "faculty",
+      };
 
-      let left = 0;
-      let right = n - 1;
+      // If specific faculty list provided, filter by it
+      if (facultyList && Array.isArray(facultyList) && facultyList.length > 0) {
+        query.employeeId = { $in: facultyList };
+      }
 
-      while (left <= right) {
-        const panelMembers = [];
+      // Get available faculty for this department
+      let faculties = await Faculty.find(query)
+        .sort({ employeeId: 1 }) // sort by employeeId -> lower = more experienced
+        .lean();
 
-        // Build a panel up to effectivePanelSize members
-        for (let k = 0; k < effectivePanelSize && left <= right; k++) {
-          // Alternate: most experienced (left) then least experienced (right)
-          if (k % 2 === 0) {
-            panelMembers.push(specFaculty[left]);
-            left++;
-          } else {
-            panelMembers.push(specFaculty[right]);
-            right--;
+      if (faculties.length < 2) {
+        results.errors++;
+        results.details.push({
+          error: `Not enough faculty to form even a single panel. Found ${faculties.length}`,
+        });
+        return results;
+      }
+
+      // Group faculty by specialization (default "General")
+      const bySpecialization = {};
+      faculties.forEach((f) => {
+        const spec = f.specialization || "General";
+        if (!bySpecialization[spec]) bySpecialization[spec] = [];
+        bySpecialization[spec].push(f);
+      });
+
+      // For each specialization, create balanced panels
+      for (const [specialization, specFacultyRaw] of Object.entries(
+        bySpecialization,
+      )) {
+        // Ensure sorted by employeeId within specialization
+        const specFaculty = [...specFacultyRaw].sort((a, b) =>
+          a.employeeId.localeCompare(b.employeeId),
+        );
+
+        const n = specFaculty.length;
+        if (n === 0) continue;
+
+        let left = 0;
+        let right = n - 1;
+
+        while (left <= right) {
+          const panelMembers = [];
+
+          // Build a panel up to effectivePanelSize members
+          for (let k = 0; k < effectivePanelSize && left <= right; k++) {
+            // Alternate: most experienced (left) then least experienced (right)
+            if (k % 2 === 0) {
+              panelMembers.push(specFaculty[left]);
+              left++;
+            } else {
+              panelMembers.push(specFaculty[right]);
+              right--;
+            }
+          }
+
+          // Create panel even if last one has < effectivePanelSize members
+          try {
+            await this.createPanel(
+              {
+                memberEmployeeIds: panelMembers.map((f) => f.employeeId),
+                academicYear,
+                school,
+                department,
+                specializations: [specialization],
+                venue: `Panel Room ${results.panelsCreated + 1}`,
+              },
+              createdBy,
+            );
+
+            results.panelsCreated++;
+          } catch (error) {
+            results.errors++;
+            results.details.push({
+              specialization,
+              panelIndex: results.panelsCreated,
+              error: error.message,
+            });
           }
         }
-
-        // Create panel even if last one has < effectivePanelSize members
-        try {
-          await this.createPanel(
-            {
-              memberEmployeeIds: panelMembers.map((f) => f.employeeId),
-              academicYear,
-              school,
-              department,
-              specializations: [specialization],
-              venue: `Panel Room ${results.panelsCreated + 1}`,
-            },
-            createdBy,
-          );
-
-          results.panelsCreated++;
-        } catch (error) {
-          results.errors++;
-          results.details.push({
-            specialization,
-            panelIndex: results.panelsCreated,
-            error: error.message,
-          });
-        }
       }
+    } catch (error) {
+      results.errors++;
+      results.details.push({
+        error: error.message,
+      });
     }
-  } catch (error) {
-    results.errors++;
-    results.details.push({
-      error: error.message,
-    });
-  }
 
-  return results;
-}
+    return results;
+  }
 
 
   /**

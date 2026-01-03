@@ -1,8 +1,10 @@
 // src/features/admin/pages/AdminSettings.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../../../shared/components/Navbar';
 import AdminTabs from '../components/shared/AdminTabs';
 import AcademicDataSettings from '../components/settings/AcademicDataSettings';
+import SchoolSettings from '../components/settings/SchoolSettings';
+import AcademicYearSettings from '../components/settings/AcademicYearSettings';
 import ProgramSettings from '../components/settings/ProgramSettings';
 import TeamSettings from '../components/settings/TeamSettings';
 import RubricSettings from '../components/settings/RubricSettings';
@@ -10,11 +12,9 @@ import ModificationSettings from '../components/settings/ModificationSettings';
 import RoleManagement from '../components/RoleManagement';
 import SchedulerManagement from '../components/SchedulerManagement';
 import { INITIAL_FACULTY } from '../components/faculty-management/facultyData';
+import { fetchMasterData } from '../services/adminApi';
+import { useToast } from '../../../shared/hooks/useToast';
 import {
-  initialSchools,
-  initialPrograms,
-  initialYears,
-  initialSemesters,
   initialTeamSettings,
   initialRubrics
 } from '../components/settings/settingsData';
@@ -33,36 +33,69 @@ import {
 
 const AdminSettings = () => {
   const [activeTab, setActiveTab] = useState('schools');
-  const [schools, setSchools] = useState(initialSchools);
-  const [programs, setPrograms] = useState(initialPrograms);
-  const [years, setYears] = useState(initialYears);
-  const [semesters, setSemesters] = useState(initialSemesters);
+  const [loading, setLoading] = useState(true);
+  const [schools, setSchools] = useState([]);
+  const [programs, setPrograms] = useState({});
+  const [years, setYears] = useState([]);
+  const [semesters, setSemesters] = useState([]);
   const [teamSettings, setTeamSettings] = useState(initialTeamSettings);
   const [rubrics, setRubrics] = useState(initialRubrics);
+  const { showToast } = useToast();
 
-  // Role assignments for Project Coordinators (used by Roles + Scheduler tabs)
-  const [coordinatorAssignments, setCoordinatorAssignments] = useState([
-    {
-      schoolId: 1,
-      programId: 1,
-      yearId: 2024,
-      semesterId: 1,
-      coordinators: ['F001', 'F002'],
-      mainCoordinator: 'F001'
-    }
-  ]);
+  // Load master data on mount
+  useEffect(() => {
+    loadMasterData();
+  }, []);
 
-  // Feature schedules applied to Project Coordinators per academic context
-  const [schedules, setSchedules] = useState([
-    {
-      schoolId: 1,
-      programId: 1,
-      yearId: 2024,
-      semesterId: 1,
-      featureId: 'faculty-addition',
-      activeUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  const loadMasterData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchMasterData();
+      
+      if (response.success) {
+        const data = response.data;
+        
+        // Transform schools
+        const transformedSchools = data.schools
+          ?.filter(s => s.isActive !== false)
+          ?.map(s => ({ id: s._id, name: s.name, code: s.code })) || [];
+        
+        // Transform programs grouped by school (using departments from backend)
+        const programsBySchool = {};
+        data.departments?.filter(d => d.isActive !== false).forEach(d => {
+          const schoolCode = d.school;
+          if (!programsBySchool[schoolCode]) {
+            programsBySchool[schoolCode] = [];
+          }
+          programsBySchool[schoolCode].push({
+            id: d._id,
+            name: d.name,
+            code: d.code
+          });
+        });
+        
+        // Transform academic years
+        const transformedYears = data.academicYears
+          ?.filter(y => y.isActive !== false)
+          ?.map(y => ({ id: y._id, name: y.year })) || [];
+        
+        setSchools(transformedSchools);
+        setPrograms(programsBySchool);
+        setYears(transformedYears);
+        
+        // Keep mock semesters for now
+        setSemesters([
+          { id: '1', name: 'Winter Semester' },
+          { id: '2', name: 'Summer Semester' }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error loading master data:', error);
+      showToast('Failed to load settings data', 'error');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const settingsTabs = [
     { 
@@ -81,13 +114,7 @@ const AdminSettings = () => {
       id: 'years', 
       label: 'Academic Years', 
       icon: CalendarDaysIcon,
-      description: 'Manage years'
-    },
-    { 
-      id: 'semesters', 
-      label: 'Semesters', 
-      icon: ClipboardDocumentListIcon,
-      description: 'Manage semesters'
+      description: 'Manage academic years with semesters'
     },
     { 
       id: 'teams', 
@@ -121,22 +148,22 @@ const AdminSettings = () => {
     }
   ];
 
-  const handleUpdateSchools = (updated) => {
+  const handleUpdateSchools = async (updated) => {
     setSchools(updated);
-    // TODO: Save to backend
-    console.log('Schools updated:', updated);
+    // Reload to get fresh data
+    await loadMasterData();
   };
 
-  const handleUpdatePrograms = (updated) => {
+  const handleUpdatePrograms = async (updated) => {
     setPrograms(updated);
-    // TODO: Save to backend
-    console.log('Programs updated:', updated);
+    // Programs are updated via individual API calls in ProgramSettings
+    showToast('Programs list updated', 'success');
   };
 
-  const handleUpdateYears = (updated) => {
+  const handleUpdateYears = async (updated) => {
     setYears(updated);
-    // TODO: Save to backend
-    console.log('Years updated:', updated);
+    // Reload to get fresh data
+    await loadMasterData();
   };
 
   const handleUpdateSemesters = (updated) => {
@@ -169,7 +196,7 @@ const AdminSettings = () => {
 
         {/* Settings Tabs */}
         <div className="mb-6 bg-white rounded-lg shadow-sm p-2">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {settingsTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -198,11 +225,9 @@ const AdminSettings = () => {
         {/* Settings Content */}
         <div>
           {activeTab === 'schools' && (
-            <AcademicDataSettings
-              data={schools}
+            <SchoolSettings
+              schools={schools}
               onUpdate={handleUpdateSchools}
-              title="School"
-              type="school"
             />
           )}
 
@@ -215,20 +240,9 @@ const AdminSettings = () => {
           )}
 
           {activeTab === 'years' && (
-            <AcademicDataSettings
-              data={years}
+            <AcademicYearSettings
+              years={years}
               onUpdate={handleUpdateYears}
-              title="Academic Year"
-              type="year"
-            />
-          )}
-
-          {activeTab === 'semesters' && (
-            <AcademicDataSettings
-              data={semesters}
-              onUpdate={handleUpdateSemesters}
-              title="Semester"
-              type="semester"
             />
           )}
 
@@ -255,10 +269,6 @@ const AdminSettings = () => {
               schools={schools}
               programsBySchool={programs}
               years={years}
-              semesters={semesters}
-              facultyData={INITIAL_FACULTY}
-              coordinatorAssignments={coordinatorAssignments}
-              setCoordinatorAssignments={setCoordinatorAssignments}
             />
           )}
 
@@ -267,11 +277,6 @@ const AdminSettings = () => {
               schools={schools}
               programsBySchool={programs}
               years={years}
-              semesters={semesters}
-              facultyData={INITIAL_FACULTY}
-              coordinatorAssignments={coordinatorAssignments}
-              schedules={schedules}
-              setSchedules={setSchedules}
             />
           )}
 

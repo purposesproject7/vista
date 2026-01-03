@@ -9,19 +9,18 @@ import { useToast } from '../../../../shared/hooks/useToast';
 
 const TeamSettings = ({ schools, programs, years, semesters, initialSettings, onUpdate }) => {
   // State for selected filters
-  const [selectedSchool, setSelectedSchool] = useState(schools[0]?.id || '');
+  const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedProgram, setSelectedProgram] = useState('');
-  const [selectedYear, setSelectedYear] = useState(years[0]?.id || '');
-  const [selectedSemester, setSelectedSemester] = useState(semesters[0]?.id || '');
+  const [selectedYear, setSelectedYear] = useState('');
 
-  // State for all team configurations (keyed by school-program-year-semester)
+  // State for all team configurations (keyed by school-program-year)
   const [allConfigurations, setAllConfigurations] = useState(initialSettings || {});
 
   const { showToast } = useToast();
 
   // Generate configuration key
   const getCurrentKey = () => {
-    return `${selectedSchool}-${selectedProgram}-${selectedYear}-${selectedSemester}`;
+    return `${selectedSchool}-${selectedProgram}-${selectedYear}`;
   };
 
   // Get current configuration for selected filters
@@ -32,7 +31,7 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
       maxStudentsPerTeam: 4,
       defaultStudentsPerTeam: 3
     };
-  }, [selectedSchool, selectedProgram, selectedYear, selectedSemester, allConfigurations]);
+  }, [selectedSchool, selectedProgram, selectedYear, allConfigurations]);
 
   const [settings, setSettings] = useState(currentConfig);
 
@@ -43,20 +42,34 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
 
   // Get programs for selected school
   const availablePrograms = useMemo(() => {
-    if (!selectedSchool || !programs[selectedSchool]) {
-      return [];
-    }
-    return programs[selectedSchool];
-  }, [selectedSchool, programs]);
+    if (!selectedSchool) return [];
+    // Find the school object by code
+    const schoolObj = schools.find(s => s.code === selectedSchool);
+    if (!schoolObj) return [];
+    // Get programs for this school code
+    return programs[schoolObj.code] || [];
+  }, [selectedSchool, programs, schools]);
 
   // Update program selection when school changes
   React.useEffect(() => {
-    if (availablePrograms.length > 0) {
-      setSelectedProgram(availablePrograms[0].id);
-    } else {
+    if (schools.length > 0 && !selectedSchool) {
+      setSelectedSchool(schools[0].code);
+    }
+  }, [schools, selectedSchool]);
+
+  React.useEffect(() => {
+    if (availablePrograms.length > 0 && !selectedProgram) {
+      setSelectedProgram(availablePrograms[0].code);
+    } else if (availablePrograms.length === 0) {
       setSelectedProgram('');
     }
-  }, [selectedSchool, availablePrograms]);
+  }, [availablePrograms, selectedProgram]);
+
+  React.useEffect(() => {
+    if (years.length > 0 && !selectedYear) {
+      setSelectedYear(years[0].id);
+    }
+  }, [years, selectedYear]);
 
   const handleSave = () => {
     // Validation
@@ -71,7 +84,7 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
       return;
     }
 
-    if (!selectedSchool || !selectedProgram || !selectedYear || !selectedSemester) {
+    if (!selectedSchool || !selectedProgram || !selectedYear) {
       showToast('Please select all filters before saving', 'error');
       return;
     }
@@ -87,18 +100,16 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
     onUpdate?.(updatedConfigurations);
 
     // Build descriptive names for toast
-    const schoolName = schools.find(s => s.id === selectedSchool)?.name || selectedSchool;
-    const programName = availablePrograms.find(p => p.id === selectedProgram)?.name || selectedProgram;
+    const schoolName = schools.find(s => s.code === selectedSchool)?.name || selectedSchool;
+    const programName = availablePrograms.find(p => p.code === selectedProgram)?.name || selectedProgram;
     const yearName = years.find(y => y.id === selectedYear)?.name || selectedYear;
-    const semesterName = semesters.find(s => s.id === selectedSemester)?.name || selectedSemester;
     
-    showToast(`Team settings saved for ${schoolName} - ${programName} - ${yearName} - ${semesterName}`, 'success');
+    showToast(`Team settings saved for ${schoolName} - ${programName} - ${yearName}`, 'success');
   };
 
-  const schoolOptions = schools.map(s => ({ value: s.id, label: s.name }));
-  const programOptions = availablePrograms.map(p => ({ value: p.id, label: p.name }));
+  const schoolOptions = schools.map(s => ({ value: s.code, label: s.name }));
+  const programOptions = availablePrograms.map(p => ({ value: p.code, label: p.name }));
   const yearOptions = years.map(y => ({ value: y.id, label: y.name }));
-  const semesterOptions = semesters.map(s => ({ value: s.id, label: s.name }));
 
   const isConfigured = allConfigurations[getCurrentKey()] !== undefined;
 
@@ -118,14 +129,14 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
               {isConfigured && <CheckCircleIcon className="h-5 w-5 text-green-600" />}
               Select Configuration Context
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   School <span className="text-red-500">*</span>
                 </label>
                 <Select
                   value={selectedSchool}
-                  onChange={(e) => setSelectedSchool(e.target.value)}
+                  onChange={(value) => setSelectedSchool(value)}
                   options={schoolOptions}
                   disabled={schools.length === 0}
                 />
@@ -136,7 +147,7 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
                 </label>
                 <Select
                   value={selectedProgram}
-                  onChange={(e) => setSelectedProgram(e.target.value)}
+                  onChange={(value) => setSelectedProgram(value)}
                   options={programOptions}
                   disabled={availablePrograms.length === 0}
                 />
@@ -146,24 +157,13 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Year <span className="text-red-500">*</span>
+                  Academic Year & Semester <span className="text-red-500">*</span>
                 </label>
                 <Select
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
+                  onChange={(value) => setSelectedYear(value)}
                   options={yearOptions}
                   disabled={years.length === 0}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Semester <span className="text-red-500">*</span>
-                </label>
-                <Select
-                  value={selectedSemester}
-                  onChange={(e) => setSelectedSemester(e.target.value)}
-                  options={semesterOptions}
-                  disabled={semesters.length === 0}
                 />
               </div>
             </div>
@@ -276,7 +276,7 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
               variant="primary" 
               onClick={handleSave} 
               size="lg"
-              disabled={!selectedSchool || !selectedProgram || !selectedYear || !selectedSemester}
+              disabled={!selectedSchool || !selectedProgram || !selectedYear}
             >
               Save Configuration
             </Button>

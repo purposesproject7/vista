@@ -8,7 +8,8 @@ import ProjectViewTab from '../components/project-management/ProjectViewTab';
 import ProjectCreation from '../components/project-management/ProjectCreation';
 import Card from '../../../shared/components/Card';
 import { useToast } from '../../../shared/hooks/useToast';
-import { getFilteredData } from '../data/sampleData';
+import { useAuth } from '../../../shared/hooks/useAuth';
+import { fetchProjects as apiFetchProjects } from '../services/coordinatorApi';
 
 const ProjectManagement = () => {
   const [activeTab, setActiveTab] = useState('view');
@@ -17,6 +18,7 @@ const ProjectManagement = () => {
   const [filters, setFilters] = useState(null);
   const [projects, setProjects] = useState([]);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   // 1. Fetch coordinator permissions on mount
   useEffect(() => {
@@ -58,7 +60,7 @@ const ProjectManagement = () => {
       showToast(`Loaded ${filteredProjects.length} projects`, 'success');
     } catch (error) {
       console.error('Error fetching projects:', error);
-      showToast('Failed to load projects', 'error');
+      showToast(error.response?.data?.message || 'Failed to load projects', 'error');
     } finally {
       setLoading(false);
     }

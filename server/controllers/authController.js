@@ -25,6 +25,7 @@ const generateToken = (faculty) => {
  */
 export async function login(req, res) {
   try {
+    console.log('Login request body:', req.body);
     const { emailId, password, expectedRole } = req.body;
 
     const faculty = await Faculty.findOne({ emailId }).select("+password");

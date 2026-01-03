@@ -5,50 +5,44 @@ import { useAuth } from '../../../shared/hooks/useAuth';
 import Button from '../../../shared/components/Button';
 import Input from '../../../shared/components/Input';
 import Card from '../../../shared/components/Card';
-import { MOCK_USERS } from '../../../shared/utils/mockData';
+import { useToast } from '../../../shared/hooks/useToast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
     try {
       const result = await login({ email, password });
+      
+      showToast('Login successful!', 'success');
       
       // Redirect based on role
       if (result.user.role === 'faculty') {
         navigate('/faculty');
       } else if (result.user.role === 'admin') {
         navigate('/admin');
+      } else if (result.user.role === 'project_coordinator') {
+        navigate('/coordinator');
+      } else {
+        navigate('/');
       }
     } catch (err) {
-      alert('Login failed');
+      const errorMessage = err.response?.data?.message || 'Invalid email or password';
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Quick login for development
-  const quickLogin = (userType) => {
-    const user = MOCK_USERS[userType];
-    localStorage.setItem('authToken', 'mock-token-' + userType);
-    localStorage.setItem('mockUser', JSON.stringify(user));
-    
-    if (userType === 'faculty') {
-      navigate('/faculty');
-    } else if (userType === 'coordinator') {
-      navigate('/coordinator');
-    } else {
-      navigate('/admin');
-    }
-    
-    window.location.reload(); // Force reload to update auth context
   };
 
   return (
@@ -58,44 +52,11 @@ const Login = () => {
           Faculty Evaluation Portal
         </h1>
         
-        {/* Quick Login Buttons for Development */}
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800 font-semibold mb-3">
-            🚀 Quick Login (Development Only)
-          </p>
-          <div className="space-y-2">
-            <Button 
-              variant="primary" 
-              className="w-full"
-              onClick={() => quickLogin('faculty')}
-            >
-              Login as Faculty
-            </Button>
-            <Button 
-              variant="secondary" 
-              className="w-full"
-              onClick={() => quickLogin('admin')}
-            >
-              Login as Admin
-            </Button>
-            <Button 
-              variant="secondary" 
-              className="w-full"
-              onClick={() => quickLogin('coordinator')}
-            >
-              Login as Project Coordinator
-            </Button>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-800">{error}</p>
           </div>
-        </div>
-
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-500">Or login manually</span>
-          </div>
-        </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
@@ -104,6 +65,7 @@ const Login = () => {
             value={email}
             onChange={setEmail}
             placeholder="faculty@university.edu"
+            required
           />
           
           <Input
@@ -112,6 +74,7 @@ const Login = () => {
             value={password}
             onChange={setPassword}
             placeholder="••••••••"
+            required
           />
 
           <Button 
@@ -125,8 +88,8 @@ const Login = () => {
         </form>
 
         <p className="text-sm text-gray-600 text-center mt-4">
-          <a href="/" className="text-blue-600 hover:underline">
-            View Instructions
+          <a href="/forgot-password" className="text-blue-600 hover:underline">
+            Forgot Password?
           </a>
         </p>
       </Card>

@@ -4,8 +4,7 @@ import AcademicFilterSelector from './AcademicFilterSelector';
 import StudentList from './StudentList';
 import StudentDetailsModal from './StudentDetailsModal';
 import { useToast } from '../../../../shared/hooks/useToast';
-import api from '../../../../services/api';
-import { generateDummyStudents } from '../../../../shared/utils/dummyStudentData';
+import { fetchStudents, fetchStudentDetails } from '../../services/adminApi';
 
 const StudentViewTab = () => {
   const [filters, setFilters] = useState(null);
@@ -23,45 +22,48 @@ const StudentViewTab = () => {
   // Fetch students when filters change
   useEffect(() => {
     if (filters) {
-      // fetchStudents(); // Uncomment for real API
-      // Use dummy data for now
-      setLoading(true);
-      setTimeout(() => {
-        setStudents(generateDummyStudents(filters));
-        setLoading(false);
-      }, 500);
+      loadStudents();
     }
   }, [filters]);
 
-  const fetchStudents = async () => {
+  const loadStudents = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/admin/students', {
-        params: {
-          schoolId: filters.school,
-          programmeId: filters.programme,
-          yearId: filters.year,
-          semesterId: filters.semester
-        }
-      });
-      setStudents(response.data);
+      const response = await fetchStudents(filters);
+      
+      if (response.success) {
+        setStudents(response.students || []);
+      } else {
+        showToast(response.message || 'Failed to load students', 'error');
+      }
     } catch (error) {
       console.error('Error fetching students:', error);
-      showToast('Failed to load students', 'error');
+      showToast(error.response?.data?.message || 'Failed to load students', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const handleViewDetails = async (student) => {
-    // Use dummy data - find student from the list
-    const fullStudent = students.find(s => s.id === student.id);
-    setSelectedStudent(fullStudent || student);
-    setIsModalOpen(true);
+    try {
+      // Fetch detailed student information
+      const response = await fetchStudentDetails(student.regNo);
+      
+      if (response.success) {
+        setSelectedStudent(response.student);
+        setIsModalOpen(true);
+      } else {
+        showToast(response.message || 'Failed to load student details', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching student details:', error);
+      showToast(error.response?.data?.message || 'Failed to load student details', 'error');
+    }
   };
 
-  const handleNavigateToStudent = (student) => {
-    handleViewDetails(student);
+  const handleNavigateToStudent = async (student) => {
+    // Close current modal and open details for the selected teammate
+    await handleViewDetails(student);
   };
 
   return (

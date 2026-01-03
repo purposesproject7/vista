@@ -9,7 +9,8 @@ import StudentCreate from '../components/student-management/StudentCreate';
 import Card from '../../../shared/components/Card';
 import Button from '../../../shared/components/Button';
 import { useToast } from '../../../shared/hooks/useToast';
-import { getFilteredData } from '../data/sampleData';
+import { useAuth } from '../../../shared/hooks/useAuth';
+import { fetchStudents as apiFetchStudents } from '../services/coordinatorApi';
 
 const StudentManagement = () => {
   const [filters, setFilters] = useState(null);
@@ -18,6 +19,7 @@ const StudentManagement = () => {
   const [isPrimary, setIsPrimary] = useState(false);
   const [activeTab, setActiveTab] = useState('view');
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   // Load coordinator permissions
   useEffect(() => {
@@ -48,18 +50,22 @@ const StudentManagement = () => {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
       
-      // Get filtered students based on selected year and semester
-      if (filters) {
-        const filteredStudents = getFilteredData(filters.year, filters.semester, 'students');
-        setStudents(filteredStudents);
-        showToast(`Loaded ${filteredStudents.length} students for ${filters.year}-26, Semester ${filters.semester}`, 'success');
+      const response = await apiFetchStudents({
+        school: user?.school,
+        department: user?.department,
+        academicYear: filters?.academicYear
+      });
+      
+      if (response.success) {
+        setStudents(response.students || []);
+        showToast(`Loaded ${response.students?.length || 0} students`, 'success');
+      } else {
+        showToast(response.message || 'Failed to load students', 'error');
       }
     } catch (error) {
       console.error('Error fetching students:', error);
-      showToast('Failed to load students', 'error');
+      showToast(error.response?.data?.message || 'Failed to load students', 'error');
     } finally {
       setLoading(false);
     }

@@ -27,6 +27,7 @@ const PanelCreation = () => {
   const [activeMode, setActiveMode] = useState(null); // 'manual', 'auto', or 'upload'
   const [createdPanels, setCreatedPanels] = useState([]);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   // Manual mode state
   const [manualForm, setManualForm] = useState({
@@ -293,6 +294,28 @@ const PanelCreation = () => {
               <DocumentPlusIcon className="w-12 h-12 text-blue-600 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-gray-900">Create Manually</h3>
               <p className="text-sm text-gray-600 mt-2">Add faculty members one by one</p>
+            </div>
+          </Card>
+
+          {/* Excel Upload */}
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => setActiveMode('excel')}
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <ArrowUpTrayIcon className="h-8 w-8 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Excel Upload</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Upload faculty details via Excel file. Download template, fill in faculty data, and upload.
+                </p>
+                <Button size="sm" variant="secondary">
+                  <ArrowUpTrayIcon className="h-4 w-4 mr-2" />
+                  Upload Excel
+                </Button>
+              </div>
             </div>
           </Card>
 

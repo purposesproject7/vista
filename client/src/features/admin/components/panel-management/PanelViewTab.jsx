@@ -15,6 +15,7 @@ import Badge from '../../../../shared/components/Badge';
 import EmptyState from '../../../../shared/components/EmptyState';
 import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
 import { useToast } from '../../../../shared/hooks/useToast';
+import { fetchPanels } from '../../services/adminApi';
 import { 
   formatPanelName, 
   getMarkingStatusColor, 
@@ -33,24 +34,30 @@ const PanelViewTab = () => {
   // Fetch panels when filters change
   useEffect(() => {
     if (filters) {
-      fetchPanels();
+      fetchPanelsData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
-  const fetchPanels = useCallback(async () => {
+  const fetchPanelsData = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const response = await fetchPanels({
+        school: filters.school,
+        department: filters.department,
+        academicYear: filters.academicYear
+      });
       
-      // Use mock data directly
-      setPanels(generateMockPanels());
-      showToast('Panels loaded successfully', 'success');
+      if (response.success) {
+        setPanels(response.panels || []);
+        showToast('Panels loaded successfully', 'success');
+      } else {
+        showToast(response.message || 'Failed to load panels', 'error');
+      }
     } catch (error) {
       console.error('Error fetching panels:', error);
-      showToast('Failed to load panels', 'error');
+      showToast(error.response?.data?.message || 'Failed to load panels', 'error');
     } finally {
       setLoading(false);
     }
@@ -72,55 +79,15 @@ const PanelViewTab = () => {
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = !searchQuery || 
       formatPanelName(panel).toLowerCase().includes(searchLower) ||
-      panel.faculty?.some(f => 
-        f.name?.toLowerCase().includes(searchLower) ||
-        f.employeeId?.toLowerCase().includes(searchLower)
-      ) ||
-      panel.teams?.some(t => 
-        t.projectTitle?.toLowerCase().includes(searchLower) ||
-        t.students?.some(s => 
-          s.name?.toLowerCase().includes(searchLower) ||
-          s.regNo?.toLowerCase().includes(searchLower)
-        )
+      panel.members?.some(m => 
+        m.name?.toLowerCase().includes(searchLower) ||
+        m.employeeId?.toLowerCase().includes(searchLower)
       );
 
     const matchesMarking = markingFilter === 'all' || panel.markingStatus === markingFilter;
 
     return matchesSearch && matchesMarking;
   });
-
-  // Generate mock panels
-  function generateMockPanels() {
-    const facultyNames = [
-      ['Dr. Rajesh Kumar', 'Dr. Priya Sharma', 'Dr. Amit Patel'],
-      ['Dr. Sneha Reddy', 'Dr. Vikram Singh', 'Dr. Anita Desai'],
-      ['Dr. Suresh Iyer', 'Dr. Kavita Nair', 'Dr. Ramesh Gupta'],
-      ['Dr. Meera Joshi', 'Dr. Arun Verma', 'Dr. Deepa Shah'],
-      ['Dr. Kiran Rao', 'Dr. Sanjay Mehta', 'Dr. Pooja Kapoor']
-    ];
-    
-    return Array.from({ length: 5 }, (_, i) => ({
-      id: `panel-${i + 1}`,
-      panelNumber: i + 1,
-      markingStatus: ['full', 'partial', 'none'][i % 3],
-      faculty: facultyNames[i].map((name, j) => ({
-        employeeId: `EMP00${i * 3 + j + 1}`,
-        name: name,
-        email: `${name.toLowerCase().replace(/\s+/g, '.').replace('dr.', '')}@vit.ac.in`,
-        department: 'CSE'
-      })),
-      teams: Array.from({ length: 4 }, (_, j) => ({
-        id: `team-${i}-${j}`,
-        projectTitle: `Project ${i * 4 + j + 1}`,
-        markingStatus: ['full', 'partial', 'none'][j % 3],
-        students: Array.from({ length: 3 }, (_, k) => ({
-          regNo: `21BCE${1000 + i * 12 + j * 3 + k}`,
-          name: `Student ${i * 12 + j * 3 + k + 1}`,
-          email: `student${i * 12 + j * 3 + k + 1}@vitstudent.ac.in`
-        }))
-      }))
-    }));
-  }
 
   return (
     <div className="space-y-6">
@@ -199,11 +166,11 @@ const PanelViewTab = () => {
                         </h3>
                         <div className="flex items-center gap-4 mt-1">
                           <span className="text-sm text-gray-600">
-                            {panel.faculty?.length || 0} Faculty
+                            {panel.members?.length || 0} Faculty
                           </span>
                           <span className="text-sm text-gray-400">•</span>
                           <span className="text-sm text-gray-600">
-                            {panel.teams?.length || 0} Projects
+                            {panel.assignedProjects || 0} Projects
                           </span>
                         </div>
                       </div>
@@ -225,62 +192,34 @@ const PanelViewTab = () => {
                       <div className="mb-6">
                         <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
                           <UserIcon className="w-4 h-4 mr-2" />
-                          Panel Faculty
+                          Panel Members
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {panel.faculty?.map((faculty) => (
+                          {panel.members?.map((member) => (
                             <div 
-                              key={faculty.employeeId}
+                              key={member.employeeId}
                               className="bg-gray-50 rounded-lg p-3"
                             >
                               <p className="text-sm font-medium text-gray-900">
-                                {faculty.name}
+                                {member.name}
                               </p>
                               <p className="text-xs text-gray-600 mt-1">
-                                {faculty.employeeId}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                {faculty.email}
+                                {member.employeeId}
                               </p>
                             </div>
                           ))}
                         </div>
                       </div>
 
-                      {/* Projects List */}
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          Assigned Projects
-                        </h4>
-                        <div className="space-y-3">
-                          {panel.teams?.map((team) => (
-                            <div 
-                              key={team.id}
-                              className="bg-gray-50 rounded-lg p-4"
-                            >
-                              <div className="flex items-start justify-between mb-2">
-                                <h5 className="text-sm font-medium text-gray-900">
-                                  {team.projectTitle}
-                                </h5>
-                                <Badge className={getMarkingStatusColor(team.markingStatus)}>
-                                  {getMarkingStatusLabel(team.markingStatus)}
-                                </Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {team.students?.map((student) => (
-                                  <span 
-                                    key={student.regNo}
-                                    className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-white text-gray-700 border border-gray-200"
-                                  >
-                                    {student.regNo}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
+                      {/* Note about projects */}
+                      {panel.assignedProjects > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <p className="text-sm text-blue-800">
+                            This panel has {panel.assignedProjects} project(s) assigned. 
+                            View project details in the Project Management section.
+                          </p>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
                 </Card>

@@ -1,21 +1,25 @@
 // src/shared/hooks/useToast.js
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 
 export const useToast = () => {
-  const [toasts, setToasts] = useState([]);
-
   const showToast = useCallback((message, type = 'success', duration = 3000) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type, duration }]);
-  }, []);
-
-  const removeToast = useCallback((id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    // Simple implementation using console for now
+    // TODO: Implement proper toast notifications
+    if (type === 'error') {
+      console.error(message);
+      // Show error in a more user-friendly way
+      if (typeof window !== 'undefined') {
+        // Could use a toast library here
+        alert(message);
+      }
+    } else if (type === 'success') {
+      console.log(message);
+    } else {
+      console.info(message);
+    }
   }, []);
 
   return {
-    toasts,
-    showToast,
-    removeToast
+    showToast
   };
 };
