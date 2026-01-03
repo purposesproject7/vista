@@ -25,7 +25,7 @@ const FacultyList = ({ faculty, onEdit, onDelete, onViewDetails }) => {
         </Card>
       ) : (
         faculty.map((member) => (
-          <Card key={member.id} className="hover:shadow-md transition-shadow">
+          <Card key={member._id || member.employeeId} className="hover:shadow-md transition-shadow">
             <div className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -36,68 +36,41 @@ const FacultyList = ({ faculty, onEdit, onDelete, onViewDetails }) => {
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900">{member.name}</h3>
                       <div className="flex items-center gap-3 mt-1">
-                        <p className="text-sm text-gray-600">{member.email}</p>
+                        <p className="text-sm text-gray-600">{member.email || member.emailId}</p>
                         <span className="text-gray-400">•</span>
-                        <p className="text-sm font-medium text-blue-600">ID: {member.id}</p>
+                        <p className="text-sm font-medium text-blue-600">ID: {member.employeeId}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">School</p>
                       <p className="text-sm font-semibold text-gray-900 mt-1">{member.school}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">Program</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1">{member.program}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">Year</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1">{member.year}</p>
-                    </div>
-                    <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">Department</p>
                       <p className="text-sm font-semibold text-gray-900 mt-1">{member.department}</p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <AcademicCapIcon className="h-5 w-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        <strong className="text-gray-900">{member.projects?.length || 0}</strong> Active Project{member.projects?.length !== 1 ? 's' : ''}
-                      </span>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase">Role</p>
+                      <Badge variant={member.role === 'admin' ? 'danger' : 'primary'}>
+                        {member.role || 'Faculty'}
+                      </Badge>
                     </div>
-                    <Badge variant={getProjectCountBadge(member.projects?.length || 0)}>
-                      {member.projects?.length === 0 && 'Available'}
-                      {member.projects?.length > 0 && member.projects.length <= 3 && 'Light Load'}
-                      {member.projects?.length > 3 && member.projects.length <= 6 && 'Moderate Load'}
-                      {member.projects?.length > 6 && 'Heavy Load'}
-                    </Badge>
                   </div>
 
-                  {/* Projects List */}
-                  {member.projects && member.projects.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Assigned Projects:</p>
-                      <div className="space-y-2">
-                        {member.projects.map((project, idx) => (
-                          <div key={idx} className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <h5 className="text-sm font-semibold text-gray-900">{project.title}</h5>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  Student: {project.studentName} ({project.studentRegNo})
-                                </p>
-                              </div>
-                              <Badge variant={project.role === 'guide' ? 'primary' : 'secondary'}>
-                                {project.role === 'guide' ? 'Guide' : 'Panel'}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  {member.specialization && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-1">Specialization</p>
+                      <p className="text-sm text-gray-700">{member.specialization}</p>
+                    </div>
+                  )}
+
+                  {member.phoneNumber && (
+                    <div className="mb-4">
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-1">Phone</p>
+                      <p className="text-sm text-gray-700">{member.phoneNumber}</p>
                     </div>
                   )}
                 </div>
@@ -114,7 +87,7 @@ const FacultyList = ({ faculty, onEdit, onDelete, onViewDetails }) => {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => onDelete(member.id)}
+                    onClick={() => onDelete(member)}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   >
                     <TrashIcon className="h-4 w-4 mr-1" />

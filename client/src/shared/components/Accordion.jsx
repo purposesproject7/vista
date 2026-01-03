@@ -21,9 +21,9 @@ const Accordion = ({
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {isOpen ? (
-            <ChevronDownIcon className="w-5 h-5 text-blue-400 flex-shrink-0" />
+            <ChevronDownIcon className="w-5 h-5 text-blue-400 shrink-0" />
           ) : (
-            <ChevronRightIcon className="w-5 h-5 text-blue-400 flex-shrink-0" />
+            <ChevronRightIcon className="w-5 h-5 text-blue-400 shrink-0" />
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

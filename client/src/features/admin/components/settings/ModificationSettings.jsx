@@ -1,0 +1,852 @@
+// src/features/admin/components/settings/ModificationSettings.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import Card from '../../../../shared/components/Card';
+import Button from '../../../../shared/components/Button';
+import Input from '../../../../shared/components/Input';
+import Select from '../../../../shared/components/Select';
+import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
+import EmptyState from '../../../../shared/components/EmptyState';
+import Badge from '../../../../shared/components/Badge';
+import Modal from '../../../../shared/components/Modal';
+import {
+  MagnifyingGlassIcon,
+  UserGroupIcon,
+  AcademicCapIcon,
+  CheckCircleIcon,
+  ArrowRightIcon,
+  ExclamationTriangleIcon,
+  XMarkIcon
+} from '@heroicons/react/24/outline';
+import api from '../../../../services/api';
+import {
+  getFacultyList as apiFetchFacultyList,
+  getGuideProjects,
+  getPanelProjects,
+  getPanels,
+  batchReassignGuide,
+  batchReassignPanel,
+  batchAssignFacultyAsPanel
+} from '../../../../services/modificationApi';
+
+const ModificationSettings = () => {
+  // Academic context state
+  const [academicContext, setAcademicContext] = useState({
+    school: '',
+    program: '',
+    academicYear: ''
+  });
+  
+  const [contextOptions, setContextOptions] = useState({
+    schools: [],
+    programs: [],
+    academicYears: []
+  });
+
+  // Faculty selection state
+  const [facultyList, setFacultyList] = useState([]);
+  const [selectedFaculty, setSelectedFaculty] = useState(null);
+  const [facultySearch, setFacultySearch] = useState('');
+  
+  // Projects state
+  const [guideProjects, setGuideProjects] = useState([]);
+  const [panelProjects, setPanelProjects] = useState([]);
+  const [selectedProjects, setSelectedProjects] = useState([]);
+  
+  // Reassignment state
+  const [reassignMode, setReassignMode] = useState(null); // 'guide' | 'panel'
+  const [targetFaculty, setTargetFaculty] = useState(null);
+  const [targetPanel, setTargetPanel] = useState(null);
+  const [availablePanels, setAvailablePanels] = useState([]);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [panelAssignType, setPanelAssignType] = useState('existing'); // 'existing' | 'faculty'
+  
+  // Loading states
+  const [loading, setLoading] = useState({
+    context: false,
+    faculty: false,
+    projects: false,
+    reassigning: false
+  });
+
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Fetch initial context options (schools, departments, academic years)
+  useEffect(() => {
+    fetchContextOptions();
+  }, []);
+
+  const fetchContextOptions = async () => {
+    setLoading(prev => ({ ...prev, context: true }));
+    try {
+      // Fetch master data from API
+      const response = await api.get('/admin/master-data');
+      
+      console.log('Master data response:', response.data);
+      
+      if (response.data?.success && response.data?.data) {
+        const masterData = response.data.data;
+        
+        // Transform schools
+        const schools = (masterData.schools || [])
+          .filter(school => school.isActive !== false)
+          .map(school => ({
+            value: school.code || school.name,
+            label: school.name
+          }));
+        
+        // Transform departments as programs (will be filtered by school later)
+        const allDepartments = (masterData.departments || [])
+          .filter(dept => dept.isActive !== false)
+          .map(dept => ({
+            value: dept.code || dept.name,
+            label: dept.name,
+            school: dept.school
+          }));
+        
+        // Transform academic years
+        const academicYears = (masterData.academicYears || [])
+          .filter(year => year.isActive !== false)
+          .map(year => ({
+            value: year.year,
+            label: year.year
+          }));
+        
+        console.log('Transformed data:', { schools, allDepartments, academicYears });
+        
+        setContextOptions({
+          schools,
+          programs: allDepartments,
+          academicYears
+        });
+      } else {
+        console.warn('Invalid master data response, using fallback');
+        // Fallback to dummy data if API fails
+        setContextOptions({
+          schools: [
+            { value: 'SCOPE', label: 'SCOPE' },
+            { value: 'SENSE', label: 'SENSE' },
+            { value: 'SELECT', label: 'SELECT' }
+          ],
+          programs: [
+            { value: 'CSE', label: 'Computer Science and Engineering', school: 'SCOPE' },
+            { value: 'IT', label: 'Information Technology', school: 'SCOPE' },
+            { value: 'ECE', label: 'Electronics and Communication', school: 'SENSE' }
+          ],
+          academicYears: [
+            { value: '2025-26 Fall', label: '2025-26 Fall' },
+            { value: '2025-26 Winter', label: '2025-26 Winter' },
+            { value: '2024-25 Fall', label: '2024-25 Fall' },
+            { value: '2024-25 Winter', label: '2024-25 Winter' }
+          ]
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching context options:', error);
+      setMessage({ type: 'error', text: 'Failed to load context options' });
+      
+      // Set fallback dummy data
+      setContextOptions({
+        schools: [
+          { value: 'SCOPE', label: 'SCOPE' },
+          { value: 'SENSE', label: 'SENSE' },
+          { value: 'SELECT', label: 'SELECT' }
+        ],
+        programs: [
+          { value: 'CSE', label: 'Computer Science and Engineering', school: 'SCOPE' },
+          { value: 'IT', label: 'Information Technology', school: 'SCOPE' },
+          { value: 'ECE', label: 'Electronics and Communication', school: 'SENSE' }
+        ],
+        academicYears: [
+          { value: '2025-26 Fall', label: '2025-26 Fall' },
+          { value: '2025-26 Winter', label: '2025-26 Winter' },
+          { value: '2024-25 Fall', label: '2024-25 Fall' },
+          { value: '2024-25 Winter', label: '2024-25 Winter' }
+        ]
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, context: false }));
+    }
+  };
+
+  // Fetch faculty list when context is complete
+  useEffect(() => {
+    if (academicContext.school && academicContext.program && academicContext.academicYear) {
+      fetchFacultyList();
+    }
+  }, [academicContext]);
+
+  const fetchFacultyList = async () => {
+    setLoading(prev => ({ ...prev, faculty: true }));
+    setFacultyList([]);
+    setSelectedFaculty(null);
+    try {
+      const response = await apiFetchFacultyList(
+        academicContext.school,
+        academicContext.program,
+        academicContext.academicYear
+      );
+      
+      if (!response.data || response.data.length === 0) {
+        setFacultyList([]);
+        setLoading(prev => ({ ...prev, faculty: false }));
+        return;
+      }
+      
+      // Fetch all guide and panel projects once for counting
+      let allGuideData = [];
+      let allPanelData = [];
+      
+      try {
+        const [guideResponse, panelResponse] = await Promise.all([
+          getGuideProjects(
+            academicContext.academicYear,
+            academicContext.school,
+            academicContext.program
+          ),
+          getPanelProjects(
+            academicContext.academicYear,
+            academicContext.school,
+            academicContext.program
+          )
+        ]);
+        
+        allGuideData = guideResponse.data || [];
+        allPanelData = panelResponse.data || [];
+      } catch (err) {
+        console.error('Error fetching project data:', err);
+      }
+      
+      // Transform faculty data with project counts
+      const facultyWithCounts = response.data.map((faculty) => {
+        // Count guide projects
+        let guideCount = 0;
+        const guideEntry = allGuideData.find(g => g.faculty?.employeeId === faculty.employeeId);
+        if (guideEntry) {
+          guideCount = guideEntry.guidedProjects?.length || 0;
+        }
+        
+        // Count panel projects
+        let panelCount = 0;
+        allPanelData.forEach(panelGroup => {
+          const isMember = panelGroup.members?.some(member => 
+            member.faculty?.employeeId === faculty.employeeId
+          );
+          if (isMember) {
+            panelCount += panelGroup.projects?.length || 0;
+          }
+        });
+        
+        return {
+          ...faculty,
+          guideCount,
+          panelCount
+        };
+      });
+      
+      setFacultyList(facultyWithCounts);
+    } catch (error) {
+      console.error('Error fetching faculty:', error);
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to load faculty list' });
+    } finally {
+      setLoading(prev => ({ ...prev, faculty: false }));
+    }
+  };
+
+  // Fetch projects when faculty is selected
+  useEffect(() => {
+    if (selectedFaculty) {
+      fetchFacultyProjects();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFaculty]);
+
+  const fetchFacultyProjects = async () => {
+    if (!selectedFaculty) return;
+    
+    setLoading(prev => ({ ...prev, projects: true }));
+    setSelectedProjects([]);
+    
+    try {
+      console.log('Fetching projects for faculty:', selectedFaculty.employeeId);
+      
+      // Fetch all guide projects for the academic context
+      const guideResponse = await getGuideProjects(
+        academicContext.academicYear,
+        academicContext.school,
+        academicContext.program
+      );
+      
+      // Fetch all panel projects for the academic context
+      const panelResponse = await getPanelProjects(
+        academicContext.academicYear,
+        academicContext.school,
+        academicContext.program
+      );
+      
+      console.log('Guide response:', guideResponse);
+      console.log('Panel response:', panelResponse);
+      
+      // Filter guide projects for the selected faculty
+      const guideProjs = [];
+      if (guideResponse.data && Array.isArray(guideResponse.data)) {
+        guideResponse.data.forEach(facultyGroup => {
+          // Check if this faculty group matches the selected faculty
+          if (facultyGroup.faculty?.employeeId === selectedFaculty.employeeId) {
+            console.log('Found matching faculty group for guide:', facultyGroup);
+            facultyGroup.guidedProjects?.forEach(project => {
+              guideProjs.push({
+                _id: project._id,
+                name: project.name,
+                students: project.students?.map(s => s.name || s.regNo) || [],
+                status: project.status,
+                specialization: project.specialization
+              });
+            });
+          }
+        });
+      }
+      
+      // Filter panel projects for the selected faculty
+      const panelProjs = [];
+      if (panelResponse.data && Array.isArray(panelResponse.data)) {
+        panelResponse.data.forEach(panelGroup => {
+          // Check if the selected faculty is a member of this panel
+          const isMember = panelGroup.members?.some(member => 
+            member.faculty?.employeeId === selectedFaculty.employeeId ||
+            member.faculty?._id === selectedFaculty._id
+          );
+          
+          if (isMember) {
+            console.log('Found matching panel group:', panelGroup);
+            panelGroup.projects?.forEach(project => {
+              panelProjs.push({
+                _id: project._id,
+                name: project.name,
+                students: project.students?.map(s => s.name || s.regNo) || [],
+                status: project.status,
+                specialization: project.specialization,
+                panelName: panelGroup.panelName || `Panel ${panelGroup.panelId?.toString().slice(-4) || 'Unknown'}`
+              });
+            });
+          }
+        });
+      }
+      
+      console.log('Filtered guide projects:', guideProjs);
+      console.log('Filtered panel projects:', panelProjs);
+      
+      setGuideProjects(guideProjs);
+      setPanelProjects(panelProjs);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to load projects' });
+    } finally {
+      setLoading(prev => ({ ...prev, projects: false }));
+    }
+  };
+
+  // Fetch available panels for reassignment
+  const fetchAvailablePanels = async () => {
+    try {
+      const response = await getPanels(
+        academicContext.academicYear,
+        academicContext.school,
+        academicContext.program
+      );
+      
+      const panels = (response.data || []).map(panel => ({
+        _id: panel._id,
+        name: panel.panelName || `Panel ${panel._id.slice(-4)}`,
+        members: panel.members?.map(m => m.faculty?.name || 'Unknown') || []
+      }));
+      
+      setAvailablePanels(panels);
+    } catch (error) {
+      console.error('Error fetching panels:', error);
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to load panels' });
+    }
+  };
+
+  // Filter faculty by search
+  const filteredFaculty = useMemo(() => {
+    if (!facultySearch.trim()) return facultyList;
+    const search = facultySearch.toLowerCase();
+    return facultyList.filter(f => 
+      f.name.toLowerCase().includes(search) || 
+      f.employeeId.toLowerCase().includes(search) ||
+      f.email.toLowerCase().includes(search)
+    );
+  }, [facultyList, facultySearch]);
+
+  // Handle project selection
+  const toggleProjectSelection = (projectId, type) => {
+    setSelectedProjects(prev => {
+      const exists = prev.find(p => p.id === projectId);
+      if (exists) {
+        return prev.filter(p => p.id !== projectId);
+      }
+      return [...prev, { id: projectId, type }];
+    });
+  };
+
+  const isProjectSelected = (projectId) => {
+    return selectedProjects.some(p => p.id === projectId);
+  };
+
+  // Open reassign modal
+  const openReassignModal = async (mode) => {
+    setReassignMode(mode);
+    if (mode === 'panel') {
+      await fetchAvailablePanels();
+    }
+    setShowReassignModal(true);
+  };
+
+  // Handle batch reassignment
+  const handleBatchReassign = async () => {
+    try {
+      const projectIds = selectedProjects.map(p => p.id);
+      let results;
+      
+      if (reassignMode === 'guide') {
+        // Batch reassign guide
+        results = await batchReassignGuide(projectIds, targetFaculty.employeeId);
+      } else {
+        // Panel reassignment
+        if (panelAssignType === 'existing') {
+          // Assign to existing panel
+          results = await batchReassignPanel(projectIds, targetPanel._id);
+        } else {
+          // Create temporary panels with single faculty
+          results = await batchAssignFacultyAsPanel(
+            projectIds,
+            targetFaculty.employeeId,
+            academicContext.academicYear,
+            academicContext.school,
+            academicContext.program
+          );
+        }
+      }
+      
+      // Count successes and failures
+      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      const failureCount = results.filter(r => r.status === 'rejected').length;
+      
+      const targetName = reassignMode === 'guide' 
+        ? targetFaculty.name 
+        : (panelAssignType === 'existing' ? targetPanel?.name : targetFaculty?.name);
+      
+      if (failureCount === 0) {
+        setMessage({ 
+          type: 'success', 
+          text: `Successfully reassigned ${successCount} project(s) to ${targetName}` 
+        });
+      } else {
+        setMessage({ 
+          type: 'error', 
+          text: `Reassigned ${successCount} project(s), ${failureCount} failed` 
+        });
+      }
+      
+      // Reset states
+      setSelectedProjects([]);
+      setShowReassignModal(false);
+      setTargetFaculty(null);
+      setTargetPanel(null);
+      setPanelAssignType('existing');
+      
+      // Refresh projects
+      await fetchFacultyProjects();
+    } catch (error) {
+      console.error('Error reassigning projects:', error);
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to reassign projects' });
+    }
+  };
+
+  // Available faculty for reassignment (excluding current faculty)
+  const availableFacultyForReassign = useMemo(() => {
+    return facultyList.filter(f => f.employeeId !== selectedFaculty?.employeeId);
+  }, [facultyList, selectedFaculty]);
+
+  // Filter programs based on selected school
+  const filteredPrograms = useMemo(() => {
+    if (!academicContext.school) return [];
+    return contextOptions.programs.filter(prog => prog.school === academicContext.school);
+  }, [academicContext.school, contextOptions.programs]);
+
+  const isContextComplete = academicContext.school && academicContext.program && academicContext.academicYear;
+
+  return (
+    <div className="space-y-6">
+      {/* Message Banner */}
+      {message.text && (
+        <div className={`p-3 rounded-lg flex items-center justify-between ${
+          message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            {message.type === 'success' ? (
+              <CheckCircleIcon className="w-5 h-5" />
+            ) : (
+              <ExclamationTriangleIcon className="w-5 h-5" />
+            )}
+            <span className="text-sm">{message.text}</span>
+          </div>
+          <button onClick={() => setMessage({ type: '', text: '' })} className="p-1 hover:bg-white/50 rounded">
+            <XMarkIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Academic Context Selection */}
+      <Card>
+        <div className="p-4">
+          <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <AcademicCapIcon className="w-5 h-5 text-blue-600" />
+            Academic Context
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Select
+              label="School"
+              options={contextOptions.schools}
+              value={academicContext.school}
+              onChange={(value) => setAcademicContext(prev => ({ ...prev, school: value, program: '' }))}
+              placeholder="Select school..."
+            />
+            
+            <Select
+              label="Program"
+              options={filteredPrograms}
+              value={academicContext.program}
+              onChange={(value) => setAcademicContext(prev => ({ ...prev, program: value }))}
+              placeholder="Select program..."
+              disabled={!academicContext.school}
+            />
+            
+            <Select
+              label="Academic Year"
+              options={contextOptions.academicYears}
+              value={academicContext.academicYear}
+              onChange={(value) => setAcademicContext(prev => ({ ...prev, academicYear: value }))}
+              placeholder="Select year..."
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Faculty Selection */}
+      {isContextComplete && (
+        <Card>
+          <div className="p-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <UserGroupIcon className="w-5 h-5 text-blue-600" />
+              Select Faculty
+            </h3>
+            
+            {/* Search Bar */}
+            <div className="relative mb-4">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={facultySearch}
+                onChange={(e) => setFacultySearch(e.target.value)}
+                placeholder="Search faculty by name, ID, or email..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
+            
+            {/* Faculty List */}
+            {loading.faculty ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <div className="max-h-64 overflow-y-auto border rounded-lg divide-y">
+                {filteredFaculty.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">No faculty found</div>
+                ) : (
+                  filteredFaculty.map((faculty) => (
+                    <button
+                      key={faculty.employeeId}
+                      onClick={() => setSelectedFaculty(faculty)}
+                      className={`w-full p-3 text-left hover:bg-gray-50 transition-colors flex items-center justify-between ${
+                        selectedFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900">{faculty.name}</p>
+                        <p className="text-xs text-gray-500">{faculty.employeeId} • {faculty.email}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge variant="info" size="sm">Guide: {faculty.guideCount}</Badge>
+                        <Badge variant="secondary" size="sm">Panel: {faculty.panelCount}</Badge>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Projects Display */}
+      {selectedFaculty && (
+        <Card>
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900">
+                Projects under {selectedFaculty.name}
+              </h3>
+              
+              {selectedProjects.length > 0 && (
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    onClick={() => openReassignModal('guide')}
+                  >
+                    <ArrowRightIcon className="w-4 h-4 mr-1" />
+                    Reassign Guide ({selectedProjects.filter(p => p.type === 'guide').length})
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    onClick={() => openReassignModal('panel')}
+                  >
+                    <ArrowRightIcon className="w-4 h-4 mr-1" />
+                    Reassign Panel ({selectedProjects.filter(p => p.type === 'panel').length})
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {loading.projects ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Guide Projects */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    As Guide ({guideProjects.length})
+                  </h4>
+                  
+                  {guideProjects.length === 0 ? (
+                    <p className="text-sm text-gray-500 pl-4">No projects as guide</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {guideProjects.map((project) => (
+                        <div
+                          key={project._id}
+                          onClick={() => toggleProjectSelection(project._id, 'guide')}
+                          className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                            isProjectSelected(project._id)
+                              ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isProjectSelected(project._id)}
+                                onChange={() => {}}
+                                className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                              />
+                              <div>
+                                <p className="font-medium text-gray-900">{project.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  Students: {project.students.join(', ')} • {project.specialization}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="success" size="sm">{project.status}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Panel Projects */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                    As Panel Member ({panelProjects.length})
+                  </h4>
+                  
+                  {panelProjects.length === 0 ? (
+                    <p className="text-sm text-gray-500 pl-4">No projects as panel member</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {panelProjects.map((project) => (
+                        <div
+                          key={project._id}
+                          onClick={() => toggleProjectSelection(project._id, 'panel')}
+                          className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                            isProjectSelected(project._id)
+                              ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isProjectSelected(project._id)}
+                                onChange={() => {}}
+                                className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                              />
+                              <div>
+                                <p className="font-medium text-gray-900">{project.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  Students: {project.students.join(', ')} • {project.panelName}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="success" size="sm">{project.status}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Reassignment Modal */}
+      <Modal
+        isOpen={showReassignModal}
+        onClose={() => {
+          setShowReassignModal(false);
+          setTargetFaculty(null);
+          setTargetPanel(null);
+          setPanelAssignType('existing');
+        }}
+        title={`Reassign ${reassignMode === 'guide' ? 'Guide' : 'Panel'}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            {selectedProjects.length} project(s) selected for reassignment
+          </p>
+
+          {reassignMode === 'guide' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select New Guide Faculty
+              </label>
+              <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                {availableFacultyForReassign.map((faculty) => (
+                  <button
+                    key={faculty.employeeId}
+                    onClick={() => setTargetFaculty(faculty)}
+                    className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${
+                      targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <p className="font-medium text-gray-900">{faculty.name}</p>
+                    <p className="text-xs text-gray-500">{faculty.employeeId}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Toggle between existing panel and single faculty */}
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => { setPanelAssignType('existing'); setTargetFaculty(null); }}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    panelAssignType === 'existing' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Existing Panel
+                </button>
+                <button
+                  onClick={() => { setPanelAssignType('faculty'); setTargetPanel(null); }}
+                  className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                    panelAssignType === 'faculty' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Single Faculty
+                </button>
+              </div>
+
+              {panelAssignType === 'existing' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Target Panel
+                  </label>
+                  <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                    {availablePanels.map((panel) => (
+                      <button
+                        key={panel._id}
+                        onClick={() => setTargetPanel(panel)}
+                        className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${
+                          targetPanel?._id === panel._id ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{panel.name}</p>
+                        <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Faculty as Panel
+                  </label>
+                  <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                    {availableFacultyForReassign.map((faculty) => (
+                      <button
+                        key={faculty.employeeId}
+                        onClick={() => setTargetFaculty(faculty)}
+                        className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${
+                          targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{faculty.name}</p>
+                        <p className="text-xs text-gray-500">{faculty.employeeId} • Will be assigned as single-member panel</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button 
+              variant="secondary" 
+              size="sm"
+              onClick={() => {
+                setShowReassignModal(false);
+                setTargetFaculty(null);
+                setTargetPanel(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              size="sm"
+              onClick={handleBatchReassign}
+              disabled={loading.reassigning || (reassignMode === 'guide' ? !targetFaculty : (panelAssignType === 'existing' ? !targetPanel : !targetFaculty))}
+            >
+              {loading.reassigning ? 'Reassigning...' : 'Confirm Reassignment'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+export default ModificationSettings;

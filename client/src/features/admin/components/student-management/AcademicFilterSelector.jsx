@@ -3,183 +3,125 @@ import React, { useState, useEffect } from 'react';
 import Select from '../../../../shared/components/Select';
 import Card from '../../../../shared/components/Card';
 import { AcademicCapIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import api from '../../../../services/api';
+import { fetchMasterData } from '../../services/adminApi';
+import { useToast } from '../../../../shared/hooks/useToast';
 
 const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
   const [loading, setLoading] = useState(false);
+  const [masterData, setMasterData] = useState(null);
+  const { showToast } = useToast();
+  
   const [options, setOptions] = useState({
     schools: [],
-    programmes: [],
-    years: [],
-    semesters: []
+    programs: [],
+    years: []
   });
   
   const [filters, setFilters] = useState({
     school: '',
-    programme: '',
-    year: '',
-    semester: ''
+    program: '',
+    year: ''
   });
 
-  // Fetch schools on mount
+  // Fetch master data on mount
   useEffect(() => {
-    // fetchSchools(); // Commented for dummy data
-    // Use dummy data instead
-    setOptions(prev => ({
-      ...prev,
-      schools: [
-        { value: '1', label: 'SCOPE' },
-        { value: '2', label: 'SENSE' },
-        { value: '3', label: 'SELECT' },
-        { value: '4', label: 'VITBS' }
-      ]
-    }));
+    loadMasterData();
   }, []);
 
-  // Fetch programmes when school changes
-  useEffect(() => {
-    if (filters.school) {
-      // fetchProgrammes(filters.school); // Commented for dummy data
-      // Use dummy data instead
-      setOptions(prev => ({
-        ...prev,
-        programmes: [
-          { value: '1', label: 'B.Tech CSE' },
-          { value: '2', label: 'B.Tech IT' },
-          { value: '3', label: 'M.Tech CSE' }
-        ]
-      }));
+  const loadMasterData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchMasterData();
+      
+      if (response.success) {
+        const data = response.data;
+        setMasterData(data);
+        
+        // Set schools options - store both name and code for matching
+        const schoolOptions = data.schools
+          ?.filter(s => s.isActive !== false)
+          ?.map(s => ({ 
+            value: s.code,  // Use code as value for department matching
+            label: s.name,
+            name: s.name,
+            code: s.code
+          })) || [];
+        
+        // Set years options
+        const yearOptions = data.academicYears
+          ?.filter(y => y.isActive !== false)
+          ?.map(y => ({ 
+            value: y.year, 
+            label: y.year 
+          })) || [];
+        
+        setOptions(prev => ({
+          ...prev,
+          schools: schoolOptions,
+          years: yearOptions
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading master data:', error);
+      showToast('Failed to load master data', 'error');
+    } finally {
+      setLoading(false);
     }
-  }, [filters.school]);
+  };
 
-  // Fetch years when programme changes
+  // Update programs when school changes
   useEffect(() => {
-    if (filters.programme) {
-      // fetchYears(filters.school, filters.programme); // Commented for dummy data
-      // Use dummy data instead
+    if (filters.school && masterData) {
+      // Filter programs (departments) by school code
+      const programs = masterData.departments
+        ?.filter(d => {
+          return d.isActive !== false && d.school === filters.school;
+        })
+        ?.map(d => ({ 
+          value: d.name, 
+          label: d.name 
+        })) || [];
+      
       setOptions(prev => ({
         ...prev,
-        years: [
-          { value: '2025', label: '2025-26' },
-          { value: '2024', label: '2024-25' },
-          { value: '2023', label: '2023-24' }
-        ]
+        programs
       }));
-    }
-  }, [filters.programme]);
-
-  // Fetch semesters when year changes
-  useEffect(() => {
-    if (filters.year) {
-      // fetchSemesters(filters.school, filters.programme, filters.year); // Commented for dummy data
-      // Use dummy data instead
+      
+      // Reset dependent filter
+      setFilters(prev => ({
+        ...prev,
+        program: '',
+      }));
+    } else if (!filters.school) {
+      // Clear programs when no school selected
       setOptions(prev => ({
         ...prev,
-        semesters: [
-          { value: '1', label: 'Winter Semester' },
-          { value: '2', label: 'Summer Semester' }
-        ]
+        programs: []
       }));
     }
-  }, [filters.year]);
+  }, [filters.school, masterData]);
 
   // Notify parent when all filters are selected
   useEffect(() => {
-    if (filters.school && filters.programme && filters.year && filters.semester) {
-      onFilterComplete(filters);
+    if (filters.school && filters.program && filters.year) {
+      // Find school name from code for the callback
+      const selectedSchool = masterData?.schools?.find(s => s.code === filters.school);
+      
+      onFilterComplete({
+        school: selectedSchool?.name || filters.school,  // Pass school name
+        department: filters.program,  // Backend uses 'department' field
+        academicYear: filters.year
+      });
     }
-  }, [filters]);
-
-  const fetchSchools = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/admin/schools');
-      setOptions(prev => ({
-        ...prev,
-        schools: response.data.map(s => ({ value: s.id, label: s.name }))
-      }));
-    } catch (error) {
-      console.error('Error fetching schools:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchProgrammes = async (schoolId) => {
-    try {
-      setLoading(true);
-      const response = await api.get(`/admin/schools/${schoolId}/programmes`);
-      setOptions(prev => ({
-        ...prev,
-        programmes: response.data.map(p => ({ value: p.id, label: p.name }))
-      }));
-    } catch (error) {
-      console.error('Error fetching programmes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchYears = async (schoolId, programmeId) => {
-    try {
-      setLoading(true);
-      const response = await api.get(`/admin/schools/${schoolId}/programmes/${programmeId}/years`);
-      setOptions(prev => ({
-        ...prev,
-        years: response.data.map(y => ({ value: y.id, label: y.label }))
-      }));
-    } catch (error) {
-      console.error('Error fetching years:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSemesters = async (schoolId, programmeId, yearId) => {
-    try {
-      setLoading(true);
-      const response = await api.get(`/admin/schools/${schoolId}/programmes/${programmeId}/years/${yearId}/semesters`);
-      setOptions(prev => ({
-        ...prev,
-        semesters: response.data.map(s => ({ value: s.id, label: s.name }))
-      }));
-    } catch (error) {
-      console.error('Error fetching semesters:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [filters, onFilterComplete, masterData]);
 
   const handleChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
     
     // Reset dependent filters
-    const resetKeys = {
-      school: ['programme', 'year', 'semester'],
-      programme: ['year', 'semester'],
-      year: ['semester']
-    };
-    
-    if (resetKeys[key]) {
-      resetKeys[key].forEach(k => {
-        newFilters[k] = '';
-      });
-      
-      // Clear dependent options
-      setOptions(prev => {
-        const newOptions = { ...prev };
-        if (key === 'school') {
-          newOptions.programmes = [];
-          newOptions.years = [];
-          newOptions.semesters = [];
-        } else if (key === 'programme') {
-          newOptions.years = [];
-          newOptions.semesters = [];
-        } else if (key === 'year') {
-          newOptions.semesters = [];
-        }
-        return newOptions;
-      });
+    if (key === 'school') {
+      newFilters.program = '';
+      setOptions(prev => ({ ...prev, programs: [] }));
     }
     
     setFilters(newFilters);
@@ -187,9 +129,8 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
 
   const steps = [
     { key: 'school', label: 'School', options: options.schools, enabled: true },
-    { key: 'programme', label: 'Programme', options: options.programmes, enabled: !!filters.school },
-    { key: 'year', label: 'Year', options: options.years, enabled: !!filters.programme },
-    { key: 'semester', label: 'Semester', options: options.semesters, enabled: !!filters.year }
+    { key: 'program', label: 'Program', options: options.programs, enabled: !!filters.school },
+    { key: 'year', label: 'Academic Year', options: options.years, enabled: !!filters.school }
   ];
 
   const allSelected = steps.every(step => filters[step.key]);
@@ -205,11 +146,11 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-blue-600 transition-all duration-500"
-                style={{ width: `${(completedSteps / 4) * 100}%` }}
+                style={{ width: `${(completedSteps / 3) * 100}%` }}
               />
             </div>
           </div>
-          <span className="text-xs font-semibold text-gray-600">{completedSteps}/4</span>
+          <span className="text-xs font-semibold text-gray-600">{completedSteps}/3</span>
         </div>
         
         {allSelected && (
@@ -220,7 +161,7 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {steps.map((step) => (
           <Select
             key={step.key}
@@ -233,6 +174,14 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
           />
         ))}
       </div>
+
+      {filters.school && options.programs.length === 0 && (
+        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            ⚠️ No programs found for the selected school. Please select a different school or add programs in the database.
+          </p>
+        </div>
+      )}
 
       {loading && (
         <div className="mt-3 text-center">

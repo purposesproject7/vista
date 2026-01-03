@@ -1,79 +1,28 @@
 // src/features/admin/pages/StudentManagement.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { EyeIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import Navbar from '../../../shared/components/Navbar';
 import AdminTabs from '../components/shared/AdminTabs';
-import AcademicFilterSelector from '../components/student-management/AcademicFilterSelector';
-import StudentList from '../components/student-management/StudentList';
-import StudentDetailsModal from '../components/student-management/StudentDetailsModal';
-import { useToast } from '../../../shared/hooks/useToast';
-import api from '../../../services/api';
-import { generateDummyStudents } from '../../../shared/utils/dummyStudentData';
+import StudentViewTab from '../components/student-management/StudentViewTab';
+import StudentUploadTab from '../components/student-management/StudentUploadTab';
 
 const StudentManagement = () => {
-  const [filters, setFilters] = useState(null);
-  const [students, setStudents] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { showToast } = useToast();
+  const [activeTab, setActiveTab] = useState('view');
 
-  // Fetch students when filters are complete
-  useEffect(() => {
-    if (filters) {
-      // fetchStudents(); // Commented for dummy data
-      // Use dummy data instead
-      setLoading(true);
-      setTimeout(() => {
-        setStudents(generateDummyStudents(filters));
-        setLoading(false);
-      }, 500);
+  const studentTabs = [
+    {
+      id: 'view',
+      label: 'Student View',
+      icon: EyeIcon,
+      description: 'View and manage existing students'
+    },
+    {
+      id: 'upload',
+      label: 'Student Upload',
+      icon: ArrowUpTrayIcon,
+      description: 'Add students via Excel or single entry'
     }
-  }, [filters]);
-
-  const fetchStudents = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/admin/students', {
-        params: {
-          schoolId: filters.school,
-          programmeId: filters.programme,
-          yearId: filters.year,
-          semesterId: filters.semester
-        }
-      });
-      setStudents(response.data);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      showToast('Failed to load students', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleViewDetails = async (student) => {
-    // Use dummy data - find student from the list
-    const fullStudent = students.find(s => s.id === student.id);
-    setSelectedStudent(fullStudent || student);
-    setIsModalOpen(true);
-    
-    // try {
-    //   // Fetch full student details
-    //   const response = await api.get(`/admin/students/${student.id}`);
-    //   setSelectedStudent(response.data);
-    //   setIsModalOpen(true);
-    // } catch (error) {
-    //   console.error('Error fetching student details:', error);
-    //   showToast('Failed to load student details', 'error');
-    // }
-  };
-
-  const handleFilterComplete = (selectedFilters) => {
-    setFilters(selectedFilters);
-  };
-
-  const handleNavigateToStudent = (student) => {
-    handleViewDetails(student);
-  };
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -81,35 +30,43 @@ const StudentManagement = () => {
       <AdminTabs />
       
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Page Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Student Management</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            
-          </p>
         </div>
 
-        {/* Filter Selector */}
-        <div className="mb-6">
-          <AcademicFilterSelector onFilterComplete={handleFilterComplete} />
+        {/* Student Tabs */}
+        <div className="mb-6 bg-white rounded-lg shadow-sm p-2">
+          <div className="flex gap-2">
+            {studentTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all
+                    ${isActive 
+                      ? 'bg-blue-600 text-white shadow-md' 
+                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                    }
+                  `}
+                  title={tab.description}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Student List */}
-        {filters && (
-          <StudentList 
-            students={students} 
-            loading={loading}
-            onViewDetails={handleViewDetails}
-          />
-        )}
-
-        {/* Student Details Modal */}
-        <StudentDetailsModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          student={selectedStudent}
-          onNavigateToStudent={handleNavigateToStudent}
-        />
+        {/* Tab Content */}
+        <div>
+          {activeTab === 'view' && <StudentViewTab />}
+          {activeTab === 'upload' && <StudentUploadTab />}
+        </div>
       </div>
     </div>
   );

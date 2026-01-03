@@ -74,6 +74,7 @@ const projectSchema = new mongoose.Schema(
 
     academicYear: { type: String, required: true },
     school: { type: String, required: true },
+    program: { type: String },
     department: { type: String, required: true },
     specialization: { type: String, required: true },
 
@@ -105,7 +106,7 @@ const projectSchema = new mongoose.Schema(
 );
 
 projectSchema.index({ name: 1, academicYear: 1 }, { unique: true });
-projectSchema.index({ school: 1, department: 1, academicYear: 1 });
+projectSchema.index({ school: 1, program: 1, department: 1, academicYear: 1 });
 projectSchema.index({ guideFaculty: 1, academicYear: 1 });
 projectSchema.index({ panel: 1, academicYear: 1 });
 projectSchema.index({ "reviewPanels.panel": 1 });

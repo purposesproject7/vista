@@ -131,7 +131,7 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                 </div>
 
                 {/* Action Button */}
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   <Button
                     variant="secondary"
                     size="sm"

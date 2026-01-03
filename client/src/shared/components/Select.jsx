@@ -51,7 +51,7 @@ const Select = ({
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDownIcon 
-          className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ml-2 ${
+          className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ml-2 ${
             isOpen ? 'rotate-180' : ''
           }`} 
         />
@@ -73,7 +73,7 @@ const Select = ({
               >
                 <span className="truncate">{option.label}</span>
                 {option.value === value && (
-                  <CheckIcon className="w-4 h-4 text-blue-600 flex-shrink-0 ml-2" />
+                  <CheckIcon className="w-4 h-4 text-blue-600 shrink-0 ml-2" />
                 )}
               </button>
             ))}

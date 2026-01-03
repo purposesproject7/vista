@@ -8,9 +8,15 @@ import { useToast } from '../../../shared/hooks/useToast';
 import api from '../../../services/api';
 import {
   toDatetimeLocalValue,
-  fromDatetimeLocalValue,
-  generateMockBroadcasts
+  fromDatetimeLocalValue
 } from '../components/broadcasts/broadcastUtils';
+import {
+  fetchBroadcasts as apiFetchBroadcasts,
+  createBroadcast as apiCreateBroadcast,
+  updateBroadcast as apiUpdateBroadcast,
+  deleteBroadcast as apiDeleteBroadcast,
+  fetchMasterData
+} from '../services/adminApi';
 
 const DEFAULT_HISTORY_LIMIT = 25;
 
@@ -44,25 +50,21 @@ const AdminBroadcasts = () => {
   const fetchOptions = useCallback(async () => {
     try {
       setOptionsLoading(true);
-      // TODO: Replace with actual API calls
-      // const [schoolsRes, deptsRes, yearsRes, semestersRes] = await Promise.all([
-      //   api.get('/admin/schools'),
-      //   api.get('/admin/departments'),
-      //   api.get('/admin/academic-years'),
-      //   api.get('/admin/semesters')
-      // ]);
       
-      // Mock data for now - in production, replace with API data
-      setTimeout(() => {
-        setSchoolOptions(['SCOPE', 'SENSE', 'SELECT', 'VITBS']);
-        setDepartmentOptions(['CSE', 'IT', 'ECE', 'EEE', 'Mechanical', 'Civil']);
-        setYearOptions(['2024-25', '2023-24', '2022-23']);
+      const masterData = await fetchMasterData();
+      
+      if (masterData.success) {
+        setSchoolOptions(masterData.schools?.map(s => s.name) || []);
+        setDepartmentOptions(masterData.departments?.map(d => d.name) || []);
+        setYearOptions(masterData.academicYears?.map(y => y.year) || []);
         setSemesterOptions(['Fall Semester', 'Winter Semester', 'Summer Semester']);
-        setOptionsLoading(false);
-      }, 500);
+      } else {
+        showToast(masterData.message || 'Failed to load options', 'error');
+      }
     } catch (err) {
       console.error('Failed to load options:', err);
       showToast('Unable to load dropdown options', 'error');
+    } finally {
       setOptionsLoading(false);
     }
   }, [showToast]);
@@ -119,23 +121,21 @@ const AdminBroadcasts = () => {
   const fetchHistory = useCallback(async () => {
     try {
       setHistoryLoading(true);
-      // TODO: Replace with actual API call
-      // const response = await api.get('/broadcasts', {
-      //   params: { limit: historyLimit, includeExpired }
-      // });
       
-      // Mock data for now
-      setTimeout(() => {
-        const mockData = generateMockBroadcasts();
-        const filtered = includeExpired 
-          ? mockData 
-          : mockData.filter(b => new Date(b.expiresAt) >= new Date());
-        setHistory(filtered.slice(0, historyLimit));
-        setHistoryLoading(false);
-      }, 500);
+      const response = await apiFetchBroadcasts({
+        limit: historyLimit,
+        includeExpired
+      });
+      
+      if (response.success) {
+        setHistory(response.data || []);
+      } else {
+        showToast(response.message || 'Failed to load broadcast history', 'error');
+      }
     } catch (err) {
       console.error('Failed to load broadcast history:', err);
       showToast('Unable to load broadcast history', 'error');
+    } finally {
       setHistoryLoading(false);
     }
   }, [historyLimit, includeExpired, showToast]);
@@ -179,23 +179,31 @@ const AdminBroadcasts = () => {
         isActive: formData.isActive,
       };
 
-      // TODO: Replace with actual API calls
-      // if (editingBroadcastId) {
-      //   await api.put(`/broadcasts/${editingBroadcastId}`, payload);
-      // } else {
-      //   await api.post('/broadcasts', payload);
-      // }
+      let response;
+      if (editingBroadcastId) {
+        response = await apiUpdateBroadcast(editingBroadcastId, payload);
+      } else {
+        response = await apiCreateBroadcast(
+          payload.message,
+          payload.expiresAt,
+          payload.targetSchools,
+          payload.targetDepartments
+        );
+      }
 
-      showToast(
-        editingBroadcastId ? 'Broadcast updated successfully' : 'Broadcast sent successfully',
-        'success'
-      );
-
-      resetForm();
-      fetchHistory();
+      if (response.success) {
+        showToast(
+          editingBroadcastId ? 'Broadcast updated successfully' : 'Broadcast sent successfully',
+          'success'
+        );
+        resetForm();
+        fetchHistory();
+      } else {
+        showToast(response.message || 'Failed to save broadcast', 'error');
+      }
     } catch (err) {
       console.error('Failed to submit broadcast:', err);
-      showToast('Unable to save broadcast', 'error');
+      showToast(err.response?.data?.message || 'Unable to save broadcast', 'error');
     } finally {
       setSending(false);
     }
@@ -223,17 +231,20 @@ const AdminBroadcasts = () => {
     if (!window.confirm('Delete this broadcast permanently?')) return;
 
     try {
-      // TODO: Replace with actual API call
-      // await api.delete(`/broadcasts/${broadcastId}`);
+      const response = await apiDeleteBroadcast(broadcastId);
       
-      showToast('Broadcast deleted', 'success');
-      if (editingBroadcastId === broadcastId) {
-        resetForm();
+      if (response.success) {
+        showToast('Broadcast deleted', 'success');
+        if (editingBroadcastId === broadcastId) {
+          resetForm();
+        }
+        fetchHistory();
+      } else {
+        showToast(response.message || 'Failed to delete broadcast', 'error');
       }
-      fetchHistory();
     } catch (err) {
       console.error('Failed to delete broadcast:', err);
-      showToast('Unable to delete broadcast', 'error');
+      showToast(err.response?.data?.message || 'Unable to delete broadcast', 'error');
     }
   }, [editingBroadcastId, fetchHistory, resetForm, showToast]);
 

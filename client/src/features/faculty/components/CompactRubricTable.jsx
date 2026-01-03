@@ -115,7 +115,7 @@ const CompactRubricTable = ({
                                 }`}
                               >
                                 {/* Score Badge */}
-                                <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                <div className="flex flex-col items-center gap-1 shrink-0">
                                   <div className={`w-20 h-20 rounded-xl flex flex-col items-center justify-center font-bold border-2 ${
                                     isSelected 
                                       ? 'bg-blue-600 text-white border-blue-700 shadow-lg' 
@@ -145,7 +145,7 @@ const CompactRubricTable = ({
 
                                 {/* Checkmark */}
                                 {isSelected && (
-                                  <div className="flex-shrink-0">
+                                  <div className="shrink-0">
                                     <div className="bg-green-500 text-white rounded-full p-2">
                                       <CheckCircleIcon className="w-8 h-8" />
                                     </div>

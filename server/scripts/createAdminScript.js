@@ -5,7 +5,7 @@ import connectDB from "../utils/db.js";
 import Faculty from "../models/facultySchema.js";
 
 // ✅ Load .env BEFORE accessing process.env
-dotenv.config({ path: "C:/Users/irk/Desktop/CPMS - Refactored/server/.env" });
+dotenv.config({ path: "C:\\Users\\Theju\\Desktop\\vista\\server\\.env" });
 
 if (!process.env.MONGO_URI) {
   console.error("❌ MONGO_URI missing. Check .env and path.");

@@ -11,6 +11,16 @@ export const MOCK_USERS = {
     name: 'Admin User',
     email: 'admin@university.edu',
     role: 'admin'
+  },
+  coordinator: {
+    id: 'PC001',
+    name: 'Dr. Priya Sharma',
+    email: 'priya.sharma@university.edu',
+    role: 'project_coordinator',
+    school: 'SCOPE',
+    programme: 'B.Tech CSE',
+    department: 'CSE',
+    isPrimary: true
   }
 };
 
