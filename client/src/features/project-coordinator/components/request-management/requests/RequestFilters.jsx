@@ -1,7 +1,7 @@
 // src/features/project-coordinator/components/request-management/requests/RequestFilters.jsx
 import React, { useMemo } from 'react';
 import Card from '../../../../../shared/components/Card';
-import Select from '../../../../../shared/components/Select';
+import Select from './Select_Filter';
 import { SCHOOLS, PROGRAMMES_BY_SCHOOL, REQUEST_CATEGORIES, REQUEST_STATUSES } from '../../../../../shared/constants/config';
 
 const RequestFilters = ({ filters, onFilterChange, onReset }) => {

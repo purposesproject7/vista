@@ -18,6 +18,7 @@ import CoordinatorFacultyManagement from "./features/project-coordinator/pages/F
 import CoordinatorProjectManagement from "./features/project-coordinator/pages/ProjectManagement";
 import CoordinatorPanelManagement from "./features/project-coordinator/pages/PanelManagement";
 import CoordinatorRequestManagement from "./features/project-coordinator/pages/RequestManagement";
+import CoordinatorRequestAccess from "./features/project-coordinator/pages/RequestAccess";
 
 import Login from "./features/auth/pages/Login";
 import ForgotPassword from "./features/auth/pages/ForgotPassword";
@@ -223,6 +224,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["project_coordinator"]}>
             <CoordinatorRequestManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/coordinator/request-access"
+        element={
+          <ProtectedRoute allowedRoles={["project_coordinator"]}>
+            <CoordinatorRequestAccess />
           </ProtectedRoute>
         }
       />

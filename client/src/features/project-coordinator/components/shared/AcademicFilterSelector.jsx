@@ -6,14 +6,10 @@ import { AcademicCapIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
   const [loading, setLoading] = useState(false);
-  const [options, setOptions] = useState({
-    years: [],
-    semesters: []
-  });
+  const [academicYearSemesterOptions, setAcademicYearSemesterOptions] = useState([]);
   
   const [filters, setFilters] = useState({
-    year: '',
-    semester: ''
+    academicYearSemester: ''
   });
   
   // Get coordinator's school and department from context (would come from auth in real implementation)
@@ -22,83 +18,57 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
     programme: 'B.Tech CSE' // This would come from coordinator's profile
   });
 
-  // Fetch years on mount
+  // Fetch combined academic year and semester options on mount
   useEffect(() => {
-    // Use dummy data for years
-    setOptions(prev => ({
-      ...prev,
-      years: [
-        { value: '2025', label: '2025-26' },
-        { value: '2024', label: '2024-25' },
-        { value: '2023', label: '2023-24' }
-      ]
-    }));
+    // Combined options: year-semester format
+    setAcademicYearSemesterOptions([
+      { value: '25-26-fall', label: '25-26 Fall' },
+      { value: '25-26-winter', label: '25-26 Winter' },
+      { value: '24-25-fall', label: '24-25 Fall' },
+      { value: '24-25-winter', label: '24-25 Winter' },
+      { value: '23-24-fall', label: '23-24 Fall' },
+      { value: '23-24-winter', label: '23-24 Winter' }
+    ]);
   }, []);
 
-  // Fetch semesters when year changes
+  // Notify parent when filter is selected
   useEffect(() => {
-    if (filters.year) {
-      // Use dummy data for semesters
-      setOptions(prev => ({
-        ...prev,
-        semesters: [
-          { value: '1', label: 'Winter Semester' },
-          { value: '2', label: 'Summer Semester' }
-        ]
-      }));
-    }
-  }, [filters.year]);
-
-  // Notify parent when all filters are selected
-  useEffect(() => {
-    if (filters.year && filters.semester) {
+    if (filters.academicYearSemester) {
+      // Parse the combined value to extract year and semester
+      const [year, semester] = filters.academicYearSemester.split('-').slice(0, 2);
+      const semesterFull = filters.academicYearSemester.includes('fall') ? 'Fall' : 'Winter';
+      
       onFilterComplete({
-        ...filters,
+        year: `${year.slice(0, 2)}-${year.slice(2)}`,
+        semester: semesterFull,
+        academicYearSemester: filters.academicYearSemester,
         school: coordinatorContext.school,
         programme: coordinatorContext.programme
       });
     }
-  }, [filters]);
+  }, [filters, coordinatorContext.school, coordinatorContext.programme, onFilterComplete]);
 
-  const handleChange = (key, value) => {
-    const newFilters = { ...filters, [key]: value };
-    
-    // Reset dependent filters
-    if (key === 'year') {
-      newFilters.semester = '';
-      // Clear semesters options
-      setOptions(prev => ({
-        ...prev,
-        semesters: []
-      }));
-    }
-    
-    setFilters(newFilters);
+  const handleChange = (value) => {
+    setFilters({ academicYearSemester: value });
   };
 
-  const steps = [
-    { key: 'year', label: 'Year', options: options.years, enabled: true },
-    { key: 'semester', label: 'Semester', options: options.semesters, enabled: !!filters.year }
-  ];
-
-  const allSelected = steps.every(step => filters[step.key]);
-  const completedSteps = steps.filter(step => filters[step.key]).length;
+  const allSelected = !!filters.academicYearSemester;
 
   return (
     <Card className={`sticky top-4 z-30 ${className}`}>
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center gap-2 flex-1">
           <AcademicCapIcon className="w-5 h-5 text-blue-600" />
-          <h2 className="text-base font-bold text-gray-900">Select Academic Context</h2>
+          <h2 className="text-base font-bold text-gray-900">Select Academic Year & Semester</h2>
           <div className="flex-1 mx-3">
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-blue-600 transition-all duration-500"
-                style={{ width: `${(completedSteps / 2) * 100}%` }}
+                style={{ width: `${allSelected ? 100 : 0}%` }}
               />
             </div>
           </div>
-          <span className="text-xs font-semibold text-gray-600">{completedSteps}/2</span>
+          <span className="text-xs font-semibold text-gray-600">{allSelected ? '1' : '0'}/1</span>
         </div>
         
         {allSelected && (
@@ -123,20 +93,14 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
         </div>
       </div>
 
-      {/* Year and Semester Selection */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {steps.map((step) => (
-          <Select
-            key={step.key}
-            label={step.label}
-            value={filters[step.key]}
-            onChange={(value) => handleChange(step.key, value)}
-            options={step.options}
-            placeholder={step.enabled ? `Select ${step.label}` : 'Select previous first'}
-            className={!step.enabled ? 'opacity-50 pointer-events-none' : ''}
-          />
-        ))}
-      </div>
+      {/* Academic Year & Semester Selection */}
+      <Select
+        label="Academic Year & Semester"
+        value={filters.academicYearSemester}
+        onChange={handleChange}
+        options={academicYearSemesterOptions}
+        placeholder="Select Academic Year & Semester"
+      />
 
       {loading && (
         <div className="mt-3 text-center">

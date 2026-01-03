@@ -8,18 +8,14 @@ export const downloadProjectTemplate = () => {
   const templateData = [
     {
       'Project Title': 'Example Project Title',
-      'Project Description': 'Brief description of the project',
-      'Guide Name': 'Dr. First Name Last Name',
       'Guide Employee ID': 'EMP001',
-      'Team Members': 'Student Name-Registration Number; Student Name-Registration Number'
+      'Team Members (comma-separated)': 'Registration No: 21BCE1001, 21BCE1002'
     }
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(templateData);
   worksheet['!cols'] = [
     { wch: 30 },
-    { wch: 40 },
-    { wch: 25 },
     { wch: 20 },
     { wch: 50 }
   ];
@@ -80,10 +76,8 @@ export const parseProjectExcel = async (file) => {
         // Validate required columns
         const requiredColumns = [
           'Project Title',
-          'Project Description',
-          'Guide Name',
           'Guide Employee ID',
-          'Team Members'
+          'Team Members (comma-separated)'
         ];
 
         const firstRow = jsonData[0];
@@ -101,16 +95,12 @@ export const parseProjectExcel = async (file) => {
         // Process and validate data
         const projects = jsonData.map((row, index) => {
           const projectTitle = row['Project Title']?.toString().trim();
-          const projectDescription = row['Project Description']?.toString().trim();
-          const guideName = row['Guide Name']?.toString().trim();
           const guideEmployeeID = row['Guide Employee ID']?.toString().trim();
-          const teamMembersStr = row['Team Members']?.toString().trim();
+          const teamMembersStr = row['Team Members (comma-separated)']?.toString().trim();
 
           // Validate required fields
           const errors = [];
           if (!projectTitle) errors.push(`Row ${index + 2}: Project Title is required`);
-          if (!projectDescription) errors.push(`Row ${index + 2}: Project Description is required`);
-          if (!guideName) errors.push(`Row ${index + 2}: Guide Name is required`);
           if (!guideEmployeeID) errors.push(`Row ${index + 2}: Guide Employee ID is required`);
           if (!teamMembersStr) errors.push(`Row ${index + 2}: Team Members are required`);
 
@@ -119,18 +109,17 @@ export const parseProjectExcel = async (file) => {
             return null;
           }
 
-          // Parse team members
+          // Parse team members - just registration numbers
           let teamMembers = [];
           if (teamMembersStr) {
             try {
               // Support both ';' and ',' as separators
               const memberStrings = teamMembersStr.split(/[;,]/).map(m => m.trim()).filter(m => m);
-              teamMembers = memberStrings.map(memberStr => {
-                const [name, regNo] = memberStr.split('-').map(p => p.trim());
-                if (!name || !regNo) {
-                  throw new Error(`Invalid format in row ${index + 2}: "${memberStr}". Use format: name-regNo`);
+              teamMembers = memberStrings.map(regNo => {
+                if (!regNo) {
+                  throw new Error(`Invalid format in row ${index + 2}: empty registration number`);
                 }
-                return { name, regNo };
+                return { registrationNumber: regNo };
               });
             } catch (error) {
               reject(error);
@@ -140,8 +129,6 @@ export const parseProjectExcel = async (file) => {
 
           return {
             projectTitle,
-            projectDescription,
-            guideName,
             guideEmployeeID,
             teamMembers,
             rowNumber: index + 2
@@ -174,16 +161,6 @@ export const validateProjectData = (project) => {
     errors.push('Project title is required');
   } else if (project.projectTitle.length > 200) {
     errors.push('Project title must be less than 200 characters');
-  }
-
-  if (!project.projectDescription || project.projectDescription.length === 0) {
-    errors.push('Project description is required');
-  } else if (project.projectDescription.length > 1000) {
-    errors.push('Project description must be less than 1000 characters');
-  }
-
-  if (!project.guideName || project.guideName.length === 0) {
-    errors.push('Guide name is required');
   }
 
   if (!project.guideEmployeeID || project.guideEmployeeID.length === 0) {

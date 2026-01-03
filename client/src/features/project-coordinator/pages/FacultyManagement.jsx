@@ -13,7 +13,7 @@ import { useAuth } from '../../../shared/hooks/useAuth';
 import { fetchFaculty as apiFetchFaculty, createFaculty as apiCreateFaculty, updateFaculty as apiUpdateFaculty, deleteFaculty as apiDeleteFaculty } from '../services/coordinatorApi';
 
 const FacultyManagement = () => {
-  const [faculty, setFaculty] = useState([]);
+  const [faculty, setFaculty] = useState([]); 
   const [filters, setFilters] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPrimary, setIsPrimary] = useState(true);
@@ -176,10 +176,11 @@ const FacultyManagement = () => {
         {activeTab === 'view' && (
           <div className="space-y-6">
             {/* Filter Selector */}
-            <AcademicFilterSelector onFilterComplete={handleFilterComplete} />
+            {/* <AcademicFilterSelector onFilterComplete={handleFilterComplete} /> */}
 
             {/* Faculty List */}
-            {filters && (
+            <FacultyList faculty={faculty} />
+            {/* {filters && (
               <>
                 {loading ? (
                   <Card>
@@ -188,10 +189,9 @@ const FacultyManagement = () => {
                     </div>
                   </Card>
                 ) : (
-                  <FacultyList faculty={faculty} />
                 )}
-              </>
-            )}
+              </> */}
+            {/* )} */}
           </div>
         )}
 

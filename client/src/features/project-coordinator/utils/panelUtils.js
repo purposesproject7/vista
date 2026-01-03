@@ -27,9 +27,70 @@ export const downloadFacultyTemplate = () => {
 };
 
 /**
+ * Download panel upload template
+ */
+export const downloadPanelTemplate = () => {
+  const template = [
+    ['Panel Name', 'Faculty Employee ID 1', 'Faculty Employee ID 2', 'Faculty Employee ID 3', 'Specializations'], /*'Panel Type'*/
+    ['Panel A', 'EMP001', 'EMP002', 'EMP003', 'AI/ML, Web Dev'], /*Regular*/
+    ['Panel B', 'EMP004', 'EMP005', '', 'Cloud Computing'], /* Temperory */
+    ['Panel C', 'EMP006', '', '', 'Blockchain'],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(template);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Panel Template');
+  
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 25 },
+    { wch: 15 }
+  ];
+
+  XLSX.writeFile(wb, 'panel_upload_template.xlsx');
+};
+
+/**
  * Validate uploaded Excel file
  */
 export const validateFacultyFile = (file) => {
+  const errors = [];
+
+  if (!file) {
+    errors.push('No file selected');
+    return { isValid: false, errors };
+  }
+
+  // Check file type
+  const validTypes = [
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel'
+  ];
+  
+  if (!validTypes.includes(file.type)) {
+    errors.push('Invalid file type. Please upload an Excel file (.xlsx or .xls)');
+  }
+
+  // Check file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024;
+  if (file.size > maxSize) {
+    errors.push('File size exceeds 5MB limit');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+/**
+ * Validate panel Excel file
+ */
+export const validatePanelFile = (file) => {
   const errors = [];
 
   if (!file) {
@@ -118,6 +179,80 @@ export const parseFacultyExcel = async (file) => {
     reader.readAsArrayBuffer(file);
   });
 };
+
+/**
+ * Parse panel Excel file
+ */
+export const parsePanelExcel = async (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (jsonData.length === 0) {
+          reject(new Error('Excel file is empty'));
+          return;
+        }
+
+        // Check for at least Panel Name and one Faculty Employee ID
+        const firstRow = jsonData[0] || {};
+        if (!firstRow['Panel Name']) {
+          reject(new Error('Missing required column: Panel Name'));
+          return;
+        }
+
+        // Transform data - extract faculty employee IDs dynamically
+        const panels = jsonData.map((row, index) => {
+          const facultyIds = [];
+          
+          // Look for Faculty Employee ID columns
+          for (let i = 1; i <= 10; i++) {
+            const key = `Faculty Employee ID ${i}`;
+            if (row[key] && row[key].toString().trim()) {
+              facultyIds.push(row[key].toString().trim());
+            }
+          }
+
+          return {
+            panelName: row['Panel Name'] || `Panel ${index + 1}`,
+            facultyEmployeeIds: facultyIds,
+            specializations: row['Specializations'] 
+              ? row['Specializations'].split(',').map(s => s.trim())
+              : [],
+            // panelType: row['Panel Type'] || 'regular',
+            rowNumber: index + 2
+          };
+        });
+
+        // Validate each panel has at least one faculty
+        const invalidPanels = panels.filter(p => p.facultyEmployeeIds.length === 0);
+        if (invalidPanels.length > 0) {
+          reject(new Error(
+            `Panels must have at least one faculty member. Invalid rows: ${invalidPanels.map(p => p.rowNumber).join(', ')}`
+          ));
+          return;
+        }
+
+        resolve(panels);
+      } catch (error) {
+        reject(new Error('Failed to parse Excel file: ' + error.message));
+      }
+    };
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+};
+
 
 /**
  * Calculate panel statistics

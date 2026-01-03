@@ -1,5 +1,6 @@
 // src/features/project-coordinator/components/project-management/ProjectCreation.jsx
 import React, { useState, useCallback } from 'react';
+import renderTeamMembers from './rendertableExcelUpload';
 import {
   CloudArrowUpIcon,
   DocumentArrowDownIcon,
@@ -7,6 +8,7 @@ import {
   PlusIcon
 } from '@heroicons/react/24/outline';
 import AcademicFilterSelector from '../shared/AcademicFilterSelector';
+import TeamMembersSelector from './TeamMembersSelector';
 import Card from '../../../../shared/components/Card';
 import Button from '../../../../shared/components/Button';
 import Input from '../../../../shared/components/Input';
@@ -29,14 +31,13 @@ const ProjectCreation = () => {
   // Manual form state
   const [manualForm, setManualForm] = useState({
     projectTitle: '',
-    projectDescription: '',
-    guideName: '',
     guideEmployeeID: '',
-    teamMembers: ''
+    teamMembers: []
   });
   const [manualError, setManualError] = useState(null);
   const [manualProjects, setManualProjects] = useState([]);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+  const [existingStudents] = useState([]); // Would be fetched from student management
 
   const { showToast } = useToast();
 
@@ -48,10 +49,8 @@ const ProjectCreation = () => {
     setUploadedProjects([]);
     setManualForm({
       projectTitle: '',
-      projectDescription: '',
-      guideName: '',
       guideEmployeeID: '',
-      teamMembers: ''
+      teamMembers: []
     });
     setManualError(null);
     setManualProjects([]);
@@ -142,27 +141,12 @@ const ProjectCreation = () => {
       setManualError('Project title is required');
       return false;
     }
-    if (!manualForm.projectDescription.trim()) {
-      setManualError('Project description is required');
-      return false;
-    }
-    if (!manualForm.guideName.trim()) {
-      setManualError('Guide name is required');
-      return false;
-    }
     if (!manualForm.guideEmployeeID.trim()) {
       setManualError('Guide employee ID is required');
       return false;
     }
-    if (!manualForm.teamMembers.trim()) {
-      setManualError('Team members are required (comma-separated: name-regNo,name-regNo)');
-      return false;
-    }
-
-    // Validate team members format
-    const teamRegex = /^[^-]+-[^,]+(\s*,\s*[^-]+-[^,]+)*$/;
-    if (!teamRegex.test(manualForm.teamMembers)) {
-      setManualError('Invalid team format. Use: name-regNo,name-regNo');
+    if (!Array.isArray(manualForm.teamMembers) || manualForm.teamMembers.length === 0) {
+      setManualError('At least one team member is required');
       return false;
     }
 
@@ -180,20 +164,10 @@ const ProjectCreation = () => {
     try {
       setIsSubmittingManual(true);
 
-      // Parse team members
-      const teamMembers = manualForm.teamMembers
-        .split(',')
-        .map(member => {
-          const [name, regNo] = member.trim().split('-');
-          return { name: name.trim(), regNo: regNo.trim() };
-        });
-
       const newProject = {
         projectTitle: manualForm.projectTitle,
-        projectDescription: manualForm.projectDescription,
-        guideName: manualForm.guideName,
         guideEmployeeID: manualForm.guideEmployeeID,
-        teamMembers,
+        teamMembers: manualForm.teamMembers,
         school: filters.school,
         programme: filters.programme,
         academicYear: filters.year,
@@ -205,10 +179,8 @@ const ProjectCreation = () => {
       // Reset form
       setManualForm({
         projectTitle: '',
-        projectDescription: '',
-        guideName: '',
         guideEmployeeID: '',
-        teamMembers: ''
+        teamMembers: []
       });
       setManualError(null);
 
@@ -294,7 +266,7 @@ const ProjectCreation = () => {
                 </h3>
                 <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
                   <li>Download the template Excel file below</li>
-                  <li>Fill in project details (Title, Description, Guide Info, Team Members)</li>
+                  <li>Fill in project details (Title, Guide Employee ID, Team Members)</li>
                   <li>School, Programme, Academic Year, and Semester will be auto-filled</li>
                   <li>Upload the completed file</li>
                   <li>Maximum file size: 5MB</li>
@@ -304,7 +276,7 @@ const ProjectCreation = () => {
           </Card>
 
           {/* Academic Info Display */}
-          <Card className="bg-gray-50">
+          {/* <Card className="bg-gray-50">
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <p className="text-xs text-gray-600 font-semibold">School</p>
@@ -316,14 +288,14 @@ const ProjectCreation = () => {
               </div>
               <div>
                 <p className="text-xs text-gray-600 font-semibold">Academic Year</p>
-                <p className="text-sm text-gray-900 font-medium">{filters.year}</p>
+                <p className="text-sm text-gray-900 font-medium">{filters.year.replace('-', `-${parseInt(filters.year)+1}`)}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600 font-semibold">Semester</p>
                 <p className="text-sm text-gray-900 font-medium">{filters.semester}</p>
               </div>
             </div>
-          </Card>
+          </Card> */}
 
           {/* Upload Card */}
           <Card>
@@ -432,7 +404,7 @@ const ProjectCreation = () => {
                           Project Title
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Guide Name
+                          Guide Employee ID
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Team Members
@@ -449,10 +421,10 @@ const ProjectCreation = () => {
                             {project.projectTitle}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {project.guideName}
+                            {project.guideEmployeeID}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
-                            {project.teamMembers?.length || 0} members
+                            {renderTeamMembers(project.teamMembers)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
                             <button
@@ -483,10 +455,8 @@ const ProjectCreation = () => {
                 setActiveMode(null);
                 setManualForm({
                   projectTitle: '',
-                  projectDescription: '',
-                  guideName: '',
                   guideEmployeeID: '',
-                  teamMembers: ''
+                  teamMembers: []
                 });
                 setManualError(null);
               }}
@@ -496,7 +466,7 @@ const ProjectCreation = () => {
           </div>
 
           {/* Academic Info Display */}
-          <Card className="bg-gray-50">
+          {/* <Card className="bg-gray-50">
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <p className="text-xs text-gray-600 font-semibold">School</p>
@@ -508,14 +478,14 @@ const ProjectCreation = () => {
               </div>
               <div>
                 <p className="text-xs text-gray-600 font-semibold">Academic Year</p>
-                <p className="text-sm text-gray-900 font-medium">{filters.year}</p>
+                <p className="text-sm text-gray-900 font-medium">{filters.year.replace('-', `-${parseInt(filters.year)+1}`)}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-600 font-semibold">Semester</p>
                 <p className="text-sm text-gray-900 font-medium">{filters.semester}</p>
               </div>
             </div>
-          </Card>
+          </Card> */}
 
           {/* Manual Form */}
           <Card>
@@ -537,59 +507,29 @@ const ProjectCreation = () => {
                   disabled={isSubmittingManual}
                 />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Project Description
-                  </label>
-                  <textarea
-                    placeholder="Enter project description"
-                    value={manualForm.projectDescription}
-                    onChange={(e) =>
-                      handleManualFormChange('projectDescription', e.target.value)
-                    }
-                    disabled={isSubmittingManual}
-                    rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Guide Name"
-                    placeholder="e.g., Dr. Rajesh Kumar"
-                    value={manualForm.guideName}
-                    onChange={(e) => handleManualFormChange('guideName', e.target.value)}
-                    disabled={isSubmittingManual}
-                  />
-
-                  <Input
-                    label="Guide Employee ID"
-                    placeholder="e.g., EMP001"
-                    value={manualForm.guideEmployeeID}
-                    onChange={(e) =>
-                      handleManualFormChange('guideEmployeeID', e.target.value)
-                    }
-                    disabled={isSubmittingManual}
-                  />
-                </div>
+                <Input
+                  label="Guide Employee ID"
+                  placeholder="e.g., EMP001"
+                  value={manualForm.guideEmployeeID}
+                  onChange={(e) =>
+                    handleManualFormChange('guideEmployeeID', e.target.value)
+                  }
+                  disabled={isSubmittingManual}
+                />
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Team Members (comma-separated)
+                    Team Members
                   </label>
-                  <textarea
-                    placeholder="Format: name-regNo,name-regNo,name-regNo&#10;Example: John Doe-21BCE1001,Jane Smith-21BCE1002"
-                    value={manualForm.teamMembers}
-                    onChange={(e) =>
-                      handleManualFormChange('teamMembers', e.target.value)
+                  <TeamMembersSelector
+                    onTeamMembersChange={(members) =>
+                      handleManualFormChange('teamMembers', members)
                     }
-                    disabled={isSubmittingManual}
-                    rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    academicYear={filters.year}
+                    school={filters.school}
+                    department={filters.programme}
+                    existingStudents={existingStudents}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter each member as name-registrationNumber, separated by commas
-                  </p>
                 </div>
               </div>
 
@@ -623,7 +563,7 @@ const ProjectCreation = () => {
                           Project Title
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Guide
+                          Guide Employee ID
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Team Members
@@ -643,10 +583,10 @@ const ProjectCreation = () => {
                             {project.projectTitle}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {project.guideName}
+                            {project.guideEmployeeID}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
-                            {project.teamMembers?.length || 0} members
+                            {renderTeamMembers(project.teamMembers)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                             <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
@@ -669,7 +609,7 @@ const ProjectCreation = () => {
                             {project.projectTitle}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {project.guideName}
+                            {project.guideEmployeeID}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {project.teamMembers?.length || 0} members

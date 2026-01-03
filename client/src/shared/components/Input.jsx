@@ -22,7 +22,7 @@ const Input = ({
       <input
         type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         placeholder={placeholder}
         max={max}
         min={min}

@@ -6,7 +6,7 @@ const facultySchema = new mongoose.Schema(
     name: { type: String, required: true },
     emailId: { type: String, required: true, unique: true },
     employeeId: { type: String, required: true, unique: true },
-    phoneNumber: { type: String },
+    phoneNumber: { type: String, required: true }, // Now required
     password: { type: String, required: true },
 
     role: {
@@ -16,7 +16,7 @@ const facultySchema = new mongoose.Schema(
     },
 
     school: { type: String, required: true },
-    department: { type: String },
+    department: { type: String }, // Now optional
     specialization: { type: String },
 
     // Project coordinator flag
