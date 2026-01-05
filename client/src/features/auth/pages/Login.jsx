@@ -12,6 +12,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [loginResult, setLoginResult] = useState(null);
   const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -21,18 +23,34 @@ const Login = () => {
     setLoading(true);
     setError('');
 
+    // Clear any old token before login
+    localStorage.removeItem('authToken');
+
     try {
       const result = await login({ email, password });
       
+      console.log('Login result:', result);
+      console.log('User data:', result.user);
+      console.log('isProjectCoordinator:', result.user.isProjectCoordinator);
+      console.log('Role:', result.user.role);
+      
       showToast('Login successful!', 'success');
       
-      // Redirect based on role
-      if (result.user.role === 'faculty') {
-        navigate('/faculty');
-      } else if (result.user.role === 'admin') {
+      // Check if user is both faculty and project coordinator
+      if (result.user.role === 'faculty' && result.user.isProjectCoordinator) {
+        // Show role selection modal
+        console.log('Showing role modal');
+        setLoginResult(result);
+        setShowRoleModal(true);
+        setLoading(false);
+        return;
+      }
+      
+      // Direct routing for other roles
+      if (result.user.role === 'admin') {
         navigate('/admin');
-      } else if (result.user.role === 'project_coordinator') {
-        navigate('/coordinator');
+      } else if (result.user.role === 'faculty') {
+        navigate('/faculty');
       } else {
         navigate('/');
       }
@@ -42,6 +60,15 @@ const Login = () => {
       showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRoleSelection = (selectedRole) => {
+    setShowRoleModal(false);
+    if (selectedRole === 'coordinator') {
+      navigate('/coordinator');
+    } else {
+      navigate('/faculty');
     }
   };
 
@@ -63,7 +90,7 @@ const Login = () => {
             label="Email"
             type="email"
             value={email}
-            onChange={setEmail}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="faculty@university.edu"
             required
           />
@@ -72,7 +99,7 @@ const Login = () => {
             label="Password"
             type="password"
             value={password}
-            onChange={setPassword}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             required
           />
@@ -93,6 +120,36 @@ const Login = () => {
           </a>
         </p>
       </Card>
+
+      {/* Role Selection Modal */}
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center px-4 z-50">
+          <Card className="w-full max-w-md">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Select Your Role
+            </h2>
+            <p className="text-gray-600 mb-6">
+              You have access to both Faculty and Project Coordinator portals. Please choose how you would like to proceed:
+            </p>
+            <div className="space-y-3">
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={() => handleRoleSelection('coordinator')}
+              >
+                Login as Project Coordinator
+              </Button>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => handleRoleSelection('faculty')}
+              >
+                Login as Faculty
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

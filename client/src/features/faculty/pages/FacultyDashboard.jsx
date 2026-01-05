@@ -1,7 +1,6 @@
 // src/features/faculty/pages/FacultyDashboard.jsx - Light Mode
 import React, { useState } from 'react';
 import FilterPanel from '../components/FilterPanel';
-import StatisticsCard from '../components/StatisticsCard';
 import ActiveReviewsSection from '../components/ActiveReviewsSection';
 import DeadlinePassedSection from '../components/DeadlinePassedSection';
 import PastReviewsSection from '../components/PastReviewsSection';
@@ -64,21 +63,17 @@ const FacultyDashboard = () => {
           </div>
         ) : (
           <>
-            <StatisticsCard active={active} deadlinePassed={deadlinePassed} past={past} />
-            
-            <div className="space-y-4">
+            <div className="space-y-6">
               <ActiveReviewsSection 
                 reviews={active} 
-                onEnterMarks={(team) => {
-                  const review = active.find(r => r.teams?.some(t => t.id === team.id));
+                onEnterMarks={(review, team) => {
                   handleEnterMarks(review, team);
                 }}
               />
 
               <DeadlinePassedSection 
                 reviews={deadlinePassed}
-                onEnterMarks={(team) => {
-                  const review = deadlinePassed.find(r => r.teams?.some(t => t.id === team.id));
+                onEnterMarks={(review, team) => {
                   handleEnterMarks(review, team);
                 }}
               />

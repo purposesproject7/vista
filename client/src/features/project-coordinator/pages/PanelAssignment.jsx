@@ -246,7 +246,7 @@ const PanelAssignment = () => {
               placeholder="Enter panel ID"
               name="panelId"
               value={manualForm.panelId}
-              onChange={handleManualFormChange}
+              onChange={(e) => handleManualFormChange(e)}
             />
 
             <Input
@@ -254,7 +254,7 @@ const PanelAssignment = () => {
               placeholder="Enter project ID"
               name="projectId"
               value={manualForm.projectId}
-              onChange={handleManualFormChange}
+              onChange={(e) => handleManualFormChange(e)}
             />
 
             <div>

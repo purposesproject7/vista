@@ -109,8 +109,9 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
       
       onFilterComplete({
         school: selectedSchool?.name || filters.school,  // Pass school name
-        department: filters.program,  // Backend uses 'department' field
-        academicYear: filters.year
+        department: filters.program,  // Backend uses 'department' field to store programme data
+        academicYear: filters.year,
+        programme: filters.program  // Also include as programme for clarity
       });
     }
   }, [filters, onFilterComplete, masterData]);

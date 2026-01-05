@@ -174,7 +174,7 @@ const AcademicYearSettings = ({ years, onUpdate }) => {
             </label>
             <Input
               value={formData.name}
-              onChange={(value) => setFormData({ name: value })}
+              onChange={(e) => setFormData({ name: e.target.value })}
               placeholder="e.g., 2024-25 Fall, 2024-25 Winter, 2025-26 Fall"
               required
               autoFocus

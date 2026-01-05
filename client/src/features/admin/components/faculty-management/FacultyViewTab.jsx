@@ -165,6 +165,7 @@ const FacultyViewTab = () => {
             }}
             onSave={handleEditFaculty}
             faculty={selectedFaculty}
+            filters={filters}
           />
         </>
       )}

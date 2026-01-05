@@ -5,6 +5,12 @@ import api from '../../../services/api';
  * Admin API Service
  * Handles all API calls for admin features with data adapters
  * Backend is the source of truth
+ * 
+ * IMPORTANT: Field Mapping
+ * - Frontend uses 'programme' (British spelling) for user-facing display
+ * - Backend uses 'department' field to store programme data
+ * - Hierarchy: School → Programme (stored as department in backend) → Academic Year
+ * - All adapters map backend 'department' to frontend 'programme' for consistency
  */
 
 // ==================== Data Adapters ====================
@@ -22,7 +28,8 @@ const adaptStudent = (backendStudent, project = null) => {
     email: backendStudent.emailId,
     emailId: backendStudent.emailId,
     school: backendStudent.school,
-    department: backendStudent.department,
+    programme: backendStudent.department,  // Backend uses 'department', frontend uses 'programme'
+    department: backendStudent.department,  // Keep for compatibility
     academicYear: backendStudent.academicYear,
     PAT: backendStudent.PAT || false,
     isActive: backendStudent.isActive !== false,
@@ -93,7 +100,8 @@ const adaptFaculty = (backendFaculty) => {
     email: backendFaculty.emailId,
     emailId: backendFaculty.emailId,
     school: backendFaculty.school,
-    department: backendFaculty.department,
+    programme: backendFaculty.department,  // Backend uses 'department', frontend uses 'programme'
+    department: backendFaculty.department,  // Keep for compatibility
     role: backendFaculty.role,
     specialization: backendFaculty.specialization || [],
     phoneNumber: backendFaculty.phoneNumber,
@@ -118,7 +126,8 @@ const adaptPanel = (backendPanel) => {
     })) || [],
     academicYear: backendPanel.academicYear,
     school: backendPanel.school,
-    department: backendPanel.department,
+    programme: backendPanel.department,  // Backend uses 'department', frontend uses 'programme'
+    department: backendPanel.department,  // Keep for compatibility
     isActive: backendPanel.isActive !== false,
     assignedProjects: backendPanel.assignedProjects || 0,
     createdAt: backendPanel.createdAt,
@@ -146,7 +155,8 @@ const adaptProject = (backendProject) => {
     type: backendProject.type,
     academicYear: backendProject.academicYear,
     school: backendProject.school,
-    department: backendProject.department,
+    programme: backendProject.department,  // Backend uses 'department', frontend uses 'programme'
+    department: backendProject.department,  // Keep for compatibility
     specialization: backendProject.specialization,
     teamSize: backendProject.teamSize || teamMembers.length,
     status: backendProject.status || 'active',
@@ -314,19 +324,25 @@ export const fetchStudentDetails = async (regNo) => {
  * Create a single student
  */
 export const createStudent = async (studentData) => {
-  const response = await api.post('/admin/student', studentData);
+  // Map programme to department for backend
+  const payload = {
+    ...studentData,
+    department: studentData.programme || studentData.programmeId || studentData.department
+  };
+  const response = await api.post('/admin/student', payload);
   return response.data;
 };
 
 /**
  * Bulk upload students
  */
-export const bulkUploadStudents = async (students, academicYear, school, department) => {
+export const bulkUploadStudents = async (students, school, programme) => {
+  // Map programme to department for backend
   const response = await api.post('/admin/student/bulk', {
     students,
-    academicYear,
+    academicYear: students[0]?.yearId || students[0]?.academicYear,
     school,
-    department
+    department: programme  // Backend expects 'department' field
   });
   return response.data;
 };
@@ -501,7 +517,7 @@ export const createProject = async (projectData) => {
       specialization: projectData.specialization || '',
       type: projectData.type || 'Capstone Project',
       school: projectData.school,
-      department: projectData.department,
+      department: projectData.programme || projectData.department,  // Map programme to department for backend
       academicYear: projectData.academicYear
     };
     
@@ -527,7 +543,7 @@ export const bulkCreateProjects = async (projectsList) => {
       specialization: project.specialization || '',
       type: project.type || 'Capstone Project',
       school: project.school,
-      department: project.department,
+      department: project.programme || project.department,  // Map programme to department for backend
       academicYear: project.academicYear
     }));
     

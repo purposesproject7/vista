@@ -156,7 +156,8 @@ const FacultyUploadTab = () => {
             isOpen={isSingleAddOpen}
             onClose={() => setIsSingleAddOpen(false)}
             onSave={handleAddFaculty}
-            initialData={null}
+            faculty={null}
+            filters={filters}
           />
         </>
       )}

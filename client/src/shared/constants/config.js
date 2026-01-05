@@ -14,6 +14,8 @@ export const REVIEW_TYPES = {
 export const MARKS_TOTAL = 100;
 
 // Academic Data - These should be fetched from DB in production
+// NOTE: In the backend, what we call "Programme" is stored in the "department" field
+// Hierarchy: School → Programme (stored as department in backend) → Academic Year
 export const SCHOOLS = [
   { id: '1', name: 'SCOPE' },
   { id: '2', name: 'SENSE' },

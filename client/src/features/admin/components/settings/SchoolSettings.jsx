@@ -180,7 +180,7 @@ const SchoolSettings = ({ schools, onUpdate }) => {
             </label>
             <Input
               value={formData.name}
-              onChange={(value) => setFormData({ ...formData, name: value })}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g., School of Computing"
               required
               autoFocus
@@ -197,7 +197,7 @@ const SchoolSettings = ({ schools, onUpdate }) => {
             </label>
             <Input
               value={formData.code}
-              onChange={(value) => setFormData({ ...formData, code: value.toUpperCase() })}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
               placeholder="e.g., SCOPE"
               required
               className="text-lg py-3"

@@ -25,13 +25,18 @@ export const broadcastBlockMiddleware = async (req, res, next) => {
       return next();
     }
 
+    // Handle both string and array formats for school and department
     const facultySchools = Array.isArray(faculty.school)
       ? faculty.school.filter(Boolean)
-      : [];
+      : faculty.school
+        ? [faculty.school]
+        : [];
 
     const facultyDepartments = Array.isArray(faculty.department)
       ? faculty.department.filter(Boolean)
-      : [];
+      : faculty.department
+        ? [faculty.department]
+        : [];
 
     const now = new Date();
 

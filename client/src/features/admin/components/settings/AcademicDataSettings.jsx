@@ -140,7 +140,7 @@ const AcademicDataSettings = ({ data, onUpdate, title, type }) => {
             </label>
             <Input
               value={formData.name}
-              onChange={(value) => setFormData({ name: value })}
+              onChange={(e) => setFormData({ name: e.target.value })}
               placeholder={`Enter ${title.toLowerCase()} name`}
               required
               autoFocus

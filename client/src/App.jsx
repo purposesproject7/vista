@@ -40,8 +40,17 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />;
+  if (allowedRoles) {
+    // Check if user's role is in allowed roles
+    const hasRole = allowedRoles.includes(user.role);
+    
+    // Special case: if route allows "project_coordinator", also allow faculty with isProjectCoordinator flag
+    const isCoordinatorRoute = allowedRoles.includes("project_coordinator");
+    const isFacultyCoordinator = user.role === "faculty" && user.isProjectCoordinator;
+    
+    if (!hasRole && !(isCoordinatorRoute && isFacultyCoordinator)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
 
   return children;

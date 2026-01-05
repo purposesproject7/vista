@@ -14,6 +14,7 @@ const generateToken = (faculty) => {
       emailId: faculty.emailId,
       employeeId: faculty.employeeId,
       role: faculty.role,
+      isProjectCoordinator: faculty.isProjectCoordinator || false,
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRE || "7d" },

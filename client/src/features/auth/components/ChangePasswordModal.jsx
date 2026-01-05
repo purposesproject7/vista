@@ -129,7 +129,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           label="Current Password"
           type="password"
           value={currentPassword}
-          onChange={setCurrentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
           placeholder="Enter current password"
           required
         />
@@ -155,7 +155,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           label="New Password"
           type="password"
           value={newPassword}
-          onChange={setNewPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
           placeholder="Enter new password"
           required
         />
@@ -164,7 +164,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           label="Confirm New Password"
           type="password"
           value={confirmPassword}
-          onChange={setConfirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Confirm new password"
           required
         />

@@ -216,7 +216,7 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
             </label>
             <Input
               value={formData.name}
-              onChange={(value) => setFormData({ ...formData, name: value })}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g., B.Tech Computer Science"
               required
               className="text-lg py-3"
@@ -232,7 +232,7 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
             </label>
             <Input
               value={formData.code}
-              onChange={(value) => setFormData({ ...formData, code: value.toUpperCase() })}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
               placeholder="e.g., BTECHCSE, MBA"
               required
               className="text-lg py-3"
