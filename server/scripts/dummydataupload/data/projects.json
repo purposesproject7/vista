@@ -1,15 +1,1002 @@
 [
   {
-    "name": "AI Research Project",
-    "guideEmail": "smith@vista.com",
-    "studentRegNos": ["11AA1111", "11AA1112"],
-    "academicYear": "2025-2026",
+    "name": "AI Based Traffic Management",
+    "students": ["21BCE2000", "21BCE2001"],
+    "guideFacultyEmpId": "F001",
+    "academicYear": "2024-2025",
     "school": "SCOPE",
-    "program": "B.Tech",
     "department": "CSE",
     "specialization": "AI/ML",
-    "type": "software",
-    "teamSize": 2,
-    "status": "active"
+    "type": "software"
+  },
+  {
+    "name": "Disease Prediction using Machine Learning",
+    "students": ["21BCE2002", "21BCE2003"],
+    "guideFacultyEmpId": "F002",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Sentiment Analysis for Social Media",
+    "students": ["21BCE2004", "21BCE2005"],
+    "guideFacultyEmpId": "F003",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Facial Recognition Attendance System",
+    "students": ["21BCE2006", "21BCE2007"],
+    "guideFacultyEmpId": "F004",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Chatbot for Customer Service",
+    "students": ["21BCE2008", "21BCE2009"],
+    "guideFacultyEmpId": "F005",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Spam Email Detection System",
+    "students": ["21BCE2010", "21BCE2011"],
+    "guideFacultyEmpId": "F006",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Image Classification using Deep Learning",
+    "students": ["21BCE2012", "21BCE2013"],
+    "guideFacultyEmpId": "F007",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Predictive Maintenance System",
+    "students": ["21BCE2014", "21BCE2015"],
+    "guideFacultyEmpId": "F008",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Speech Recognition System",
+    "students": ["21BCE2016", "21BCE2017"],
+    "guideFacultyEmpId": "F009",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Handwritten Digit Recognition",
+    "students": ["21BCE2018", "21BCE2019"],
+    "guideFacultyEmpId": "F010",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Blogging Platform",
+    "students": ["21BCE2020", "21BCE2021"],
+    "guideFacultyEmpId": "F011",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Event Management System",
+    "students": ["21BCE2022", "21BCE2023"],
+    "guideFacultyEmpId": "F012",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "E Learning Platform",
+    "students": ["21BCE2024", "21BCE2025"],
+    "guideFacultyEmpId": "F013",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Library Management System",
+    "students": ["21BCE2026", "21BCE2027"],
+    "guideFacultyEmpId": "F014",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Hospital Management System",
+    "students": ["21BCE2028", "21BCE2029"],
+    "guideFacultyEmpId": "F015",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Password Strength Analyzer",
+    "students": ["21BCE2030", "21BCE2031"],
+    "guideFacultyEmpId": "F016",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Phishing Website Detection",
+    "students": ["21BCE2032", "21BCE2033"],
+    "guideFacultyEmpId": "F017",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Credit Risk Assessment System",
+    "students": ["21BCE2034", "21BCE2035"],
+    "guideFacultyEmpId": "F018",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Supply Chain Optimization",
+    "students": ["21BCE2036", "21BCE2037"],
+    "guideFacultyEmpId": "F019",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "IoT Based Water Quality Monitor",
+    "students": ["21BCE2038", "21BCE2039"],
+    "guideFacultyEmpId": "F020",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Cryptocurrency Wallet Application",
+    "students": ["21BCE2040", "21BCE2041"],
+    "guideFacultyEmpId": "F021",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Disaster Recovery System",
+    "students": ["21BCE2042", "21BCE2043"],
+    "guideFacultyEmpId": "F022",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cloud Computing",
+    "type": "software"
+  },
+  {
+    "name": "Digital Signal Processor Implementation",
+    "students": ["21BCE2044", "21BCE2045"],
+    "guideFacultyEmpId": "F023",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "VLSI",
+    "type": "software"
+  },
+  {
+    "name": "Microservices Architecture Platform",
+    "students": ["21BCE2046", "21BCE2047"],
+    "guideFacultyEmpId": "F024",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Test Automation Framework",
+    "students": ["21BCE2048", "21BCE2049"],
+    "guideFacultyEmpId": "F025",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Documentation Generator Tool",
+    "students": ["21BCE2050", "21BCE2051"],
+    "guideFacultyEmpId": "F026",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Version Control Dashboard",
+    "students": ["21BCE2052", "21BCE2053"],
+    "guideFacultyEmpId": "F027",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Project Management Tool",
+    "students": ["21BCE2054", "21BCE2055"],
+    "guideFacultyEmpId": "F028",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Bug Tracking System",
+    "students": ["21BCE2056", "21BCE2057"],
+    "guideFacultyEmpId": "F029",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Phishing Website Detection",
+    "students": ["21BCE2058", "21BCE2059"],
+    "guideFacultyEmpId": "F030",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Two Factor Authentication System",
+    "students": ["21BCE2060", "21BCE2061"],
+    "guideFacultyEmpId": "F031",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Digital Forensics Tool",
+    "students": ["21BCE2062", "21BCE2063"],
+    "guideFacultyEmpId": "F032",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Malware Detection using ML",
+    "students": ["21BCE2064", "21BCE2065"],
+    "guideFacultyEmpId": "F033",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Vulnerability Assessment Platform",
+    "students": ["21BCE2066", "21BCE2067"],
+    "guideFacultyEmpId": "F034",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Market Basket Analysis System",
+    "students": ["21BCE2068", "21BCE2069"],
+    "guideFacultyEmpId": "F035",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Time Series Forecasting Tool",
+    "students": ["21BCE2070", "21BCE2071"],
+    "guideFacultyEmpId": "F036",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Customer Churn Prediction",
+    "students": ["21BCE2072", "21BCE2073"],
+    "guideFacultyEmpId": "F037",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Sales Forecasting Dashboard",
+    "students": ["21BCE2074", "21BCE2075"],
+    "guideFacultyEmpId": "F038",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Healthcare Data Analytics Platform",
+    "students": ["21BCE2076", "21BCE2077"],
+    "guideFacultyEmpId": "F039",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Industrial IoT Monitoring",
+    "students": ["21BCE2078", "21BCE2079"],
+    "guideFacultyEmpId": "F040",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Smart Agriculture System",
+    "students": ["21BCE2080", "21BCE2081"],
+    "guideFacultyEmpId": "F041",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Environmental Monitoring System",
+    "students": ["21BCE2082", "21BCE2083"],
+    "guideFacultyEmpId": "F042",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Smart Energy Meter",
+    "students": ["21BCE2084", "21BCE2085"],
+    "guideFacultyEmpId": "F043",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "IoT Based Water Quality Monitor",
+    "students": ["21BCE2086", "21BCE2087"],
+    "guideFacultyEmpId": "F044",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "NFT Marketplace Platform",
+    "students": ["21BCE2088", "21BCE2089"],
+    "guideFacultyEmpId": "F045",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Blockchain Based Identity Management",
+    "students": ["21BCE2090", "21BCE2091"],
+    "guideFacultyEmpId": "F046",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Decentralized Healthcare Records",
+    "students": ["21BCE2092", "21BCE2093"],
+    "guideFacultyEmpId": "F047",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Blockchain for Digital Certificates",
+    "students": ["21BCE2094", "21BCE2095"],
+    "guideFacultyEmpId": "F048",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Peer to Peer Lending Platform",
+    "students": ["21BCE2096", "21BCE2097"],
+    "guideFacultyEmpId": "F049",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Multi Cloud Management Platform",
+    "students": ["21BCE2098", "21BCE2099"],
+    "guideFacultyEmpId": "F050",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cloud Computing",
+    "type": "software"
+  },
+  {
+    "name": "Serverless Web Application",
+    "students": ["21BCE2100", "21BCE2101"],
+    "guideFacultyEmpId": "F051",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cloud Computing",
+    "type": "software"
+  },
+  {
+    "name": "Cloud Cost Optimization Tool",
+    "students": ["21BCE2102", "21BCE2103"],
+    "guideFacultyEmpId": "F052",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cloud Computing",
+    "type": "software"
+  },
+  {
+    "name": "Cloud Based Video Streaming",
+    "students": ["21BCE2104", "21BCE2105"],
+    "guideFacultyEmpId": "F053",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cloud Computing",
+    "type": "software"
+  },
+  {
+    "name": "Disaster Recovery System",
+    "students": ["21BCE2106", "21BCE2107"],
+    "guideFacultyEmpId": "F054",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cloud Computing",
+    "type": "software"
+  },
+  {
+    "name": "Cloud Native Monitoring Dashboard",
+    "students": ["21BCE2108", "21BCE2109"],
+    "guideFacultyEmpId": "F055",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cloud Computing",
+    "type": "software"
+  },
+  {
+    "name": "FPGA Based Image Processor",
+    "students": ["21BCE2110", "21BCE2111"],
+    "guideFacultyEmpId": "F056",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "VLSI",
+    "type": "software"
+  },
+  {
+    "name": "RISC Processor Design",
+    "students": ["21BCE2112", "21BCE2113"],
+    "guideFacultyEmpId": "F057",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "VLSI",
+    "type": "software"
+  },
+  {
+    "name": "Memory Controller Design",
+    "students": ["21BCE2114", "21BCE2115"],
+    "guideFacultyEmpId": "F058",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "VLSI",
+    "type": "software"
+  },
+  {
+    "name": "Digital Signal Processor Implementation",
+    "students": ["21BCE2116", "21BCE2117"],
+    "guideFacultyEmpId": "F059",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "VLSI",
+    "type": "software"
+  },
+  {
+    "name": "VLSI Based Encryption Engine",
+    "students": ["21BCE2118", "21BCE2119"],
+    "guideFacultyEmpId": "F060",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "VLSI",
+    "type": "software"
+  },
+  {
+    "name": "E Learning Platform",
+    "students": ["21BCE2120", "21BCE2121"],
+    "guideFacultyEmpId": "F061",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Library Management System",
+    "students": ["21BCE2122", "21BCE2123"],
+    "guideFacultyEmpId": "F062",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Hospital Management System",
+    "students": ["21BCE2124", "21BCE2125"],
+    "guideFacultyEmpId": "F063",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Online Examination System",
+    "students": ["21BCE2126", "21BCE2127"],
+    "guideFacultyEmpId": "F064",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Inventory Management System",
+    "students": ["21BCE2128", "21BCE2129"],
+    "guideFacultyEmpId": "F065",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Spam Email Detection System",
+    "students": ["21BCE2130", "21BCE2131"],
+    "guideFacultyEmpId": "F066",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Image Classification using Deep Learning",
+    "students": ["21BCE2132", "21BCE2133"],
+    "guideFacultyEmpId": "F067",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Predictive Maintenance System",
+    "students": ["21BCE2134", "21BCE2135"],
+    "guideFacultyEmpId": "F068",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Speech Recognition System",
+    "students": ["21BCE2136", "21BCE2137"],
+    "guideFacultyEmpId": "F069",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Handwritten Digit Recognition",
+    "students": ["21BCE2138", "21BCE2139"],
+    "guideFacultyEmpId": "F070",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "AI/ML",
+    "type": "software"
+  },
+  {
+    "name": "Digital Forensics Tool",
+    "students": ["21BCE2140", "21BCE2141"],
+    "guideFacultyEmpId": "F071",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Malware Detection using ML",
+    "students": ["21BCE2142", "21BCE2143"],
+    "guideFacultyEmpId": "F072",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Vulnerability Assessment Platform",
+    "students": ["21BCE2144", "21BCE2145"],
+    "guideFacultyEmpId": "F073",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Secure Chat Application",
+    "students": ["21BCE2146", "21BCE2147"],
+    "guideFacultyEmpId": "F074",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "DDoS Attack Detection System",
+    "students": ["21BCE2148", "21BCE2149"],
+    "guideFacultyEmpId": "F075",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Cybersecurity",
+    "type": "software"
+  },
+  {
+    "name": "Real Estate Price Prediction",
+    "students": ["21BCE2150", "21BCE2151"],
+    "guideFacultyEmpId": "F076",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Social Media Analytics Tool",
+    "students": ["21BCE2152", "21BCE2153"],
+    "guideFacultyEmpId": "F077",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Credit Risk Assessment System",
+    "students": ["21BCE2154", "21BCE2155"],
+    "guideFacultyEmpId": "F078",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Supply Chain Optimization",
+    "students": ["21BCE2156", "21BCE2157"],
+    "guideFacultyEmpId": "F079",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Weather Prediction Model",
+    "students": ["21BCE2158", "21BCE2159"],
+    "guideFacultyEmpId": "F080",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Data Science",
+    "type": "software"
+  },
+  {
+    "name": "Warehouse Management using IoT",
+    "students": ["21BCE2160", "21BCE2161"],
+    "guideFacultyEmpId": "F081",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Smart Street Lighting System",
+    "students": ["21BCE2162", "21BCE2163"],
+    "guideFacultyEmpId": "F082",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Vehicle Tracking System",
+    "students": ["21BCE2164", "21BCE2165"],
+    "guideFacultyEmpId": "F083",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "IoT Based Fire Detection System",
+    "students": ["21BCE2166", "21BCE2167"],
+    "guideFacultyEmpId": "F084",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Smart Home Automation System",
+    "students": ["21BCE2168", "21BCE2169"],
+    "guideFacultyEmpId": "F085",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "IoT",
+    "type": "software"
+  },
+  {
+    "name": "Blockchain Based Identity Management",
+    "students": ["21BCE2170", "21BCE2171"],
+    "guideFacultyEmpId": "F086",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Decentralized Healthcare Records",
+    "students": ["21BCE2172", "21BCE2173"],
+    "guideFacultyEmpId": "F087",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Blockchain for Digital Certificates",
+    "students": ["21BCE2174", "21BCE2175"],
+    "guideFacultyEmpId": "F088",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Peer to Peer Lending Platform",
+    "students": ["21BCE2176", "21BCE2177"],
+    "guideFacultyEmpId": "F089",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Blockchain Based Insurance Claims",
+    "students": ["21BCE2178", "21BCE2179"],
+    "guideFacultyEmpId": "F090",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Blockchain",
+    "type": "software"
+  },
+  {
+    "name": "Project Management Tool",
+    "students": ["21BCE2180", "21BCE2181"],
+    "guideFacultyEmpId": "F091",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Bug Tracking System",
+    "students": ["21BCE2182", "21BCE2183"],
+    "guideFacultyEmpId": "F092",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Code Review Automation Platform",
+    "students": ["21BCE2184", "21BCE2185"],
+    "guideFacultyEmpId": "F093",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "CI CD Pipeline Manager",
+    "students": ["21BCE2186", "21BCE2187"],
+    "guideFacultyEmpId": "F094",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "API Gateway Development",
+    "students": ["21BCE2188", "21BCE2189"],
+    "guideFacultyEmpId": "F095",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "Software Engineering",
+    "type": "software"
+  },
+  {
+    "name": "Event Management System",
+    "students": ["21BCE2190", "21BCE2191"],
+    "guideFacultyEmpId": "F096",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "E Learning Platform",
+    "students": ["21BCE2192", "21BCE2193"],
+    "guideFacultyEmpId": "F097",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Library Management System",
+    "students": ["21BCE2194", "21BCE2195"],
+    "guideFacultyEmpId": "F098",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Hospital Management System",
+    "students": ["21BCE2196", "21BCE2197"],
+    "guideFacultyEmpId": "F099",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
+  },
+  {
+    "name": "Online Examination System",
+    "students": ["21BCE2198", "21BCE2199"],
+    "guideFacultyEmpId": "F100",
+    "academicYear": "2024-2025",
+    "school": "SCOPE",
+    "department": "CSE",
+    "specialization": "General",
+    "type": "software"
   }
 ]

@@ -49,14 +49,14 @@ const PanelManagement = () => {
       label: 'Panel Create',
       icon: PlusCircleIcon,
       description: 'Create new panels',
-      enabled: isPrimary // Only primary coordinators can create
+      enabled: true
     },
     {
       id: 'assign',
       label: 'Project Assignment',
       icon: LinkIcon,
       description: 'Assign projects to panels',
-      enabled: isPrimary // Only primary coordinators can assign
+      enabled: true
     }
   ];
 
@@ -72,12 +72,12 @@ const PanelManagement = () => {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <CoordinatorTabs />
-      
+
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Panel Management</h1>
           <p className="text-sm text-gray-600 mt-1">
-            {isPrimary ? 'You have full access to panel management' : 'You have view-only access'}
+            Manage assessment panels, create new panels, and assign projects.
           </p>
         </div>
 
@@ -88,7 +88,7 @@ const PanelManagement = () => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               const isDisabled = !tab.enabled;
-              
+
               return (
                 <button
                   key={tab.id}
@@ -96,28 +96,28 @@ const PanelManagement = () => {
                   disabled={isDisabled}
                   className={`
                     flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all
-                    ${isDisabled 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50' 
-                      : isActive 
-                        ? 'bg-blue-600 text-white shadow-md' 
+                    ${isDisabled
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                      : isActive
+                        ? 'bg-blue-600 text-white shadow-md'
                         : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
                     }
                   `}
-                  title={isDisabled ? `Only primary coordinators can ${tab.label.toLowerCase()}` : tab.description}
+                  title={tab.description}
                 >
                   <Icon className="h-5 w-5" />
                   <span>{tab.label}</span>
                 </button>
               );
             })}
-          {activeTab === 'assign' && isPrimary && <ProjectPanelAssignment />}
           </div>
         </div>
 
         {/* Tab Content */}
         <div>
           {activeTab === 'view' && <PanelViewTab isPrimary={isPrimary} />}
-          {activeTab === 'create' && isPrimary && <PanelCreation />}
+          {activeTab === 'create' && <PanelCreation />}
+          {activeTab === 'assign' && <ProjectPanelAssignment />}
         </div>
       </div>
     </div>

@@ -1,30 +1,30 @@
 // src/features/project-coordinator/components/panel-management/PanelViewTab.jsx
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  UsersIcon,
-  MagnifyingGlassIcon,
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  UsersIcon, 
+  MagnifyingGlassIcon, 
   FunnelIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   UserIcon,
-  DocumentTextIcon,
-} from "@heroicons/react/24/outline";
-import AcademicFilterSelector from "../shared/AcademicFilterSelector";
-import Card from "../../../../shared/components/Card";
-import Badge from "../../../../shared/components/Badge";
-import EmptyState from "../../../../shared/components/EmptyState";
-import LoadingSpinner from "../../../../shared/components/LoadingSpinner";
-import { useToast } from "../../../../shared/hooks/useToast";
-import { useAuth } from "../../../../shared/hooks/useAuth";
-import { fetchPanels as apiFetchPanels } from "../../services/coordinatorApi";
+  DocumentTextIcon
+} from '@heroicons/react/24/outline';
+import AcademicFilterSelector from '../shared/AcademicFilterSelector';
+import Card from '../../../../shared/components/Card';
+import Badge from '../../../../shared/components/Badge';
+import EmptyState from '../../../../shared/components/EmptyState';
+import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { useAuth } from '../../../../shared/hooks/useAuth';
+import { fetchPanels as apiFetchPanels } from '../../services/coordinatorApi';
 
 const PanelViewTab = ({ isPrimary = false }) => {
   const [filters, setFilters] = useState(null);
   const [panels, setPanels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [markingFilter, setMarkingFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [markingFilter, setMarkingFilter] = useState('all');
   const { showToast } = useToast();
   const { user } = useAuth();
 
@@ -39,25 +39,22 @@ const PanelViewTab = ({ isPrimary = false }) => {
   const fetchPanels = useCallback(async () => {
     try {
       setLoading(true);
-
+      
       const response = await apiFetchPanels({
         school: user?.school,
         department: user?.department,
-        academicYear: filters?.academicYear,
+        academicYear: filters?.academicYear
       });
-
+      
       if (response.success) {
         setPanels(response.panels || []);
-        showToast(`Loaded ${response.panels?.length || 0} panels`, "success");
+        showToast(`Loaded ${response.panels?.length || 0} panels`, 'success');
       } else {
-        showToast(response.message || "Failed to load panels", "error");
+        showToast(response.message || 'Failed to load panels', 'error');
       }
     } catch (error) {
-      console.error("Error fetching panels:", error);
-      showToast(
-        error.response?.data?.message || "Failed to load panels",
-        "error"
-      );
+      console.error('Error fetching panels:', error);
+      showToast(error.response?.data?.message || 'Failed to load panels', 'error');
     } finally {
       setLoading(false);
     }
@@ -65,13 +62,13 @@ const PanelViewTab = ({ isPrimary = false }) => {
 
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);
-    setSearchQuery("");
-    setMarkingFilter("all");
+    setSearchQuery('');
+    setMarkingFilter('all');
     setExpandedPanel(null);
   }, []);
 
   const togglePanelExpansion = useCallback((panelId) => {
-    setExpandedPanel((prev) => (prev === panelId ? null : panelId));
+    setExpandedPanel(prev => prev === panelId ? null : panelId);
   }, []);
 
   const formatPanelName = (panel) => {
@@ -80,50 +77,76 @@ const PanelViewTab = ({ isPrimary = false }) => {
 
   const getMarkingStatusColor = (status) => {
     const colors = {
-      full: "bg-green-100 text-green-800 border border-green-300",
-      partial: "bg-yellow-100 text-yellow-800 border border-yellow-300",
-      none: "bg-red-100 text-red-800 border border-red-300",
+      full: 'bg-green-100 text-green-800 border border-green-300',
+      partial: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+      none: 'bg-red-100 text-red-800 border border-red-300'
     };
     return colors[status] || colors.none;
   };
 
   const getMarkingStatusLabel = (status) => {
     const labels = {
-      full: "Fully Marked",
-      partial: "Partially Marked",
-      none: "Not Marked",
+      full: 'Fully Marked',
+      partial: 'Partially Marked',
+      none: 'Not Marked'
     };
-    return labels[status] || "Unknown";
+    return labels[status] || 'Unknown';
   };
 
   // Filter panels
-  const filteredPanels = panels.filter((panel) => {
+  const filteredPanels = panels.filter(panel => {
     const searchLower = searchQuery.toLowerCase();
-    const matchesSearch =
-      !searchQuery ||
+    const matchesSearch = !searchQuery || 
       formatPanelName(panel).toLowerCase().includes(searchLower) ||
-      panel.faculty?.some(
-        (f) =>
-          f.name?.toLowerCase().includes(searchLower) ||
-          f.employeeId?.toLowerCase().includes(searchLower)
+      panel.faculty?.some(f => 
+        f.name?.toLowerCase().includes(searchLower) ||
+        f.employeeId?.toLowerCase().includes(searchLower)
       ) ||
-      panel.teams?.some(
-        (t) =>
-          t.projectTitle?.toLowerCase().includes(searchLower) ||
-          t.students?.some(
-            (s) =>
-              s.name?.toLowerCase().includes(searchLower) ||
-              s.regNo?.toLowerCase().includes(searchLower)
-          )
+      panel.teams?.some(t => 
+        t.projectTitle?.toLowerCase().includes(searchLower) ||
+        t.students?.some(s => 
+          s.name?.toLowerCase().includes(searchLower) ||
+          s.regNo?.toLowerCase().includes(searchLower)
+        )
       );
 
-    const matchesMarking =
-      markingFilter === "all" || panel.markingStatus === markingFilter;
+    const matchesMarking = markingFilter === 'all' || panel.markingStatus === markingFilter;
 
     return matchesSearch && matchesMarking;
   });
 
-  // generateMockPanels removed
+  // Generate mock panels
+  function generateMockPanels() {
+    const facultyNames = [
+      ['Dr. Rajesh Kumar', 'Dr. Priya Sharma', 'Dr. Amit Patel'],
+      ['Dr. Sneha Reddy', 'Dr. Vikram Singh', 'Dr. Anita Desai'],
+      ['Dr. Suresh Iyer', 'Dr. Kavita Nair', 'Dr. Ramesh Gupta'],
+      ['Dr. Meera Joshi', 'Dr. Arun Verma', 'Dr. Deepa Shah'],
+      ['Dr. Kiran Rao', 'Dr. Sanjay Mehta', 'Dr. Pooja Kapoor']
+    ];
+    
+    return Array.from({ length: 5 }, (_, i) => ({
+      id: `panel-${i + 1}`,
+      panelNumber: i + 1,
+      markingStatus: ['full', 'partial', 'none'][i % 3],
+      faculty: facultyNames[i].map((name, j) => ({
+        employeeId: `EMP00${i * 3 + j + 1}`,
+        name: name,
+        email: `${name.toLowerCase().replace(/\s+/g, '.').replace('dr.', '')}@vit.ac.in`,
+        department: 'CSE'
+      })),
+      teams: Array.from({ length: 4 }, (_, j) => ({
+        id: `team-${i}-${j}`,
+        projectTitle: `Project ${i * 4 + j + 1}`,
+        markingStatus: ['full', 'partial', 'none'][j % 3],
+        students: Array.from({ length: 3 }, (_, k) => ({
+          regNo: `21BCE${1000 + i * 12 + j * 3 + k}`,
+          name: `Student ${i * 12 + j * 3 + k + 1}`,
+          email: `student${i * 12 + j * 3 + k + 1}@vitstudent.ac.in`
+        }))
+      }))
+    }));
+  }
 
   return (
     <div className="space-y-6">
@@ -178,10 +201,9 @@ const PanelViewTab = ({ isPrimary = false }) => {
             <EmptyState
               icon={UsersIcon}
               title="No panels found"
-              description={
-                searchQuery || markingFilter !== "all"
-                  ? "Try adjusting your search or filters"
-                  : "No panels have been created for this academic context yet"
+              description={searchQuery || markingFilter !== 'all' 
+                ? "Try adjusting your search or filters"
+                : "No panels have been created for this academic context yet"
               }
             />
           ) : (
@@ -189,7 +211,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
               {filteredPanels.map((panel) => (
                 <Card key={panel.id} className="overflow-hidden">
                   {/* Panel Header */}
-                  <div
+                  <div 
                     className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-4 -m-4"
                     onClick={() => togglePanelExpansion(panel.id)}
                   >
@@ -211,9 +233,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
                           </span>
                         </div>
                       </div>
-                      <Badge
-                        className={getMarkingStatusColor(panel.markingStatus)}
-                      >
+                      <Badge className={getMarkingStatusColor(panel.markingStatus)}>
                         {getMarkingStatusLabel(panel.markingStatus)}
                       </Badge>
                       {expandedPanel === panel.id ? (
@@ -235,7 +255,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {panel.faculty?.map((faculty) => (
-                            <div
+                            <div 
                               key={faculty.employeeId}
                               className="bg-gray-50 rounded-lg p-3"
                             >
@@ -261,7 +281,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
                         </h4>
                         <div className="space-y-3">
                           {panel.teams?.map((team) => (
-                            <div
+                            <div 
                               key={team.id}
                               className="bg-gray-50 rounded-lg p-4"
                             >
@@ -269,17 +289,13 @@ const PanelViewTab = ({ isPrimary = false }) => {
                                 <h5 className="text-sm font-medium text-gray-900">
                                   {team.projectTitle}
                                 </h5>
-                                <Badge
-                                  className={getMarkingStatusColor(
-                                    team.markingStatus
-                                  )}
-                                >
+                                <Badge className={getMarkingStatusColor(team.markingStatus)}>
                                   {getMarkingStatusLabel(team.markingStatus)}
                                 </Badge>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 {team.students?.map((student) => (
-                                  <span
+                                  <span 
                                     key={student.regNo}
                                     className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-white text-gray-700 border border-gray-200"
                                   >

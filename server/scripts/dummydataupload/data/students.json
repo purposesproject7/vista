@@ -1,22 +1,2002 @@
 [
   {
-    "regNo": "11AA1111",
-    "name": "Student One",
-    "emailId": "student1@vista.com",
+    "regNo": "21BCE2000",
+    "name": "Aarav Kumar",
+    "emailId": "aaravkumar2000@vista.com",
     "school": "SCOPE",
     "program": "B.Tech",
     "department": "CSE",
-    "academicYear": "2025-2026",
+    "academicYear": "2024-2025",
     "isActive": true
   },
   {
-    "regNo": "11AA1112",
-    "name": "Student Two",
-    "emailId": "student2@vista.com",
+    "regNo": "21BCE2001",
+    "name": "Vivaan Sharma",
+    "emailId": "vivaansharma2001@vista.com",
     "school": "SCOPE",
     "program": "B.Tech",
     "department": "CSE",
-    "academicYear": "2025-2026",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2002",
+    "name": "Aditya Singh",
+    "emailId": "adityasingh2002@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2003",
+    "name": "Vihaan Patel",
+    "emailId": "vihaanpatel2003@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2004",
+    "name": "Arjun Gupta",
+    "emailId": "arjungupta2004@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2005",
+    "name": "Sai Reddy",
+    "emailId": "saireddy2005@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2006",
+    "name": "Arnav Rao",
+    "emailId": "arnavrao2006@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2007",
+    "name": "Ayaan Iyer",
+    "emailId": "ayaaniyer2007@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2008",
+    "name": "Krishna Joshi",
+    "emailId": "krishnajoshi2008@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2009",
+    "name": "Ishaan Nair",
+    "emailId": "ishaannair2009@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2010",
+    "name": "Shaurya Verma",
+    "emailId": "shauryaverma2010@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2011",
+    "name": "Atharv Mehta",
+    "emailId": "atharvmehta2011@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2012",
+    "name": "Advik Shah",
+    "emailId": "advikshah2012@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2013",
+    "name": "Pranav Kulkarni",
+    "emailId": "pranavkulkarni2013@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2014",
+    "name": "Reyansh Desai",
+    "emailId": "reyanshdesai2014@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2015",
+    "name": "Aadhya Banerjee",
+    "emailId": "aadhyabanerjee2015@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2016",
+    "name": "Ananya Chatterjee",
+    "emailId": "ananyachatterjee2016@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2017",
+    "name": "Pari Mishra",
+    "emailId": "parimishra2017@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2018",
+    "name": "Anika Das",
+    "emailId": "anikadas2018@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2019",
+    "name": "Navya Ghosh",
+    "emailId": "navyaghosh2019@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2020",
+    "name": "Diya Agarwal",
+    "emailId": "diyaagarwal2020@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2021",
+    "name": "Myra Sinha",
+    "emailId": "myrasinha2021@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2022",
+    "name": "Sara Jain",
+    "emailId": "sarajain2022@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2023",
+    "name": "Jhanvi Malhotra",
+    "emailId": "jhanvimalhotra2023@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2024",
+    "name": "Pari Kapoor",
+    "emailId": "parikapoor2024@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2025",
+    "name": "Ira Khanna",
+    "emailId": "irakhanna2025@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2026",
+    "name": "Anvi Saxena",
+    "emailId": "anvisaxena2026@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2027",
+    "name": "Riya Tripathi",
+    "emailId": "riyatripathi2027@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2028",
+    "name": "Saanvi Pandey",
+    "emailId": "saanvipandey2028@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2029",
+    "name": "Avni Tiwari",
+    "emailId": "avnitiwari2029@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2030",
+    "name": "Rohan Yadav",
+    "emailId": "rohanyadav2030@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2031",
+    "name": "Dev Thakur",
+    "emailId": "devthakur2031@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2032",
+    "name": "Kabir Chauhan",
+    "emailId": "kabirchauhan2032@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2033",
+    "name": "Yash Rajput",
+    "emailId": "yashrajput2033@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2034",
+    "name": "Harsh Bhatia",
+    "emailId": "harshbhatia2034@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2035",
+    "name": "Dhruv Sethi",
+    "emailId": "dhruvsethi2035@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2036",
+    "name": "Karan Arora",
+    "emailId": "karanarora2036@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2037",
+    "name": "Aarav Chopra",
+    "emailId": "aaravchopra2037@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2038",
+    "name": "Amit Kohli",
+    "emailId": "amitkohli2038@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2039",
+    "name": "Raj Sood",
+    "emailId": "rajsood2039@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2040",
+    "name": "Neha Menon",
+    "emailId": "nehamenon2040@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2041",
+    "name": "Priya Pillai",
+    "emailId": "priyapillai2041@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2042",
+    "name": "Sneha Nambiar",
+    "emailId": "snehanambiar2042@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2043",
+    "name": "Pooja Krishnan",
+    "emailId": "poojakrishnan2043@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2044",
+    "name": "Kavya Raman",
+    "emailId": "kavyaraman2044@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2045",
+    "name": "Shruti Subramanian",
+    "emailId": "shrutisubramanian2045@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2046",
+    "name": "Meera Venkatesh",
+    "emailId": "meeravenkatesh2046@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2047",
+    "name": "Simran Natarajan",
+    "emailId": "simrannatarajan2047@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2048",
+    "name": "Tanvi Balaji",
+    "emailId": "tanvibalaji2048@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2049",
+    "name": "Nisha Srinivasan",
+    "emailId": "nishasrinivasan2049@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2050",
+    "name": "Aryan Bhatt",
+    "emailId": "aryanbhatt2050@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2051",
+    "name": "Varun Trivedi",
+    "emailId": "varuntrivedi2051@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2052",
+    "name": "Nikhil Vyas",
+    "emailId": "nikhilvyas2052@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2053",
+    "name": "Aakash Parikh",
+    "emailId": "aakashparikh2053@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2054",
+    "name": "Manish Amin",
+    "emailId": "manishamin2054@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2055",
+    "name": "Rohit Modi",
+    "emailId": "rohitmodi2055@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2056",
+    "name": "Abhinav Gandhi",
+    "emailId": "abhinavgandhi2056@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2057",
+    "name": "Siddharth Solanki",
+    "emailId": "siddharthsolanki2057@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2058",
+    "name": "Gaurav Chaudhary",
+    "emailId": "gauravchaudhary2058@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2059",
+    "name": "Vishal Raval",
+    "emailId": "vishalraval2059@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2060",
+    "name": "Aditi Bose",
+    "emailId": "aditibose2060@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2061",
+    "name": "Divya Dutta",
+    "emailId": "divyadutta2061@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2062",
+    "name": "Kritika Mukherjee",
+    "emailId": "kritikamukherjee2062@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2063",
+    "name": "Megha Roy",
+    "emailId": "megharoy2063@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2064",
+    "name": "Pallavi Sen",
+    "emailId": "pallavisen2064@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2065",
+    "name": "Radhika Bhattacharya",
+    "emailId": "radhikabhattacharya2065@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2066",
+    "name": "Sonal Chakraborty",
+    "emailId": "sonalchakraborty2066@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2067",
+    "name": "Tanya Ganguly",
+    "emailId": "tanyaganguly2067@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2068",
+    "name": "Vidya Sengupta",
+    "emailId": "vidyasengupta2068@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2069",
+    "name": "Zara Mazumdar",
+    "emailId": "zaramazumdar2069@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2070",
+    "name": "Akhil Acharya",
+    "emailId": "akhilacharya2070@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2071",
+    "name": "Chetan Bhardwaj",
+    "emailId": "chetanbhardwaj2071@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2072",
+    "name": "Deepak Dwivedi",
+    "emailId": "deepakdwivedi2072@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2073",
+    "name": "Eshan Upadhyay",
+    "emailId": "eshanupadhyay2073@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2074",
+    "name": "Farhan Shukla",
+    "emailId": "farhanshukla2074@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2075",
+    "name": "Gopal Dubey",
+    "emailId": "gopaldubey2075@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2076",
+    "name": "Hemant Chaturvedi",
+    "emailId": "hemantchaturvedi2076@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2077",
+    "name": "Ishan Pathak",
+    "emailId": "ishanpathak2077@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2078",
+    "name": "Jai Jha",
+    "emailId": "jaijha2078@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2079",
+    "name": "Kunal Ojha",
+    "emailId": "kunalojha2079@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2080",
+    "name": "Lakshmi Naik",
+    "emailId": "lakshminaik2080@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2081",
+    "name": "Manya Pawar",
+    "emailId": "manyapawar2081@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2082",
+    "name": "Nandini Sawant",
+    "emailId": "nandinisawant2082@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2083",
+    "name": "Ojaswi Patil",
+    "emailId": "ojaswipatil2083@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2084",
+    "name": "Payal Kadam",
+    "emailId": "payalkadam2084@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2085",
+    "name": "Riddhi Jadhav",
+    "emailId": "riddhijadhav2085@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2086",
+    "name": "Sakshi Shinde",
+    "emailId": "sakshishinde2086@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2087",
+    "name": "Tara More",
+    "emailId": "taramore2087@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2088",
+    "name": "Uma Gaikwad",
+    "emailId": "umagaikwad2088@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2089",
+    "name": "Vaishnavi Bhosale",
+    "emailId": "vaishnavibhosale2089@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2090",
+    "name": "Laksh Hegde",
+    "emailId": "lakshhegde2090@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2091",
+    "name": "Madhav Shenoy",
+    "emailId": "madhavshenoy2091@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2092",
+    "name": "Nakul Kamath",
+    "emailId": "nakulkamath2092@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2093",
+    "name": "Om Bhat",
+    "emailId": "ombhat2093@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2094",
+    "name": "Parth Kini",
+    "emailId": "parthkini2094@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2095",
+    "name": "Ravi Pai",
+    "emailId": "ravipai2095@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2096",
+    "name": "Soham Rao",
+    "emailId": "sohamrao2096@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2097",
+    "name": "Tanay Alva",
+    "emailId": "tanayalva2097@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2098",
+    "name": "Uday Fernandes",
+    "emailId": "udayfernandes2098@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2099",
+    "name": "Vedant D'Souza",
+    "emailId": "vedantdsouza2099@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2100",
+    "name": "Alisha Kumar",
+    "emailId": "alishakumar2100@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2101",
+    "name": "Bhavna Sharma",
+    "emailId": "bhavnasharma2101@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2102",
+    "name": "Chhavi Singh",
+    "emailId": "chhavisingh2102@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2103",
+    "name": "Deepika Patel",
+    "emailId": "deepikapatel2103@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2104",
+    "name": "Ekta Gupta",
+    "emailId": "ektagupta2104@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2105",
+    "name": "Falguni Reddy",
+    "emailId": "falgunireddy2105@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2106",
+    "name": "Garima Rao",
+    "emailId": "garimarao2106@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2107",
+    "name": "Hetal Iyer",
+    "emailId": "hetaliyer2107@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2108",
+    "name": "Ishita Joshi",
+    "emailId": "ishitajoshi2108@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2109",
+    "name": "Juhi Nair",
+    "emailId": "juhinair2109@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2110",
+    "name": "Keshav Verma",
+    "emailId": "keshavverma2110@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2111",
+    "name": "Lalit Mehta",
+    "emailId": "lalitmehta2111@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2112",
+    "name": "Mohit Shah",
+    "emailId": "mohitshah2112@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2113",
+    "name": "Naveen Kulkarni",
+    "emailId": "naveenkulkarni2113@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2114",
+    "name": "Omkar Desai",
+    "emailId": "omkardesai2114@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2115",
+    "name": "Pankaj Banerjee",
+    "emailId": "pankajbanerjee2115@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2116",
+    "name": "Ramesh Chatterjee",
+    "emailId": "rameshchatterjee2116@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2117",
+    "name": "Sanjay Mishra",
+    "emailId": "sanjaymishra2117@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2118",
+    "name": "Tarun Das",
+    "emailId": "tarundas2118@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2119",
+    "name": "Umesh Ghosh",
+    "emailId": "umeshghosh2119@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2120",
+    "name": "Anjali Agarwal",
+    "emailId": "anjaliagarwal2120@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2121",
+    "name": "Bharti Sinha",
+    "emailId": "bhartisinha2121@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2122",
+    "name": "Chanchal Jain",
+    "emailId": "chanchaljain2122@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2123",
+    "name": "Damini Malhotra",
+    "emailId": "daminimalhotra2123@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2124",
+    "name": "Esha Kapoor",
+    "emailId": "eshakapoor2124@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2125",
+    "name": "Falak Khanna",
+    "emailId": "falakkhanna2125@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2126",
+    "name": "Geetika Saxena",
+    "emailId": "geetikasaxena2126@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2127",
+    "name": "Harshita Tripathi",
+    "emailId": "harshitatripathi2127@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2128",
+    "name": "Isha Pandey",
+    "emailId": "ishapandey2128@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2129",
+    "name": "Jyoti Tiwari",
+    "emailId": "jyotitiwari2129@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2130",
+    "name": "Kartik Yadav",
+    "emailId": "kartikyadav2130@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2131",
+    "name": "Lokesh Thakur",
+    "emailId": "lokeshthakur2131@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2132",
+    "name": "Mohan Chauhan",
+    "emailId": "mohanchauhan2132@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2133",
+    "name": "Neeraj Rajput",
+    "emailId": "neerajrajput2133@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2134",
+    "name": "Ojas Bhatia",
+    "emailId": "ojasbhatia2134@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2135",
+    "name": "Pratik Sethi",
+    "emailId": "pratiksethi2135@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2136",
+    "name": "Rakesh Arora",
+    "emailId": "rakesharora2136@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2137",
+    "name": "Sachin Chopra",
+    "emailId": "sachinchopra2137@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2138",
+    "name": "Tushar Kohli",
+    "emailId": "tusharkohli2138@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2139",
+    "name": "Utkarsh Sood",
+    "emailId": "utkarshsood2139@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2140",
+    "name": "Anushka Menon",
+    "emailId": "anushkamenon2140@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2141",
+    "name": "Bhavya Pillai",
+    "emailId": "bhavyapillai2141@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2142",
+    "name": "Chandni Nambiar",
+    "emailId": "chandninambiar2142@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2143",
+    "name": "Devika Krishnan",
+    "emailId": "devikakrishnan2143@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2144",
+    "name": "Elina Raman",
+    "emailId": "elinaraman2144@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2145",
+    "name": "Fiza Subramanian",
+    "emailId": "fizasubramanian2145@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2146",
+    "name": "Gunjan Venkatesh",
+    "emailId": "gunjanvenkatesh2146@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2147",
+    "name": "Hema Natarajan",
+    "emailId": "hemanatarajan2147@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2148",
+    "name": "Ishani Balaji",
+    "emailId": "ishanibalaji2148@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2149",
+    "name": "Jaya Srinivasan",
+    "emailId": "jayasrinivasan2149@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2150",
+    "name": "Kavi Bhatt",
+    "emailId": "kavibhatt2150@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2151",
+    "name": "Laxman Trivedi",
+    "emailId": "laxmantrivedi2151@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2152",
+    "name": "Mukesh Vyas",
+    "emailId": "mukeshvyas2152@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2153",
+    "name": "Nitin Parikh",
+    "emailId": "nitinparikh2153@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2154",
+    "name": "Onkar Amin",
+    "emailId": "onkaramin2154@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2155",
+    "name": "Pranay Modi",
+    "emailId": "pranaymodi2155@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2156",
+    "name": "Rajan Gandhi",
+    "emailId": "rajangandhi2156@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2157",
+    "name": "Sameer Solanki",
+    "emailId": "sameersolanki2157@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2158",
+    "name": "Tejas Chaudhary",
+    "emailId": "tejaschaudhary2158@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2159",
+    "name": "Urvashi Raval",
+    "emailId": "urvashiraval2159@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2160",
+    "name": "Aishwarya Bose",
+    "emailId": "aishwaryabose2160@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2161",
+    "name": "Bindu Dutta",
+    "emailId": "bindudutta2161@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2162",
+    "name": "Chaitra Mukherjee",
+    "emailId": "chaitramukherjee2162@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2163",
+    "name": "Dhanya Roy",
+    "emailId": "dhanyaroy2163@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2164",
+    "name": "Eva Sen",
+    "emailId": "evasen2164@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2165",
+    "name": "Freya Bhattacharya",
+    "emailId": "freyabhattacharya2165@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2166",
+    "name": "Gayatri Chakraborty",
+    "emailId": "gayatrichakraborty2166@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2167",
+    "name": "Hina Ganguly",
+    "emailId": "hinaganguly2167@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2168",
+    "name": "Indira Sengupta",
+    "emailId": "indirasengupta2168@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2169",
+    "name": "Jhansi Mazumdar",
+    "emailId": "jhansimazumdar2169@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2170",
+    "name": "Kiran Acharya",
+    "emailId": "kiranacharya2170@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2171",
+    "name": "Lata Bhardwaj",
+    "emailId": "latabhardwaj2171@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2172",
+    "name": "Mira Dwivedi",
+    "emailId": "miradwivedi2172@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2173",
+    "name": "Naina Upadhyay",
+    "emailId": "nainaupadhyay2173@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2174",
+    "name": "Opal Shukla",
+    "emailId": "opalshukla2174@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2175",
+    "name": "Parvati Dubey",
+    "emailId": "parvatidubey2175@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2176",
+    "name": "Radha Chaturvedi",
+    "emailId": "radhachaturvedi2176@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2177",
+    "name": "Sita Pathak",
+    "emailId": "sitapathak2177@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2178",
+    "name": "Tina Jha",
+    "emailId": "tinajha2178@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2179",
+    "name": "Usha Ojha",
+    "emailId": "ushaojha2179@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2180",
+    "name": "Ajay Naik",
+    "emailId": "ajaynaik2180@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2181",
+    "name": "Bharat Pawar",
+    "emailId": "bharatpawar2181@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2182",
+    "name": "Chirag Sawant",
+    "emailId": "chiragsawant2182@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2183",
+    "name": "Dinesh Patil",
+    "emailId": "dineshpatil2183@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2184",
+    "name": "Ekansh Kadam",
+    "emailId": "ekanshkadam2184@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2185",
+    "name": "Firoz Jadhav",
+    "emailId": "firozjadhav2185@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2186",
+    "name": "Ganesh Shinde",
+    "emailId": "ganeshshinde2186@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2187",
+    "name": "Hari More",
+    "emailId": "harimore2187@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2188",
+    "name": "Imran Gaikwad",
+    "emailId": "imrangaikwad2188@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2189",
+    "name": "Jaspal Bhosale",
+    "emailId": "jaspalbhosale2189@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2190",
+    "name": "Kishore Hegde",
+    "emailId": "kishorehegde2190@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2191",
+    "name": "Lohit Shenoy",
+    "emailId": "lohitshenoy2191@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2192",
+    "name": "Murali Kamath",
+    "emailId": "muralikamath2192@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2193",
+    "name": "Naman Bhat",
+    "emailId": "namanbhat2193@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2194",
+    "name": "Oscar Kini",
+    "emailId": "oscarkini2194@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2195",
+    "name": "Prem Pai",
+    "emailId": "prempai2195@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2196",
+    "name": "Raghav Rao",
+    "emailId": "raghavrao2196@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2197",
+    "name": "Suresh Alva",
+    "emailId": "sureshalva2197@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2198",
+    "name": "Tilak Fernandes",
+    "emailId": "tilakfernandes2198@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
+    "isActive": true
+  },
+  {
+    "regNo": "21BCE2199",
+    "name": "Ujjwal D'Souza",
+    "emailId": "ujjwaldsouza2199@vista.com",
+    "school": "SCOPE",
+    "program": "B.Tech",
+    "department": "CSE",
+    "academicYear": "2024-2025",
     "isActive": true
   }
 ]
