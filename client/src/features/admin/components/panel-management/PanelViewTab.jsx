@@ -1,34 +1,34 @@
 // src/features/admin/components/panel-management/PanelViewTab.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  UsersIcon, 
-  MagnifyingGlassIcon, 
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  UsersIcon,
+  MagnifyingGlassIcon,
   FunnelIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   UserIcon,
-  DocumentTextIcon
-} from '@heroicons/react/24/outline';
-import AcademicFilterSelector from '../student-management/AcademicFilterSelector';
-import Card from '../../../../shared/components/Card';
-import Badge from '../../../../shared/components/Badge';
-import EmptyState from '../../../../shared/components/EmptyState';
-import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { fetchPanels } from '../../services/adminApi';
-import { 
-  formatPanelName, 
-  getMarkingStatusColor, 
-  getMarkingStatusLabel 
-} from '../../utils/panelUtils';
+  DocumentTextIcon,
+} from "@heroicons/react/24/outline";
+import AcademicFilterSelector from "../student-management/AcademicFilterSelector";
+import Card from "../../../../shared/components/Card";
+import Badge from "../../../../shared/components/Badge";
+import EmptyState from "../../../../shared/components/EmptyState";
+import LoadingSpinner from "../../../../shared/components/LoadingSpinner";
+import { useToast } from "../../../../shared/hooks/useToast";
+import { fetchPanels } from "../../../../services/adminApi";
+import {
+  formatPanelName,
+  getMarkingStatusColor,
+  getMarkingStatusLabel,
+} from "../../utils/panelUtils";
 
 const PanelViewTab = () => {
   const [filters, setFilters] = useState(null);
   const [panels, setPanels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [markingFilter, setMarkingFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [markingFilter, setMarkingFilter] = useState("all");
   const { showToast } = useToast();
 
   // Fetch panels when filters change
@@ -42,22 +42,25 @@ const PanelViewTab = () => {
   const fetchPanelsData = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const response = await fetchPanels({
         school: filters.school,
         department: filters.department,
-        academicYear: filters.academicYear
+        academicYear: filters.academicYear,
       });
-      
+
       if (response.success) {
         setPanels(response.panels || []);
-        showToast('Panels loaded successfully', 'success');
+        showToast("Panels loaded successfully", "success");
       } else {
-        showToast(response.message || 'Failed to load panels', 'error');
+        showToast(response.message || "Failed to load panels", "error");
       }
     } catch (error) {
-      console.error('Error fetching panels:', error);
-      showToast(error.response?.data?.message || 'Failed to load panels', 'error');
+      console.error("Error fetching panels:", error);
+      showToast(
+        error.response?.data?.message || "Failed to load panels",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -65,26 +68,29 @@ const PanelViewTab = () => {
 
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);
-    setSearchQuery('');
-    setMarkingFilter('all');
+    setSearchQuery("");
+    setMarkingFilter("all");
     setExpandedPanel(null);
   }, []);
 
   const togglePanelExpansion = useCallback((panelId) => {
-    setExpandedPanel(prev => prev === panelId ? null : panelId);
+    setExpandedPanel((prev) => (prev === panelId ? null : panelId));
   }, []);
 
   // Filter panels
-  const filteredPanels = panels.filter(panel => {
+  const filteredPanels = panels.filter((panel) => {
     const searchLower = searchQuery.toLowerCase();
-    const matchesSearch = !searchQuery || 
+    const matchesSearch =
+      !searchQuery ||
       formatPanelName(panel).toLowerCase().includes(searchLower) ||
-      panel.members?.some(m => 
-        m.name?.toLowerCase().includes(searchLower) ||
-        m.employeeId?.toLowerCase().includes(searchLower)
+      panel.members?.some(
+        (m) =>
+          m.name?.toLowerCase().includes(searchLower) ||
+          m.employeeId?.toLowerCase().includes(searchLower)
       );
 
-    const matchesMarking = markingFilter === 'all' || panel.markingStatus === markingFilter;
+    const matchesMarking =
+      markingFilter === "all" || panel.markingStatus === markingFilter;
 
     return matchesSearch && matchesMarking;
   });
@@ -142,9 +148,10 @@ const PanelViewTab = () => {
             <EmptyState
               icon={UsersIcon}
               title="No panels found"
-              description={searchQuery || markingFilter !== 'all' 
-                ? "Try adjusting your search or filters"
-                : "No panels have been created for this academic context yet"
+              description={
+                searchQuery || markingFilter !== "all"
+                  ? "Try adjusting your search or filters"
+                  : "No panels have been created for this academic context yet"
               }
             />
           ) : (
@@ -152,7 +159,7 @@ const PanelViewTab = () => {
               {filteredPanels.map((panel) => (
                 <Card key={panel.id} className="overflow-hidden">
                   {/* Panel Header */}
-                  <div 
+                  <div
                     className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-4 -m-4"
                     onClick={() => togglePanelExpansion(panel.id)}
                   >
@@ -174,7 +181,9 @@ const PanelViewTab = () => {
                           </span>
                         </div>
                       </div>
-                      <Badge className={getMarkingStatusColor(panel.markingStatus)}>
+                      <Badge
+                        className={getMarkingStatusColor(panel.markingStatus)}
+                      >
                         {getMarkingStatusLabel(panel.markingStatus)}
                       </Badge>
                       {expandedPanel === panel.id ? (
@@ -196,7 +205,7 @@ const PanelViewTab = () => {
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                           {panel.members?.map((member) => (
-                            <div 
+                            <div
                               key={member.employeeId}
                               className="bg-gray-50 rounded-lg p-3"
                             >
@@ -215,8 +224,9 @@ const PanelViewTab = () => {
                       {panel.assignedProjects > 0 && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                           <p className="text-sm text-blue-800">
-                            This panel has {panel.assignedProjects} project(s) assigned. 
-                            View project details in the Project Management section.
+                            This panel has {panel.assignedProjects} project(s)
+                            assigned. View project details in the Project
+                            Management section.
                           </p>
                         </div>
                       )}

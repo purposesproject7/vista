@@ -165,6 +165,14 @@ router.post(
   coordinatorController.createPanelsBulk
 );
 
+router.get("/panels/summary", coordinatorController.getPanelSummary);
+
+router.post(
+  "/faculty/details-bulk",
+  validateRequired(["employeeIds"]),
+  coordinatorController.getFacultyDetailsBulk
+);
+
 router.put(
   "/panels/:id/members",
   checkCoordinatorPermission("canEditPanels"),
