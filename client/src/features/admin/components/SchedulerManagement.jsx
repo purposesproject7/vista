@@ -1,71 +1,65 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from "react";
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   TrashIcon,
-  ClockIcon
-} from '@heroicons/react/24/outline';
-import Card from '../../../shared/components/Card';
-import Button from '../../../shared/components/Button';
-import LoadingSpinner from '../../../shared/components/LoadingSpinner';
-import { useToast } from '../../../shared/hooks/useToast';
-import { fetchDepartmentConfig, createDepartmentConfig, updateDepartmentConfig, updateFeatureLock } from '../services/adminApi';
+  ClockIcon,
+} from "@heroicons/react/24/outline";
+import Card from "../../../shared/components/Card";
+import Button from "../../../shared/components/Button";
+import LoadingSpinner from "../../../shared/components/LoadingSpinner";
+import DateTimePicker from "../../../shared/components/DateTimePicker";
+import { useToast } from "../../../shared/hooks/useToast";
+import {
+  fetchDepartmentConfig,
+  createDepartmentConfig,
+  updateDepartmentConfig,
+  updateFeatureLock,
+} from "../services/adminApi";
 
 const FEATURES = [
-  { id: 'faculty-addition', label: 'Faculty Addition' },
-  { id: 'student-addition', label: 'Student Addition' },
-  { id: 'panel-creation', label: 'Panel Creation' },
-  { id: 'project-assignment', label: 'Project Assignment' },
-  { id: 'marks-entry', label: 'Marks Entry' }
+  { id: "faculty-addition", label: "Faculty Addition" },
+  { id: "student-addition", label: "Student Addition" },
+  { id: "panel-creation", label: "Panel Creation" },
+  { id: "project-assignment", label: "Project Assignment" },
+  { id: "marks-entry", label: "Marks Entry" },
 ];
 
 const toDatetimeLocalValue = (isoString) => {
-  if (!isoString) return '';
+  if (!isoString) return "";
   const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return '';
+  if (Number.isNaN(date.getTime())) return "";
 
-  const pad = (n) => String(n).padStart(2, '0');
-  const y = date.getFullYear();
-  const m = pad(date.getMonth() + 1);
-  const d = pad(date.getDate());
-  const hh = pad(date.getHours());
-  const mm = pad(date.getMinutes());
-  return `${y}-${m}-${d}T${hh}:${mm}`;
+  return date.toISOString();
 };
 
-const SchedulerManagement = ({
-  schools,
-  programsBySchool,
-  years
-}) => {
+const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   const { showToast } = useToast();
 
   // Academic Context Selection
-  const [selectedSchool, setSelectedSchool] = useState('');
-  const [selectedProgramme, setSelectedProgramme] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedProgramme, setSelectedProgramme] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
 
   // Department config data
   const [departmentConfig, setDepartmentConfig] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Form state
-  const [selectedFeature, setSelectedFeature] = useState('');
-  const [activeUntil, setActiveUntil] = useState('');
+  const [selectedFeature, setSelectedFeature] = useState("");
+  const [activeUntil, setActiveUntil] = useState("");
 
   const availableProgrammes = useMemo(() => {
     if (!selectedSchool) return [];
-    const schoolObj = schools.find(s => s.code === selectedSchool);
+    const schoolObj = schools.find((s) => s.code === selectedSchool);
     if (!schoolObj) return [];
     return programsBySchool?.[schoolObj.code] || [];
   }, [selectedSchool, programsBySchool, schools]);
 
   const filtersComplete = useMemo(() => {
-    const completed = [
-      selectedSchool,
-      selectedProgramme,
-      selectedYear
-    ].filter(Boolean).length;
+    const completed = [selectedSchool, selectedProgramme, selectedYear].filter(
+      Boolean
+    ).length;
     return { completed, total: 3, percentage: (completed / 3) * 100 };
   }, [selectedSchool, selectedProgramme, selectedYear]);
 
@@ -81,9 +75,11 @@ const SchedulerManagement = ({
   const loadDepartmentConfig = async () => {
     setLoading(true);
     try {
-      const yearObj = years.find(y => y.id === parseInt(selectedYear));
-      const schoolObj = schools.find(s => s.code === selectedSchool);
-      const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
+      const yearObj = years.find((y) => y.id === parseInt(selectedYear));
+      const schoolObj = schools.find((s) => s.code === selectedSchool);
+      const programObj = programsBySchool[selectedSchool]?.find(
+        (p) => p.code === selectedProgramme
+      );
 
       if (!yearObj || !schoolObj || !programObj) {
         return;
@@ -103,8 +99,8 @@ const SchedulerManagement = ({
         // Config doesn't exist yet
         setDepartmentConfig(null);
       } else {
-        console.error('Error loading department config:', error);
-        showToast('Failed to load configuration', 'error');
+        console.error("Error loading department config:", error);
+        showToast("Failed to load configuration", "error");
       }
     } finally {
       setLoading(false);
@@ -118,66 +114,70 @@ const SchedulerManagement = ({
 
   const handleSchoolChange = (value) => {
     setSelectedSchool(value);
-    setSelectedProgramme('');
-    setSelectedYear('');
-    setSelectedFeature('');
-    setActiveUntil('');
+    setSelectedProgramme("");
+    setSelectedYear("");
+    setSelectedFeature("");
+    setActiveUntil("");
   };
 
   const handleProgrammeChange = (value) => {
     setSelectedProgramme(value);
-    setSelectedYear('');
-    setSelectedFeature('');
-    setActiveUntil('');
+    setSelectedYear("");
+    setSelectedFeature("");
+    setActiveUntil("");
   };
 
   const handleYearChange = (value) => {
     setSelectedYear(value);
-    setSelectedFeature('');
-    setActiveUntil('');
+    setSelectedFeature("");
+    setActiveUntil("");
   };
 
   const handleSaveSchedule = async () => {
     if (!selectedFeature) {
-      showToast('Please select a feature', 'error');
+      showToast("Please select a feature", "error");
       return;
     }
 
     if (!activeUntil) {
-      showToast('Please set an active until date/time', 'error');
+      showToast("Please set an active until date/time", "error");
       return;
     }
 
     const activeUntilIso = new Date(activeUntil).toISOString();
     if (Number.isNaN(new Date(activeUntilIso).getTime())) {
-      showToast('Invalid date/time selected', 'error');
+      showToast("Invalid date/time selected", "error");
       return;
     }
 
-    const yearObj = years.find(y => y.id === parseInt(selectedYear));
-    const schoolObj = schools.find(s => s.code === selectedSchool);
-    const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
+    const yearObj = years.find((y) => y.id === parseInt(selectedYear));
+    const schoolObj = schools.find((s) => s.code === selectedSchool);
+    const programObj = programsBySchool[selectedSchool]?.find(
+      (p) => p.code === selectedProgramme
+    );
 
     if (!yearObj || !schoolObj || !programObj) {
-      showToast('Invalid context', 'error');
+      showToast("Invalid context", "error");
       return;
     }
 
     setLoading(true);
     try {
       let updatedLocks = [...(contextSchedules || [])];
-      const existingIndex = updatedLocks.findIndex(l => l.feature === selectedFeature);
+      const existingIndex = updatedLocks.findIndex(
+        (l) => l.feature === selectedFeature
+      );
 
       if (existingIndex >= 0) {
         updatedLocks[existingIndex] = {
           ...updatedLocks[existingIndex],
-          activeUntil: activeUntilIso
+          activeUntil: activeUntilIso,
         };
       } else {
         updatedLocks.push({
           feature: selectedFeature,
           activeUntil: activeUntilIso,
-          isLocked: false
+          isLocked: false,
         });
       }
 
@@ -195,18 +195,21 @@ const SchedulerManagement = ({
             minTeamSize: 1,
             maxPanelSize: 5,
             minPanelSize: 3,
-            featureLocks: updatedLocks
+            featureLocks: updatedLocks,
           }
         );
       }
 
-      showToast('Schedule saved successfully', 'success');
+      showToast("Schedule saved successfully", "success");
       await loadDepartmentConfig();
-      setSelectedFeature('');
-      setActiveUntil('');
+      setSelectedFeature("");
+      setActiveUntil("");
     } catch (error) {
-      console.error('Error saving schedule:', error);
-      showToast(error.response?.data?.message || 'Failed to save schedule', 'error');
+      console.error("Error saving schedule:", error);
+      showToast(
+        error.response?.data?.message || "Failed to save schedule",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -217,26 +220,30 @@ const SchedulerManagement = ({
 
     setLoading(true);
     try {
-      const updatedLocks = contextSchedules.filter(l => l.feature !== featureId);
+      const updatedLocks = contextSchedules.filter(
+        (l) => l.feature !== featureId
+      );
       await updateFeatureLock(departmentConfig._id, updatedLocks);
-      
-      showToast('Schedule removed', 'success');
+
+      showToast("Schedule removed", "success");
       await loadDepartmentConfig();
 
       if (selectedFeature === featureId) {
-        setSelectedFeature('');
-        setActiveUntil('');
+        setSelectedFeature("");
+        setActiveUntil("");
       }
     } catch (error) {
-      console.error('Error removing schedule:', error);
-      showToast('Failed to remove schedule', 'error');
+      console.error("Error removing schedule:", error);
+      showToast("Failed to remove schedule", "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSelectExisting = (featureId) => {
-    const existingSchedule = contextSchedules.find(s => s.feature === featureId);
+    const existingSchedule = contextSchedules.find(
+      (s) => s.feature === featureId
+    );
     if (existingSchedule) {
       setSelectedFeature(featureId);
       setActiveUntil(toDatetimeLocalValue(existingSchedule.activeUntil));
@@ -244,11 +251,11 @@ const SchedulerManagement = ({
   };
 
   const isFeatureScheduled = (featureId) => {
-    return contextSchedules.some(s => s.feature === featureId);
+    return contextSchedules.some((s) => s.feature === featureId);
   };
 
   const getFeatureSchedule = (featureId) => {
-    return contextSchedules.find(s => s.feature === featureId);
+    return contextSchedules.find((s) => s.feature === featureId);
   };
 
   return (
@@ -264,8 +271,10 @@ const SchedulerManagement = ({
       {/* Context Selection */}
       <Card>
         <div className="p-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">Academic Context</h3>
-          
+          <h3 className="text-base font-semibold text-gray-900 mb-4">
+            Academic Context
+          </h3>
+
           <div className="space-y-4">
             {/* Progress Bar */}
             <div>
@@ -382,14 +391,13 @@ const SchedulerManagement = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Active Until
-                    </label>
-                    <input
-                      type="datetime-local"
+                    <DateTimePicker
+                      label="Active Until"
                       value={activeUntil}
-                      onChange={(e) => setActiveUntil(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onChange={(value) => setActiveUntil(value)}
+                      placeholder="Select deadline date and time"
+                      timeFormat="12"
+                      required
                     />
                   </div>
                 </div>
@@ -418,7 +426,7 @@ const SchedulerManagement = ({
 
             <div className="space-y-3">
               {contextSchedules.map((schedule) => {
-                const feature = FEATURES.find(f => f.id === schedule.feature);
+                const feature = FEATURES.find((f) => f.id === schedule.feature);
                 const deadline = new Date(schedule.activeUntil);
                 const isExpired = deadline < new Date();
 
