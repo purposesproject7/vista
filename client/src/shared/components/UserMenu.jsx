@@ -1,9 +1,17 @@
 // src/shared/components/UserMenu.jsx
-import React, { useState, useRef, useEffect } from 'react';
-import { UserCircleIcon, KeyIcon, ChevronDownIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import React, { useState, useRef, useEffect } from "react";
+import {
+  UserCircleIcon,
+  KeyIcon,
+  ChevronDownIcon,
+  ArrowRightOnRectangleIcon,
+  AcademicCapIcon,
+} from "@heroicons/react/24/outline";
+import { useNavigate } from "react-router-dom";
 
 const UserMenu = ({ user, onChangePassword, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -13,8 +21,8 @@ const UserMenu = ({ user, onChangePassword, onLogout }) => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   return (
@@ -28,8 +36,10 @@ const UserMenu = ({ user, onChangePassword, onLogout }) => {
           <p className="font-semibold text-sm text-gray-900">{user.name}</p>
           <p className="text-xs text-gray-500">{user.email}</p>
         </div>
-        <ChevronDownIcon 
-          className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        <ChevronDownIcon
+          className={`w-4 h-4 text-gray-500 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
         />
       </button>
 
@@ -44,6 +54,16 @@ const UserMenu = ({ user, onChangePassword, onLogout }) => {
           >
             <KeyIcon className="w-4 h-4 text-gray-500" />
             Change Password
+          </button>
+          <button
+            onClick={() => {
+              setIsOpen(false);
+              navigate("/faculty/tutorial");
+            }}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <AcademicCapIcon className="w-4 h-4 text-gray-500" />
+            Walkthrough/Tutorial
           </button>
           <div className="border-t border-gray-200 my-1"></div>
           <button

@@ -1,14 +1,14 @@
 // src/features/faculty/components/MarkEntryModal.jsx - REPLACE
-import React, { useEffect, useState } from 'react';
-import Modal from '../../../shared/components/Modal';
-import Button from '../../../shared/components/Button';
-import CompactRubricTable from './CompactRubricTable';
-import Toast from '../../../shared/components/Toast';
-import { useMarkEntry } from '../hooks/useMarkEntry';
+import React, { useEffect, useState } from "react";
+import Modal from "../../../shared/components/Modal";
+import Button from "../../../shared/components/Button";
+import CompactRubricTable from "./CompactRubricTable";
+import Toast from "../../../shared/components/Toast";
+import { useMarkEntry } from "../hooks/useMarkEntry";
 
 const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
   const [toast, setToast] = useState(null);
-  
+
   const {
     marks,
     errors,
@@ -16,7 +16,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
     initializeMarks,
     updateMark,
     submitMarks,
-    getStudentTotal
+    getStudentTotal,
   } = useMarkEntry(review, team);
 
   useEffect(() => {
@@ -28,13 +28,13 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
   const handleSubmit = async () => {
     const result = await submitMarks();
     if (result.success) {
-      setToast({ message: 'Marks submitted successfully!', type: 'success' });
+      setToast({ message: "Marks submitted successfully!", type: "success" });
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 1500);
     } else {
-      setToast({ message: result.message, type: 'error' });
+      setToast({ message: result.message, type: "error" });
     }
   };
 
@@ -58,6 +58,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
             errors={errors}
             onMarkChange={updateMark}
             getStudentTotal={getStudentTotal}
+            data-tutorial="rubric-table"
           />
         </div>
 
@@ -70,23 +71,29 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
               </span>
             ) : (
               <span className="text-green-600 font-semibold flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                ✓ Ready to submit
+                <span className="w-2 h-2 bg-green-600 rounded-full"></span>✓
+                Ready to submit
               </span>
             )}
           </div>
-          
+
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={onClose} size="sm">
+            <Button
+              variant="secondary"
+              onClick={onClose}
+              size="sm"
+              data-tutorial="save-draft"
+            >
               Cancel
             </Button>
-            <Button 
-              variant="success" 
+            <Button
+              variant="success"
               onClick={handleSubmit}
               disabled={submitting || hasErrors}
               size="sm"
+              data-tutorial="submit-marks"
             >
-              {submitting ? 'Submitting...' : 'Submit Marks'}
+              {submitting ? "Submitting..." : "Submit Marks"}
             </Button>
           </div>
         </div>
