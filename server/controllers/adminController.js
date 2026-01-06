@@ -62,7 +62,7 @@ export async function updateFaculty(req, res) {
     const faculty = await FacultyService.updateFaculty(
       employeeId,
       req.body,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -136,7 +136,7 @@ export async function getMarkingSchema(req, res) {
     const schema = await MarkingSchemaService.getMarkingSchema(
       academicYear,
       school,
-      department,
+      department
     );
 
     res.status(200).json({
@@ -155,7 +155,7 @@ export async function createOrUpdateMarkingSchema(req, res) {
   try {
     const schema = await MarkingSchemaService.createOrUpdateMarkingSchema(
       req.body,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -272,11 +272,40 @@ export async function createAdmin(req, res) {
   }
 }
 
+export async function getFacultyDetailsBulk(req, res) {
+  try {
+    const { employeeIds } = req.body;
+
+    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "employeeIds array is required",
+      });
+    }
+
+    const faculty = await Faculty.find({
+      employeeId: { $in: employeeIds },
+      role: "faculty",
+    }).select("name employeeId emailId school department specialization");
+
+    res.status(200).json({
+      success: true,
+      data: faculty,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ===== PANEL AUTO FUNCTIONS =====
 
 export async function autoCreatePanels(req, res) {
   try {
-    const { departments, school, academicYear, panelSize, facultyList } = req.body;
+    const { departments, school, academicYear, panelSize, facultyList } =
+      req.body;
 
     const results = await PanelService.autoCreatePanels(
       departments,
@@ -284,13 +313,122 @@ export async function autoCreatePanels(req, res) {
       academicYear,
       panelSize || 2,
       req.user._id,
-      facultyList,
+      facultyList
     );
 
     res.status(200).json({
       success: true,
       message: `Auto-creation complete: ${results.created} panels created, ${results.errors} errors.`,
       data: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function bulkCreatePanels(req, res) {
+  try {
+    const { panels } = req.body;
+
+    if (!Array.isArray(panels) || panels.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Panels array is required and cannot be empty.",
+      });
+    }
+
+    const results = {
+      created: 0,
+      errors: 0,
+      details: [],
+    };
+
+    for (let i = 0; i < panels.length; i++) {
+      try {
+        await PanelService.createPanel(panels[i], req.user._id);
+        results.created++;
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          index: i,
+          panelName: panels[i].panelName,
+          error: error.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk creation complete: ${results.created} created, ${results.errors} errors.`,
+      data: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getPanelSummary(req, res) {
+  try {
+    const { academicYear, school, department } = req.query;
+
+    // Get all panels
+    const panels = await Panel.find({
+      academicYear,
+      school,
+      department,
+      isActive: true,
+    }).populate("members.faculty", "name employeeId");
+
+    // Get project counts
+    const totalProjects = await Project.countDocuments({
+      academicYear,
+      school,
+      department,
+    });
+
+    const assignedProjects = await Project.countDocuments({
+      academicYear,
+      school,
+      department,
+      panel: { $ne: null },
+    });
+
+    const totalPanels = panels.length;
+
+    // Calculate unique faculty involved in panels
+    const facultySet = new Set();
+    panels.forEach((p) => {
+      p.members.forEach((m) => {
+        if (m.faculty) facultySet.add(m.faculty._id.toString());
+      });
+    });
+
+    const avgFacultyPerPanel =
+      totalPanels > 0
+        ? (
+            panels.reduce((sum, p) => sum + p.members.length, 0) / totalPanels
+          ).toFixed(1)
+        : 0;
+
+    const avgProjectsPerPanel =
+      totalPanels > 0 ? (assignedProjects / totalPanels).toFixed(1) : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalPanels,
+        totalFaculty: facultySet.size,
+        totalProjects,
+        assignedProjects,
+        avgFacultyPerPanel,
+        avgProjectsPerPanel,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -308,7 +446,7 @@ export async function autoAssignPanelsToProjects(req, res) {
       academicYear,
       school,
       department,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -368,7 +506,7 @@ export async function updateRequestStatus(req, res) {
       id,
       status,
       req.user._id,
-      { remarks, newDeadline },
+      { remarks, newDeadline }
     );
 
     res.status(200).json({
@@ -406,7 +544,7 @@ export async function createBroadcastMessage(req, res) {
   try {
     const broadcast = await BroadcastService.createBroadcast(
       req.body,
-      req.user,
+      req.user
     );
 
     res.status(201).json({
@@ -428,7 +566,7 @@ export async function updateBroadcastMessage(req, res) {
     const broadcast = await BroadcastService.updateBroadcast(
       id,
       req.body,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -535,7 +673,9 @@ export async function markAsBestProject(req, res) {
 
     res.status(200).json({
       success: true,
-      message: `Project ${project.bestProject ? "marked" : "unmarked"} as best project.`,
+      message: `Project ${
+        project.bestProject ? "marked" : "unmarked"
+      } as best project.`,
       data: { bestProject: project.bestProject },
     });
   } catch (error) {
@@ -633,7 +773,7 @@ export async function createStudent(req, res) {
       academicYear,
       school,
       department,
-      req.user._id,
+      req.user._id
     );
 
     if (result.created === 1) {
@@ -677,7 +817,7 @@ export async function bulkUploadStudents(req, res) {
       academicYear,
       school,
       department,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -701,7 +841,7 @@ export async function updateStudent(req, res) {
     const student = await StudentService.updateStudent(
       req.params.regNo,
       req.body,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -896,7 +1036,7 @@ export async function assignProjectCoordinator(req, res) {
     if (isPrimary) {
       await ProjectCoordinator.updateMany(
         { academicYear, school, department, isPrimary: true },
-        { $set: { isPrimary: false } },
+        { $set: { isPrimary: false } }
       );
     }
 
@@ -989,7 +1129,7 @@ export async function updateProjectCoordinator(req, res) {
           isPrimary: true,
           _id: { $ne: id },
         },
-        { $set: { isPrimary: false } },
+        { $set: { isPrimary: false } }
       );
     }
 
@@ -1055,7 +1195,7 @@ export async function removeProjectCoordinator(req, res) {
     const coordinator = await ProjectCoordinator.findByIdAndUpdate(
       id,
       { $set: { isActive: false } },
-      { new: true },
+      { new: true }
     );
 
     if (!coordinator) {
@@ -1167,7 +1307,7 @@ export async function updateComponentLibrary(req, res) {
     const library = await ComponentLibrary.findByIdAndUpdate(
       id,
       { $set: updates },
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     );
 
     if (!library) {
@@ -1380,7 +1520,7 @@ export async function getFacultyWorkloadReport(req, res) {
             pending: marksPending,
           },
         };
-      }),
+      })
     );
 
     res.status(200).json({
@@ -1417,11 +1557,11 @@ export async function getStudentPerformanceReport(req, res) {
 
       const totalMarks = allMarks.reduce(
         (sum, m) => sum + (m.totalMarks || 0),
-        0,
+        0
       );
       const maxMarks = allMarks.reduce(
         (sum, m) => sum + (m.maxTotalMarks || 0),
-        0,
+        0
       );
       const percentage = maxMarks > 0 ? (totalMarks / maxMarks) * 100 : 0;
 
@@ -1476,14 +1616,16 @@ export async function assignPanelToProject(req, res) {
     ) {
       return res.status(400).json({
         success: false,
-        message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(", ")}], but project requires ${project.specialization}.`,
+        message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(
+          ", "
+        )}], but project requires ${project.specialization}.`,
       });
     }
 
     const result = await PanelService.assignPanelToProject(
       panelId,
       projectId,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -1541,7 +1683,7 @@ export async function createMasterDataBulk(req, res) {
       for (const school of schools) {
         try {
           const exists = masterData.schools.find(
-            (s) => s.code === school.code || s.name === school.name,
+            (s) => s.code === school.code || s.name === school.name
           );
 
           if (exists) {
@@ -1572,7 +1714,7 @@ export async function createMasterDataBulk(req, res) {
         try {
           // Verify school exists
           const schoolExists = masterData.schools.find(
-            (s) => s.code === dept.school,
+            (s) => s.code === dept.school
           );
 
           if (!schoolExists) {
@@ -1586,7 +1728,7 @@ export async function createMasterDataBulk(req, res) {
           const exists = masterData.departments.find(
             (d) =>
               (d.code === dept.code || d.name === dept.name) &&
-              d.school === dept.school,
+              d.school === dept.school
           );
 
           if (exists) {
@@ -1618,7 +1760,7 @@ export async function createMasterDataBulk(req, res) {
       for (const ay of academicYears) {
         try {
           const exists = masterData.academicYears.find(
-            (year) => year.year === ay.year,
+            (year) => year.year === ay.year
           );
 
           if (exists) {
@@ -1738,7 +1880,7 @@ export async function createSchool(req, res) {
 
     // Check if school already exists
     const exists = masterData.schools.find(
-      (s) => s.code === code || s.name === name,
+      (s) => s.code === code || s.name === name
     );
 
     if (exists) {
@@ -1796,7 +1938,7 @@ export async function updateSchool(req, res) {
 
     // Check for duplicates (excluding current school)
     const duplicate = masterData.schools.find(
-      (s) => s._id.toString() !== id && (s.code === code || s.name === name),
+      (s) => s._id.toString() !== id && (s.code === code || s.name === name)
     );
 
     if (duplicate) {
@@ -1855,7 +1997,7 @@ export async function createDepartment(req, res) {
 
     // Check if department already exists
     const exists = masterData.departments.find(
-      (d) => (d.code === code || d.name === name) && d.school === school,
+      (d) => (d.code === code || d.name === name) && d.school === school
     );
 
     if (exists) {
@@ -1928,7 +2070,7 @@ export async function updateDepartment(req, res) {
       (d) =>
         d._id.toString() !== id &&
         (d.code === code || d.name === name) &&
-        d.school === school,
+        d.school === school
     );
 
     if (duplicate) {
@@ -2060,7 +2202,8 @@ export async function updateAcademicYear(req, res) {
 
     // Check for duplicates (excluding current year)
     const duplicate = masterData.academicYears.find(
-      (ay) => ay._id.toString() !== id && ay.year === year && ay.isActive !== false,
+      (ay) =>
+        ay._id.toString() !== id && ay.year === year && ay.isActive !== false
     );
 
     if (duplicate) {
@@ -2103,13 +2246,11 @@ export async function getDepartmentConfig(req, res) {
   try {
     const { academicYear, school, department } = req.query;
 
-    const config = await DepartmentConfig
-      .findOne({
-        academicYear,
-        school,
-        department,
-      })
-      .lean();
+    const config = await DepartmentConfig.findOne({
+      academicYear,
+      school,
+      department,
+    }).lean();
 
     if (!config) {
       return res.status(404).json({
@@ -2199,7 +2340,7 @@ export async function updateDepartmentConfig(req, res) {
     const config = await DepartmentConfig.findByIdAndUpdate(
       id,
       { $set: updates },
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     );
 
     if (!config) {
@@ -2242,7 +2383,7 @@ export async function updateFeatureLock(req, res) {
 
     // Find or create feature lock
     let featureLock = config.featureLocks.find(
-      (fl) => fl.featureName === featureName,
+      (fl) => fl.featureName === featureName
     );
 
     if (featureLock) {
@@ -2288,7 +2429,7 @@ export async function updateFeatureLock(req, res) {
             $set: {
               [`permissions.${permissionField}.deadline`]: deadline,
             },
-          },
+          }
         );
 
         logger.info("coordinator_deadlines_propagated", {

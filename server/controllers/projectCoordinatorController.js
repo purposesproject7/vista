@@ -1402,6 +1402,101 @@ export async function deletePanel(req, res) {
   }
 }
 
+export async function getPanelSummary(req, res) {
+  try {
+    const context = getCoordinatorContext(req);
+
+    const panels = await Panel.find({
+      ...context,
+      isActive: true,
+    }).populate("members.faculty", "name employeeId");
+
+    const totalProjects = await Project.countDocuments({
+      ...context,
+    });
+
+    const assignedProjects = await Project.countDocuments({
+      ...context,
+      panel: { $ne: null },
+    });
+
+    const totalPanels = panels.length;
+
+    const facultySet = new Set();
+    panels.forEach((p) => {
+      p.members.forEach((m) => {
+        if (m.faculty) facultySet.add(m.faculty._id.toString());
+      });
+    });
+
+    const avgFacultyPerPanel =
+      totalPanels > 0
+        ? (
+            panels.reduce((sum, p) => sum + p.members.length, 0) / totalPanels
+          ).toFixed(1)
+        : 0;
+
+    const avgProjectsPerPanel =
+      totalPanels > 0 ? (assignedProjects / totalPanels).toFixed(1) : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalPanels,
+        totalFaculty: facultySet.size,
+        totalProjects,
+        assignedProjects,
+        avgFacultyPerPanel,
+        avgProjectsPerPanel,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getFacultyDetailsBulk(req, res) {
+  try {
+    const { employeeIds } = req.body;
+    const context = getCoordinatorContext(req);
+
+    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "employeeIds array is required",
+      });
+    }
+
+    // Only fetch faculty from same context/school?
+    // Usually fetching details allows cross-department if necessary, but strictly usually
+    // we only want valid faculty. Let's keep it scoped to context for safety or at least school.
+    // However, existing admin implementation didn't restrict.
+    // For coordinator, we should probably restrict to their school/dept or just check existence.
+    // Let's rely on Faculty find.
+    const faculty = await Faculty.find({
+      employeeId: { $in: employeeIds },
+      role: "faculty",
+      // Restrict to same school is reasonable, maybe same dept too.
+      // Let's stick to context to prevent unauthorized lookups.
+      school: context.school,
+      // department: context.department // Maybe optional if inter-disciplinary? Safest to include.
+    }).select("name employeeId emailId school department specialization");
+
+    res.status(200).json({
+      success: true,
+      data: faculty,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ==================== Panel Assignment ====================
 
 export async function assignPanel(req, res) {

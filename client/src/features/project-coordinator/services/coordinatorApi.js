@@ -345,6 +345,26 @@ export const autoAssignPanels = async (filters) => {
   return response.data;
 };
 
+/**
+ * Fetch panel summary statistics
+ */
+export const fetchPanelSummary = async (filters = {}) => {
+  const response = await api.get("/coordinator/panels/summary", {
+    params: filters,
+  });
+  return response.data;
+};
+
+/**
+ * Fetch details for multiple faculty members
+ */
+export const fetchFacultyDetailsBulk = async (employeeIds) => {
+  const response = await api.post("/coordinator/faculty/details-bulk", {
+    employeeIds,
+  });
+  return response.data;
+};
+
 // ==================== Request Management APIs ====================
 
 /**
@@ -450,6 +470,8 @@ export default {
   autoCreatePanels,
   assignPanelToProject,
   autoAssignPanels,
+  fetchPanelSummary,
+  fetchFacultyDetailsBulk,
 
   // Requests
   fetchRequests,
