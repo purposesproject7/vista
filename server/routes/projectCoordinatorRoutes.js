@@ -312,13 +312,13 @@ router.get(
  * Master Data & Marks
  */
 router.get("/academic-years", coordinatorController.getAcademicYears);
-router.get("/departments", coordinatorController.getDepartments);
+router.get("/programs", coordinatorController.getPrograms);
 router.get("/projects/:id/marks", coordinatorController.getProjectMarks);
 
 /**
- * Department configuration (view only for coordinators)
+ * Program configuration (view only for coordinators)
  */
-router.get("/department-config", coordinatorController.getDepartmentConfig);
+router.get("/program-config", coordinatorController.getProgramConfig);
 
 /**
  * Access Request

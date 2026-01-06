@@ -11,9 +11,9 @@ import LoadingSpinner from "../../../shared/components/LoadingSpinner";
 import DateTimePicker from "../../../shared/components/DateTimePicker";
 import { useToast } from "../../../shared/hooks/useToast";
 import {
-  fetchDepartmentConfig,
-  createDepartmentConfig,
-  updateDepartmentConfig,
+  fetchProgramConfig,
+  createProgramConfig,
+  updateProgramConfig,
   updateFeatureLock,
 } from "../services/adminApi";
 
@@ -41,8 +41,8 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   const [selectedProgramme, setSelectedProgramme] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
 
-  // Department config data
-  const [departmentConfig, setDepartmentConfig] = useState(null);
+  // Program config data
+  const [programConfig, setProgramConfig] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Form state
@@ -66,16 +66,18 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   // Load department config when context changes
   useEffect(() => {
     if (filtersComplete.completed === 3) {
-      loadDepartmentConfig();
+      loadProgramConfig();
     } else {
-      setDepartmentConfig(null);
+      setProgramConfig(null);
     }
   }, [selectedSchool, selectedProgramme, selectedYear]);
 
-  const loadDepartmentConfig = async () => {
+  const loadProgramConfig = async () => {
     setLoading(true);
     try {
-      const yearObj = years.find((y) => y.id === parseInt(selectedYear));
+      // Use strict comparison or string comparison depending on ID type.
+      // Assuming IDs are strings (ObjectIds) based on AdminSettings.
+      const yearObj = years.find((y) => y.id === selectedYear);
       const schoolObj = schools.find((s) => s.code === selectedSchool);
       const programObj = programsBySchool[selectedSchool]?.find(
         (p) => p.code === selectedProgramme
@@ -85,21 +87,21 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
         return;
       }
 
-      const response = await fetchDepartmentConfig(
+      const response = await fetchProgramConfig(
         yearObj.name,
         schoolObj.code,
         programObj.code
       );
 
       if (response.success) {
-        setDepartmentConfig(response.data);
+        setProgramConfig(response.data);
       }
     } catch (error) {
       if (error.response?.status === 404) {
         // Config doesn't exist yet
-        setDepartmentConfig(null);
+        setProgramConfig(null);
       } else {
-        console.error("Error loading department config:", error);
+        console.error("Error loading program config:", error);
         showToast("Failed to load configuration", "error");
       }
     } finally {
@@ -108,9 +110,9 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   };
 
   const contextSchedules = useMemo(() => {
-    if (!departmentConfig || !departmentConfig.featureLocks) return [];
-    return departmentConfig.featureLocks;
-  }, [departmentConfig]);
+    if (!programConfig || !programConfig.featureLocks) return [];
+    return programConfig.featureLocks;
+  }, [programConfig]);
 
   const handleSchoolChange = (value) => {
     setSelectedSchool(value);
@@ -150,7 +152,7 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
       return;
     }
 
-    const yearObj = years.find((y) => y.id === parseInt(selectedYear));
+    const yearObj = years.find((y) => y.id === selectedYear);
     const schoolObj = schools.find((s) => s.code === selectedSchool);
     const programObj = programsBySchool[selectedSchool]?.find(
       (p) => p.code === selectedProgramme
@@ -181,12 +183,12 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
         });
       }
 
-      if (departmentConfig) {
+      if (programConfig) {
         // Update existing config
-        await updateFeatureLock(departmentConfig._id, updatedLocks);
+        await updateFeatureLock(programConfig._id, updatedLocks);
       } else {
         // Create new config
-        await createDepartmentConfig(
+        await createProgramConfig(
           yearObj.name,
           schoolObj.code,
           programObj.code,
@@ -201,7 +203,7 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
       }
 
       showToast("Schedule saved successfully", "success");
-      await loadDepartmentConfig();
+      await loadProgramConfig();
       setSelectedFeature("");
       setActiveUntil("");
     } catch (error) {
@@ -216,17 +218,17 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   };
 
   const handleRemoveSchedule = async (featureId) => {
-    if (!departmentConfig) return;
+    if (!programConfig) return;
 
     setLoading(true);
     try {
       const updatedLocks = contextSchedules.filter(
         (l) => l.feature !== featureId
       );
-      await updateFeatureLock(departmentConfig._id, updatedLocks);
+      await updateFeatureLock(programConfig._id, updatedLocks);
 
       showToast("Schedule removed", "success");
-      await loadDepartmentConfig();
+      await loadProgramConfig();
 
       if (selectedFeature === featureId) {
         setSelectedFeature("");

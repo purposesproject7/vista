@@ -2,18 +2,18 @@ import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
 
 /**
- * Extract primary school and department from faculty
+ * Extract primary school and program from faculty
  */
 export function extractPrimaryContext(faculty) {
   const school = Array.isArray(faculty.school)
     ? faculty.school[0]
     : faculty.school;
 
-  const department = Array.isArray(faculty.department)
-    ? faculty.department[0]
-    : faculty.department;
+  const department = Array.isArray(faculty.program)
+    ? faculty.program[0]
+    : faculty.program;
 
-  return { school, department };
+  return { school, program: department };
 }
 
 /**
@@ -33,7 +33,7 @@ export async function getFacultyTypeForProject(facultyId, projectId) {
 
   // Check if panel member
   const isPanelMember = project.panel?.members?.some(
-    (m) => m.faculty.toString() === facultyId.toString(),
+    (m) => m.faculty.toString() === facultyId.toString()
   );
 
   if (isPanelMember) {
@@ -44,16 +44,16 @@ export async function getFacultyTypeForProject(facultyId, projectId) {
 }
 
 /**
- * Extract school/department arrays from faculty for broadcast matching
+ * Extract school/program arrays from faculty for broadcast matching
  */
 export function getFacultyAudience(faculty) {
   const schools = Array.isArray(faculty.school)
     ? faculty.school
     : [faculty.school];
 
-  const departments = Array.isArray(faculty.department)
-    ? faculty.department
-    : [faculty.department];
+  const departments = Array.isArray(faculty.program)
+    ? faculty.program
+    : [faculty.program];
 
-  return { schools, departments };
+  return { schools, programs: departments };
 }

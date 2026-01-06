@@ -17,8 +17,8 @@ export class MarkingSchemaService {
       errors.push("School is required");
     }
 
-    if (!data.department) {
-      errors.push("Department is required");
+    if (!data.program) {
+      errors.push("Program is required");
     }
 
     if (
@@ -47,7 +47,7 @@ export class MarkingSchemaService {
           errors.push(`Review ${reviewNum}: facultyType is required`);
         } else if (!["guide", "panel", "both"].includes(review.facultyType)) {
           errors.push(
-            `Review ${reviewNum}: facultyType must be 'guide', 'panel', or 'both'`,
+            `Review ${reviewNum}: facultyType must be 'guide', 'panel', or 'both'`
           );
         }
 
@@ -56,7 +56,7 @@ export class MarkingSchemaService {
           errors.push(`Review ${reviewNum}: components array is required`);
         } else if (review.components.length === 0) {
           errors.push(
-            `Review ${reviewNum}: at least one component is required`,
+            `Review ${reviewNum}: at least one component is required`
           );
         } else {
           review.components.forEach((comp, compIndex) => {
@@ -64,18 +64,18 @@ export class MarkingSchemaService {
 
             if (!comp.name) {
               errors.push(
-                `Review ${reviewNum}, Component ${compNum}: name is required`,
+                `Review ${reviewNum}, Component ${compNum}: name is required`
               );
             }
 
             // ✅ Changed from weight to maxMarks
             if (comp.maxMarks === undefined || comp.maxMarks === null) {
               errors.push(
-                `Review ${reviewNum}, Component ${compNum}: maxMarks is required`,
+                `Review ${reviewNum}, Component ${compNum}: maxMarks is required`
               );
             } else if (typeof comp.maxMarks !== "number" || comp.maxMarks < 0) {
               errors.push(
-                `Review ${reviewNum}, Component ${compNum}: maxMarks must be a positive number`,
+                `Review ${reviewNum}, Component ${compNum}: maxMarks must be a positive number`
               );
             }
 
@@ -85,7 +85,7 @@ export class MarkingSchemaService {
               !comp.componentId.match(/^[0-9a-fA-F]{24}$/)
             ) {
               errors.push(
-                `Review ${reviewNum}, Component ${compNum}: invalid componentId format`,
+                `Review ${reviewNum}, Component ${compNum}: invalid componentId format`
               );
             }
           });
@@ -99,7 +99,7 @@ export class MarkingSchemaService {
 
             if (from >= to) {
               errors.push(
-                `Review ${reviewNum}: deadline 'from' must be before 'to'`,
+                `Review ${reviewNum}: deadline 'from' must be before 'to'`
               );
             }
           }
@@ -113,21 +113,16 @@ export class MarkingSchemaService {
   /**
    * Validate component IDs exist in component library
    */
-  static async validateComponentIds(
-    components,
-    academicYear,
-    school,
-    department,
-  ) {
+  static async validateComponentIds(components, academicYear, school, program) {
     const library = await ComponentLibrary.findOne({
       academicYear,
       school,
-      department,
+      program,
     });
 
     if (!library) {
       throw new Error(
-        "Component library not found for this department. Please create component library first.",
+        "Component library not found for this program. Please create component library first."
       );
     }
 
@@ -138,7 +133,7 @@ export class MarkingSchemaService {
       if (comp.componentId) {
         if (!validComponentIds.includes(comp.componentId.toString())) {
           errors.push(
-            `Component "${comp.name}" with ID ${comp.componentId} not found in library`,
+            `Component "${comp.name}" with ID ${comp.componentId} not found in library`
           );
         }
       }
@@ -157,12 +152,29 @@ export class MarkingSchemaService {
   static async createOrUpdateMarkingSchema(data, createdBy = null) {
     const {
       school,
-      department,
+      program,
       academicYear,
       reviews,
       requiresContribution,
       contributionType,
     } = data;
+
+    // Auto-generate reviewName if missing
+    reviews.forEach((review) => {
+      if (!review.reviewName && review.displayName) {
+        review.reviewName =
+          review.displayName
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "") +
+          "_" +
+          Date.now().toString().slice(-4);
+      } else if (!review.reviewName) {
+        review.reviewName = `review_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 5)}`;
+      }
+    });
 
     // Validate basic structure
     const validationErrors = this.validateMarkingSchema(data);
@@ -179,7 +191,7 @@ export class MarkingSchemaService {
             review.components,
             academicYear,
             school,
-            department,
+            program
           );
         }
       }
@@ -195,6 +207,12 @@ export class MarkingSchemaService {
         name: comp.name,
         maxMarks: comp.maxMarks, // ✅ Changed from weight to maxMarks
         description: comp.description || "",
+        subComponents: (comp.subComponents || []).map((sub) => ({
+          name: sub.name,
+          weight: sub.weight,
+          description: sub.description,
+          isPredefined: sub.isPredefined || false,
+        })),
       })),
       deadline: review.deadline || null,
       order: review.order !== undefined ? review.order : index,
@@ -203,7 +221,7 @@ export class MarkingSchemaService {
 
     const schemaData = {
       school,
-      department,
+      program,
       academicYear,
       reviews: cleanedReviews,
       requiresContribution: requiresContribution || false,
@@ -214,7 +232,7 @@ export class MarkingSchemaService {
     // Check if schema already exists
     const existingSchema = await MarkingSchema.findOne({
       school,
-      department,
+      program,
       academicYear,
     });
 
@@ -229,7 +247,7 @@ export class MarkingSchemaService {
           schemaId: schema._id,
           academicYear,
           school,
-          department,
+          program,
           reviewCount: cleanedReviews.length,
           updatedBy: createdBy,
         });
@@ -244,7 +262,7 @@ export class MarkingSchemaService {
           schemaId: schema._id,
           academicYear,
           school,
-          department,
+          program,
           reviewCount: cleanedReviews.length,
           createdBy,
         });
@@ -257,16 +275,16 @@ export class MarkingSchemaService {
   /**
    * Get marking schema
    */
-  static async getMarkingSchema(academicYear, school, department) {
+  static async getMarkingSchema(academicYear, school, program) {
     const schema = await MarkingSchema.findOne({
       academicYear,
       school,
-      department,
+      program,
       isActive: true,
     }).lean();
 
     if (!schema) {
-      throw new Error("Marking schema not found for this department.");
+      throw new Error("Marking schema not found for this program.");
     }
 
     return schema;
@@ -280,7 +298,7 @@ export class MarkingSchemaService {
 
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
 
     return await MarkingSchema.find(query).sort({ createdAt: -1 }).lean();
   }
@@ -300,7 +318,7 @@ export class MarkingSchemaService {
       const validationData = {
         academicYear: schema.academicYear,
         school: schema.school,
-        department: schema.department,
+        program: schema.program,
         reviews: updates.reviews,
       };
 
@@ -318,7 +336,7 @@ export class MarkingSchemaService {
               review.components,
               schema.academicYear,
               schema.school,
-              schema.department,
+              schema.program
             );
           }
         }

@@ -25,11 +25,11 @@ const featureLockSchema = new mongoose.Schema(
   { _id: false }
 );
 
-const departmentConfigSchema = new mongoose.Schema(
+const programConfigSchema = new mongoose.Schema(
   {
     academicYear: { type: String, required: true },
     school: { type: String, required: true },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
 
     // Team size constraints
     minTeamSize: {
@@ -96,14 +96,11 @@ const departmentConfigSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-departmentConfigSchema.index(
-  { academicYear: 1, school: 1, department: 1 },
+programConfigSchema.index(
+  { academicYear: 1, school: 1, program: 1 },
   { unique: true }
 );
 
-const DepartmentConfig = mongoose.model(
-  "DepartmentConfig",
-  departmentConfigSchema
-);
+const ProgramConfig = mongoose.model("ProgramConfig", programConfigSchema);
 
-export default DepartmentConfig;
+export default ProgramConfig;

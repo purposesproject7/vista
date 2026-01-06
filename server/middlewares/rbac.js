@@ -78,13 +78,13 @@ export async function requireProjectCoordinator(req, res, next) {
  */
 export function validateCoordinatorContext(req, res, next) {
   try {
-    const { academicYear, school, department } =
+    const { academicYear, school, program } =
       req.body || req.query || req.params;
 
-    if (!academicYear || !school || !department) {
+    if (!academicYear || !school || !program) {
       return res.status(400).json({
         success: false,
-        message: "academicYear, school, and department are required",
+        message: "academicYear, school, and program are required",
       });
     }
 
@@ -93,7 +93,7 @@ export function validateCoordinatorContext(req, res, next) {
       (c) =>
         c.academicYear === academicYear &&
         c.school === school &&
-        c.department === department,
+        c.program === program
     );
 
     if (!coordinator) {

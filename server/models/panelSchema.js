@@ -10,7 +10,7 @@ const panelMemberSchema = new mongoose.Schema(
     facultyEmployeeId: { type: String }, // Store employee ID for quick lookup
     addedAt: { type: Date, default: Date.now },
   },
-  { _id: true },
+  { _id: true }
 );
 
 const panelSchema = new mongoose.Schema(
@@ -28,7 +28,7 @@ const panelSchema = new mongoose.Schema(
     academicYear: { type: String, required: true },
     semester: { type: String },
     school: { type: String, required: true },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
 
     specializations: [String],
 
@@ -49,10 +49,10 @@ const panelSchema = new mongoose.Schema(
 
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-panelSchema.index({ school: 1, department: 1, academicYear: 1 });
+panelSchema.index({ school: 1, program: 1, academicYear: 1 });
 panelSchema.index({ specializations: 1 });
 panelSchema.index({ isActive: 1, assignedProjectsCount: 1 });
 panelSchema.index({ facultyEmployeeIds: 1 });

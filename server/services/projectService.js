@@ -3,7 +3,7 @@ import Project from "../models/projectSchema.js";
 import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Panel from "../models/panelSchema.js";
-import DepartmentConfig from "../models/departmentConfigSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
 
 export class ProjectService {
@@ -15,7 +15,7 @@ export class ProjectService {
 
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
     if (filters.status) query.status = filters.status;
     if (filters.guideFaculty) query.guideFaculty = filters.guideFaculty;
     if (filters.panel) query.panel = filters.panel;
@@ -34,11 +34,11 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
 
     const projects = await Project.find(query)
       .populate("students", "regNo name")
-      .populate("guideFaculty", "name employeeId emailId school department")
+      .populate("guideFaculty", "name employeeId emailId school program")
       .lean();
 
     // Group by guide
@@ -66,7 +66,7 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
 
     const projects = await Project.find(query)
       .populate("students", "regNo name emailId")
@@ -87,7 +87,7 @@ export class ProjectService {
           members: project.panel.members,
           venue: project.panel.venue,
           school: project.panel.school,
-          department: project.panel.department,
+          program: project.panel.program,
           projects: [],
         };
       }
@@ -173,7 +173,7 @@ export class ProjectService {
 
     const allStudentIds = [
       ...new Set(
-        [...guideStudentIds, ...panelStudentIds].map((id) => id.toString()),
+        [...guideStudentIds, ...panelStudentIds].map((id) => id.toString())
       ),
     ];
 
@@ -266,18 +266,18 @@ export class ProjectService {
       data !== null &&
       Array.isArray(data.projects)
     ) {
-      const { school, department, academicYear, guideFacultyEmpId, projects } =
+      const { school, program, academicYear, guideFacultyEmpId, projects } =
         data;
       projectsToCreate = projects.map((p) => ({
         ...p,
         school: p.school || school,
-        department: p.department || department,
+        program: p.program || program,
         academicYear: p.academicYear || academicYear,
         guideFacultyEmpId: p.guideFacultyEmpId || guideFacultyEmpId,
       }));
     } else {
       throw new Error(
-        "Invalid input for bulk creation. Expected array of projects or object with projects array.",
+        "Invalid input for bulk creation. Expected array of projects or object with projects array."
       );
     }
 
@@ -317,7 +317,7 @@ export class ProjectService {
       guideFacultyEmpId,
       academicYear,
       school,
-      department,
+      program,
       specialization,
       type,
     } = data;
@@ -338,21 +338,21 @@ export class ProjectService {
     */
 
     // Check team size limits
-    const config = await DepartmentConfig.findOne({
+    const config = await ProgramConfig.findOne({
       academicYear,
       school,
-      department,
+      program,
     });
 
     if (config) {
       if (students.length < config.minTeamSize) {
         throw new Error(
-          `Team size (${students.length}) is below minimum (${config.minTeamSize}).`,
+          `Team size (${students.length}) is below minimum (${config.minTeamSize}).`
         );
       }
       if (students.length > config.maxTeamSize) {
         throw new Error(
-          `Team size (${students.length}) exceeds maximum (${config.maxTeamSize}).`,
+          `Team size (${students.length}) exceeds maximum (${config.maxTeamSize}).`
         );
       }
     }
@@ -366,7 +366,7 @@ export class ProjectService {
 
       if (guideProjectCount >= config.maxProjectsPerGuide) {
         throw new Error(
-          `Guide already has maximum ${config.maxProjectsPerGuide} projects assigned.`,
+          `Guide already has maximum ${config.maxProjectsPerGuide} projects assigned.`
         );
       }
     }
@@ -388,13 +388,18 @@ export class ProjectService {
       let student = await Student.findOne({ regNo });
 
       // 2. If valid object provided and student not found, create them
-      if (!student && typeof studentData === "object" && studentData.name && studentData.emailId) {
+      if (
+        !student &&
+        typeof studentData === "object" &&
+        studentData.name &&
+        studentData.emailId
+      ) {
         try {
           const newStudentData = {
             ...studentData,
             academicYear, // Inherit from project context if not in data
             school,
-            department
+            program,
           };
           // Use StudentService to reuse logic (uploadStudents creates/updates)
           // But for a single student creation, direct creation might be cleaner or calling uploadStudents logic
@@ -404,16 +409,18 @@ export class ProjectService {
 
           student = new Student({
             ...newStudentData,
-            password: `Vit${regNo}@123` // Default password
+            password: `Vit${regNo}@123`, // Default password
           });
           await student.save();
 
           logger.info("student_auto_created_with_project", {
             regNo: student.regNo,
-            projectId: null // Not assigned yet
+            projectId: null, // Not assigned yet
           });
         } catch (err) {
-          throw new Error(`Failed to auto-create student ${regNo}: ${err.message}`);
+          throw new Error(
+            `Failed to auto-create student ${regNo}: ${err.message}`
+          );
         }
       } else if (!student) {
         // Only string provided or incomplete object, and not found
@@ -432,7 +439,7 @@ export class ProjectService {
 
       if (existingProject) {
         throw new Error(
-          `Student ${regNo} is already assigned to project '${existingProject.name}'.`,
+          `Student ${regNo} is already assigned to project '${existingProject.name}'.`
         );
       }
 
@@ -446,7 +453,7 @@ export class ProjectService {
       guideFaculty: guide._id,
       academicYear,
       school,
-      department,
+      program,
       specialization,
       type,
       teamSize: students.length,
@@ -471,8 +478,6 @@ export class ProjectService {
     return project;
   }
 
-
-
   /**
    * Update project details
    */
@@ -480,7 +485,7 @@ export class ProjectService {
     projectId,
     projectUpdates,
     studentUpdates,
-    updatedBy,
+    updatedBy
   ) {
     const project = await Project.findById(projectId);
 
@@ -532,7 +537,7 @@ export class ProjectService {
       const removeIds = new Set(studentsToRemove.map((s) => s._id.toString()));
 
       project.students = project.students.filter(
-        (sid) => !removeIds.has(sid.toString()),
+        (sid) => !removeIds.has(sid.toString())
       );
 
       if (studentsToRemove.length > 0) {
@@ -550,7 +555,7 @@ export class ProjectService {
     let addedStudentsCount = 0;
     if (Array.isArray(addStudents) && addStudents.length > 0) {
       const regNos = addStudents.map((s) =>
-        typeof s === "string" ? s : s.regNo,
+        typeof s === "string" ? s : s.regNo
       );
 
       const existingStudents = await Student.find({
@@ -558,7 +563,7 @@ export class ProjectService {
       });
 
       const existingByRegNo = new Map(
-        existingStudents.map((s) => [s.regNo, s]),
+        existingStudents.map((s) => [s.regNo, s])
       );
 
       for (const item of addStudents) {
@@ -570,7 +575,7 @@ export class ProjectService {
 
         const studentIdStr = student._id.toString();
         const alreadyInProject = project.students.some(
-          (sid) => sid.toString() === studentIdStr,
+          (sid) => sid.toString() === studentIdStr
         );
         if (!alreadyInProject) {
           project.students.push(student._id);
@@ -607,10 +612,10 @@ export class ProjectService {
       // Ensure same academic context
       if (
         newGuide.school !== project.school ||
-        newGuide.department !== project.department
+        newGuide.program !== project.program
       ) {
         throw new Error(
-          "Guide must belong to the same school and department as the project.",
+          "Guide must belong to the same school and program as the project."
         );
       }
 
@@ -644,16 +649,19 @@ export class ProjectService {
       if (
         newPanel.academicYear !== project.academicYear ||
         newPanel.school !== project.school ||
-        newPanel.department !== project.department
+        newPanel.program !== project.program
       ) {
         throw new Error(
-          "Panel must belong to the same academic context as the project.",
+          "Panel must belong to the same academic context as the project."
         );
       }
 
       const previousPanel = project.panel;
 
-      if (!previousPanel || previousPanel.toString() !== newPanel._id.toString()) {
+      if (
+        !previousPanel ||
+        previousPanel.toString() !== newPanel._id.toString()
+      ) {
         project.history.push({
           action: "panel_reassigned",
           previousPanel: previousPanel || null,
@@ -674,23 +682,21 @@ export class ProjectService {
 
         const newPanel = await Panel.findById(reviewPanelId);
         if (!newPanel) {
-          throw new Error(
-            `Panel not found for reviewType '${reviewType}'.`,
-          );
+          throw new Error(`Panel not found for reviewType '${reviewType}'.`);
         }
 
         if (
           newPanel.academicYear !== project.academicYear ||
           newPanel.school !== project.school ||
-          newPanel.department !== project.department
+          newPanel.program !== project.program
         ) {
           throw new Error(
-            `Review panel for '${reviewType}' must be in same academic context as project.`,
+            `Review panel for '${reviewType}' must be in same academic context as project.`
           );
         }
 
         const existingIndex = project.reviewPanels.findIndex(
-          (rp) => rp.reviewType === reviewType,
+          (rp) => rp.reviewType === reviewType
         );
 
         let previousPanel = null;
@@ -759,7 +765,6 @@ export class ProjectService {
     };
   }
 
-
   /**
    * Delete project
    */
@@ -819,7 +824,7 @@ export class ProjectService {
       project.department !== panel.department
     ) {
       throw new Error(
-        "Panel must belong to the same academic context as the project.",
+        "Panel must belong to the same academic context as the project."
       );
     }
 
@@ -838,7 +843,7 @@ export class ProjectService {
 
       if (panelProjectCount >= config.maxProjectsPerPanel) {
         throw new Error(
-          `Panel already has maximum ${config.maxProjectsPerPanel} projects assigned.`,
+          `Panel already has maximum ${config.maxProjectsPerPanel} projects assigned.`
         );
       }
     }
@@ -890,7 +895,7 @@ export class ProjectService {
       {
         projectId,
         markedBy,
-      },
+      }
     );
 
     return project;

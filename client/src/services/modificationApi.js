@@ -1,12 +1,12 @@
 // src/services/modificationApi.js
-import api from './api';
+import api from "./api";
 
 /**
  * Get all faculty for a given academic context
  */
-export const getFacultyList = async (school, department, academicYear) => {
-  const response = await api.get('/admin/faculty', {
-    params: { school, department, academicYear }
+export const getFacultyList = async (school, program, academicYear) => {
+  const response = await api.get("/admin/faculty", {
+    params: { school, program, academicYear },
   });
   return response.data;
 };
@@ -14,9 +14,14 @@ export const getFacultyList = async (school, department, academicYear) => {
 /**
  * Get projects where faculty is guide
  */
-export const getGuideProjects = async (academicYear, school, department, guideFacultyEmpId) => {
-  const response = await api.get('/admin/projects/guides', {
-    params: { academicYear, school, department }
+export const getGuideProjects = async (
+  academicYear,
+  school,
+  program,
+  guideFacultyEmpId
+) => {
+  const response = await api.get("/admin/projects/guides", {
+    params: { academicYear, school, program },
   });
   return response.data;
 };
@@ -24,9 +29,9 @@ export const getGuideProjects = async (academicYear, school, department, guideFa
 /**
  * Get projects where faculty is panel member
  */
-export const getPanelProjects = async (academicYear, school, department) => {
-  const response = await api.get('/admin/projects/panels', {
-    params: { academicYear, school, department }
+export const getPanelProjects = async (academicYear, school, program) => {
+  const response = await api.get("/admin/projects/panels", {
+    params: { academicYear, school, program },
   });
   return response.data;
 };
@@ -34,9 +39,9 @@ export const getPanelProjects = async (academicYear, school, department) => {
 /**
  * Get all panels for academic context
  */
-export const getPanels = async (academicYear, school, department) => {
-  const response = await api.get('/admin/panels', {
-    params: { academicYear, school, department }
+export const getPanels = async (academicYear, school, program) => {
+  const response = await api.get("/admin/panels", {
+    params: { academicYear, school, program },
   });
   return response.data;
 };
@@ -49,8 +54,8 @@ export const reassignGuide = async (projectId, newGuideFacultyEmpId) => {
   const response = await api.put(`/projects/${projectId}`, {
     projectId: String(projectId),
     projectUpdates: {
-      guideFacultyEmpId: String(newGuideFacultyEmpId)
-    }
+      guideFacultyEmpId: String(newGuideFacultyEmpId),
+    },
   });
   return response.data;
 };
@@ -63,8 +68,8 @@ export const reassignPanel = async (projectId, panelId) => {
   const response = await api.put(`/projects/${projectId}`, {
     projectId: String(projectId),
     projectUpdates: {
-      panelId: String(panelId)
-    }
+      panelId: String(panelId),
+    },
   });
   return response.data;
 };
@@ -73,7 +78,7 @@ export const reassignPanel = async (projectId, panelId) => {
  * Batch reassign guide for multiple projects
  */
 export const batchReassignGuide = async (projectIds, newGuideFacultyEmpId) => {
-  const promises = projectIds.map(projectId => 
+  const promises = projectIds.map((projectId) =>
     reassignGuide(projectId, newGuideFacultyEmpId)
   );
   return await Promise.allSettled(promises);
@@ -83,7 +88,7 @@ export const batchReassignGuide = async (projectIds, newGuideFacultyEmpId) => {
  * Batch reassign panel for multiple projects
  */
 export const batchReassignPanel = async (projectIds, panelId) => {
-  const promises = projectIds.map(projectId => 
+  const promises = projectIds.map((projectId) =>
     reassignPanel(projectId, panelId)
   );
   return await Promise.allSettled(promises);
@@ -93,17 +98,23 @@ export const batchReassignPanel = async (projectIds, panelId) => {
  * Assign faculty as panel (creates temporary single-member panel if needed)
  * Note: Ideally panels should be pre-created, but this provides flexibility
  */
-export const assignFacultyAsPanel = async (projectId, facultyEmployeeId, academicYear, school, department) => {
+export const assignFacultyAsPanel = async (
+  projectId,
+  facultyEmployeeId,
+  academicYear,
+  school,
+  program
+) => {
   // First, check if single-member panel exists for this faculty
   // If not, create one, then assign
-  
+
   // For now, we'll create a temp panel and assign it
-  const panelResponse = await api.post('/admin/panels', {
+  const panelResponse = await api.post("/admin/panels", {
     memberEmployeeIds: [String(facultyEmployeeId)],
     academicYear: String(academicYear),
     school: String(school),
-    department: String(department),
-    type: 'temporary'
+    program: String(program),
+    type: "temporary",
   });
 
   const newPanel = panelResponse.data.data;
@@ -112,8 +123,8 @@ export const assignFacultyAsPanel = async (projectId, facultyEmployeeId, academi
   const response = await api.put(`/projects/${projectId}`, {
     projectId: String(projectId),
     projectUpdates: {
-      panelId: String(newPanel._id)
-    }
+      panelId: String(newPanel._id),
+    },
   });
 
   return response.data;
@@ -122,9 +133,21 @@ export const assignFacultyAsPanel = async (projectId, facultyEmployeeId, academi
 /**
  * Batch assign faculty as panel for multiple projects
  */
-export const batchAssignFacultyAsPanel = async (projectIds, facultyEmployeeId, academicYear, school, department) => {
-  const promises = projectIds.map(projectId => 
-    assignFacultyAsPanel(projectId, facultyEmployeeId, academicYear, school, department)
+export const batchAssignFacultyAsPanel = async (
+  projectIds,
+  facultyEmployeeId,
+  academicYear,
+  school,
+  program
+) => {
+  const promises = projectIds.map((projectId) =>
+    assignFacultyAsPanel(
+      projectId,
+      facultyEmployeeId,
+      academicYear,
+      school,
+      program
+    )
   );
   return await Promise.allSettled(promises);
 };

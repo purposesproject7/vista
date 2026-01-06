@@ -7,7 +7,7 @@ const subComponentSchema = new mongoose.Schema(
     description: { type: String },
     isPredefined: { type: Boolean, default: false },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const componentSchema = new mongoose.Schema(
@@ -21,7 +21,7 @@ const componentSchema = new mongoose.Schema(
     subComponents: [subComponentSchema],
     description: { type: String },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const reviewSchema = new mongoose.Schema(
@@ -49,13 +49,13 @@ const reviewSchema = new mongoose.Schema(
 
     isActive: { type: Boolean, default: true },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const markingSchemaModel = new mongoose.Schema(
   {
     school: { type: String, required: true },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
     academicYear: { type: String, required: true },
 
     reviews: [reviewSchema],
@@ -73,12 +73,12 @@ const markingSchemaModel = new mongoose.Schema(
 
     totalWeightage: { type: Number, default: 100 },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 markingSchemaModel.index(
-  { school: 1, department: 1, academicYear: 1 },
-  { unique: true },
+  { school: 1, program: 1, academicYear: 1 },
+  { unique: true }
 );
 
 const MarkingSchemaModel = mongoose.model("MarkingSchema", markingSchemaModel);

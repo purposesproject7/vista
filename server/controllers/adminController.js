@@ -1,4 +1,6 @@
-import mongoose from "mongoose";
+// This is a large file, I will use multi_replace for safety or do it in chunks. replace_file_content on whole file is risky if I don't have it all.
+// I will use replace_file_content for specific blocks first.
+
 import Project from "../models/projectSchema.js";
 import Panel from "../models/panelSchema.js";
 import Student from "../models/studentSchema.js";
@@ -7,7 +9,7 @@ import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import ComponentLibrary from "../models/componentLibrarySchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import Marks from "../models/marksSchema.js";
-import DepartmentConfig from "../models/departmentConfigSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
 import MasterData from "../models/masterDataSchema.js";
 import { FacultyService } from "../services/facultyService.js";
@@ -132,11 +134,11 @@ export async function getAllPanels(req, res) {
 
 export async function getMarkingSchema(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
     const schema = await MarkingSchemaService.getMarkingSchema(
       academicYear,
       school,
-      department
+      program
     );
 
     res.status(200).json({
@@ -286,7 +288,7 @@ export async function getFacultyDetailsBulk(req, res) {
     const faculty = await Faculty.find({
       employeeId: { $in: employeeIds },
       role: "faculty",
-    }).select("name employeeId emailId school department specialization");
+    }).select("name employeeId emailId school program specialization");
 
     res.status(200).json({
       success: true,
@@ -304,11 +306,10 @@ export async function getFacultyDetailsBulk(req, res) {
 
 export async function autoCreatePanels(req, res) {
   try {
-    const { departments, school, academicYear, panelSize, facultyList } =
-      req.body;
+    const { programs, school, academicYear, panelSize, facultyList } = req.body;
 
     const results = await PanelService.autoCreatePanels(
-      departments,
+      programs,
       school,
       academicYear,
       panelSize || 2,
@@ -375,13 +376,13 @@ export async function bulkCreatePanels(req, res) {
 
 export async function getPanelSummary(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
     // Get all panels
     const panels = await Panel.find({
       academicYear,
       school,
-      department,
+      program,
       isActive: true,
     }).populate("members.faculty", "name employeeId");
 
@@ -389,13 +390,13 @@ export async function getPanelSummary(req, res) {
     const totalProjects = await Project.countDocuments({
       academicYear,
       school,
-      department,
+      program,
     });
 
     const assignedProjects = await Project.countDocuments({
       academicYear,
       school,
-      department,
+      program,
       panel: { $ne: null },
     });
 
@@ -440,12 +441,12 @@ export async function getPanelSummary(req, res) {
 
 export async function autoAssignPanelsToProjects(req, res) {
   try {
-    const { academicYear, school, department } = req.body;
+    const { academicYear, school, program } = req.body;
 
     const results = await PanelService.autoAssignPanelsToProjects(
       academicYear,
       school,
-      department,
+      program,
       req.user._id
     );
 
@@ -696,7 +697,7 @@ export async function getAllStudents(req, res) {
     const filters = {
       academicYear: req.query.academicYear,
       school: req.query.school,
-      department: req.query.department,
+      program: req.query.program,
       specialization: req.query.specialization,
       regNo: req.query.regNo,
       name: req.query.name,
@@ -748,15 +749,8 @@ export async function getStudentByRegNo(req, res) {
  */
 export async function createStudent(req, res) {
   try {
-    const {
-      regNo,
-      name,
-      emailId,
-      phoneNumber,
-      school,
-      department,
-      academicYear,
-    } = req.body;
+    const { regNo, name, emailId, phoneNumber, school, program, academicYear } =
+      req.body;
 
     // Check if student already exists
     const existing = await StudentService.getStudentByRegNo(regNo);
@@ -772,7 +766,7 @@ export async function createStudent(req, res) {
       [{ regNo, name, emailId, phoneNumber }],
       academicYear,
       school,
-      department,
+      program,
       req.user._id
     );
 
@@ -803,7 +797,7 @@ export async function createStudent(req, res) {
  */
 export async function bulkUploadStudents(req, res) {
   try {
-    const { students, academicYear, school, department } = req.body;
+    const { students, academicYear, school, program } = req.body;
 
     if (!Array.isArray(students) || students.length === 0) {
       return res.status(400).json({
@@ -816,7 +810,7 @@ export async function bulkUploadStudents(req, res) {
       students,
       academicYear,
       school,
-      department,
+      program,
       req.user._id
     );
 
@@ -881,12 +875,12 @@ export async function deleteStudent(req, res) {
 
 export async function getProjectCoordinators(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
     const coordinators = await ProjectCoordinator.find({
       academicYear,
       school,
-      department,
+      program,
       isActive: true,
     })
       .populate("faculty", "name employeeId emailId")
@@ -906,14 +900,8 @@ export async function getProjectCoordinators(req, res) {
 
 export async function assignProjectCoordinator(req, res) {
   try {
-    const {
-      facultyId,
-      academicYear,
-      school,
-      department,
-      isPrimary,
-      permissions,
-    } = req.body;
+    const { facultyId, academicYear, school, program, isPrimary, permissions } =
+      req.body;
 
     // Verify faculty exists
     const faculty = await Faculty.findById(facultyId);
@@ -929,7 +917,7 @@ export async function assignProjectCoordinator(req, res) {
       faculty: facultyId,
       academicYear,
       school,
-      department,
+      program,
       isActive: true,
     });
 
@@ -942,16 +930,16 @@ export async function assignProjectCoordinator(req, res) {
     }
 
     // Fetch global deadlines
-    const departmentConfig = await DepartmentConfig.findOne({
+    const departmentConfig = await ProgramConfig.findOne({
       academicYear,
       school,
-      department,
+      program,
     });
 
     if (!departmentConfig) {
       return res.status(404).json({
         success: false,
-        message: "Department configuration not found. Please create it first.",
+        message: "Program configuration not found. Please create it first.",
       });
     }
 
@@ -1035,7 +1023,7 @@ export async function assignProjectCoordinator(req, res) {
     // If primary, unset others
     if (isPrimary) {
       await ProjectCoordinator.updateMany(
-        { academicYear, school, department, isPrimary: true },
+        { academicYear, school, program, isPrimary: true },
         { $set: { isPrimary: false } }
       );
     }
@@ -1045,7 +1033,7 @@ export async function assignProjectCoordinator(req, res) {
       faculty: facultyId,
       academicYear,
       school,
-      department,
+      program,
       isPrimary: isPrimary || false,
       permissions: finalPermissions,
       isActive: true,
@@ -1065,7 +1053,7 @@ export async function assignProjectCoordinator(req, res) {
       facultyId,
       academicYear,
       school,
-      department,
+      program,
       isPrimary,
       assignedBy: req.user._id,
     });
@@ -1225,7 +1213,7 @@ export async function removeProjectCoordinator(req, res) {
 // ===== COMPONENT LIBRARY ===== (Referenced in routes but not implemented)
 export async function getComponentLibrary(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
     const library = await ComponentLibrary.findOne({
       academicYear,
@@ -1338,7 +1326,7 @@ export async function updateComponentLibrary(req, res) {
 // ===== REPORTS ===== (Referenced in routes but not implemented)
 export async function getOverviewReport(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
     const [
       totalProjects,
@@ -1402,9 +1390,9 @@ export async function getOverviewReport(req, res) {
 
 export async function getProjectsReport(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
-    const projects = await Project.find({ academicYear, school, department })
+    const projects = await Project.find({ academicYear, school, program })
       .populate("students", "regNo name emailId")
       .populate("guideFaculty", "name employeeId emailId")
       .populate("panel", "panelName venue")
@@ -1432,9 +1420,9 @@ export async function getProjectsReport(req, res) {
 
 export async function getMarksReport(req, res) {
   try {
-    const { academicYear, school, department, reviewType } = req.query;
+    const { academicYear, school, program, reviewType } = req.query;
 
-    const query = { academicYear, school, department };
+    const query = { academicYear, school, program };
     if (reviewType) query.reviewType = reviewType;
 
     const marks = await Marks.find(query)
@@ -1479,11 +1467,11 @@ export async function getMarksReport(req, res) {
 
 export async function getFacultyWorkloadReport(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
     const faculties = await Faculty.find({
       school: { $in: [school] },
-      department: { $in: [department] },
+      program: { $in: [program] },
       role: "faculty",
     })
       .select("name employeeId emailId")
@@ -1537,12 +1525,12 @@ export async function getFacultyWorkloadReport(req, res) {
 
 export async function getStudentPerformanceReport(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
     const students = await Student.find({
       academicYear,
       school,
-      department,
+      program,
       isActive: true,
     })
       .populate("guideMarks")
@@ -1664,17 +1652,17 @@ export async function updatePanel(req, res) {
 // ===== MASTER DATA =====
 
 /**
- * Bulk create master data (schools, departments, academic years)
+ * Bulk create master data (schools, programs, academic years)
  */
 export async function createMasterDataBulk(req, res) {
   try {
-    const { schools, departments, academicYears } = req.body;
+    const { schools, programs, academicYears } = req.body;
 
     const masterData = await getOrCreateMasterData();
 
     const results = {
       schools: { created: 0, skipped: 0, errors: [] },
-      departments: { created: 0, skipped: 0, errors: [] },
+      programs: { created: 0, skipped: 0, errors: [] },
       academicYears: { created: 0, skipped: 0, errors: [] },
     };
 
@@ -1708,47 +1696,47 @@ export async function createMasterDataBulk(req, res) {
       }
     }
 
-    // Process departments
-    if (Array.isArray(departments)) {
-      for (const dept of departments) {
+    // Process programs
+    if (Array.isArray(programs)) {
+      for (const prog of programs) {
         try {
           // Verify school exists
           const schoolExists = masterData.schools.find(
-            (s) => s.code === dept.school
+            (s) => s.code === prog.school
           );
 
           if (!schoolExists) {
-            results.departments.errors.push({
-              department: dept.name,
-              error: `School '${dept.school}' not found`,
+            results.programs.errors.push({
+              program: prog.name,
+              error: `School '${prog.school}' not found`,
             });
             continue;
           }
 
-          const exists = masterData.departments.find(
-            (d) =>
-              (d.code === dept.code || d.name === dept.name) &&
-              d.school === dept.school
+          const exists = masterData.programs.find(
+            (p) =>
+              (p.code === prog.code || p.name === prog.name) &&
+              p.school === prog.school
           );
 
           if (exists) {
-            results.departments.skipped++;
-            logger.warn("department_skipped_duplicate", {
-              name: dept.name,
-              code: dept.code,
-              school: dept.school,
+            results.programs.skipped++;
+            logger.warn("program_skipped_duplicate", {
+              name: prog.name,
+              code: prog.code,
+              school: prog.school,
             });
           } else {
-            masterData.departments.push({
-              name: dept.name,
-              code: dept.code,
-              school: dept.school,
+            masterData.programs.push({
+              name: prog.name,
+              code: prog.code,
+              school: prog.school,
             });
-            results.departments.created++;
+            results.programs.created++;
           }
         } catch (error) {
-          results.departments.errors.push({
-            department: dept.name,
+          results.programs.errors.push({
+            program: prog.name,
             error: error.message,
           });
         }
@@ -1794,17 +1782,17 @@ export async function createMasterDataBulk(req, res) {
 
     const totalCreated =
       results.schools.created +
-      results.departments.created +
+      results.programs.created +
       results.academicYears.created;
 
     const totalSkipped =
       results.schools.skipped +
-      results.departments.skipped +
+      results.programs.skipped +
       results.academicYears.skipped;
 
     const totalErrors =
       results.schools.errors.length +
-      results.departments.errors.length +
+      results.programs.errors.length +
       results.academicYears.errors.length;
 
     res.status(201).json({
@@ -1834,7 +1822,7 @@ async function getOrCreateMasterData() {
   if (!masterData) {
     masterData = new MasterData({
       schools: [],
-      departments: [],
+      programs: [],
       academicYears: [],
     });
     await masterData.save();
@@ -1977,9 +1965,9 @@ export async function updateSchool(req, res) {
 }
 
 /**
- * Create department
+ * Create program
  */
-export async function createDepartment(req, res) {
+export async function createProgram(req, res) {
   try {
     const { name, code, school } = req.body;
 
@@ -1995,24 +1983,24 @@ export async function createDepartment(req, res) {
       });
     }
 
-    // Check if department already exists
-    const exists = masterData.departments.find(
-      (d) => (d.code === code || d.name === name) && d.school === school
+    // Check if program already exists
+    const exists = masterData.programs.find(
+      (p) => (p.code === code || p.name === name) && p.school === school
     );
 
     if (exists) {
       return res.status(409).json({
         success: false,
         message:
-          "Department with this name or code already exists in this school.",
+          "Program with this name or code already exists in this school.",
       });
     }
 
-    // Add department
-    masterData.departments.push({ name, code, school });
+    // Add program
+    masterData.programs.push({ name, code, school });
     await masterData.save();
 
-    logger.info("department_created", {
+    logger.info("program_created", {
       name,
       code,
       school,
@@ -2021,37 +2009,37 @@ export async function createDepartment(req, res) {
 
     res.status(201).json({
       success: true,
-      message: "Department created successfully.",
+      message: "Program created successfully.",
       data: { name, code, school },
     });
   } catch (error) {
-    logger.error("create_department_error", {
+    logger.error("create_program_error", {
       error: error.message,
     });
 
     res.status(500).json({
       success: false,
-      message: "Error creating department.",
+      message: "Error creating program.",
     });
   }
 }
 
 /**
- * Update department
+ * Update program
  */
-export async function updateDepartment(req, res) {
+export async function updateProgram(req, res) {
   try {
     const { id } = req.params;
     const { name, code, school } = req.body;
 
     const masterData = await getOrCreateMasterData();
 
-    const department = masterData.departments.id(id);
+    const program = masterData.programs.id(id);
 
-    if (!department) {
+    if (!program) {
       return res.status(404).json({
         success: false,
-        message: "Department not found.",
+        message: "Program not found.",
       });
     }
 
@@ -2066,28 +2054,28 @@ export async function updateDepartment(req, res) {
     }
 
     // Check for duplicates
-    const duplicate = masterData.departments.find(
-      (d) =>
-        d._id.toString() !== id &&
-        (d.code === code || d.name === name) &&
-        d.school === school
+    const duplicate = masterData.programs.find(
+      (p) =>
+        p._id.toString() !== id &&
+        (p.code === code || p.name === name) &&
+        p.school === school
     );
 
     if (duplicate) {
       return res.status(409).json({
         success: false,
         message:
-          "Department with this name or code already exists in this school.",
+          "Program with this name or code already exists in this school.",
       });
     }
 
-    department.name = name;
-    department.code = code;
-    department.school = school;
+    program.name = name;
+    program.code = code;
+    program.school = school;
     await masterData.save();
 
-    logger.info("department_updated", {
-      departmentId: id,
+    logger.info("program_updated", {
+      programId: id,
       name,
       code,
       school,
@@ -2096,17 +2084,17 @@ export async function updateDepartment(req, res) {
 
     res.status(200).json({
       success: true,
-      message: "Department updated successfully.",
-      data: department,
+      message: "Program updated successfully.",
+      data: program,
     });
   } catch (error) {
-    logger.error("update_department_error", {
+    logger.error("update_program_error", {
       error: error.message,
     });
 
     res.status(500).json({
       success: false,
-      message: "Error updating department.",
+      message: "Error updating program.",
     });
   }
 }
@@ -2240,22 +2228,22 @@ export async function updateAcademicYear(req, res) {
   }
 }
 
-// ===== DEPARTMENT CONFIG =====
+// ===== PROGRAM CONFIG =====
 
-export async function getDepartmentConfig(req, res) {
+export async function getProgramConfig(req, res) {
   try {
-    const { academicYear, school, department } = req.query;
+    const { academicYear, school, program } = req.query;
 
-    const config = await DepartmentConfig.findOne({
+    const config = await ProgramConfig.findOne({
       academicYear,
       school,
-      department,
+      program,
     }).lean();
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Department config not found.",
+        message: "Program config not found.",
       });
     }
 
@@ -2271,12 +2259,12 @@ export async function getDepartmentConfig(req, res) {
   }
 }
 
-export async function createDepartmentConfig(req, res) {
+export async function createProgramConfig(req, res) {
   try {
     const {
       academicYear,
       school,
-      department,
+      program,
       maxTeamSize,
       minTeamSize,
       defaultTeamSize,
@@ -2286,23 +2274,23 @@ export async function createDepartmentConfig(req, res) {
     } = req.body;
 
     // Check if already exists
-    const existing = await DepartmentConfig.findOne({
+    const existing = await ProgramConfig.findOne({
       academicYear,
       school,
-      department,
+      program,
     });
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Department config already exists for this context.",
+        message: "Program config already exists for this context.",
       });
     }
 
-    const config = new DepartmentConfig({
+    const config = new ProgramConfig({
       academicYear,
       school,
-      department,
+      program,
       maxTeamSize: maxTeamSize || 4,
       minTeamSize: minTeamSize || 1,
       defaultTeamSize: defaultTeamSize || 3,
@@ -2313,17 +2301,17 @@ export async function createDepartmentConfig(req, res) {
 
     await config.save();
 
-    logger.info("department_config_created", {
+    logger.info("program_config_created", {
       configId: config._id,
       academicYear,
       school,
-      department,
+      program,
       createdBy: req.user._id,
     });
 
     res.status(201).json({
       success: true,
-      message: "Department config created successfully.",
+      message: "Program config created successfully.",
       data: config,
     });
   } catch (error) {
@@ -2334,17 +2322,17 @@ export async function createDepartmentConfig(req, res) {
   }
 }
 
-export async function updateDepartmentConfig(req, res) {
+export async function updateProgramConfig(req, res) {
   try {
     const { id } = req.params;
     const updates = req.body;
 
-    const config = await DepartmentConfig.findById(id);
+    const config = await ProgramConfig.findById(id);
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Department config not found.",
+        message: "Program config not found.",
       });
     }
 
@@ -2355,14 +2343,14 @@ export async function updateDepartmentConfig(req, res) {
 
     await config.save();
 
-    logger.info("department_config_updated", {
+    logger.info("program_config_updated", {
       configId: config._id,
       updatedBy: req.user._id,
     });
 
     res.status(200).json({
       success: true,
-      message: "Department config updated successfully.",
+      message: "Program config updated successfully.",
       data: config,
     });
   } catch (error) {
@@ -2378,11 +2366,11 @@ export async function updateFeatureLock(req, res) {
     const { id } = req.params;
     const { featureName, deadline, isLocked } = req.body;
 
-    const config = await DepartmentConfig.findById(id);
+    const config = await ProgramConfig.findById(id);
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Department config not found.",
+        message: "Program config not found.",
       });
     }
 
@@ -2404,7 +2392,7 @@ export async function updateFeatureLock(req, res) {
 
     await config.save();
 
-    // Propagate deadline update to all project coordinators in this department
+    // Propagate deadline update to all project coordinators in this program
     if (deadline !== undefined) {
       const permissionMap = {
         faculty_creation: "canCreateFaculty",
@@ -2427,7 +2415,7 @@ export async function updateFeatureLock(req, res) {
           {
             academicYear: config.academicYear,
             school: config.school,
-            department: config.department,
+            program: config.program,
             isActive: true,
           },
           {
@@ -2442,7 +2430,7 @@ export async function updateFeatureLock(req, res) {
           permissionField,
           deadline,
           school: config.school,
-          department: config.department,
+          program: config.program,
         });
       }
     }
@@ -2460,6 +2448,26 @@ export async function updateFeatureLock(req, res) {
     });
   } catch (error) {
     res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Get all programs
+ */
+export async function getPrograms(req, res) {
+  try {
+    const masterData = await MasterData.findOne();
+    const programs = masterData ? masterData.programs : [];
+
+    res.status(200).json({
+      success: true,
+      data: programs,
+    });
+  } catch (error) {
+    res.status(500).json({
       success: false,
       message: error.message,
     });

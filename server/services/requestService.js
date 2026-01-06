@@ -7,7 +7,7 @@ export class RequestService {
    * Get all requests with filters
    */
   static async getAllRequests(filters = {}) {
-    const { facultyType, academicYear, school, department, status } = filters;
+    const { facultyType, academicYear, school, program, status } = filters;
 
     const query = {};
     if (facultyType) query.facultyType = facultyType;
@@ -17,12 +17,12 @@ export class RequestService {
     // Build faculty match for populate
     const facultyMatch = {};
     if (school) facultyMatch.school = { $in: [school] };
-    if (department) facultyMatch.department = { $in: [department] };
+    if (program) facultyMatch.program = { $in: [program] };
 
     const requests = await Request.find(query)
       .populate({
         path: "faculty",
-        select: "name employeeId school department",
+        select: "name employeeId school program",
         match: Object.keys(facultyMatch).length > 0 ? facultyMatch : undefined,
       })
       .populate("student", "name regNo emailId")
@@ -43,7 +43,7 @@ export class RequestService {
           name: req.faculty.name,
           employeeId: req.faculty.employeeId,
           school: req.faculty.school,
-          department: req.faculty.department,
+          program: req.faculty.program,
           requests: [],
         };
       }
@@ -70,7 +70,7 @@ export class RequestService {
     requestId,
     status,
     resolvedBy,
-    additionalData = {},
+    additionalData = {}
   ) {
     if (!["approved", "rejected"].includes(status)) {
       throw new Error("Status must be 'approved' or 'rejected'.");

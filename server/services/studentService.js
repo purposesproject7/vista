@@ -33,7 +33,7 @@ export class StudentService {
     const query = { isActive: true };
 
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
     if (filters.name) query.name = new RegExp(filters.name, "i");
@@ -52,7 +52,7 @@ export class StudentService {
       "emailId",
       "phoneNumber",
       "school",
-      "department",
+      "program",
       "PAT",
     ];
 
@@ -63,24 +63,24 @@ export class StudentService {
       }
     }
 
-    // Validate school/department change
-    if (updates.school || updates.department) {
+    // Validate school/program change
+    if (updates.school || updates.program) {
       const student = await Student.findOne({ regNo });
       if (!student) {
         throw new Error("Student not found.");
       }
 
       const newSchool = updates.school || student.school;
-      const newDepartment = updates.department || student.department;
+      const newProgram = updates.program || student.program;
 
       const markingSchema = await MarkingSchema.findOne({
         school: newSchool,
-        department: newDepartment,
+        program: newProgram,
       });
 
       if (!markingSchema) {
         throw new Error(
-          `No marking schema found for school: ${newSchool}, department: ${newDepartment}`,
+          `No marking schema found for school: ${newSchool}, program: ${newProgram}`
         );
       }
 
@@ -103,7 +103,7 @@ export class StudentService {
     const updatedStudent = await Student.findOneAndUpdate(
       { regNo },
       { $set: validUpdates },
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     );
 
     if (!updatedStudent) {
@@ -137,7 +137,7 @@ export class StudentService {
 
     if (project) {
       throw new Error(
-        "Cannot delete student. Student is part of an active project.",
+        "Cannot delete student. Student is part of an active project."
       );
     }
 
@@ -148,7 +148,7 @@ export class StudentService {
     // Cleanup related requests
     await Request.updateMany(
       { student: student._id },
-      { $set: { status: "cancelled" } },
+      { $set: { status: "cancelled" } }
     );
 
     logger.info("student_deleted", {
@@ -201,7 +201,7 @@ export class StudentService {
       emailId: student.emailId,
       phoneNumber: student.phoneNumber,
       school: student.school,
-      department: student.department,
+      program: student.program,
       academicYear: student.academicYear,
       reviews: processedReviews,
       deadline: processedDeadlines,
@@ -227,13 +227,13 @@ export class StudentService {
 
     const schema = await MarkingSchema.findOne({
       school: student.school,
-      department: student.department,
+      program: student.program,
       academicYear: student.academicYear,
     }).lean();
 
     if (!schema) {
       throw new Error(
-        "Marking schema not found for student's academic context.",
+        "Marking schema not found for student's academic context."
       );
     }
 
@@ -247,8 +247,8 @@ export class StudentService {
     studentsData,
     academicYear,
     school,
-    department,
-    userId,
+    program,
+    userId
   ) {
     const results = {
       created: 0,
@@ -261,12 +261,12 @@ export class StudentService {
     const markingSchema = await MarkingSchema.findOne({
       academicYear,
       school,
-      department,
+      program,
     });
 
     if (!markingSchema) {
       throw new Error(
-        "Marking schema not found for this school and department. Please create marking schema first.",
+        "Marking schema not found for this school and program. Please create marking schema first."
       );
     }
 
@@ -294,7 +294,7 @@ export class StudentService {
           existing.phoneNumber =
             studentData.phoneNumber || existing.phoneNumber;
           existing.school = school;
-          existing.department = department;
+          existing.program = program;
           existing.academicYear = academicYear;
 
           await existing.save();
@@ -342,7 +342,7 @@ export class StudentService {
             phoneNumber: studentData.phoneNumber || "",
             academicYear,
             school,
-            department,
+            program,
             reviews: reviewsMap,
             deadline: deadlineMap,
             PAT: false,

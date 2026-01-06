@@ -58,9 +58,9 @@ const AdminSettings = () => {
             ?.filter((s) => s.isActive !== false)
             ?.map((s) => ({ id: s._id, name: s.name, code: s.code })) || [];
 
-        // Transform programs grouped by school (using departments from backend)
+        // Transform programs grouped by school (using programs from backend)
         const programsBySchool = {};
-        data.departments
+        data.programs
           ?.filter((d) => d.isActive !== false)
           .forEach((d) => {
             const schoolCode = d.school;
@@ -237,7 +237,13 @@ const AdminSettings = () => {
           )}
 
           {activeTab === "rubrics" && (
-            <RubricSettings rubrics={rubrics} onUpdate={handleUpdateRubrics} />
+            <RubricSettings
+              rubrics={rubrics}
+              onUpdate={handleUpdateRubrics}
+              schools={schools}
+              programs={programs}
+              years={years}
+            />
           )}
 
           {activeTab === "roles" && (

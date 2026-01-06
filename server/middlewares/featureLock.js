@@ -1,4 +1,4 @@
-import DepartmentConfig from "../models/departmentConfigSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -8,40 +8,38 @@ import { logger } from "../utils/logger.js";
 export const checkFeatureLock = (featureName) => {
   return async (req, res, next) => {
     try {
-      const { academicYear, school, department } =
+      const { academicYear, school, program } =
         req.body || req.query || req.params;
 
-      if (!academicYear || !school || !department) {
+      if (!academicYear || !school || !program) {
         return res.status(400).json({
           success: false,
           message:
-            "Missing required parameters: academicYear, school, department.",
+            "Missing required parameters: academicYear, school, program.",
         });
       }
 
-      const config = await departmentConfig
-        .findOne({
-          academicYear,
-          school,
-          department,
-        })
-        .lean();
+      const config = await ProgramConfig.findOne({
+        academicYear,
+        school,
+        program,
+      }).lean();
 
       if (!config) {
         logger.warn("department_config_not_found", {
           academicYear,
           school,
-          department,
+          program,
         });
 
         return res.status(404).json({
           success: false,
-          message: "Department configuration not found.",
+          message: "Program configuration not found.",
         });
       }
 
       const featureLock = config.featureLocks?.find(
-        (lock) => lock.featureName === featureName,
+        (lock) => lock.featureName === featureName
       );
 
       if (!featureLock) {
@@ -89,21 +87,20 @@ export const checkFeatureLock = (featureName) => {
  */
 export const validateTeamSize = async (req, res, next) => {
   try {
-    const { academicYear, school, department, teamSize } = req.body;
+    const { academicYear, school, program, teamSize } = req.body;
 
-    const config = await departmentConfig
-      .findOne({
-        academicYear,
-        school,
-        department,
-      })
+    const config = await ProgramConfig.findOne({
+      academicYear,
+      school,
+      program,
+    })
       .select("minTeamSize maxTeamSize")
       .lean();
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Department configuration not found.",
+        message: "Program configuration not found.",
       });
     }
 
@@ -136,21 +133,20 @@ export const validateTeamSize = async (req, res, next) => {
  */
 export const validatePanelSize = async (req, res, next) => {
   try {
-    const { academicYear, school, department, members } = req.body;
+    const { academicYear, school, program, members } = req.body;
 
-    const config = await departmentConfig
-      .findOne({
-        academicYear,
-        school,
-        department,
-      })
+    const config = await ProgramConfig.findOne({
+      academicYear,
+      school,
+      program,
+    })
       .select("minPanelSize maxPanelSize")
       .lean();
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Department configuration not found.",
+        message: "Program configuration not found.",
       });
     }
 

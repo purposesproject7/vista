@@ -10,7 +10,7 @@ import Project from "../models/projectSchema.js";
 import Panel from "../models/panelSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import ComponentLibrary from "../models/componentLibrarySchema.js";
-import DepartmentConfig from "../models/departmentConfigSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 import Request from "../models/requestSchema.js";
 import BroadcastMessage from "../models/broadcastMessageSchema.js";
 import MasterData from "../models/masterDataSchema.js";
@@ -25,7 +25,7 @@ function getCoordinatorContext(req) {
   return {
     academicYear: req.coordinator.academicYear,
     school: req.coordinator.school,
-    department: req.coordinator.department,
+    program: req.coordinator.program,
   };
 }
 
@@ -40,7 +40,8 @@ function verifyContext(item, coordinator) {
 
   return (
     item.school === coordinator.school &&
-    item.department === coordinator.department
+    item.school === coordinator.school &&
+    item.program === coordinator.program
   );
 }
 
@@ -91,7 +92,8 @@ export async function createFaculty(req, res) {
     // Ensure faculty is created in coordinator's context
     req.body.academicYear = context.academicYear;
     req.body.school = context.school;
-    req.body.department = context.department;
+    req.body.school = context.school;
+    req.body.program = context.program;
 
     // Fixes 1 & 2: Enforce role 'faculty', prevent creating coordinators
     // and set default password "Vit<empid>@123"
@@ -210,7 +212,7 @@ export async function updateFaculty(req, res) {
     if (!verifyContext(faculty, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Faculty not in your department.",
+        message: "Faculty not in your program.",
       });
     }
 
@@ -258,7 +260,7 @@ export async function deleteFaculty(req, res) {
     if (!verifyContext(faculty, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Faculty not in your department.",
+        message: "Faculty not in your program.",
       });
     }
 
@@ -332,7 +334,7 @@ export async function getRequests(req, res) {
       status: req.status,
       date: req.createdAt,
       school: req.school || context.school,
-      program: req.department || context.department,
+      program: req.program || context.program,
       approvalReason: req.remarks, // Map remarks to approval/rejection reason
       rejectionReason: req.remarks,
     }));
@@ -374,7 +376,7 @@ export async function handleRequest(req, res) {
     if (!verifyContext(request, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Request not in your department.",
+        message: "Request not in your program.",
       });
     }
 
@@ -421,7 +423,7 @@ export async function approveMultipleRequests(req, res) {
       {
         _id: { $in: requestIds },
         school: context.school,
-        department: context.department,
+        program: context.program,
         status: "pending",
       },
       {
@@ -464,7 +466,8 @@ export async function getStudentList(req, res) {
     const filters = {
       academicYear: req.query.academicYear || coordinator.academicYear,
       school: coordinator.school,
-      department: coordinator.department,
+      school: coordinator.school,
+      program: coordinator.program,
       regNo: req.query.regNo,
       name: req.query.name,
       specialization: req.query.specialization,
@@ -508,7 +511,7 @@ export async function getStudentByRegNo(req, res) {
     ) {
       return res.status(403).json({
         success: false,
-        message: "You can only view students from your department",
+        message: "You can only view students from your program",
       });
     }
 
@@ -638,7 +641,7 @@ export async function updateStudent(req, res) {
     ) {
       return res.status(403).json({
         success: false,
-        message: "You can only update students from your department",
+        message: "You can only update students from your program",
       });
     }
 
@@ -691,7 +694,7 @@ export async function deleteStudent(req, res) {
     ) {
       return res.status(403).json({
         success: false,
-        message: "You can only delete students from your department",
+        message: "You can only delete students from your program",
       });
     }
 
@@ -739,7 +742,7 @@ export async function createProject(req, res) {
     // Apply context
     req.body.academicYear = context.academicYear;
     req.body.school = context.school;
-    req.body.department = context.department;
+    req.body.program = context.program;
 
     // Validate guide faculty exists and belongs to same dept
     const guide = await Faculty.findOne({
@@ -756,7 +759,7 @@ export async function createProject(req, res) {
     if (!verifyContext(guide, req.coordinator)) {
       return res.status(400).json({
         success: false,
-        message: "Guide faculty must be from the same department.",
+        message: "Guide faculty must be from the same program.",
       });
     }
 
@@ -2085,17 +2088,16 @@ export async function getComponentLibrary(req, res) {
   }
 }
 
-// ==================== Department Config ====================
-
-export async function getDepartmentConfig(req, res) {
+// ==================== Program Config ====================
+export async function getProgramConfig(req, res) {
   try {
     const context = getCoordinatorContext(req);
-    const config = await DepartmentConfig.findOne(context).lean();
+    const config = await ProgramConfig.findOne(context).lean();
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Department configuration not found.",
+        message: "Program configuration not found.",
       });
     }
 
@@ -2122,8 +2124,8 @@ export async function getBroadcasts(req, res) {
       $and: [
         {
           $or: [
-            { targetDepartments: { $size: 0 } },
-            { targetDepartments: context.department },
+            { targetPrograms: { $size: 0 } },
+            { targetPrograms: context.program },
           ],
         },
       ],
@@ -2151,7 +2153,7 @@ export async function createBroadcast(req, res) {
     const broadcast = new BroadcastMessage({
       ...req.body,
       targetSchools: [context.school],
-      targetDepartments: [context.department],
+      targetPrograms: [context.program],
       createdBy: req.user._id,
     });
 
@@ -2380,23 +2382,23 @@ export async function getAcademicYears(req, res) {
   }
 }
 
-export async function getDepartments(req, res) {
+export async function getPrograms(req, res) {
   try {
     const { school } = req.coordinator; // Restrict to own school?
-    // Usually coordinator needs dept list of their school
+    // Usually coordinator needs program list of their school
 
-    const masterData = await MasterData.findOne().select("departments");
+    const masterData = await MasterData.findOne().select("programs");
     if (!masterData) {
       return res.status(200).json({ success: true, data: [] });
     }
 
-    const depts = masterData.departments
-      .filter((d) => d.school === school && d.isActive)
-      .map((d) => ({ name: d.name, code: d.code }));
+    const programs = masterData.programs
+      .filter((p) => p.school === school && p.isActive)
+      .map((p) => ({ name: p.name, code: p.code }));
 
     res.status(200).json({
       success: true,
-      data: depts,
+      data: programs,
     });
   } catch (error) {
     res.status(500).json({
@@ -2543,7 +2545,7 @@ export const requestAccess = async (req, res) => {
       requiredDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       requestedBy: coordinatorId,
       school: req.user.school || "Unknown",
-      department: req.user.department || "Unknown",
+      program: req.user.program || "Unknown",
       status: "pending",
     });
 

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./shared/hooks/useAuth";
 import FacultyDashboard from "./features/faculty/pages/FacultyDashboard";
 import FacultyTutorial from "./features/faculty/pages/tutorial/FacultyTutorial";
+import GuideReviews from "./features/faculty/pages/GuideReviews";
 import StudentManagement from "./features/admin/pages/StudentManagement";
 import FacultyManagement from "./features/admin/pages/FacultyManagement";
 import ProjectManagement from "./features/admin/pages/ProjectManagement";
@@ -125,6 +126,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["faculty"]}>
             <FacultyTutorial />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/faculty/reviews"
+        element={
+          <ProtectedRoute allowedRoles={["faculty"]}>
+            <GuideReviews />
           </ProtectedRoute>
         }
       />
