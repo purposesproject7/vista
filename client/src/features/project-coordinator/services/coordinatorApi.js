@@ -246,7 +246,7 @@ export const createProject = async (projectData) => {
     department: projectData.department,
     academicYear: projectData.academicYear
   };
-  
+
   const response = await api.post('/coordinator/projects', payload);
   return response.data;
 };
@@ -265,7 +265,7 @@ export const bulkCreateProjects = async (projectsList) => {
     department: project.department,
     academicYear: project.academicYear
   }));
-  
+
   const response = await api.post('/coordinator/projects/bulk', { projects });
   return response.data;
 };
@@ -284,7 +284,7 @@ export const fetchProjectMarks = async (projectId) => {
  * Fetch panels with filters
  */
 export const fetchPanels = async (filters = {}) => {
-  const response = await api.get('/coordinator/panels', { params: filters });
+  const response = await api.get('/project-coordinator/panels', { params: filters });
   if (response.data.success) {
     return {
       success: true,
@@ -364,9 +364,9 @@ export const rejectRequest = async (requestId, remarks = '') => {
  * Approve multiple requests
  */
 export const approveMultipleRequests = async (requestIds, remarks = '') => {
-  const response = await api.post('/coordinator/requests/approve-multiple', { 
-    requestIds, 
-    remarks 
+  const response = await api.post('/coordinator/requests/approve-multiple', {
+    requestIds,
+    remarks
   });
   return response.data;
 };
@@ -398,20 +398,20 @@ export default {
   bulkUploadStudents,
   updateStudent,
   deleteStudent,
-  
+
   // Faculty
   fetchFaculty,
   createFaculty,
   bulkCreateFaculty,
   updateFaculty,
   deleteFaculty,
-  
+
   // Projects
   fetchProjects,
   createProject,
   bulkCreateProjects,
   fetchProjectMarks,
-  
+
   // Panels
   fetchPanels,
   createPanel,
@@ -419,13 +419,13 @@ export default {
   autoCreatePanels,
   assignPanelToProject,
   autoAssignPanels,
-  
+
   // Requests
   fetchRequests,
   approveRequest,
   rejectRequest,
   approveMultipleRequests,
-  
+
   // Master Data
   fetchAcademicYears,
   fetchDepartments

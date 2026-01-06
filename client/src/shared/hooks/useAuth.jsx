@@ -26,10 +26,6 @@ export const AuthProvider = ({ children }) => {
       } else {
         localStorage.removeItem('authToken');
       }
-
-      // Real API call
-      const userData = await getCurrentUser();
-      setUser(userData);
     } catch (err) {
       console.error('Token verification failed:', err);
       localStorage.removeItem('authToken');

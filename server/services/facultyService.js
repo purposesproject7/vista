@@ -259,4 +259,23 @@ export class FacultyService {
 
     return faculty;
   }
+
+  /**
+   * Get faculty details in bulk
+   */
+  static async getFacultyDetailsBulk(employeeIds) {
+    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return [];
+    }
+
+    const uniqueIds = [...new Set(employeeIds.map((id) => id.trim().toUpperCase()))];
+
+    const faculties = await Faculty.find({
+      employeeId: { $in: uniqueIds },
+    })
+      .select("name emailId employeeId school department specialization")
+      .lean();
+
+    return faculties;
+  }
 }

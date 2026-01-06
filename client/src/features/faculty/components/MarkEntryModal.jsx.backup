@@ -1,0 +1,882 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import Modal from '../../../shared/components/Modal';
+import Button from '../../../shared/components/Button';
+import Toast from '../../../shared/components/Toast';
+import { InformationCircleIcon, CheckCircleIcon, XCircleIcon, DocumentTextIcon, PresentationChartBarIcon, EyeIcon } from '@heroicons/react/24/outline';
+
+/* Immutable default meta */
+const DEFAULT_META = Object.freeze({
+  attendance: 'present',
+  pat: false,
+  comment: ''
+});
+
+const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
+  const [marks, setMarks] = useState({});
+  const [meta, setMeta] = useState({});
+  const [teamMeta, setTeamMeta] = useState({
+    pptApproved: false,
+    teamComment: ''
+  });
+  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [activeStudent, setActiveStudent] = useState(null);
+  const [previousComments, setPreviousComments] = useState(null);
+  const [criteriaModalOpen, setCriteriaModalOpen] = useState(false);
+  const [selectedCriteria, setSelectedCriteria] = useState(null);
+
+  const rubrics = review?.rubric_structure || [];
+
+  /* ---------- Init on open ---------- */
+  useEffect(() => {
+    if (!isOpen || !team) return;
+
+    const initMarks = {};
+    const initMeta = {};
+
+    team.students.forEach(s => {
+      initMarks[s.student_id] = {};
+      initMeta[s.student_id] = { ...DEFAULT_META };
+    });
+
+    setMarks(initMarks);
+    setMeta(initMeta);
+    setActiveStudent(team.students[0]?.student_id || null);
+    
+    // Fetch previous comments if available
+    fetchPreviousComments();
+  }, [isOpen, team]);
+
+  const fetchPreviousComments = async () => {
+    // Mock API call - replace with actual API
+    await new Promise(r => setTimeout(r, 500));
+    
+    // Simulate previous comments from last review
+    if (Math.random() > 0.5) { // 50% chance of having previous comments
+      setPreviousComments({
+        reviewName: 'Review 1',
+        date: '2025-12-15',
+        comments: team?.students.map(s => ({
+          student_id: s.student_id,
+          comment: `Previous feedback for ${s.student_name}: Good progress shown in initial review.`
+        })) || []
+      });
+    } else {
+      setPreviousComments(null);
+    }
+  };
+
+  if (!isOpen || !team || !review) return null;
+
+  /* ---------- Helpers ---------- */
+  const isBlocked = sid => {
+    const m = meta[sid];
+    return m?.pat === true || m?.attendance === 'absent';
+  };
+
+  const updateMeta = (sid, patch) => {
+    setMeta(prev => ({
+      ...prev,
+      [sid]: {
+        ...prev[sid],
+        ...patch
+      }
+    }));
+  };
+
+  const setComponentLevel = (sid, rid, score) => {
+    if (isBlocked(sid)) return;
+    setMarks(prev => ({
+      ...prev,
+      [sid]: {
+        ...prev[sid],
+        [rid]: score
+      }
+    }));
+  };
+
+  const getComponentTotal = (sid, rubric) => {
+    const level = marks[sid]?.[rubric.rubric_id];
+    if (level === undefined) return 0;
+    
+    // Calculate based on level percentage
+    const maxLevel = Math.max(...rubric.levels.map(l => l.score));
+    return ((level / maxLevel) * rubric.max_marks).toFixed(1);
+  };
+
+  const studentGrandTotal = sid => {
+    return rubrics.reduce((sum, r) => {
+      return sum + parseFloat(getComponentTotal(sid, r) || 0);
+    }, 0);
+  };
+
+  const maxTotal = rubrics.reduce((s, r) => s + r.max_marks, 0);
+
+  const allValid = () =>
+    team.students.every(s => {
+      const m = meta[s.student_id];
+      if (!m || m.comment.trim().length < 5) return false;
+
+      if (m.pat || m.attendance === 'absent') return true;
+
+      // Check if all components have level selected
+      return rubrics.every(
+        r => marks[s.student_id]?.[r.rubric_id] !== undefined
+      );
+    }) && teamMeta.teamComment.trim().length >= 10; // Team comment required
+
+  const handleSave = async () => {
+    if (!allValid()) {
+      setToast({
+        type: 'error',
+        message:
+          'Complete all requirements: individual comments (min 5 chars), team comment (min 10 chars), and marks for all students.'
+      });
+      return;
+    }
+
+    setSaving(true);
+    await new Promise(r => setTimeout(r, 800));
+
+    onSuccess?.({ marks, meta, teamMeta });
+
+    setSaving(false);
+    setToast({ type: 'success', message: 'Marks saved successfully!' });
+    setTimeout(() => onClose(), 1000);
+  };
+
+  /* Color helper for score buttons */
+  const getScoreColor = (score, maxScore) => {
+    const percentage = (score / maxScore) * 100;
+    if (percentage >= 80) return 'bg-green-500 hover:bg-green-600 border-green-600';
+    if (percentage >= 60) return 'bg-blue-500 hover:bg-blue-600 border-blue-600';
+    if (percentage >= 40) return 'bg-yellow-500 hover:bg-yellow-600 border-yellow-600';
+    return 'bg-red-500 hover:bg-red-600 border-red-600';
+  };
+
+  const activeStudentData = team.students.find(s => s.student_id === activeStudent);
+  if (!activeStudentData) return null;
+
+  const blocked = isBlocked(activeStudent);
+  const currentMeta = meta[activeStudent] || DEFAULT_META;
+  const previousComment = previousComments?.comments?.find(c => c.student_id === activeStudent);
+
+  const openCriteriaModal = (rubric) => {
+    setSelectedCriteria(rubric);
+    setCriteriaModalOpen(true);
+  };
+
+  /* ================= UI ================= */
+  return (
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        size="full"
+        hideHeader={true}
+        noPadding={true}
+      >
+        <div className="flex flex-col h-[96vh] bg-white">
+          {/* Ultra Compact Header with Team Controls Inline */}
+          <div className="flex items-center justify-between px-3 py-1 bg-gradient-to-r from-blue-600 to-blue-700">
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-xs font-bold text-white leading-tight">{review.review_name}</h2>
+                <p className="text-[8px] text-blue-100 leading-tight">{team.team_name}</p>
+              </div>
+              {/* Team Controls Inline - Prominent */}
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 cursor-pointer bg-green-500 px-2 py-0.5 rounded shadow">
+                  <input type="checkbox" checked={teamMeta.pptApproved} onChange={e => setTeamMeta(prev => ({ ...prev, pptApproved: e.target.checked }))} className="w-3 h-3" />
+                  <PresentationChartBarIcon className="w-3 h-3 text-white" />
+                  <span className="text-[8px] font-bold text-white">PPT OK</span>
+                </label>
+                <div className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded">
+                  <span className="text-[8px] font-medium text-white">Total:</span>
+                  <span className="text-sm font-bold text-white">{blocked ? '—' : Math.round(studentGrandTotal(activeStudent))}</span>
+                  <span className="text-[8px] text-blue-100">/{maxTotal}</span>
+                </div>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-blue-100 hover:text-white transition-colors p-0.5 rounded">
+              <XCircleIcon className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Team-Level Controls - PROMINENT */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 px-4 py-2 border-b-2 border-green-300">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <PresentationChartBarIcon className="w-5 h-5 text-green-600" />
+                <span className="text-xs font-bold text-gray-800 uppercase">Team Attributes:</span>
+                <label className="flex items-center gap-1.5 cursor-pointer bg-white px-3 py-1 rounded-md shadow border-2 border-green-400">
+                  <input
+                    type="checkbox"
+                    checked={teamMeta.pptApproved}
+                    onChange={e => setTeamMeta(prev => ({ ...prev, pptApproved: e.target.checked }))}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="text-xs font-bold text-gray-700">PPT Approved</span>
+                </label>
+              </div>
+              <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-md shadow">
+                <span className="text-[10px] font-medium text-gray-600">Total:</span>
+                <span className="text-xl font-bold text-blue-600">
+                  {blocked ? '—' : Math.round(studentGrandTotal(activeStudent))}
+                </span>
+                <span className="text-xs font-medium text-gray-500">/ {maxTotal}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Student Tabs - Ultra Compact */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-1.5 border-b border-blue-800">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-blue-700">
+              {team.students.map(student => {
+                const m = meta[student.student_id] || DEFAULT_META;
+                const isActive = activeStudent === student.student_id;
+                const isComplete = m.comment.trim().length >= 5 && 
+                  (m.pat || m.attendance === 'absent' || rubrics.every(r => marks[student.student_id]?.[r.rubric_id] !== undefined));
+
+                return (
+                  <button
+                    key={student.student_id}
+                    onClick={() => setActiveStudent(student.student_id)}
+                    className={`
+                      flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all whitespace-nowrap relative flex-shrink-0
+                      ${isActive 
+                        ? 'bg-white text-blue-700 shadow-lg font-semibold ring-2 ring-yellow-400' 
+                        : 'bg-blue-500/30 text-white hover:bg-blue-500/50'
+                      }
+                    `}
+                  >
+                    {isActive && (
+                      <div className="absolute -top-1 -right-1 bg-yellow-400 text-blue-900 rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold animate-pulse">
+                        ✓
+                      </div>
+                    )}
+                    <div className={`w-5 h-5 rounded-full overflow-hidden border ${isActive ? 'border-yellow-400 ring-1 ring-yellow-400' : 'border-white/50'}`}>
+                      <img
+                        src={student.profile_image || 'https://via.placeholder.com/20'}
+                        alt={student.student_name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-[10px] font-medium leading-tight">{student.student_name}</div>
+                      <div className="text-[8px] opacity-75 leading-tight">{student.roll_no}</div>
+                    </div>
+                    {isComplete && <CheckCircleIcon className="w-3 h-3 flex-shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Student Controls - One Line */}
+          <div className="bg-blue-50 px-4 py-1.5 border-b border-blue-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-semibold text-gray-600 uppercase">Student:</span>
+              <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded shadow-sm">
+                {['present', 'absent'].map(v => (
+                  <label key={v} className="flex items-center gap-0.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`att-${activeStudent}`}
+                      checked={currentMeta.attendance === v}
+                      onChange={() =>
+                        updateMeta(activeStudent, {
+                          attendance: v,
+                          pat: v === 'absent' ? false : currentMeta.pat
+                        })
+                      }
+                      className="w-3 h-3 text-blue-600"
+                    />
+                    <span className="text-[9px] font-medium capitalize text-gray-700">{v}</span>
+                  </label>
+                ))}
+              </div>
+              <label className="flex items-center gap-1 cursor-pointer bg-white px-2 py-0.5 rounded shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={currentMeta.pat}
+                  onChange={e =>
+                    updateMeta(activeStudent, {
+                      pat: e.target.checked,
+                      attendance: e.target.checked ? 'present' : currentMeta.attendance
+                    })
+                  }
+                  className="w-3 h-3 text-blue-600"
+                />
+                <span className="text-[9px] font-bold text-gray-700 uppercase">PAT</span>
+              </label>
+            </div>
+            <div className="text-[9px] text-gray-500">
+              <span className="font-bold text-gray-700">
+                {team.students.filter(s => {
+                  const m = meta[s.student_id];
+                  return m?.comment?.trim().length >= 5 && 
+                    (m.pat || m.attendance === 'absent' || rubrics.every(r => marks[s.student_id]?.[r.rubric_id] !== undefined));
+                }).length}
+              </span>
+              <span> / {team.students.length} done</span>
+            </div>
+          </div>
+
+          {/* Main Content - Split Layout */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Left: Criteria (Scrollable) */}
+            <div className="flex-1 overflow-y-auto px-4 py-2 bg-gray-50 border-r border-gray-300">
+              {/* Previous Comments */}
+              {previousComment && (
+                <div className="bg-amber-50 border border-amber-300 rounded p-1.5 mb-2">
+                  <div className="flex items-start gap-1">
+                    <DocumentTextIcon className="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-[8px] font-bold text-amber-800 uppercase">
+                        Prev: {previousComments.reviewName} ({previousComments.date})
+                      </div>
+                      <p className="text-[10px] text-amber-900 leading-tight">{previousComment.comment}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Ultra-Compact Criteria - Table Style */}
+              <div className="space-y-1">
+                {rubrics.map((rubric, idx) => {
+                  const selectedLevel = marks[activeStudent]?.[rubric.rubric_id];
+                  const componentTotal = getComponentTotal(activeStudent, rubric);
+                  const maxLevel = Math.max(...rubric.levels.map(l => l.score));
+
+                  return (
+                    <div key={rubric.rubric_id} className="bg-white rounded border border-gray-300 overflow-hidden">
+                      {/* Inline Header with Mark */}
+                      <div className="flex items-center gap-2 px-2 py-1 bg-gray-50 border-b border-gray-200">
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-bold flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                        <h3 className="text-[10px] font-semibold text-gray-900 flex-1 truncate">{rubric.component_name}</h3>
+                        <button
+                          onClick={() => openCriteriaModal(rubric)}
+                          className="p-0.5 hover:bg-gray-200 rounded"
+                          title="View details"
+                        >
+                          <EyeIcon className="w-3.5 h-3.5 text-blue-600" />
+                        </button>
+                        <span className="text-[9px] text-gray-500">/{rubric.max_marks}</span>
+                        {selectedLevel !== undefined && (
+                          <span className="text-sm font-bold text-blue-600 min-w-[24px] text-right">{componentTotal}</span>
+                        )}
+                      </div>
+
+                      {/* Inline Level Buttons */}
+                      <div className="px-2 py-1">
+                        <div className="flex items-center gap-1">
+                          {rubric.levels.map(level => {
+                            const isSelected = selectedLevel === level.score;
+                            const colorClass = getScoreColor(level.score, maxLevel);
+
+                            return (
+                              <button
+                                key={level.score}
+                                type="button"
+                                disabled={blocked}
+                                onClick={() => setComponentLevel(activeStudent, rubric.rubric_id, level.score)}
+                                className={`
+                                  flex-1 px-1.5 py-1 rounded border transition-all text-center
+                                  ${isSelected 
+                                    ? `${colorClass} text-white shadow ring-1 ring-offset-1` 
+                                    : 'bg-white border-gray-300 text-gray-700 hover:border-blue-500'
+                                  }
+                                  ${blocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
+                                `}
+                                title={level.label}
+                              >
+                                <div className="text-xs font-bold">{level.score}</div>
+                                <div className="text-[7px] font-semibold uppercase opacity-90 leading-tight">{level.label}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right: Comments (Fixed, Always Visible) */}
+            <div className="w-80 flex flex-col bg-white p-3 gap-2">
+              <h3 className="text-xs font-bold text-gray-800 uppercase border-b pb-1">Comments</h3>
+              
+              {/* Student Comment */}
+              <div className="flex-1">
+                <label className="text-[9px] font-bold text-gray-700 uppercase block mb-1">
+                  Student Feedback <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={currentMeta.comment}
+                  onChange={e => updateMeta(activeStudent, { comment: e.target.value })}
+                  className={`
+                    w-full h-32 border rounded px-2 py-1.5 text-[10px] resize-none
+                    focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all
+                    ${currentMeta.comment.trim().length < 5
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-green-300 bg-white'
+                    }
+                  `}
+                  placeholder="Individual feedback for this student..."
+                />
+                <div className="text-[8px] font-medium mt-0.5 ${currentMeta.comment.trim().length < 5 ? 'text-red-600' : 'text-green-600'}">
+                  {currentMeta.comment.trim().length < 5 ? `Need ${5 - currentMeta.comment.trim().length} more` : `✓ Complete (${currentMeta.comment.trim().length})`}
+                </div>
+              </div>
+
+              {/* Team Comment */}
+              <div className="flex-1 bg-blue-50 rounded-md border-2 border-blue-300 p-2">
+                <label className="text-[9px] font-bold text-blue-800 uppercase block mb-1">
+                  <PresentationChartBarIcon className="w-3 h-3 inline mr-0.5" />
+                  Team Feedback <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={teamMeta.teamComment}
+                  onChange={e => setTeamMeta(prev => ({ ...prev, teamComment: e.target.value }))}
+                  className={`
+                    w-full h-32 border rounded px-2 py-1.5 text-[10px] resize-none
+                    focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all
+                    ${teamMeta.teamComment.trim().length < 10
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-green-300 bg-white'
+                    }
+                  `}
+                  placeholder="Overall team performance..."
+                />
+                <div className={`text-[8px] font-medium mt-0.5 ${teamMeta.teamComment.trim().length < 10 ? 'text-red-600' : 'text-green-600'}`}>
+                  {teamMeta.teamComment.trim().length < 10 ? `Need ${10 - teamMeta.teamComment.trim().length} more` : `✓ Complete (${teamMeta.teamComment.trim().length})`}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end items-center gap-2 px-4 py-1.5 border-t bg-gray-50">
+            <Button size="sm" variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!allValid() || saving}
+              onClick={handleSave}
+            >
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                'Save Marks'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Criteria Details Modal */}
+      {criteriaModalOpen && selectedCriteria && (
+        <Modal
+          isOpen={criteriaModalOpen}
+          onClose={() => setCriteriaModalOpen(false)}
+          title={selectedCriteria.component_name}
+          size="lg"
+        >
+          <div className="space-y-3">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-1">Description</h4>
+              <p className="text-sm text-gray-600">{selectedCriteria.component_description || 'No description available'}</p>
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Marking Levels</h4>
+              <div className="space-y-2">
+                {selectedCriteria.levels.map(level => (
+                  <div key={level.score} className="flex gap-3 p-2 bg-gray-50 rounded border border-gray-200">
+                    <div className="flex-shrink-0">
+                      <div className="w-12 h-12 rounded bg-blue-600 text-white flex flex-col items-center justify-center">
+                        <div className="text-lg font-bold">{level.score}</div>
+                        <div className="text-[8px] uppercase">{level.label}</div>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h5 className="text-xs font-semibold text-gray-800 mb-0.5">{level.label}</h5>
+                      <p className="text-xs text-gray-600">{level.description || 'No description'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-blue-50 p-3 rounded">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-700">Maximum Marks:</span>
+                <span className="text-xl font-bold text-blue-600">{selectedCriteria.max_marks}</span>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </>
+  );
+};
+
+export default MarkEntryModal;
+
+  /* ================= UI ================= */
+  return (
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        size="full"
+        hideHeader={true}
+        noPadding={true}
+      >
+        <div className="flex flex-col h-[92vh] bg-white">
+          {/* Custom Header with Title and Close */}
+          <div className="flex items-center justify-between px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 border-b border-blue-800">
+            <div>
+              <h2 className="text-base font-bold text-white">{review.review_name}</h2>
+              <p className="text-xs text-blue-100">{team.team_name}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-blue-100 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-blue-800"
+            >
+              <XCircleIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Top: Student Tabs - Minimal & Clean with Active Highlight */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2 border-b border-blue-800">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-blue-700">
+              {team.students.map(student => {
+                const total = studentGrandTotal(student.student_id);
+                const m = meta[student.student_id] || DEFAULT_META;
+                const isActive = activeStudent === student.student_id;
+                const isComplete = m.comment.trim().length >= 5 && 
+                  (m.pat || m.attendance === 'absent' || rubrics.every(r => marks[student.student_id]?.[r.rubric_id] !== undefined));
+
+                return (
+                  <button
+                    key={student.student_id}
+                    onClick={() => setActiveStudent(student.student_id)}
+                    className={`
+                      flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all whitespace-nowrap relative
+                      ${isActive 
+                        ? 'bg-white text-blue-700 shadow-lg font-semibold ring-2 ring-yellow-400' 
+                        : 'bg-blue-500/30 text-white hover:bg-blue-500/50'
+                      }
+                    `}
+                  >
+                    {isActive && (
+                      <div className="absolute -top-1 -right-1 bg-yellow-400 text-blue-900 rounded-full px-1.5 py-0.5 text-[9px] font-bold animate-pulse">
+                        EDITING
+                      </div>
+                    )}
+                    <div className={`w-6 h-6 rounded-full overflow-hidden border ${isActive ? 'border-blue-700 ring-2 ring-yellow-400' : 'border-white/50'}`}>
+                      <img
+                        src={student.profile_image || 'https://via.placeholder.com/24'}
+                        alt={student.student_name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-xs font-medium">{student.student_name}</div>
+                      <div className="text-[10px] opacity-75">{student.roll_no}</div>
+                    </div>
+                    {isComplete && (
+                      <CheckCircleIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Team-Level Controls */}
+          <div className="bg-blue-50 px-6 py-2 border-b border-blue-200">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {/* Attendance */}
+                <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-md shadow-sm">
+                  {['present', 'absent'].map(v => (
+                    <label key={v} className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`att-${activeStudent}`}
+                        checked={currentMeta.attendance === v}
+                        onChange={() =>
+                          updateMeta(activeStudent, {
+                            attendance: v,
+                            pat: v === 'absent' ? false : currentMeta.pat
+                          })
+                        }
+                        className="w-3 h-3 text-blue-600"
+                      />
+                      <span className="text-[10px] font-medium capitalize text-gray-700">{v}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* PAT Checkbox */}
+                <label className="flex items-center gap-1 cursor-pointer bg-white px-2 py-1 rounded-md shadow-sm">
+                  <input
+                    type="checkbox"
+                    checked={currentMeta.pat}
+                    onChange={e =>
+                      updateMeta(activeStudent, {
+                        pat: e.target.checked,
+                        attendance: e.target.checked ? 'present' : currentMeta.attendance
+                      })
+                    }
+                    className="w-3 h-3 text-blue-600"
+                  />
+                  <span className="text-[10px] font-bold text-gray-700 uppercase">PAT</span>
+                </label>
+
+                {/* Team PPT Approval */}
+                <label className="flex items-center gap-1 cursor-pointer bg-white px-2 py-1 rounded-md shadow-sm border-2 border-green-300">
+                  <PresentationChartBarIcon className="w-3 h-3 text-green-600" />
+                  <input
+                    type="checkbox"
+                    checked={teamMeta.pptApproved}
+                    onChange={e => setTeamMeta(prev => ({ ...prev, pptApproved: e.target.checked }))}
+                    className="w-3 h-3 text-green-600"
+                  />
+                  <span className="text-[10px] font-bold text-gray-700">PPT Approved</span>
+                </label>
+              </div>
+
+              {/* Total Score */}
+              <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-md shadow-sm">
+                <span className="text-[10px] font-medium text-gray-600">Total:</span>
+                <span className="text-xl font-bold text-blue-600">
+                  {blocked ? '—' : Math.round(studentGrandTotal(activeStudent))}
+                </span>
+                <span className="text-xs font-medium text-gray-500">/ {maxTotal}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content - Compact Criteria */}
+          <div className="flex-1 overflow-y-auto px-6 py-3 bg-gray-50">
+            <div className="space-y-2 max-w-6xl mx-auto">
+              {/* Previous Comments Section */}
+              {previousComment && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-2 mb-3">
+                  <div className="flex items-start gap-2">
+                    <DocumentTextIcon className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="text-[10px] font-bold text-amber-800 uppercase mb-0.5">
+                        Previous Review ({previousComments.reviewName} - {previousComments.date})
+                      </div>
+                      <p className="text-xs text-amber-900">{previousComment.comment}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Criteria Components - Ultra Compact */}
+              {rubrics.map((rubric, idx) => {
+                const selectedLevel = marks[activeStudent]?.[rubric.rubric_id];
+                const componentTotal = getComponentTotal(activeStudent, rubric);
+                const maxLevel = Math.max(...rubric.levels.map(l => l.score));
+
+                return (
+                  <div key={rubric.rubric_id} className="bg-white rounded-md border border-gray-200 overflow-hidden shadow-sm">
+                    {/* Compact Header */}
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-semibold text-gray-900">{rubric.component_name}</h3>
+                          {rubric.component_description && (
+                            <div className="group relative">
+                              <InformationCircleIcon className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                              <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-20 w-64">
+                                <div className="bg-gray-900 text-white text-[10px] rounded-md py-1.5 px-2 shadow-xl">
+                                  {rubric.component_description}
+                                  <div className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900"></div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium text-gray-500">Max: {rubric.max_marks}</span>
+                        {selectedLevel !== undefined && (
+                          <span className="text-base font-bold text-blue-600 min-w-[32px] text-right">{componentTotal}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Compact Level Buttons */}
+                    <div className="px-3 py-2">
+                      <div className="flex items-center gap-1.5">
+                        {rubric.levels.map(level => {
+                          const isSelected = selectedLevel === level.score;
+                          const colorClass = getScoreColor(level.score, maxLevel);
+
+                          return (
+                            <button
+                              key={level.score}
+                              type="button"
+                              disabled={blocked}
+                              onClick={() => setComponentLevel(activeStudent, rubric.rubric_id, level.score)}
+                              className={`
+                                flex-1 px-2 py-1.5 rounded border transition-all text-center group relative
+                                ${isSelected 
+                                  ? `${colorClass} text-white shadow-md ring-2 ring-offset-1` 
+                                  : 'bg-white border-gray-300 text-gray-700 hover:border-blue-500 hover:shadow'
+                                }
+                                ${blocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
+                              `}
+                            >
+                              <div className="text-sm font-bold">{level.score}</div>
+                              <div className="text-[9px] font-semibold uppercase opacity-90">{level.label}</div>
+                              
+                              {/* Tooltip on hover */}
+                              {level.description && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-44">
+                                  <div className="bg-gray-900 text-white text-[10px] rounded-md py-1.5 px-2 shadow-xl">
+                                    {level.description}
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Individual Student Comment - Compact */}
+              <div className="bg-white rounded-md border border-gray-200 p-3">
+                <label className="text-[10px] font-bold text-gray-700 uppercase block mb-1">
+                  Student Feedback <span className="text-red-500">*</span>
+                  <span className="text-[9px] font-normal text-gray-500 ml-1">(Min 5 chars)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={currentMeta.comment}
+                  onChange={e => updateMeta(activeStudent, { comment: e.target.value })}
+                  className={`
+                    w-full border rounded-md px-2 py-1.5 text-xs resize-none
+                    focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all
+                    ${currentMeta.comment.trim().length < 5
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-green-300 bg-white'
+                    }
+                  `}
+                  placeholder="Individual feedback for this student..."
+                />
+                <div className="text-[9px] font-medium mt-0.5 ${currentMeta.comment.trim().length < 5 ? 'text-red-600' : 'text-green-600'}">
+                  {currentMeta.comment.trim().length < 5 ? `Need ${5 - currentMeta.comment.trim().length} more` : '✓ Complete'}
+                </div>
+              </div>
+
+              {/* Team Comment - Compact */}
+              <div className="bg-blue-50 rounded-md border-2 border-blue-300 p-3">
+                <label className="text-[10px] font-bold text-blue-800 uppercase block mb-1">
+                  <PresentationChartBarIcon className="w-3 h-3 inline mr-1" />
+                  Team Feedback <span className="text-red-500">*</span>
+                  <span className="text-[9px] font-normal text-blue-600 ml-1">(Min 10 chars - Applies to entire team)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={teamMeta.teamComment}
+                  onChange={e => setTeamMeta(prev => ({ ...prev, teamComment: e.target.value }))}
+                  className={`
+                    w-full border rounded-md px-2 py-1.5 text-xs resize-none
+                    focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all
+                    ${teamMeta.teamComment.trim().length < 10
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-green-300 bg-white'
+                    }
+                  `}
+                  placeholder="Overall team performance feedback..."
+                />
+                <div className={`text-[9px] font-medium mt-0.5 ${teamMeta.teamComment.trim().length < 10 ? 'text-red-600' : 'text-green-600'}`}>
+                  {teamMeta.teamComment.trim().length < 10 ? `Need ${10 - teamMeta.teamComment.trim().length} more` : '✓ Complete'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer - Compact */}
+          <div className="flex justify-between items-center px-6 py-2 border-t bg-white">
+            <div className="text-[10px] text-gray-500">
+              <span className="font-semibold text-gray-700">
+                {team.students.filter(s => {
+                  const m = meta[s.student_id];
+                  return m?.comment?.trim().length >= 5 && 
+                    (m.pat || m.attendance === 'absent' || rubrics.every(r => marks[s.student_id]?.[r.rubric_id] !== undefined));
+                }).length}
+              </span>
+              <span> / {team.students.length} completed</span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!allValid() || saving}
+                onClick={handleSave}
+              >
+                {saving ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Saving...
+                  </span>
+                ) : (
+                  'Save Marks'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </>
+  );
+};
+
+export default MarkEntryModal;

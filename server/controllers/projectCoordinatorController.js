@@ -140,6 +140,30 @@ export async function getFacultyList(req, res) {
   }
 }
 
+export async function getFacultyDetailsBulk(req, res) {
+  try {
+    const { employeeIds } = req.body;
+
+    // Optional: Filter by coordinator's context to only show faculty in same school/dept?
+    // User requirement was just to validate if they exist.
+    // For now, allow checking any faculty, or we could filter found ones.
+    // Let's stick to simple retrieval for validation purposes.
+
+    const faculties = await FacultyService.getFacultyDetailsBulk(employeeIds);
+
+    res.status(200).json({
+      success: true,
+      data: faculties,
+      count: faculties.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 export async function updateFaculty(req, res) {
   try {
     if (!req.coordinator.isPrimary) {

@@ -56,6 +56,32 @@ export async function getAllFaculty(req, res) {
   }
 }
 
+export async function getFacultyDetailsBulk(req, res) {
+  try {
+    const { employeeIds } = req.body;
+
+    if (!Array.isArray(employeeIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "employeeIds must be an array.",
+      });
+    }
+
+    const faculties = await FacultyService.getFacultyDetailsBulk(employeeIds);
+
+    res.status(200).json({
+      success: true,
+      data: faculties,
+      count: faculties.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 export async function updateFaculty(req, res) {
   try {
     const { employeeId } = req.params;

@@ -41,6 +41,12 @@ router.post(
   coordinatorController.createFaculty,
 );
 
+router.post(
+  "/faculty/details-bulk",
+  validateRequired(["employeeIds"]),
+  coordinatorController.getFacultyDetailsBulk,
+);
+
 router.put(
   "/faculty/:employeeId",
   checkCoordinatorPermission("canEditFaculty"),

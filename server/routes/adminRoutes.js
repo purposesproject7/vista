@@ -130,6 +130,12 @@ router.post(
 );
 
 router.post(
+  "/faculty/details-bulk",
+  validateRequired(["employeeIds"]),
+  adminController.getFacultyDetailsBulk,
+);
+
+router.post(
   "/faculty/admin",
   validateRequired(["name", "emailId", "employeeId", "password"]),
   adminController.createAdmin,

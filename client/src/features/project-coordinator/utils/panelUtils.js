@@ -6,9 +6,12 @@ import * as XLSX from 'xlsx';
  */
 export const downloadFacultyTemplate = () => {
   const template = [
-    ['Employee ID', 'Name', 'Email', 'Department'],
-    ['EMP001', 'Dr. John Doe', 'john.doe@vit.ac.in', 'CSE'],
-    ['EMP002', 'Dr. Jane Smith', 'jane.smith@vit.ac.in', 'IT'],
+    ['employeeId'],
+    ['EMP001'],
+    ['EMP002'],
+    ['EMP003'],
+    ['EMP004'],
+    ['EMP005']
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(template);
@@ -17,9 +20,6 @@ export const downloadFacultyTemplate = () => {
   
   // Set column widths
   ws['!cols'] = [
-    { wch: 15 },
-    { wch: 25 },
-    { wch: 30 },
     { wch: 15 }
   ];
 
@@ -118,6 +118,54 @@ export const validatePanelFile = (file) => {
     isValid: errors.length === 0,
     errors
   };
+};
+
+/**
+ * Parse faculty list Excel file - expects single employeeId column
+ */
+export const parseFacultyListExcel = async (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (jsonData.length === 0) {
+          reject(new Error('Excel file is empty'));
+          return;
+        }
+
+        // Extract employeeId from the data
+        const employeeIds = jsonData
+          .map((row, index) => {
+            // Look for employeeId in various column name formats
+            const id = row['employeeId'] || row['Employee ID'] || row['empId'] || row['EmpId'];
+            return id ? String(id).trim() : null;
+          })
+          .filter(Boolean);
+
+        if (employeeIds.length === 0) {
+          reject(new Error('No valid employee IDs found in the file. Expected column named "employeeId", "Employee ID", or "empId"'));
+          return;
+        }
+
+        resolve(employeeIds);
+      } catch (error) {
+        reject(new Error('Failed to parse Excel file: ' + error.message));
+      }
+    };
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
 };
 
 /**
