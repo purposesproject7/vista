@@ -96,4 +96,18 @@ router.get(
 
 router.get("/broadcasts", facultyController.getBroadcasts);
 
+// WebSocket-enabled routes for real-time features
+router.get(
+  "/reviews",
+  broadcastBlockMiddleware,
+  facultyController.getFacultyReviews,
+);
+
+router.post(
+  "/broadcast/notification",
+  broadcastBlockMiddleware,
+  validateRequired(["message", "type"]),
+  facultyController.broadcastNotification,
+);
+
 export default router;

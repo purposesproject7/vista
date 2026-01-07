@@ -5,9 +5,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import { createServer } from "http";
 
 import connectDB from "./utils/db.js";
 import { logger } from "./utils/logger.js";
+import websocketService from "./services/websocketService.js";
 
 import correlationId from "./middlewares/correlationId.js";
 import requestLogger from "./middlewares/requestLogger.js";
@@ -27,6 +29,7 @@ dotenv.config();
 connectDB();
 
 const app = express();
+const httpServer = createServer(app);
 
 // Security - Helmet
 if (process.env.NODE_ENV === "production") {
@@ -123,7 +126,7 @@ app.get("/", (req, res) => {
 });
 
 // API Routes
-app.use("/api/auth", authRouter); 
+app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/coordinator", projectCoordinatorRouter);
 app.use("/api/faculty", facultyRouter);
@@ -185,7 +188,7 @@ const gracefulShutdown = async (signal) => {
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || "0.0.0.0";
 
-const server = app.listen(PORT, HOST, () => {
+const server = httpServer.listen(PORT, HOST, () => {
   logger.info("server_start", {
     message: `Server running at http://${HOST}:${PORT}`,
     environment: process.env.NODE_ENV || "development",
@@ -198,6 +201,25 @@ const server = app.listen(PORT, HOST, () => {
     mongoUri: process.env.MONGO_URI ? "***configured***" : "missing",
     jwtSecret: process.env.JWT_SECRET ? "***configured***" : "missing",
   });
+
+  // Initialize WebSocket service after server starts
+  websocketService.initialize(httpServer);
+});
+
+// WebSocket stats endpoint
+app.get("/api/websocket/stats", (req, res) => {
+  try {
+    const stats = websocketService.getStats();
+    res.status(200).json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to get WebSocket stats",
+    });
+  }
 });
 
 // Process error handlers

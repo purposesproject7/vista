@@ -15,6 +15,7 @@ import {
 } from "../utils/facultyHelpers.js";
 import { logger } from "../utils/logger.js";
 import MasterData from "../models/masterDataSchema.js";
+import websocketService from "../services/websocketService.js";
 
 /**
  * Get faculty profile
@@ -84,7 +85,7 @@ export async function updateProfile(req, res) {
     const faculty = await Faculty.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     ).select("-password");
 
     if (!faculty) {
@@ -189,7 +190,7 @@ export async function getProjectDetails(req, res) {
     const project = await Project.findById(id)
       .populate(
         "students",
-        "name regNo emailId guideMarks panelMarks approvals"
+        "name regNo emailId guideMarks panelMarks approvals",
       )
       .populate("guideFaculty", "name employeeId emailId")
       .populate({
@@ -212,7 +213,7 @@ export async function getProjectDetails(req, res) {
     const isGuide =
       project.guideFaculty?._id.toString() === facultyId.toString();
     const isPanelMember = project.panel?.members?.some(
-      (m) => m.faculty._id.toString() === facultyId.toString()
+      (m) => m.faculty._id.toString() === facultyId.toString(),
     );
 
     if (!isGuide && !isPanelMember) {
@@ -261,6 +262,36 @@ export async function submitMarks(req, res) {
   try {
     const marks = await MarksService.submitMarks(req.user._id, req.body);
 
+    // Broadcast real-time update via WebSocket
+    try {
+      const updateData = {
+        type: "mark_submitted",
+        facultyId: req.user._id,
+        projectId: req.body.projectId,
+        studentId: req.body.studentId,
+        marks: marks,
+        timestamp: Date.now(),
+      };
+
+      // Broadcast to the specific faculty
+      websocketService.broadcastToFaculty(
+        req.user._id.toString(),
+        "real_time_update",
+        updateData,
+      );
+
+      logger.info("marks_websocket_broadcast", {
+        facultyId: req.user._id,
+        projectId: req.body.projectId,
+      });
+    } catch (wsError) {
+      // WebSocket broadcast failed, but continue with response
+      logger.warn("websocket_broadcast_failed", {
+        error: wsError.message,
+        facultyId: req.user._id,
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: "Marks submitted successfully.",
@@ -281,6 +312,34 @@ export async function updateMarks(req, res) {
   try {
     const { id } = req.params;
     const marks = await MarksService.updateMarks(id, req.user._id, req.body);
+
+    // Broadcast real-time update via WebSocket
+    try {
+      const updateData = {
+        type: "mark_updated",
+        facultyId: req.user._id,
+        markId: id,
+        marks: marks,
+        timestamp: Date.now(),
+      };
+
+      // Broadcast to the specific faculty
+      websocketService.broadcastToFaculty(
+        req.user._id.toString(),
+        "real_time_update",
+        updateData,
+      );
+
+      logger.info("marks_update_websocket_broadcast", {
+        facultyId: req.user._id,
+        markId: id,
+      });
+    } catch (wsError) {
+      logger.warn("websocket_broadcast_failed", {
+        error: wsError.message,
+        facultyId: req.user._id,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -435,12 +494,190 @@ export async function getAssignedPanels(req, res) {
 }
 
 /**
+ * Get faculty reviews with filters for WebSocket
+ */
+export async function getFacultyReviews(req, res) {
+  try {
+    const facultyId = req.user._id;
+    const { year, school, programme, type } = req.query;
+
+    // Validate required filters
+    if (!year || !school || !programme || !type) {
+      return res.status(400).json({
+        success: false,
+        message: "All filters are required: year, school, programme, type",
+      });
+    }
+
+    // Get faculty reviews based on filters and type
+    let reviews = [];
+
+    if (type === "guide") {
+      // Get projects where faculty is the guide
+      const projects = await Project.find({
+        guideFaculty: facultyId,
+        academicYear: year,
+        school: school,
+        program: programme,
+      })
+        .populate("students", "name regNo emailId")
+        .populate("guideFaculty", "name employeeId")
+        .lean();
+
+      reviews = projects.map((project) => ({
+        id: project._id,
+        title: project.title,
+        type: "guide",
+        startDate: project.reviewDates?.guide?.startDate || new Date(),
+        endDate:
+          project.reviewDates?.guide?.endDate ||
+          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        teams: [
+          {
+            id: project._id,
+            name: project.title,
+            students: project.students,
+            isMarked:
+              project.students?.some((s) => s.guideMarks?.length > 0) || false,
+          },
+        ],
+      }));
+    } else if (type === "panel") {
+      // Get projects where faculty is in the panel
+      const panels = await Panel.find({
+        "members.faculty": facultyId,
+        academicYear: year,
+        school: school,
+        program: programme,
+      })
+        .populate({
+          path: "projects",
+          populate: {
+            path: "students",
+            select: "name regNo emailId",
+          },
+        })
+        .lean();
+
+      reviews = panels.flatMap(
+        (panel) =>
+          panel.projects?.map((project) => ({
+            id: project._id,
+            title: project.title,
+            type: "panel",
+            startDate: project.reviewDates?.panel?.startDate || new Date(),
+            endDate:
+              project.reviewDates?.panel?.endDate ||
+              new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            teams: [
+              {
+                id: project._id,
+                name: project.title,
+                students: project.students,
+                isMarked:
+                  project.students?.some((s) => s.panelMarks?.length > 0) ||
+                  false,
+              },
+            ],
+          })) || [],
+      );
+    }
+
+    // Add statistics
+    const statistics = {
+      total: reviews.length,
+      active: reviews.filter(
+        (r) =>
+          new Date() >= new Date(r.startDate) &&
+          new Date() <= new Date(r.endDate),
+      ).length,
+      completed: reviews.filter((r) => r.teams.every((t) => t.isMarked)).length,
+      pending: reviews.filter((r) => !r.teams.every((t) => t.isMarked)).length,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        reviews,
+        statistics,
+        filters: { year, school, programme, type },
+        timestamp: Date.now(),
+      },
+    });
+  } catch (error) {
+    logger.error("get_faculty_reviews_error", {
+      error: error.message,
+      facultyId: req.user._id,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Broadcast system notification to faculty
+ */
+export async function broadcastNotification(req, res) {
+  try {
+    const { message, type, targetFaculties } = req.body;
+
+    if (!message || !type) {
+      return res.status(400).json({
+        success: false,
+        message: "Message and type are required",
+      });
+    }
+
+    const notificationData = {
+      type: "system_notification",
+      message,
+      notificationType: type,
+      timestamp: Date.now(),
+      from: "system",
+    };
+
+    if (targetFaculties && Array.isArray(targetFaculties)) {
+      // Broadcast to specific faculties
+      targetFaculties.forEach((facultyId) => {
+        websocketService.broadcastToFaculty(
+          facultyId,
+          "notification",
+          notificationData,
+        );
+      });
+    } else {
+      // Broadcast to all connected faculties
+      websocketService.broadcastToAll("notification", notificationData);
+    }
+
+    logger.info("system_notification_broadcast", {
+      type,
+      targetCount: targetFaculties?.length || "all",
+      from: req.user?._id || "system",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Notification broadcasted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
  * Get broadcasts
  */
 export async function getBroadcasts(req, res) {
   try {
     const faculty = await Faculty.findById(req.user._id).select(
-      "school program"
+      "school program",
     );
 
     if (!faculty) {
