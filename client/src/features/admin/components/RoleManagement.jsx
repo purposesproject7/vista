@@ -1,77 +1,87 @@
-import { useState, useMemo, useEffect } from 'react';
-import { 
-  UserGroupIcon, 
+import { useState, useMemo, useEffect } from "react";
+import {
+  UserGroupIcon,
   StarIcon,
   PlusIcon,
   TrashIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline';
-import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
-import Card from '../../../shared/components/Card';
-import Button from '../../../shared/components/Button';
-import LoadingSpinner from '../../../shared/components/LoadingSpinner';
-import { useToast } from '../../../shared/hooks/useToast';
-import { fetchProjectCoordinators, assignProjectCoordinator, updateCoordinatorPermissions, removeProjectCoordinator, fetchFaculty } from '../services/adminApi';
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
+import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
+import Card from "../../../shared/components/Card";
+import Button from "../../../shared/components/Button";
+import LoadingSpinner from "../../../shared/components/LoadingSpinner";
+import { useToast } from "../../../shared/hooks/useToast";
+import {
+  fetchProjectCoordinators,
+  assignProjectCoordinator,
+  updateCoordinatorPermissions,
+  removeProjectCoordinator,
+  fetchFaculty,
+} from "../services/adminApi";
 
-const RoleManagement = ({
-  schools,
-  programsBySchool,
-  years
-}) => {
+const RoleManagement = ({ schools, programsBySchool, years }) => {
   const { showToast } = useToast();
-  
+
   // Academic Context Selection
-  const [selectedSchool, setSelectedSchool] = useState('');
-  const [selectedProgramme, setSelectedProgramme] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
-  
+  const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedProgramme, setSelectedProgramme] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+
   // Role assignments
   const [coordinatorAssignments, setCoordinatorAssignments] = useState([]);
-  
+
   // Faculty list
   const [facultyList, setFacultyList] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Search and selection
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedFaculty, setSelectedFaculty] = useState([]);
 
   // Get available programmes based on selected school
   const availableProgrammes = useMemo(() => {
     if (!selectedSchool) return [];
-    const schoolObj = schools.find(s => s.code === selectedSchool);
+    const schoolObj = schools.find((s) => s.code === selectedSchool);
     if (!schoolObj) return [];
     return programsBySchool?.[schoolObj.code] || [];
   }, [selectedSchool, programsBySchool, schools]);
 
   // Filter progress calculation
   const filtersComplete = useMemo(() => {
-    const completed = [
-      selectedSchool,
-      selectedProgramme,
-      selectedYear
-    ].filter(Boolean).length;
+    const completed = [selectedSchool, selectedProgramme, selectedYear].filter(
+      Boolean
+    ).length;
     return { completed, total: 3, percentage: (completed / 3) * 100 };
   }, [selectedSchool, selectedProgramme, selectedYear]);
 
-  // Load coordinators and faculty when context changes
+  // Load faculty when school changes
+  useEffect(() => {
+    if (selectedSchool) {
+      loadFaculty();
+    } else {
+      setFacultyList([]);
+    }
+  }, [selectedSchool]);
+
+  // Load coordinators when context changes
   useEffect(() => {
     if (filtersComplete.completed === 3) {
-      loadCoordinatorsAndFaculty();
+      loadCoordinators();
     } else {
       setCoordinatorAssignments([]);
-      setFacultyList([]);
     }
   }, [selectedSchool, selectedProgramme, selectedYear]);
 
-  const loadCoordinatorsAndFaculty = async () => {
+  const loadCoordinators = async () => {
     setLoading(true);
     try {
       // Get year name
-      const yearObj = years.find(y => y.id === parseInt(selectedYear));
-      const schoolObj = schools.find(s => s.code === selectedSchool);
-      const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
+      const yearObj = years.find((y) => y.id === parseInt(selectedYear));
+      const schoolObj = schools.find((s) => s.code === selectedSchool);
+      const programObj = programsBySchool[selectedSchool]?.find(
+        (p) => p.code === selectedProgramme
+      );
 
       if (!yearObj || !schoolObj || !programObj) {
         return;
@@ -81,25 +91,38 @@ const RoleManagement = ({
       const coordResponse = await fetchProjectCoordinators({
         academicYear: yearObj.name,
         school: schoolObj.code,
-        department: programObj.code
+        program: programObj.code,
       });
 
       if (coordResponse.success) {
         setCoordinatorAssignments(coordResponse.data || []);
       }
+    } catch (error) {
+      console.error("Error loading coordinators:", error);
+      showToast("Failed to load coordinators", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Fetch all faculty for this school/department
+  const loadFaculty = async () => {
+    setLoading(true);
+    try {
+      const schoolObj = schools.find((s) => s.code === selectedSchool);
+      if (!schoolObj) return;
+
+      // Fetch all faculty for this school
       const facultyResponse = await fetchFaculty({
         school: schoolObj.code,
-        department: programObj.code
       });
 
       if (facultyResponse.success) {
-        setFacultyList(facultyResponse.data || []);
+        // adminApi.js fetchFaculty returns { success, count, faculty }
+        setFacultyList(facultyResponse.faculty || []);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
-      showToast('Failed to load coordinators and faculty', 'error');
+      console.error("Error loading faculty:", error);
+      showToast("Failed to load faculty", "error");
     } finally {
       setLoading(false);
     }
@@ -107,55 +130,80 @@ const RoleManagement = ({
 
   // Get faculty for selected context
   const contextFaculty = useMemo(() => {
-    if (filtersComplete.completed !== 3) return [];
-    return facultyList.filter(f => f.role === 'faculty' || f.role === 'project-coordinator');
-  }, [facultyList, filtersComplete]);
+    return facultyList.filter(
+      (f) => f.role === "faculty" || f.role === "project-coordinator"
+    );
+  }, [facultyList]);
 
   // Search filtered faculty
   const filteredFaculty = useMemo(() => {
     if (!searchTerm.trim()) return contextFaculty;
     const term = searchTerm.toLowerCase();
-    return contextFaculty.filter(f =>
-      f.name.toLowerCase().includes(term) ||
-      f.employeeId.toLowerCase().includes(term) ||
-      f.email?.toLowerCase().includes(term)
+    return contextFaculty.filter(
+      (f) =>
+        f.name.toLowerCase().includes(term) ||
+        f.employeeId.toLowerCase().includes(term) ||
+        f.email?.toLowerCase().includes(term)
     );
   }, [contextFaculty, searchTerm]);
 
   // Assigned coordinators
   const assignedCoordinators = useMemo(() => {
     if (coordinatorAssignments.length === 0) return [];
-    
-    return coordinatorAssignments.map(coord => {
-      const faculty = facultyList.find(f => f._id === coord.facultyId?._id || f._id === coord.facultyId);
-      return {
-        ...coord,
-        faculty: faculty || coord.facultyId
-      };
-    }).filter(c => c.faculty);
+
+    return coordinatorAssignments
+      .map((coord) => {
+        const faculty = facultyList.find(
+          (f) =>
+            f._id === coord.faculty?._id ||
+            f._id === coord.faculty ||
+            f._id === coord.facultyId // Fallback just in case
+        );
+        return {
+          ...coord,
+          faculty: faculty || coord.faculty || coord.facultyId,
+        };
+      })
+      .filter((c) => c.faculty);
   }, [coordinatorAssignments, facultyList]);
 
   // Handlers
   const toggleFacultySelection = (facultyId) => {
-    setSelectedFaculty(prev => 
-      prev.includes(facultyId) 
-        ? prev.filter(id => id !== facultyId)
+    setSelectedFaculty((prev) =>
+      prev.includes(facultyId)
+        ? prev.filter((id) => id !== facultyId)
         : [...prev, facultyId]
     );
   };
 
   const handleAssignCoordinators = async () => {
     if (selectedFaculty.length === 0) {
-      showToast('Please select at least one faculty member', 'error');
+      showToast("Please select at least one faculty member", "error");
       return;
     }
 
-    const yearObj = years.find(y => y.id === parseInt(selectedYear));
-    const schoolObj = schools.find(s => s.code === selectedSchool);
-    const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
+    const yearObj = years.find(
+      (y) => y.id === parseInt(selectedYear) || y.id == selectedYear
+    );
+    const schoolObj = schools.find((s) => s.code === selectedSchool);
+    const programObj = programsBySchool[selectedSchool]?.find(
+      (p) => p.code === selectedProgramme
+    );
+
+    console.log("Context Debug:", {
+      selectedYear,
+      selectedSchool,
+      selectedProgramme,
+      yearObj,
+      schoolObj,
+      programObj,
+      years,
+      schools,
+      programs: programsBySchool[selectedSchool],
+    });
 
     if (!yearObj || !schoolObj || !programObj) {
-      showToast('Invalid context', 'error');
+      showToast("Invalid context", "error");
       return;
     }
 
@@ -172,14 +220,22 @@ const RoleManagement = ({
         );
       }
 
-      showToast(`${selectedFaculty.length} coordinator(s) assigned successfully`, 'success');
+      showToast(
+        `${selectedFaculty.length} coordinator(s) assigned successfully`,
+        "success"
+      );
       setSelectedFaculty([]);
-      
+
+      setSelectedFaculty([]);
+
       // Reload data
-      await loadCoordinatorsAndFaculty();
+      await loadCoordinators();
     } catch (error) {
-      console.error('Error assigning coordinators:', error);
-      showToast(error.response?.data?.message || 'Failed to assign coordinators', 'error');
+      console.error("Error assigning coordinators:", error);
+      showToast(
+        error.response?.data?.message || "Failed to assign coordinators",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -189,32 +245,32 @@ const RoleManagement = ({
     setLoading(true);
     try {
       await updateCoordinatorPermissions(coordinatorId, {
-        isPrimary: true
+        isPrimary: true,
       });
-      
-      showToast('Main coordinator updated successfully', 'success');
-      await loadCoordinatorsAndFaculty();
+
+      showToast("Main coordinator updated successfully", "success");
+      await loadCoordinators();
     } catch (error) {
-      console.error('Error setting main coordinator:', error);
-      showToast('Failed to update main coordinator', 'error');
+      console.error("Error setting main coordinator:", error);
+      showToast("Failed to update main coordinator", "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleRemoveCoordinator = async (coordinatorId) => {
-    if (!window.confirm('Are you sure you want to remove this coordinator?')) {
+    if (!window.confirm("Are you sure you want to remove this coordinator?")) {
       return;
     }
 
     setLoading(true);
     try {
       await removeProjectCoordinator(coordinatorId);
-      showToast('Coordinator removed successfully', 'success');
-      await loadCoordinatorsAndFaculty();
+      showToast("Coordinator removed successfully", "success");
+      await loadCoordinators();
     } catch (error) {
-      console.error('Error removing coordinator:', error);
-      showToast('Failed to remove coordinator', 'error');
+      console.error("Error removing coordinator:", error);
+      showToast("Failed to remove coordinator", "error");
     } finally {
       setLoading(false);
     }
@@ -233,8 +289,10 @@ const RoleManagement = ({
       {/* Context Selection */}
       <Card>
         <div className="p-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">Academic Context</h3>
-          
+          <h3 className="text-base font-semibold text-gray-900 mb-4">
+            Academic Context
+          </h3>
+
           <div className="space-y-4">
             {/* Progress Bar */}
             <div>
@@ -264,8 +322,8 @@ const RoleManagement = ({
                   value={selectedSchool}
                   onChange={(e) => {
                     setSelectedSchool(e.target.value);
-                    setSelectedProgramme('');
-                    setSelectedYear('');
+                    setSelectedProgramme("");
+                    setSelectedYear("");
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
@@ -286,7 +344,7 @@ const RoleManagement = ({
                   value={selectedProgramme}
                   onChange={(e) => {
                     setSelectedProgramme(e.target.value);
-                    setSelectedYear('');
+                    setSelectedYear("");
                   }}
                   disabled={!selectedSchool}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
@@ -342,7 +400,9 @@ const RoleManagement = ({
               <div className="text-center py-12 text-gray-500">
                 <UserGroupIcon className="h-12 w-12 mx-auto mb-3 text-gray-400" />
                 <p>No coordinators assigned yet</p>
-                <p className="text-sm mt-2">Select faculty below to assign them as coordinators</p>
+                <p className="text-sm mt-2">
+                  Select faculty below to assign them as coordinators
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -360,7 +420,8 @@ const RoleManagement = ({
                           {coord.faculty?.name || coord.facultyId?.name}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {coord.faculty?.employeeId || coord.facultyId?.employeeId}
+                          {coord.faculty?.employeeId ||
+                            coord.facultyId?.employeeId}
                         </p>
                       </div>
                     </div>
@@ -396,7 +457,7 @@ const RoleManagement = ({
       )}
 
       {/* Faculty Selection */}
-      {filtersComplete.completed === 3 && (
+      {selectedSchool && (
         <Card>
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -408,10 +469,16 @@ const RoleManagement = ({
                   variant="primary"
                   size="sm"
                   onClick={handleAssignCoordinators}
-                  disabled={loading}
+                  disabled={loading || filtersComplete.completed !== 3}
+                  title={
+                    filtersComplete.completed !== 3
+                      ? "Complete context selection to assign"
+                      : ""
+                  }
                 >
                   <PlusIcon className="h-4 w-4 mr-1" />
-                  Assign {selectedFaculty.length} Coordinator{selectedFaculty.length !== 1 ? 's' : ''}
+                  Assign {selectedFaculty.length} Coordinator
+                  {selectedFaculty.length !== 1 ? "s" : ""}
                 </Button>
               )}
             </div>
@@ -440,20 +507,24 @@ const RoleManagement = ({
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {filteredFaculty.map((faculty) => {
                   const isAssigned = assignedCoordinators.some(
-                    c => (c.faculty?._id || c.facultyId?._id || c.facultyId) === faculty._id
+                    (c) =>
+                      (c.faculty?._id || c.facultyId?._id || c.facultyId) ===
+                      faculty._id
                   );
                   const isSelected = selectedFaculty.includes(faculty._id);
 
                   return (
                     <div
                       key={faculty._id}
-                      onClick={() => !isAssigned && toggleFacultySelection(faculty._id)}
+                      onClick={() =>
+                        !isAssigned && toggleFacultySelection(faculty._id)
+                      }
                       className={`flex items-center justify-between p-4 rounded-lg border transition-all cursor-pointer ${
                         isAssigned
-                          ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-60'
+                          ? "bg-gray-100 border-gray-300 cursor-not-allowed opacity-60"
                           : isSelected
-                          ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-200'
-                          : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          ? "bg-blue-50 border-blue-500 ring-2 ring-blue-200"
+                          : "bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -465,7 +536,9 @@ const RoleManagement = ({
                           className="w-4 h-4 text-blue-600 rounded border-gray-300"
                         />
                         <div>
-                          <p className="font-medium text-gray-900">{faculty.name}</p>
+                          <p className="font-medium text-gray-900">
+                            {faculty.name}
+                          </p>
                           <p className="text-sm text-gray-500">
                             {faculty.employeeId} • {faculty.email}
                           </p>

@@ -21,16 +21,8 @@ export class FacultyService {
     }
 
     if (data.password) {
-      if (
-        data.password.length < 8 ||
-        !/[A-Z]/.test(data.password) ||
-        !/[a-z]/.test(data.password) ||
-        !/[0-9]/.test(data.password) ||
-        !/[^A-Za-z0-9]/.test(data.password)
-      ) {
-        errors.push(
-          "Password must be at least 8 characters with uppercase, lowercase, number, and special character."
-        );
+      if (data.password.length < 6) {
+        errors.push("Password must be at least 6 characters.");
       }
     }
 

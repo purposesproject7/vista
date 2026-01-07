@@ -1,21 +1,21 @@
 // src/shared/components/DateTimePicker.jsx
-import React, { useState, useEffect } from 'react';
-import TimePicker from './TimePicker';
-import { CalendarDaysIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from "react";
+import TimePicker from "./TimePicker";
+import { CalendarDaysIcon } from "@heroicons/react/24/outline";
 
 const DateTimePicker = ({
-  value = '',
+  value = "",
   onChange,
   label,
-  placeholder = 'Select date and time',
+  placeholder = "Select date and time",
   disabled = false,
-  className = '',
-  timeFormat = '12', // '12' or '24'
+  className = "",
+  timeFormat = "12", // '12' or '24'
   id,
-  required = false
+  required = false,
 }) => {
-  const [dateValue, setDateValue] = useState('');
-  const [timeValue, setTimeValue] = useState('');
+  const [dateValue, setDateValue] = useState("");
+  const [timeValue, setTimeValue] = useState("");
 
   // Parse datetime-local value into separate date and time
   useEffect(() => {
@@ -23,25 +23,25 @@ const DateTimePicker = ({
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
         // Format date for date input (YYYY-MM-DD)
-        const formattedDate = date.toISOString().split('T')[0];
+        const formattedDate = date.toISOString().split("T")[0];
         setDateValue(formattedDate);
 
         // Format time for time picker (HH:MM)
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
         setTimeValue(`${hours}:${minutes}`);
       }
     } else {
-      setDateValue('');
-      setTimeValue('');
+      setDateValue("");
+      setTimeValue("");
     }
   }, [value]);
 
   // Combine date and time into datetime-local format
   const combineDateTime = (date, time) => {
-    if (!date || !time) return '';
+    if (!date || !time) return "";
 
-    const [hours, minutes] = time.split(':');
+    const [hours, minutes] = time.split(":");
     const dateObj = new Date(date);
     dateObj.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
@@ -57,7 +57,7 @@ const DateTimePicker = ({
       const combined = combineDateTime(newDate, timeValue);
       onChange?.(combined);
     } else if (!newDate) {
-      onChange?.('');
+      onChange?.("");
     }
   };
 
@@ -73,9 +73,9 @@ const DateTimePicker = ({
 
   // Get display value for the combined picker
   const getDisplayValue = () => {
-    if (!dateValue && !timeValue) return '';
+    if (!dateValue && !timeValue) return "";
 
-    let displayText = '';
+    let displayText = "";
 
     if (dateValue) {
       const date = new Date(dateValue);
@@ -83,12 +83,12 @@ const DateTimePicker = ({
     }
 
     if (timeValue) {
-      const [hours, minutes] = timeValue.split(':');
+      const [hours, minutes] = timeValue.split(":");
       let hour = parseInt(hours);
-      let period = '';
+      let period = "";
 
-      if (timeFormat === '12') {
-        period = hour >= 12 ? 'PM' : 'AM';
+      if (timeFormat === "12") {
+        period = hour >= 12 ? "PM" : "AM";
         if (hour === 0) hour = 12;
         else if (hour > 12) hour -= 12;
         displayText += ` ${hour}:${minutes} ${period}`;
@@ -114,7 +114,9 @@ const DateTimePicker = ({
         <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
           <div className="flex items-center gap-2">
             <CalendarDaysIcon className="w-4 h-4 text-gray-400" />
-            <span className={getDisplayValue() ? 'text-gray-900' : 'text-gray-500'}>
+            <span
+              className={getDisplayValue() ? "text-gray-900" : "text-gray-500"}
+            >
               {getDisplayValue() || placeholder}
             </span>
           </div>

@@ -1,26 +1,26 @@
 // src/features/admin/components/student-management/AcademicFilterSelector.jsx
-import React, { useState, useEffect } from 'react';
-import Select from '../../../../shared/components/Select';
-import Card from '../../../../shared/components/Card';
-import { AcademicCapIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { fetchMasterData } from '../../services/adminApi';
-import { useToast } from '../../../../shared/hooks/useToast';
+import React, { useState, useEffect } from "react";
+import Select from "../../../../shared/components/Select";
+import Card from "../../../../shared/components/Card";
+import { AcademicCapIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { fetchMasterData } from "../../services/adminApi";
+import { useToast } from "../../../../shared/hooks/useToast";
 
-const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
+const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   const [loading, setLoading] = useState(false);
   const [masterData, setMasterData] = useState(null);
   const { showToast } = useToast();
-  
+
   const [options, setOptions] = useState({
     schools: [],
     programs: [],
-    years: []
+    years: [],
   });
-  
+
   const [filters, setFilters] = useState({
-    school: '',
-    program: '',
-    year: ''
+    school: "",
+    program: "",
+    year: "",
   });
 
   // Fetch master data on mount
@@ -32,38 +32,40 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
     try {
       setLoading(true);
       const response = await fetchMasterData();
-      
+
       if (response.success) {
         const data = response.data;
         setMasterData(data);
-        
+
         // Set schools options - store both name and code for matching
-        const schoolOptions = data.schools
-          ?.filter(s => s.isActive !== false)
-          ?.map(s => ({ 
-            value: s.code,  // Use code as value for department matching
-            label: s.name,
-            name: s.name,
-            code: s.code
-          })) || [];
-        
+        const schoolOptions =
+          data.schools
+            ?.filter((s) => s.isActive !== false)
+            ?.map((s) => ({
+              value: s.code, // Use code as value for department matching
+              label: s.name,
+              name: s.name,
+              code: s.code,
+            })) || [];
+
         // Set years options
-        const yearOptions = data.academicYears
-          ?.filter(y => y.isActive !== false)
-          ?.map(y => ({ 
-            value: y.year, 
-            label: y.year 
-          })) || [];
-        
-        setOptions(prev => ({
+        const yearOptions =
+          data.academicYears
+            ?.filter((y) => y.isActive !== false)
+            ?.map((y) => ({
+              value: y.year,
+              label: y.year,
+            })) || [];
+
+        setOptions((prev) => ({
           ...prev,
           schools: schoolOptions,
-          years: yearOptions
+          years: yearOptions,
         }));
       }
     } catch (error) {
-      console.error('Error loading master data:', error);
-      showToast('Failed to load master data', 'error');
+      console.error("Error loading master data:", error);
+      showToast("Failed to load master data", "error");
     } finally {
       setLoading(false);
     }
@@ -73,30 +75,32 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
   useEffect(() => {
     if (filters.school && masterData) {
       // Filter programs (departments) by school code
-      const programs = masterData.departments
-        ?.filter(d => {
-          return d.isActive !== false && d.school === filters.school;
-        })
-        ?.map(d => ({ 
-          value: d.name, 
-          label: d.name 
-        })) || [];
-      
-      setOptions(prev => ({
+      const programsList = masterData.programs || masterData.departments;
+      const programs =
+        programsList
+          ?.filter((d) => {
+            return d.isActive !== false && d.school === filters.school;
+          })
+          ?.map((d) => ({
+            value: d.name,
+            label: d.name,
+          })) || [];
+
+      setOptions((prev) => ({
         ...prev,
-        programs
+        programs,
       }));
-      
+
       // Reset dependent filter
-      setFilters(prev => ({
+      setFilters((prev) => ({
         ...prev,
-        program: '',
+        program: "",
       }));
     } else if (!filters.school) {
       // Clear programs when no school selected
-      setOptions(prev => ({
+      setOptions((prev) => ({
         ...prev,
-        programs: []
+        programs: [],
       }));
     }
   }, [filters.school, masterData]);
@@ -105,59 +109,77 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
   useEffect(() => {
     if (filters.school && filters.program && filters.year) {
       // Find school name from code for the callback
-      const selectedSchool = masterData?.schools?.find(s => s.code === filters.school);
-      
+      const selectedSchool = masterData?.schools?.find(
+        (s) => s.code === filters.school
+      );
+
       onFilterComplete({
-        school: selectedSchool?.name || filters.school,  // Pass school name
-        department: filters.program,  // Backend uses 'department' field to store programme data
+        school: selectedSchool?.name || filters.school, // Pass school name
+        department: filters.program, // Backend uses 'department' field to store programme data
         academicYear: filters.year,
-        programme: filters.program  // Also include as programme for clarity
+        programme: filters.program, // Also include as programme for clarity
       });
     }
   }, [filters, onFilterComplete, masterData]);
 
   const handleChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
-    
+
     // Reset dependent filters
-    if (key === 'school') {
-      newFilters.program = '';
-      setOptions(prev => ({ ...prev, programs: [] }));
+    if (key === "school") {
+      newFilters.program = "";
+      setOptions((prev) => ({ ...prev, programs: [] }));
     }
-    
+
     setFilters(newFilters);
   };
 
   const steps = [
-    { key: 'school', label: 'School', options: options.schools, enabled: true },
-    { key: 'program', label: 'Program', options: options.programs, enabled: !!filters.school },
-    { key: 'year', label: 'Academic Year', options: options.years, enabled: !!filters.school }
+    { key: "school", label: "School", options: options.schools, enabled: true },
+    {
+      key: "program",
+      label: "Program",
+      options: options.programs,
+      enabled: !!filters.school,
+    },
+    {
+      key: "year",
+      label: "Academic Year",
+      options: options.years,
+      enabled: !!filters.school,
+    },
   ];
 
-  const allSelected = steps.every(step => filters[step.key]);
-  const completedSteps = steps.filter(step => filters[step.key]).length;
+  const allSelected = steps.every((step) => filters[step.key]);
+  const completedSteps = steps.filter((step) => filters[step.key]).length;
 
   return (
     <Card className={`sticky top-4 z-30 ${className}`}>
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center gap-2 flex-1">
           <AcademicCapIcon className="w-5 h-5 text-blue-600" />
-          <h2 className="text-base font-bold text-gray-900">Select Academic Context</h2>
+          <h2 className="text-base font-bold text-gray-900">
+            Select Academic Context
+          </h2>
           <div className="flex-1 mx-3">
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-blue-600 transition-all duration-500"
                 style={{ width: `${(completedSteps / 3) * 100}%` }}
               />
             </div>
           </div>
-          <span className="text-xs font-semibold text-gray-600">{completedSteps}/3</span>
+          <span className="text-xs font-semibold text-gray-600">
+            {completedSteps}/3
+          </span>
         </div>
-        
+
         {allSelected && (
           <div className="flex items-center gap-1.5 bg-green-100 px-3 py-1.5 rounded-lg border border-green-300">
             <CheckCircleIcon className="w-4 h-4 text-green-700" />
-            <span className="text-xs font-semibold text-green-700">Complete</span>
+            <span className="text-xs font-semibold text-green-700">
+              Complete
+            </span>
           </div>
         )}
       </div>
@@ -170,8 +192,10 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
             value={filters[step.key]}
             onChange={(value) => handleChange(step.key, value)}
             options={step.options}
-            placeholder={step.enabled ? `Select ${step.label}` : 'Select previous first'}
-            className={!step.enabled ? 'opacity-50 pointer-events-none' : ''}
+            placeholder={
+              step.enabled ? `Select ${step.label}` : "Select previous first"
+            }
+            className={!step.enabled ? "opacity-50 pointer-events-none" : ""}
           />
         ))}
       </div>
@@ -179,7 +203,8 @@ const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
       {filters.school && options.programs.length === 0 && (
         <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
-            ⚠️ No programs found for the selected school. Please select a different school or add programs in the database.
+            ⚠️ No programs found for the selected school. Please select a
+            different school or add programs in the database.
           </p>
         </div>
       )}

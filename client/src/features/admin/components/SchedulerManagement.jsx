@@ -11,18 +11,18 @@ import LoadingSpinner from "../../../shared/components/LoadingSpinner";
 import DateTimePicker from "../../../shared/components/DateTimePicker";
 import { useToast } from "../../../shared/hooks/useToast";
 import {
-  fetchDepartmentConfig,
-  createDepartmentConfig,
-  updateDepartmentConfig,
+  fetchProgramConfig,
+  createProgramConfig,
+  updateProgramConfig,
   updateFeatureLock,
 } from "../services/adminApi";
 
 const FEATURES = [
-  { id: "faculty-addition", label: "Faculty Addition" },
-  { id: "student-addition", label: "Student Addition" },
-  { id: "panel-creation", label: "Panel Creation" },
-  { id: "project-assignment", label: "Project Assignment" },
-  { id: "marks-entry", label: "Marks Entry" },
+  { id: "faculty_creation", label: "Faculty Addition" },
+  { id: "student_upload", label: "Student Addition" },
+  { id: "panel_creation", label: "Panel Creation" },
+  { id: "project_creation", label: "Project Assignment" },
+  { id: "marks_entry", label: "Marks Entry" },
 ];
 
 const toDatetimeLocalValue = (isoString) => {
@@ -41,8 +41,8 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   const [selectedProgramme, setSelectedProgramme] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
 
-  // Department config data
-  const [departmentConfig, setDepartmentConfig] = useState(null);
+  // Program config data
+  const [programConfig, setProgramConfig] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Form state
@@ -66,16 +66,16 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   // Load department config when context changes
   useEffect(() => {
     if (filtersComplete.completed === 3) {
-      loadDepartmentConfig();
+      loadProgramConfig();
     } else {
-      setDepartmentConfig(null);
+      setProgramConfig(null);
     }
   }, [selectedSchool, selectedProgramme, selectedYear]);
 
-  const loadDepartmentConfig = async () => {
+  const loadProgramConfig = async () => {
     setLoading(true);
     try {
-      const yearObj = years.find((y) => y.id === parseInt(selectedYear));
+      const yearObj = years.find((y) => y.id === selectedYear);
       const schoolObj = schools.find((s) => s.code === selectedSchool);
       const programObj = programsBySchool[selectedSchool]?.find(
         (p) => p.code === selectedProgramme
@@ -85,19 +85,19 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
         return;
       }
 
-      const response = await fetchDepartmentConfig(
+      const response = await fetchProgramConfig(
         yearObj.name,
         schoolObj.code,
         programObj.code
       );
 
       if (response.success) {
-        setDepartmentConfig(response.data);
+        setProgramConfig(response.data);
       }
     } catch (error) {
       if (error.response?.status === 404) {
         // Config doesn't exist yet
-        setDepartmentConfig(null);
+        setProgramConfig(null);
       } else {
         console.error("Error loading department config:", error);
         showToast("Failed to load configuration", "error");
@@ -108,9 +108,9 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   };
 
   const contextSchedules = useMemo(() => {
-    if (!departmentConfig || !departmentConfig.featureLocks) return [];
-    return departmentConfig.featureLocks;
-  }, [departmentConfig]);
+    if (!programConfig || !programConfig.featureLocks) return [];
+    return programConfig.featureLocks;
+  }, [programConfig]);
 
   const handleSchoolChange = (value) => {
     setSelectedSchool(value);
@@ -150,7 +150,7 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
       return;
     }
 
-    const yearObj = years.find((y) => y.id === parseInt(selectedYear));
+    const yearObj = years.find((y) => y.id === selectedYear);
     const schoolObj = schools.find((s) => s.code === selectedSchool);
     const programObj = programsBySchool[selectedSchool]?.find(
       (p) => p.code === selectedProgramme
@@ -163,30 +163,34 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
 
     setLoading(true);
     try {
-      let updatedLocks = [...(contextSchedules || [])];
+      let updatedLocks = (contextSchedules || []).map((schedule) => ({
+        featureName: schedule.featureName || schedule.feature,
+        deadline: schedule.deadline || schedule.activeUntil,
+        isLocked: schedule.isLocked || false,
+      }));
       const existingIndex = updatedLocks.findIndex(
-        (l) => l.feature === selectedFeature
+        (l) => l.featureName === selectedFeature
       );
 
       if (existingIndex >= 0) {
         updatedLocks[existingIndex] = {
           ...updatedLocks[existingIndex],
-          activeUntil: activeUntilIso,
+          deadline: activeUntilIso,
         };
       } else {
         updatedLocks.push({
-          feature: selectedFeature,
-          activeUntil: activeUntilIso,
+          featureName: selectedFeature,
+          deadline: activeUntilIso,
           isLocked: false,
         });
       }
 
-      if (departmentConfig) {
+      if (programConfig) {
         // Update existing config
-        await updateFeatureLock(departmentConfig._id, updatedLocks);
+        await updateFeatureLock(programConfig._id, updatedLocks);
       } else {
         // Create new config
-        await createDepartmentConfig(
+        await createProgramConfig(
           yearObj.name,
           schoolObj.code,
           programObj.code,
@@ -201,7 +205,7 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
       }
 
       showToast("Schedule saved successfully", "success");
-      await loadDepartmentConfig();
+      await loadProgramConfig();
       setSelectedFeature("");
       setActiveUntil("");
     } catch (error) {
@@ -216,17 +220,17 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   };
 
   const handleRemoveSchedule = async (featureId) => {
-    if (!departmentConfig) return;
+    if (!programConfig) return;
 
     setLoading(true);
     try {
       const updatedLocks = contextSchedules.filter(
-        (l) => l.feature !== featureId
+        (l) => l.featureName !== featureId
       );
-      await updateFeatureLock(departmentConfig._id, updatedLocks);
+      await updateFeatureLock(programConfig._id, updatedLocks);
 
       showToast("Schedule removed", "success");
-      await loadDepartmentConfig();
+      await loadProgramConfig();
 
       if (selectedFeature === featureId) {
         setSelectedFeature("");
@@ -242,20 +246,20 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
 
   const handleSelectExisting = (featureId) => {
     const existingSchedule = contextSchedules.find(
-      (s) => s.feature === featureId
+      (s) => s.featureName === featureId
     );
     if (existingSchedule) {
       setSelectedFeature(featureId);
-      setActiveUntil(toDatetimeLocalValue(existingSchedule.activeUntil));
+      setActiveUntil(toDatetimeLocalValue(existingSchedule.deadline));
     }
   };
 
   const isFeatureScheduled = (featureId) => {
-    return contextSchedules.some((s) => s.feature === featureId);
+    return contextSchedules.some((s) => s.featureName === featureId);
   };
 
   const getFeatureSchedule = (featureId) => {
-    return contextSchedules.find((s) => s.feature === featureId);
+    return contextSchedules.find((s) => s.featureName === featureId);
   };
 
   return (
@@ -426,13 +430,15 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
 
             <div className="space-y-3">
               {contextSchedules.map((schedule) => {
-                const feature = FEATURES.find((f) => f.id === schedule.feature);
-                const deadline = new Date(schedule.activeUntil);
+                const feature = FEATURES.find(
+                  (f) => f.id === schedule.featureName
+                );
+                const deadline = new Date(schedule.deadline);
                 const isExpired = deadline < new Date();
 
                 return (
                   <div
-                    key={schedule.feature}
+                    key={schedule.featureName}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex-1">
@@ -444,7 +450,7 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
                         )}
                         <div>
                           <p className="font-medium text-gray-900">
-                            {feature?.label || schedule.feature}
+                            {feature?.label || schedule.featureName}
                           </p>
                           <p className="text-sm text-gray-500">
                             Active until: {deadline.toLocaleString()}
@@ -456,7 +462,9 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleSelectExisting(schedule.feature)}
+                        onClick={() =>
+                          handleSelectExisting(schedule.featureName)
+                        }
                         disabled={loading}
                       >
                         Edit
@@ -464,7 +472,9 @@ const SchedulerManagement = ({ schools, programsBySchool, years }) => {
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleRemoveSchedule(schedule.feature)}
+                        onClick={() =>
+                          handleRemoveSchedule(schedule.featureName)
+                        }
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         disabled={loading}
                       >

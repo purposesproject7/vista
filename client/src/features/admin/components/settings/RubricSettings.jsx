@@ -50,7 +50,7 @@ const RubricSettings = ({
   const [selectedContext, setSelectedContext] = useState({
     academicYear: "2024-25",
     school: "SCOPE",
-    department: "CSE",
+    program: "CSE",
   });
 
   // Fetch data when context changes
@@ -58,14 +58,14 @@ const RubricSettings = ({
     if (
       selectedContext.academicYear &&
       selectedContext.school &&
-      selectedContext.department
+      selectedContext.program
     ) {
       loadData();
     }
   }, [
     selectedContext.academicYear,
     selectedContext.school,
-    selectedContext.department,
+    selectedContext.program,
   ]);
 
   const loadData = async () => {
@@ -79,7 +79,7 @@ const RubricSettings = ({
       const response = await getComponentLibrary(
         selectedContext.academicYear,
         selectedContext.school,
-        selectedContext.department
+        selectedContext.program
       );
       setComponentLibrary(response.data);
     } catch (error) {
@@ -96,7 +96,7 @@ const RubricSettings = ({
       const response = await getMarkingSchema(
         selectedContext.academicYear,
         selectedContext.school,
-        selectedContext.department
+        selectedContext.program
       );
       setMarkingSchema(response.data);
     } catch (error) {
@@ -150,7 +150,7 @@ const RubricSettings = ({
       const payload = {
         academicYear: selectedContext.academicYear,
         school: selectedContext.school,
-        department: selectedContext.department,
+        program: selectedContext.program,
         reviews: updatedReviews,
       };
 
@@ -203,7 +203,7 @@ const RubricSettings = ({
         const newLibrary = {
           academicYear: selectedContext.academicYear,
           school: selectedContext.school,
-          department: selectedContext.department,
+          program: selectedContext.program,
           components: [component],
         };
         await createComponentLibrary(newLibrary);
@@ -287,7 +287,7 @@ const RubricSettings = ({
                   setSelectedContext({
                     ...selectedContext,
                     school: val,
-                    department: "",
+                    program: "",
                   })
                 }
                 options={schools.map((s) => ({ value: s.code, label: s.code }))}
@@ -299,9 +299,9 @@ const RubricSettings = ({
                 Department
               </label>
               <Select
-                value={selectedContext.department}
+                value={selectedContext.program}
                 onChange={(val) =>
-                  setSelectedContext({ ...selectedContext, department: val })
+                  setSelectedContext({ ...selectedContext, program: val })
                 }
                 options={(programs[selectedContext.school] || []).map((p) => ({
                   value: p.code,

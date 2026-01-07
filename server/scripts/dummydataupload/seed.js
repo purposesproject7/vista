@@ -58,8 +58,8 @@ const seedFaculty = async () => {
           $set: {
             faculty: updatedFaculty._id,
             school: f.school,
-            department: f.department,
-            academicYear: "2025-2026", // Default or from JSON if added
+            program: f.program,
+            academicYear: "2023-2024", // Updated to match dataset
             isPrimary: true, // Defaulting to true for dummy data
             isActive: true,
           },
@@ -93,20 +93,25 @@ const seedProjects = async () => {
 
   for (const p of projectList) {
     // Resolve guide
-    const guide = await Faculty.findOne({ emailId: p.guideEmail });
+    const guide = await Faculty.findOne({ employeeId: p.guideFacultyEmpId });
     if (!guide) {
-      console.warn(`Guide not found for project ${p.name}: ${p.guideEmail}`);
+      console.warn(
+        `Guide not found for project ${p.name}: ${p.guideFacultyEmpId}`
+      );
       continue;
     }
 
     // Resolve students
     const studentIds = [];
-    for (const regNo of p.studentRegNos) {
-      const student = await Student.findOne({ regNo });
-      if (student) {
-        studentIds.push(student._id);
-      } else {
-        console.warn(`Student not found for project ${p.name}: ${regNo}`);
+    // JSON uses "students" array of regNos, not "studentRegNos"
+    if (p.students && Array.isArray(p.students)) {
+      for (const regNo of p.students) {
+        const student = await Student.findOne({ regNo });
+        if (student) {
+          studentIds.push(student._id);
+        } else {
+          console.warn(`Student not found for project ${p.name}: ${regNo}`);
+        }
       }
     }
 
@@ -114,9 +119,15 @@ const seedProjects = async () => {
       ...p,
       guideFaculty: guide._id,
       students: studentIds,
+      teamSize: studentIds.length || 1, // Default team size if calc fails, though schema requires it
     };
-    delete projectData.guideEmail;
-    delete projectData.studentRegNos;
+    delete projectData.guideFacultyEmpId;
+    // delete projectData.students; // We overwrite 'students' key but since p has it, spread operator + overwrite handles it.
+    // Actually, 'students' key in p is array of strings. We overwrite it with array of ObjectIds in line 116.
+    // So we don't strictly need to delete the old key if we overwrite it, but cleaning up is good.
+    // However, if we don't delete `guideEmail` (which doesn't exist) nothing happens.
+    // We should delete the old properties if they conflict or just let the overwrite happen.
+    // p.students (strings) -> projectData.students (ObjectIds). Correct.
 
     await Project.findOneAndUpdate(
       { name: p.name },
@@ -130,6 +141,13 @@ const seedProjects = async () => {
 const seed = async () => {
   await connectDB();
   try {
+    console.log("Clearing existing data...");
+    await Faculty.deleteMany({});
+    await Student.deleteMany({});
+    await Project.deleteMany({});
+    await ProjectCoordinator.deleteMany({});
+    console.log("Data cleared.");
+
     await seedFaculty();
     await seedStudents();
     await seedProjects();

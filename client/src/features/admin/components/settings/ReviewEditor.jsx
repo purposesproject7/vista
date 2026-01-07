@@ -114,9 +114,18 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
   };
 
   // Safe date helper for input type="datetime-local"
+  // Safe date helper for input type="datetime-local"
   const formatDateForInput = (dateString) => {
     if (!dateString) return "";
-    return new Date(dateString).toISOString().slice(0, 16);
+    const date = new Date(dateString);
+    // Format to YYYY-MM-DDThh:mm (local time)
+    const pad = (num) => String(num).padStart(2, "0");
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const totalMarks = formData.components.reduce(

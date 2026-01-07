@@ -123,6 +123,8 @@ router.post(
     "role",
     "school",
     "program",
+    "phoneNumber",
+    "specialization",
   ]),
   adminController.createFaculty
 );

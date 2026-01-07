@@ -7,7 +7,7 @@ import TeamSettings from "../components/settings/TeamSettings";
 import RubricSettings from "../components/settings/RubricSettings";
 import ModificationSettings from "../components/settings/ModificationSettings";
 import RoleManagement from "../components/RoleManagement";
-import SchedulerManagement from "../components/SchedulerManagement";
+
 import { INITIAL_FACULTY } from "../components/faculty-management/facultyData";
 import { fetchMasterData } from "../services/adminApi";
 import { useToast } from "../../../shared/hooks/useToast";
@@ -60,7 +60,8 @@ const AdminSettings = () => {
 
         // Transform programs grouped by school (using departments from backend)
         const programsBySchool = {};
-        data.departments
+        const programsList = data.programs || data.departments;
+        programsList
           ?.filter((d) => d.isActive !== false)
           .forEach((d) => {
             const schoolCode = d.school;
@@ -117,12 +118,7 @@ const AdminSettings = () => {
       icon: KeyIcon,
       description: "Assign coordinators by context",
     },
-    {
-      id: "scheduler",
-      label: "Scheduler",
-      icon: ClockIcon,
-      description: "Set feature deadlines for coordinators",
-    },
+
     {
       id: "rubrics",
       label: "Rubrics",
@@ -248,14 +244,6 @@ const AdminSettings = () => {
 
           {activeTab === "roles" && (
             <RoleManagement
-              schools={schools}
-              programsBySchool={programs}
-              years={years}
-            />
-          )}
-
-          {activeTab === "scheduler" && (
-            <SchedulerManagement
               schools={schools}
               programsBySchool={programs}
               years={years}

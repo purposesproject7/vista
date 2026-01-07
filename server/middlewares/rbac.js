@@ -1,5 +1,6 @@
 import Faculty from "../models/facultySchema.js";
 import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 
 /**
  * Require specific role
@@ -58,6 +59,31 @@ export async function requireProjectCoordinator(req, res, next) {
 
     // Attach to request
     req.coordinators = coordinators;
+
+    // Apply ProgramConfig deadlines dynamically
+    for (const coordinator of coordinators) {
+      const config = await ProgramConfig.findOne({
+        academicYear: coordinator.academicYear,
+        school: coordinator.school,
+        program: coordinator.program,
+      }).lean();
+
+      if (config && config.featureLocks) {
+        config.featureLocks.forEach((lock) => {
+          const featureName = lock.featureName;
+          const deadline = lock.deadline;
+
+          // Check if coordinator has this permission group
+          if (
+            coordinator.permissions[featureName] &&
+            coordinator.permissions[featureName].enabled
+          ) {
+            // Apply deadline from config to coordinator's permission
+            coordinator.permissions[featureName].deadline = deadline;
+          }
+        });
+      }
+    }
 
     // If single assignment, attach directly
     if (coordinators.length === 1) {

@@ -1024,79 +1024,35 @@ export async function assignProjectCoordinator(req, res) {
 
     // Build deadline mapping
     const globalDeadlines = {};
-    programConfig.featureLocks.forEach((lock) => {
-      globalDeadlines[lock.featureName] = lock.deadline;
-    });
+    if (programConfig.featureLocks) {
+      programConfig.featureLocks.forEach((lock) => {
+        globalDeadlines[lock.featureName] = lock.deadline;
+      });
+    }
 
     // Default permissions with global deadlines
     const defaultPermissions = {
-      canEdit: { enabled: true },
-      canView: { enabled: true },
-      canCreateFaculty: {
+      student_management: {
         enabled: true,
-        deadline: globalDeadlines.faculty_creation,
+        deadline: globalDeadlines.student_management,
       },
-      canEditFaculty: { enabled: isPrimary || false },
-      canDeleteFaculty: { enabled: isPrimary || false },
-
-      canCreatePanels: {
+      faculty_management: {
         enabled: true,
-        deadline: globalDeadlines.panel_creation,
+        deadline: globalDeadlines.faculty_management,
       },
-      canEditPanels: { enabled: isPrimary || false },
-      canDeletePanels: { enabled: isPrimary || false },
-      canAssignPanels: {
+      project_management: {
         enabled: true,
-        deadline: globalDeadlines.panel_assignment,
+        deadline: globalDeadlines.project_management,
       },
-      canReassignPanels: { enabled: isPrimary || false },
-
-      canUploadStudents: {
+      panel_management: {
         enabled: true,
-        deadline: globalDeadlines.student_upload,
+        deadline: globalDeadlines.panel_management,
       },
-      canModifyStudents: {
-        enabled: true,
-        deadline: globalDeadlines.student_modification,
-      },
-      canDeleteStudents: { enabled: isPrimary || false },
-
-      canCreateProjects: {
-        enabled: true,
-        deadline: globalDeadlines.project_creation,
-      },
-      canEditProjects: { enabled: isPrimary || false },
-      canDeleteProjects: { enabled: isPrimary || false },
-
-      canAssignGuides: {
-        enabled: true,
-        deadline: globalDeadlines.guide_assignment,
-      },
-      canReassignGuides: {
-        enabled: isPrimary || false,
-        deadline: globalDeadlines.guide_reassignment,
-      },
-      canMergeTeams: {
-        enabled: isPrimary || false,
-        deadline: globalDeadlines.team_merging,
-      },
-      canSplitTeams: {
-        enabled: isPrimary || false,
-        deadline: globalDeadlines.team_splitting,
-      },
-      canEditMarkingSchema: {
-        enabled: isPrimary || false,
-        deadline: globalDeadlines.marking_schema_edit,
-      },
-      canManageRequests: { enabled: isPrimary || false },
-      canCreateBroadcasts: { enabled: true },
-      canEditBroadcasts: { enabled: isPrimary || false },
-      canDeleteBroadcasts: { enabled: isPrimary || false },
     };
 
-    // Merge custom permissions if provided
+    // Override defaults with provided permissions if any
     const finalPermissions = permissions
-      ? mergePermissions(defaultPermissions, permissions)
+      ? { ...defaultPermissions, ...permissions }
       : defaultPermissions;
 
     // If primary, unset others
@@ -1143,12 +1099,7 @@ export async function assignProjectCoordinator(req, res) {
       data: coordinator,
     });
   } catch (error) {
-    logger.error("assign_project_coordinator_error", {
-      error: error.message,
-      stack: error.stack,
-    });
-
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -2389,7 +2340,18 @@ export async function createProgramConfig(req, res) {
       defaultTeamSize: defaultTeamSize || 3,
       maxPanelSize: maxPanelSize || 5,
       minPanelSize: minPanelSize || 3,
-      featureLocks: featureLocks || [],
+      featureLocks:
+        featureLocks ||
+        [
+          "student_management",
+          "faculty_management",
+          "project_management",
+          "panel_management",
+        ].map((feature) => ({
+          featureName: feature,
+          deadline: new Date(),
+          isLocked: false,
+        })),
     });
 
     await config.save();
@@ -2487,45 +2449,28 @@ export async function updateFeatureLock(req, res) {
 
     // Propagate deadline update to all project coordinators in this program
     if (deadline !== undefined) {
-      const permissionMap = {
-        faculty_creation: "canCreateFaculty",
-        panel_creation: "canCreatePanels",
-        student_upload: "canUploadStudents",
-        student_modification: "canModifyStudents",
-        project_creation: "canCreateProjects",
-        marking_schema_edit: "canEditMarkingSchema",
-        guide_assignment: "canAssignGuides",
-        panel_assignment: "canAssignPanels",
-        guide_reassignment: "canReassignGuides",
-        team_merging: "canMergeTeams",
-        team_splitting: "canSplitTeams",
-      };
+      // Direct mapping since featureName matches permission key
+      const updateFields = {};
+      updateFields[`permissions.${featureName}.deadline`] = deadline;
 
-      const permissionField = permissionMap[featureName];
-
-      if (permissionField) {
-        await ProjectCoordinator.updateMany(
-          {
-            academicYear: config.academicYear,
-            school: config.school,
-            program: config.program,
-            isActive: true,
-          },
-          {
-            $set: {
-              [`permissions.${permissionField}.deadline`]: deadline,
-            },
-          }
-        );
-
-        logger.info("coordinator_deadlines_propagated", {
-          featureName,
-          permissionField,
-          deadline,
+      await ProjectCoordinator.updateMany(
+        {
+          academicYear: config.academicYear,
           school: config.school,
           program: config.program,
-        });
-      }
+          isActive: true,
+        },
+        {
+          $set: updateFields,
+        }
+      );
+
+      logger.info("coordinator_deadlines_propagated", {
+        featureName,
+        deadline,
+        school: config.school,
+        program: config.program,
+      });
     }
 
     logger.info("feature_lock_updated", {

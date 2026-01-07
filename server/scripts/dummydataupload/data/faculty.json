@@ -7,7 +7,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -19,7 +19,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -31,7 +31,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -43,7 +43,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -55,7 +55,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -67,7 +67,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -79,7 +79,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -91,7 +91,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -103,7 +103,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -115,11 +115,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
-
   {
     "name": "Prof. L. Singh",
     "emailId": "lsingh11@vista.com",
@@ -128,7 +127,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -140,7 +139,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -152,7 +151,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -164,7 +163,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -176,11 +175,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
-
   {
     "name": "Dr. A. Khanna",
     "emailId": "akhanna16@vista.com",
@@ -189,7 +187,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -201,11 +199,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
-
   {
     "name": "Dr. R. Joshi",
     "emailId": "rjoshi18@vista.com",
@@ -214,7 +211,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -226,11 +223,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
-
   {
     "name": "Dr. K. Iqbal",
     "emailId": "kiqbal20@vista.com",
@@ -239,11 +235,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
-
   {
     "name": "Dr. P. Sengupta",
     "emailId": "psengupta21@vista.com",
@@ -252,11 +247,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
-
   {
     "name": "Dr. R. Pillai",
     "emailId": "rpillai22@vista.com",
@@ -265,11 +259,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cloud Computing",
     "isActive": true
   },
-
   {
     "name": "Dr. S. Karthik",
     "emailId": "skarthik23@vista.com",
@@ -278,11 +271,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "VLSI",
     "isActive": true
   },
-
   {
     "name": "Prof. J. Matthews",
     "emailId": "jmatthews24@vista.com",
@@ -291,7 +283,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -303,7 +295,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -315,7 +307,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -327,7 +319,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -339,7 +331,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -351,11 +343,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
-
   {
     "name": "Dr. V. Arora",
     "emailId": "varora30@vista.com",
@@ -364,7 +355,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -376,7 +367,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -388,7 +379,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -400,7 +391,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -412,11 +403,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
-
   {
     "name": "Dr. H. Li",
     "emailId": "hli35@vista.com",
@@ -425,7 +415,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -437,7 +427,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -449,7 +439,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -461,7 +451,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -473,11 +463,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
-
   {
     "name": "Dr. M. Patel",
     "emailId": "mpatel40@vista.com",
@@ -486,7 +475,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -498,7 +487,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -510,7 +499,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -522,7 +511,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -534,11 +523,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
-
   {
     "name": "Dr. L. Brown",
     "emailId": "lbrown45@vista.com",
@@ -547,7 +535,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -559,7 +547,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -571,7 +559,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -583,7 +571,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -595,11 +583,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
-
   {
     "name": "Dr. J. Miller",
     "emailId": "jmiller50@vista.com",
@@ -608,7 +595,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cloud Computing",
     "isActive": true
   },
@@ -620,7 +607,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cloud Computing",
     "isActive": true
   },
@@ -632,7 +619,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cloud Computing",
     "isActive": true
   },
@@ -644,7 +631,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cloud Computing",
     "isActive": true
   },
@@ -656,7 +643,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cloud Computing",
     "isActive": true
   },
@@ -668,11 +655,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cloud Computing",
     "isActive": true
   },
-
   {
     "name": "Dr. S. Varma",
     "emailId": "svarma56@vista.com",
@@ -681,7 +667,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "VLSI",
     "isActive": true
   },
@@ -693,7 +679,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "VLSI",
     "isActive": true
   },
@@ -705,7 +691,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "VLSI",
     "isActive": true
   },
@@ -717,7 +703,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "VLSI",
     "isActive": true
   },
@@ -729,11 +715,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "VLSI",
     "isActive": true
   },
-
   {
     "name": "Prof. S. Narayanan",
     "emailId": "snarayanan61@vista.com",
@@ -742,7 +727,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -754,7 +739,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -766,7 +751,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -778,7 +763,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -790,11 +775,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
-
   {
     "name": "Dr. P. Iyer",
     "emailId": "piyer66@vista.com",
@@ -803,7 +787,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -815,7 +799,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -827,7 +811,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -839,7 +823,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
@@ -851,11 +835,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-AIML",
     "specialization": "AI/ML",
     "isActive": true
   },
-
   {
     "name": "Dr. K. Hoffman",
     "emailId": "khoffman71@vista.com",
@@ -864,7 +847,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -876,7 +859,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -888,7 +871,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -900,7 +883,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
@@ -912,11 +895,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Cybersecurity",
     "isActive": true
   },
-
   {
     "name": "Dr. D. Verghese",
     "emailId": "dverghese76@vista.com",
@@ -925,7 +907,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -937,7 +919,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -949,7 +931,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -961,7 +943,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
@@ -973,11 +955,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-DS",
     "specialization": "Data Science",
     "isActive": true
   },
-
   {
     "name": "Dr. V. Mehra",
     "emailId": "vmehra81@vista.com",
@@ -986,7 +967,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -998,7 +979,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -1010,7 +991,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -1022,7 +1003,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
@@ -1034,11 +1015,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "IoT",
     "isActive": true
   },
-
   {
     "name": "Dr. H. Verbeek",
     "emailId": "hverbeek86@vista.com",
@@ -1047,7 +1027,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -1059,7 +1039,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -1071,7 +1051,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -1083,7 +1063,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
@@ -1095,11 +1075,10 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Blockchain",
     "isActive": true
   },
-
   {
     "name": "Prof. D. Watson",
     "emailId": "dwatson91@vista.com",
@@ -1108,7 +1087,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -1120,7 +1099,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -1132,7 +1111,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -1144,7 +1123,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -1156,7 +1135,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "Software Engineering",
     "isActive": true
   },
@@ -1168,7 +1147,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -1180,7 +1159,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -1192,7 +1171,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -1204,7 +1183,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   },
@@ -1216,7 +1195,7 @@
     "password": "password123",
     "role": "faculty",
     "school": "SCOPE",
-    "department": "CSE",
+    "program": "BTECH-CSE",
     "specialization": "General",
     "isActive": true
   }

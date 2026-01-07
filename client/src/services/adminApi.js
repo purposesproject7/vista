@@ -118,8 +118,17 @@ export const fetchFacultyDetailsBulk = async (employeeIds) => {
     });
     return response.data;
   } catch (error) {
+    throw new Error();
+  }
+};
+
+export const fetchMasterData = async () => {
+  try {
+    const response = await api.get("/admin/master-data");
+    return response.data;
+  } catch (error) {
     throw new Error(
-      error.response?.data?.message || "Failed to fetch faculty details"
+      error.response?.data?.message || "Failed to fetch master data"
     );
   }
 };

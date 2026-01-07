@@ -806,7 +806,7 @@ export const assignProjectCoordinator = async (
   facultyId,
   academicYear,
   school,
-  department,
+  program,
   isPrimary = false,
   permissions = null
 ) => {
@@ -814,7 +814,7 @@ export const assignProjectCoordinator = async (
     facultyId,
     academicYear,
     school,
-    department,
+    program,
     isPrimary,
     permissions,
   });
@@ -889,29 +889,25 @@ export const updateMarkingSchema = async (schemaId, data) => {
 // ==================== Department Config & Feature Locks ====================
 
 /**
- * Get department configuration
+ * Get program configuration
  */
-export const fetchDepartmentConfig = async (
-  academicYear,
-  school,
-  department
-) => {
-  const response = await api.get("/admin/department-config", {
-    params: { academicYear, school, department },
+export const fetchProgramConfig = async (academicYear, school, program) => {
+  const response = await api.get("/admin/program-config", {
+    params: { academicYear, school, program },
   });
   return response.data;
 };
 
 /**
- * Save department configuration (Create or Update)
+ * Save program configuration (Create or Update)
  * @param {Object} configData - { academicYear, school, program, minTeamSize, maxTeamSize, ... }
  */
-export const saveDepartmentConfig = async (configData) => {
+export const saveProgramConfig = async (configData) => {
   let existingId = null;
 
   // 1. Check if configuration already exists
   try {
-    const existing = await fetchDepartmentConfig(
+    const existing = await fetchProgramConfig(
       configData.academicYear,
       configData.school,
       configData.program
@@ -930,17 +926,17 @@ export const saveDepartmentConfig = async (configData) => {
   // 2. Update or Create based on existence
   if (existingId) {
     // Update existing
-    const response = await updateDepartmentConfig(existingId, {
+    const response = await updateProgramConfig(existingId, {
       ...configData,
-      department: configData.program, // Map program to department
+      program: configData.program,
     });
     return response;
   } else {
     // Create new
-    const response = await createDepartmentConfig(
+    const response = await createProgramConfig(
       configData.academicYear,
       configData.school,
-      configData.program, // Pass as department arg
+      configData.program,
       configData
     );
     return response;
@@ -948,31 +944,28 @@ export const saveDepartmentConfig = async (configData) => {
 };
 
 /**
- * Create department configuration
+ * Create program configuration
  */
-export const createDepartmentConfig = async (
+export const createProgramConfig = async (
   academicYear,
   school,
-  department,
+  program,
   config
 ) => {
-  const response = await api.post("/admin/department-config", {
+  const response = await api.post("/admin/program-config", {
     academicYear,
     school,
-    department,
+    program,
     ...config,
   });
   return response.data;
 };
 
 /**
- * Update department configuration
+ * Update program configuration
  */
-export const updateDepartmentConfig = async (configId, updates) => {
-  const response = await api.put(
-    `/admin/department-config/${configId}`,
-    updates
-  );
+export const updateProgramConfig = async (configId, updates) => {
+  const response = await api.put(`/admin/program-config/${configId}`, updates);
   return response.data;
 };
 
@@ -981,7 +974,7 @@ export const updateDepartmentConfig = async (configId, updates) => {
  */
 export const updateFeatureLock = async (configId, featureLocks) => {
   const response = await api.patch(
-    `/admin/department-config/${configId}/feature-lock`,
+    `/admin/program-config/${configId}/feature-lock`,
     {
       featureLocks,
     }
@@ -1058,11 +1051,10 @@ export default {
   saveMarkingSchema,
   updateMarkingSchema,
 
-  // Department Config & Feature Locks
-  fetchDepartmentConfig,
-  createDepartmentConfig,
-  updateDepartmentConfig,
-  saveDepartmentConfig,
-  updateFeatureLock,
+  // Program Config & Feature Locks
+  fetchProgramConfig,
+  createProgramConfig,
+  updateProgramConfig,
+  saveProgramConfig,
   updateFeatureLock,
 };

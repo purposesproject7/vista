@@ -251,27 +251,10 @@ const CoordinatorTabs = () => {
 
     const p = coordinator.permissions;
 
-    const studentAccess =
-      isPermissionActive(p.canUploadStudents) ||
-      isPermissionActive(p.canModifyStudents) ||
-      isPermissionActive(p.canDeleteStudents);
-
-    const facultyAccess =
-      isPermissionActive(p.canCreateFaculty) ||
-      isPermissionActive(p.canEditFaculty) ||
-      isPermissionActive(p.canDeleteFaculty);
-
-    const projectAccess =
-      isPermissionActive(p.canCreateProjects) ||
-      isPermissionActive(p.canEditProjects) ||
-      isPermissionActive(p.canDeleteProjects);
-
-    const panelAccess =
-      isPermissionActive(p.canCreatePanels) ||
-      isPermissionActive(p.canEditPanels) ||
-      isPermissionActive(p.canDeletePanels) ||
-      isPermissionActive(p.canAssignPanels) ||
-      isPermissionActive(p.canReassignPanels);
+    const studentAccess = isPermissionActive(p.student_management);
+    const facultyAccess = isPermissionActive(p.faculty_management);
+    const projectAccess = isPermissionActive(p.project_management);
+    const panelAccess = isPermissionActive(p.panel_management);
 
     return studentAccess && facultyAccess && projectAccess && panelAccess;
   };

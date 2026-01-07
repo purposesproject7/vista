@@ -5,8 +5,7 @@
     "guideFacultyEmpId": "F001",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -15,8 +14,7 @@
     "guideFacultyEmpId": "F002",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -25,8 +23,7 @@
     "guideFacultyEmpId": "F003",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -35,8 +32,7 @@
     "guideFacultyEmpId": "F004",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -45,8 +41,7 @@
     "guideFacultyEmpId": "F005",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -55,8 +50,7 @@
     "guideFacultyEmpId": "F006",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -65,8 +59,7 @@
     "guideFacultyEmpId": "F007",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -75,8 +68,7 @@
     "guideFacultyEmpId": "F008",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -85,8 +77,7 @@
     "guideFacultyEmpId": "F009",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -95,8 +86,7 @@
     "guideFacultyEmpId": "F010",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -105,8 +95,7 @@
     "guideFacultyEmpId": "F011",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -115,8 +104,7 @@
     "guideFacultyEmpId": "F012",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -125,8 +113,7 @@
     "guideFacultyEmpId": "F013",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -135,8 +122,7 @@
     "guideFacultyEmpId": "F014",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -145,8 +131,7 @@
     "guideFacultyEmpId": "F015",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -155,8 +140,7 @@
     "guideFacultyEmpId": "F016",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -165,8 +149,7 @@
     "guideFacultyEmpId": "F017",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -175,8 +158,7 @@
     "guideFacultyEmpId": "F018",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -185,8 +167,7 @@
     "guideFacultyEmpId": "F019",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -195,8 +176,7 @@
     "guideFacultyEmpId": "F020",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -205,8 +185,7 @@
     "guideFacultyEmpId": "F021",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -215,8 +194,7 @@
     "guideFacultyEmpId": "F022",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cloud Computing",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -225,8 +203,7 @@
     "guideFacultyEmpId": "F023",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "VLSI",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -235,8 +212,7 @@
     "guideFacultyEmpId": "F024",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -245,8 +221,7 @@
     "guideFacultyEmpId": "F025",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -255,8 +230,7 @@
     "guideFacultyEmpId": "F026",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -265,8 +239,7 @@
     "guideFacultyEmpId": "F027",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -275,8 +248,7 @@
     "guideFacultyEmpId": "F028",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -285,8 +257,7 @@
     "guideFacultyEmpId": "F029",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -295,8 +266,7 @@
     "guideFacultyEmpId": "F030",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -305,8 +275,7 @@
     "guideFacultyEmpId": "F031",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -315,8 +284,7 @@
     "guideFacultyEmpId": "F032",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -325,8 +293,7 @@
     "guideFacultyEmpId": "F033",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -335,8 +302,7 @@
     "guideFacultyEmpId": "F034",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -345,8 +311,7 @@
     "guideFacultyEmpId": "F035",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -355,8 +320,7 @@
     "guideFacultyEmpId": "F036",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -365,8 +329,7 @@
     "guideFacultyEmpId": "F037",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -375,8 +338,7 @@
     "guideFacultyEmpId": "F038",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -385,8 +347,7 @@
     "guideFacultyEmpId": "F039",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -395,8 +356,7 @@
     "guideFacultyEmpId": "F040",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -405,8 +365,7 @@
     "guideFacultyEmpId": "F041",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -415,8 +374,7 @@
     "guideFacultyEmpId": "F042",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -425,8 +383,7 @@
     "guideFacultyEmpId": "F043",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -435,8 +392,7 @@
     "guideFacultyEmpId": "F044",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -445,8 +401,7 @@
     "guideFacultyEmpId": "F045",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -455,8 +410,7 @@
     "guideFacultyEmpId": "F046",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -465,8 +419,7 @@
     "guideFacultyEmpId": "F047",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -475,8 +428,7 @@
     "guideFacultyEmpId": "F048",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -485,8 +437,7 @@
     "guideFacultyEmpId": "F049",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -495,8 +446,7 @@
     "guideFacultyEmpId": "F050",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cloud Computing",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -505,8 +455,7 @@
     "guideFacultyEmpId": "F051",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cloud Computing",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -515,8 +464,7 @@
     "guideFacultyEmpId": "F052",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cloud Computing",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -525,8 +473,7 @@
     "guideFacultyEmpId": "F053",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cloud Computing",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -535,8 +482,7 @@
     "guideFacultyEmpId": "F054",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cloud Computing",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -545,8 +491,7 @@
     "guideFacultyEmpId": "F055",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cloud Computing",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -555,8 +500,7 @@
     "guideFacultyEmpId": "F056",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "VLSI",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -565,8 +509,7 @@
     "guideFacultyEmpId": "F057",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "VLSI",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -575,8 +518,7 @@
     "guideFacultyEmpId": "F058",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "VLSI",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -585,8 +527,7 @@
     "guideFacultyEmpId": "F059",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "VLSI",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -595,8 +536,7 @@
     "guideFacultyEmpId": "F060",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "VLSI",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -605,8 +545,7 @@
     "guideFacultyEmpId": "F061",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -615,8 +554,7 @@
     "guideFacultyEmpId": "F062",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -625,8 +563,7 @@
     "guideFacultyEmpId": "F063",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -635,8 +572,7 @@
     "guideFacultyEmpId": "F064",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -645,8 +581,7 @@
     "guideFacultyEmpId": "F065",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -655,8 +590,7 @@
     "guideFacultyEmpId": "F066",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -665,8 +599,7 @@
     "guideFacultyEmpId": "F067",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -675,8 +608,7 @@
     "guideFacultyEmpId": "F068",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -685,8 +617,7 @@
     "guideFacultyEmpId": "F069",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -695,8 +626,7 @@
     "guideFacultyEmpId": "F070",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "AI/ML",
+    "program": "BTECH-AIML",
     "type": "software"
   },
   {
@@ -705,8 +635,7 @@
     "guideFacultyEmpId": "F071",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -715,8 +644,7 @@
     "guideFacultyEmpId": "F072",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -725,8 +653,7 @@
     "guideFacultyEmpId": "F073",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -735,8 +662,7 @@
     "guideFacultyEmpId": "F074",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -745,8 +671,7 @@
     "guideFacultyEmpId": "F075",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Cybersecurity",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -755,8 +680,7 @@
     "guideFacultyEmpId": "F076",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -765,8 +689,7 @@
     "guideFacultyEmpId": "F077",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -775,8 +698,7 @@
     "guideFacultyEmpId": "F078",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -785,8 +707,7 @@
     "guideFacultyEmpId": "F079",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -795,8 +716,7 @@
     "guideFacultyEmpId": "F080",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Data Science",
+    "program": "BTECH-DS",
     "type": "software"
   },
   {
@@ -805,8 +725,7 @@
     "guideFacultyEmpId": "F081",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -815,8 +734,7 @@
     "guideFacultyEmpId": "F082",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -825,8 +743,7 @@
     "guideFacultyEmpId": "F083",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -835,8 +752,7 @@
     "guideFacultyEmpId": "F084",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -845,8 +761,7 @@
     "guideFacultyEmpId": "F085",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "IoT",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -855,8 +770,7 @@
     "guideFacultyEmpId": "F086",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -865,8 +779,7 @@
     "guideFacultyEmpId": "F087",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -875,8 +788,7 @@
     "guideFacultyEmpId": "F088",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -885,8 +797,7 @@
     "guideFacultyEmpId": "F089",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -895,8 +806,7 @@
     "guideFacultyEmpId": "F090",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Blockchain",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -905,8 +815,7 @@
     "guideFacultyEmpId": "F091",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -915,8 +824,7 @@
     "guideFacultyEmpId": "F092",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -925,8 +833,7 @@
     "guideFacultyEmpId": "F093",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -935,8 +842,7 @@
     "guideFacultyEmpId": "F094",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -945,8 +851,7 @@
     "guideFacultyEmpId": "F095",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "Software Engineering",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -955,8 +860,7 @@
     "guideFacultyEmpId": "F096",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -965,8 +869,7 @@
     "guideFacultyEmpId": "F097",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -975,8 +878,7 @@
     "guideFacultyEmpId": "F098",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -985,8 +887,7 @@
     "guideFacultyEmpId": "F099",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   },
   {
@@ -995,8 +896,7 @@
     "guideFacultyEmpId": "F100",
     "academicYear": "2024-2025",
     "school": "SCOPE",
-    "department": "CSE",
-    "specialization": "General",
+    "program": "BTECH-CSE",
     "type": "software"
   }
 ]
