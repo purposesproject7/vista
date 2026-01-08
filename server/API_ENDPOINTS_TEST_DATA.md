@@ -646,21 +646,63 @@ This document lists all server endpoints used for creating or updating data, alo
 
 #### 46. Assign Review Panel
 - **Method:** `POST`
-- **Endpoint:** `/api/project-coordinator/projects/:projectId/assign-review-panel`
-- **Description:** Assign a panel for a specific review.
-- **Request Body:**
+- **Endpoint:** `/api/project-coordinator/projects/assign-review-panel`
+- **Description:** Assign a panel for a specific review. Can either use an existing panel or create a temporary panel with specific faculty members.
+- **Request Body (Option 1 - Use existing panel):**
 ```json
 {
+  "projectId": "64f8a1b2c3d4e5f6a7b8c9d0",
   "reviewType": "Review 1",
   "panelId": "64f8a1b2c3d4e5f6a7b8c9d8"
 }
 ```
+- **Request Body (Option 2 - Create temporary panel with specific faculty):**
+```json
+{
+  "projectId": "64f8a1b2c3d4e5f6a7b8c9d0",
+  "reviewType": "Review 1",
+  "memberEmployeeIds": ["FAC001", "FAC002", "FAC003"]
+}
+```
+
+#### 47. Reassign Panel
+- **Method:** `PUT`
+- **Endpoint:** `/api/project-coordinator/projects/reassign-panel`
+- **Description:** Reassign a project to a different panel. Can either assign to an existing panel or create a temporary panel with new faculty members.
+- **Request Body (Option 1 - Reassign to existing panel):**
+```json
+{
+  "projectId": "64f8a1b2c3d4e5f6a7b8c9d0",
+  "panelId": "64f8a1b2c3d4e5f6a7b8c9d9",
+  "reason": "Original panel unavailable due to scheduling conflict"
+}
+```
+- **Request Body (Option 2 - Create temporary panel with new faculty):**
+```json
+{
+  "projectId": "64f8a1b2c3d4e5f6a7b8c9d0",
+  "memberEmployeeIds": ["FAC004", "FAC005"],
+  "reason": "Need faculty with specific expertise for this project"
+}
+```
+
+#### 48. Auto Assign Panels
+- **Method:** `POST`
+- **Endpoint:** `/api/project-coordinator/panels/auto-assign`
+- **Description:** Automatically assign panels to projects based on specialization and workload. **Only primary coordinator can perform this action.**
+- **Request Body:**
+```json
+{
+  "buffer": 0
+}
+```
+- **Note:** Buffer parameter is optional. It specifies how many of the most experienced panels to exclude from auto-assignment (default: 0).
 
 ---
 
 ## Project Routes (`/api/projects`)
 
-#### 47. Create Project
+#### 49. Create Project
 - **Method:** `POST`
 - **Endpoint:** `/api/projects/create`
 - **Description:** Create a project (general route).
@@ -675,7 +717,7 @@ This document lists all server endpoints used for creating or updating data, alo
 }
 ```
 
-#### 48. Bulk Create Projects
+#### 50. Bulk Create Projects
 - **Method:** `POST`
 - **Endpoint:** `/api/projects/bulk`
 - **Description:** Create multiple projects.
