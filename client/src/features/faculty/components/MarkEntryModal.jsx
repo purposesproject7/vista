@@ -1,84 +1,41 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import api from '../../../services/api';
 import Modal from '../../../shared/components/Modal';
 import Button from '../../../shared/components/Button';
 import Toast from '../../../shared/components/Toast';
 import {
-  CheckCircleIcon,
   XCircleIcon,
-  ClockIcon,
-  ArrowPathIcon,
-  PencilSquareIcon,
-  CheckIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   UserGroupIcon
 } from '@heroicons/react/24/outline';
 
 const DEFAULT_META = Object.freeze({
   attendance: 'present',
-  pat: false
+  pat: false,
+  comment: ''
 });
 
 const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
-  /* --- State --- */
+  // --- STATE ---
   const [marks, setMarks] = useState({});
   const [meta, setMeta] = useState({});
   const [teamMeta, setTeamMeta] = useState({ pptApproved: false, teamComment: '' });
 
-  // Workflow State
-  const [workflowPhase, setWorkflowPhase] = useState('marking'); // 'marking' | 'student_transition' | 'team_dashboard'
-  const [activeStudentIndex, setActiveStudentIndex] = useState(0);
+  const [activeStudent, setActiveStudent] = useState(null);
   const [activeRubricIndex, setActiveRubricIndex] = useState(0);
-
-  // Interaction State
-  const [isReadingPhase, setIsReadingPhase] = useState(false);
-  const [editingStudentId, setEditingStudentId] = useState(null); // ID of student being edited in dashboard
-
+  const [viewMode, setViewMode] = useState('student'); // 'student' | 'dashboard'
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [spotlight, setSpotlight] = useState(null); // { score, label }
+  const [hoveredLevel, setHoveredLevel] = useState(null); // For showing description below
+  const [isSwitching, setIsSwitching] = useState(false); // New loading state for student switch
 
-  /* --- Derived Data --- */
-  const rubrics = review?.rubric_structure || [];
-  // Enhanced MOCK Data for Demo Purposes
-  const mockRubrics = rubrics.length > 0 ? rubrics : [
-    {
-      rubric_id: 'mock_concept',
-      component_name: 'Concept Innovation',
-      component_description: 'Evaluates the novelty, feasibility, and impact of the project idea on a comprehensive scale.',
-      max_marks: 10,
-      levels: Array.from({ length: 11 }, (_, i) => ({
-        score: i,
-        label: i === 0 ? 'None' : i === 10 ? 'Perfection' : i < 5 ? 'Emerging' : 'Proficient',
-        description: `Level ${i} performance. ${i === 10 ? 'Absolutely flawless execution with unique insights.' : i > 5 ? 'Strong understanding and application.' : 'Basic attempt with gaps.'}`
-      }))
-    },
-    {
-      rubric_id: 'mock_presentation',
-      component_name: 'Presentation',
-      component_description: 'Assesses clarity, confidence, and visual aids used during the presentation.',
-      max_marks: 5,
-      levels: [
-        { score: 1, label: 'Poor', description: 'Disorganized, unclear delivery. No visual aids.' },
-        { score: 2, label: 'Fair', description: 'Somewhat clear but lacks confidence. Basic visuals.' },
-        { score: 3, label: 'Good', description: 'Clear delivery with decent flow. Adequate visuals.' },
-        { score: 4, label: 'Very Good', description: 'Engaging, confident delivery. Professional visuals.' },
-        { score: 5, label: 'Excellent', description: 'Compelling, masterful presentation. High-impact visuals.' }
-      ]
-    },
-    {
-      rubric_id: 'mock_qa',
-      component_name: 'Q&A',
-      component_description: 'Ability to answer questions effectively.',
-      max_marks: 3,
-      levels: [
-        { score: 1, label: 'Basic', description: 'Struggled to answer.' },
-        { score: 2, label: 'Competent', description: 'Answered most questions.' },
-        { score: 3, label: 'Advanced', description: 'Insightful answers.' }
-      ]
-    }
-  ];
+  const rubrics = useMemo(() => review?.rubrics || review?.rubric_structure || [], [review]);
 
-  /* --- Initialization --- */
+  // --- INITIALIZATION ---
   useEffect(() => {
     if (!isOpen || !team) return;
     const initMarks = {};
@@ -89,533 +46,515 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
     });
     setMarks(initMarks);
     setMeta(initMeta);
-    setActiveStudentIndex(0);
-    setActiveRubricIndex(0);
-    setWorkflowPhase('marking');
-    setIsReadingPhase(false);
-    setEditingStudentId(null);
+    setActiveStudent(team.students[0]?.student_id || null);
+    setViewMode('student');
   }, [isOpen, team]);
 
-  const activeStudent = team?.students[activeStudentIndex];
-  const currentRubric = mockRubrics[activeRubricIndex];
-  const currentScore = marks[activeStudent?.student_id]?.[currentRubric?.rubric_id];
-  const currentMeta = meta[activeStudent?.student_id] || DEFAULT_META;
+  useEffect(() => {
+    if (activeStudent) {
+      setIsSwitching(true);
+      const timer = setTimeout(() => {
+        setIsSwitching(false);
+        setActiveRubricIndex(0);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [activeStudent]);
 
-  // No delay logic needed anymore
+  if (!isOpen || !team || !review) return null;
 
-  /* --- Handlers --- */
+  // --- HELPERS ---
+  const activeStudentData = team.students.find(s => s.student_id === activeStudent);
+  const currentMeta = meta[activeStudent] || DEFAULT_META;
+  const isBlocked = currentMeta.pat || currentMeta.attendance === 'absent';
+
   const updateMeta = (sid, patch) => {
     setMeta(prev => ({ ...prev, [sid]: { ...prev[sid], ...patch } }));
-    setHasChanges(true);
   };
 
-  const selectScore = (score) => {
-    if (isReadingPhase) return;
+  const getComponentTotal = (sid, rubric) => {
+    const level = marks[sid]?.[rubric.rubric_id];
+    if (level === undefined) return 0;
+    const maxLevel = Math.max(...rubric.levels.map(l => l.score));
+    return ((level / maxLevel) * rubric.max_marks).toFixed(1);
+  };
 
+  const calculateStudentTotal = (sid) => {
+    if (!marks[sid] || meta[sid]?.pat || meta[sid]?.attendance === 'absent') return 0;
+    return rubrics.reduce((sum, r) => sum + parseFloat(getComponentTotal(sid, r) || 0), 0);
+  };
+
+  const isStudentComplete = (sid) => {
+    const m = meta[sid];
+    if (!m) return false;
+    if (m.pat || m.attendance === 'absent') return true;
+    return rubrics.every(r => marks[sid]?.[r.rubric_id] !== undefined);
+  };
+
+  const allValid = team.students.every(s => isStudentComplete(s.student_id)) && teamMeta.teamComment.trim().length >= 10;
+
+  // --- ACTIONS ---
+
+  const handleNextStudent = useCallback((currentIndex) => {
+    if (currentIndex < team.students.length - 1) {
+      setActiveStudent(team.students[currentIndex + 1].student_id);
+      setViewMode('student');
+    } else {
+      setViewMode('dashboard');
+    }
+  }, [team.students]);
+
+  const setComponentLevel = (sid, rid, score, label) => {
+    if (isBlocked) return;
     setMarks(prev => ({
       ...prev,
-      [activeStudent.student_id]: { ...prev[activeStudent.student_id], [currentRubric.rubric_id]: score }
+      [sid]: { ...prev[sid], [rid]: score }
     }));
-    setHasChanges(true);
 
-    // Auto Advance Logic
-    if (activeRubricIndex < mockRubrics.length - 1) {
-      // Next Rubric
-      // Small visual delay for feedback, but functional 'instant' feel
-      setTimeout(() => {
+    // Spotlight Effect
+    setSpotlight({ score, label });
+
+    // Auto-advance
+    setTimeout(() => {
+      setSpotlight(null);
+      if (activeRubricIndex < rubrics.length - 1) {
         setActiveRubricIndex(prev => prev + 1);
-      }, 250);
-    } else {
-      // End of Student
-      if (activeStudentIndex < team.students.length - 1) {
-        handleStudentTransition();
       } else {
-        setWorkflowPhase('team_dashboard');
+        const currentIndex = team.students.findIndex(s => s.student_id === activeStudent);
+        setTimeout(() => {
+          handleNextStudent(currentIndex);
+        }, 300);
       }
+    }, 600);
+  };
+
+  const handleAttendanceChange = (type, value) => {
+    let patch = {};
+    let shouldSkip = false;
+
+    if (type === 'attendance') {
+      patch = { attendance: value, pat: value === 'absent' ? false : currentMeta.pat };
+      if (value === 'absent') shouldSkip = true;
+    } else if (type === 'pat') {
+      patch = { pat: value, attendance: value ? 'present' : currentMeta.attendance };
+      if (value === true) shouldSkip = true;
+    }
+    updateMeta(activeStudent, patch);
+
+    if (shouldSkip) {
+      const currentIndex = team.students.findIndex(s => s.student_id === activeStudent);
+      setToast({ type: 'info', message: `Marked as ${type === 'attendance' ? 'Absent' : 'PAT'}. Auto-skipping...` });
+      setTimeout(() => {
+        handleNextStudent(currentIndex);
+        setToast(null);
+      }, 1000);
     }
   };
 
-  const handleStudentTransition = () => {
-    setWorkflowPhase('student_transition');
-    // Auto-advance to next student after short success display
-    setTimeout(() => {
-      setActiveStudentIndex(prev => prev + 1);
-      setActiveRubricIndex(0);
-      setWorkflowPhase('marking');
-    }, 1000); // 1s transition
-  };
+  const handleDashboardScoreChange = (sid, rid, newScore) => {
+    const rubric = rubrics.find(r => r.rubric_id === rid);
+    const maxScore = Math.max(...rubric.levels.map(l => l.score));
 
-  const handleSave = async () => {
-    if (teamMeta.teamComment.trim().length < 10) {
-      setToast({ type: 'error', message: 'Team comments are required (min 10 chars).' });
+    // Allow clearing the input
+    if (newScore === '') {
+      setMarks(prev => ({ ...prev, [sid]: { ...prev[sid], [rid]: '' } }));
       return;
     }
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 800));
-    onSuccess?.({ marks, meta, teamMeta });
-    setSaving(false);
-    setHasChanges(false);
-    onClose();
-  };
 
-  const updateStudentMark = (sid, rid, val) => {
+    let val = parseFloat(newScore);
+    if (isNaN(val)) return;
+
+    // Strict clamping
+    if (val < 0) val = 0;
+    if (val > maxScore) {
+      val = maxScore;
+      setToast({ type: 'error', message: `Max marks for ${rubric.component_name} is ${maxScore}` });
+    }
+
     setMarks(prev => ({
       ...prev,
       [sid]: { ...prev[sid], [rid]: val }
     }));
-    setHasChanges(true);
   };
 
-  /* --- Render Helpers --- */
-  const getStudentTotal = (sid) => {
-    return mockRubrics.reduce((sum, r) => {
-      const s = marks[sid]?.[r.rubric_id];
-      if (s === undefined) return sum;
-      return sum + (s / Math.max(...r.levels.map(l => l.score))) * r.max_marks;
-    }, 0).toFixed(1);
+  const handleSave = async () => {
+    if (!allValid) {
+      setToast({ type: 'error', message: 'Please complete all fields & team feedback.' });
+      return;
+    }
+    setSaving(true);
+
+    try {
+      const timestamp = new Date().toISOString();
+      const submissions = team.students.map(student => {
+        const sid = student.student_id;
+        const studentMarks = marks[sid] || {};
+        const studentMeta = meta[sid] || DEFAULT_META;
+
+        // Remarks construction
+        let remarks = studentMeta.comment || '';
+        if (studentMeta.attendance === 'absent') remarks = `[ABSENT] ${remarks}`;
+        if (studentMeta.pat) remarks = `[PAT] ${remarks}`;
+        if (teamMeta.teamComment) remarks += ` | Team Feedback: ${teamMeta.teamComment}`;
+        if (teamMeta.pptApproved) remarks += ` | PPT Approved`;
+
+        // Calculate Components
+        const componentMarks = rubrics.map(rubric => {
+          const score = parseFloat(studentMarks[rubric.rubric_id] || 0);
+          return {
+            componentId: rubric.rubricId || rubric.rubric_id, // Ensure ID matches what backend expects (ObjectId or string?)
+            componentName: rubric.componentName || rubric.component_name,
+            marks: score,
+            maxMarks: rubric.maxMarks || rubric.max_marks,
+            componentTotal: score, // Flat structure
+            componentMaxTotal: rubric.maxMarks || rubric.max_marks,
+            remarks: ''
+          };
+        });
+
+        const totalObtained = componentMarks.reduce((sum, c) => sum + c.componentTotal, 0);
+        const maxTotal = componentMarks.reduce((sum, c) => sum + c.componentMaxTotal, 0);
+
+        // Payload
+        return api.post('/faculty/marks', {
+          student: sid,
+          project: team.id || team.project_id || team.team_id, // Check ID field 
+          reviewType: review.id || review.reviewName, // Use review ID
+          facultyType: review.type || 'guide', // Default guide
+          componentMarks,
+          totalMarks: totalObtained,
+          maxTotalMarks: maxTotal,
+          remarks: remarks,
+          isSubmitted: true // Final submission
+        });
+      });
+
+      await Promise.all(submissions);
+
+      setToast({ type: 'success', message: 'Marks submitted successfully!' });
+      await new Promise(r => setTimeout(r, 1000)); // Show success toast
+      onSuccess?.({ marks, meta, teamMeta });
+      onClose();
+
+    } catch (err) {
+      console.error('Submission failed', err);
+      setToast({ type: 'error', message: 'Failed to submit marks. Please try again.' });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const hasStudentMarks = (sid) => {
-    // Check if any marks exist for this student
-    return mockRubrics.some(r => marks[sid]?.[r.rubric_id] !== undefined);
+  // --- RENDER HELPERS ---
+  const getScoreColor = (score, maxScore) => {
+    const percentage = (score / maxScore) * 100;
+    if (percentage >= 80) return 'bg-green-50 text-green-700 border-green-200 ring-green-100';
+    if (percentage >= 60) return 'bg-blue-50 text-blue-700 border-blue-200 ring-blue-100';
+    if (percentage >= 40) return 'bg-yellow-50 text-yellow-700 border-yellow-200 ring-yellow-100';
+    return 'bg-red-50 text-red-700 border-red-200 ring-red-100';
   };
 
-  if (!isOpen || !team) return null;
-
-  /* --- VIEWS --- */
-
-  // 1. STUDENT TRANSITION OVERLAY (AUTO)
-  if (workflowPhase === 'student_transition') {
-    const nextStudent = team.students[activeStudentIndex + 1];
-    return (
-      <Modal isOpen={true} onClose={() => { }} size="full" hideHeader noPadding>
-        <div className="flex h-screen w-full items-center justify-center bg-slate-50 p-8 animate-fadeIn">
-          <div className="text-center max-w-2xl">
-            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 animate-scaleIn">
-              <CheckCircleIcon className="w-14 h-14" />
-            </div>
-            <h2 className="text-4xl font-bold text-slate-800 mb-2">Saved</h2>
-            <p className="text-xl text-slate-500 mb-12">Moving to next student...</p>
-            <div className="flex items-center justify-center gap-3 text-blue-600">
-              <ArrowPathIcon className="w-6 h-6 animate-spin" />
-              <span className="font-bold text-lg">Loading {nextStudent.student_name}</span>
-            </div>
-          </div>
-        </div>
-      </Modal>
-    );
-  }
-
-  // 2. TEAM DASHBOARD
-  if (workflowPhase === 'team_dashboard') {
-    const isValid = teamMeta.teamComment.trim().length >= 10;
-    const grandHeader = mockRubrics.reduce((s, r) => s + r.max_marks, 0);
-
-    return (
-      <Modal isOpen={true} onClose={hasChanges ? () => setShowCloseConfirm(true) : onClose} size="full" hideHeader noPadding>
-        <div className="flex flex-col h-screen bg-slate-50 overflow-hidden animate-fadeIn">
-
-          {/* Header */}
-          <div className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shadow-sm shrink-0 z-10">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Grading Summary</h1>
-              <p className="text-slate-500 text-sm">{team.team_name}</p>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* Back to Guided View - More Visible */}
-              <Button
-                onClick={() => { setActiveStudentIndex(0); setActiveRubricIndex(0); setWorkflowPhase('marking'); }}
-                variant="secondary"
-                className="shadow-sm border-slate-300"
-              >
-                Back to Guided View
-              </Button>
-              <div className="h-8 w-px bg-slate-200"></div>
-              <Button variant="ghost" onClick={hasChanges ? () => setShowCloseConfirm(true) : onClose} className="text-slate-400 hover:text-red-500">
-                Close
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-8 max-w-7xl mx-auto w-full">
-
-            {/* Student Table */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase w-48 whitespace-nowrap">Student</th>
-                    {mockRubrics.map(r => (
-                      <th key={r.rubric_id} className="px-4 py-4 text-xs font-bold text-slate-500 uppercase text-center w-24 whitespace-normal">
-                        {r.component_name} <br /> <span className="text-[10px] text-slate-400">({r.max_marks} pts)</span>
-                      </th>
-                    ))}
-                    <th className="px-6 py-4 text-xs font-bold text-slate-900 uppercase text-right w-24 whitespace-nowrap">Total</th>
-                    <th className="px-6 py-4 text-right w-24 whitespace-nowrap">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {team.students.map((s, idx) => {
-                    const m = meta[s.student_id];
-                    const blocked = m.attendance === 'absent' || m.pat;
-                    const isEditing = editingStudentId === s.student_id;
-
-                    return (
-                      <tr key={s.student_id} className={`transition-colors ${isEditing ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`}>
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900">{s.student_name}</div>
-                          <div className="text-xs text-slate-400">{s.roll_number}</div>
-                          {blocked && <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-bold rounded uppercase ${m.attendance === 'absent' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{m.attendance === 'absent' ? 'Absent' : 'PAT'}</span>}
-                        </td>
-                        {mockRubrics.map(r => (
-                          <td key={r.rubric_id} className="px-4 py-4 text-center font-medium text-slate-600">
-                            {isEditing && !blocked ? (
-                              <input
-                                type="number"
-                                min={0}
-                                max={r.max_marks}
-                                value={(marks[s.student_id]?.[r.rubric_id] !== undefined) ? marks[s.student_id][r.rubric_id] : ''}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value);
-                                  if (!isNaN(val) && val >= 0 && val <= r.max_marks) {
-                                    updateStudentMark(s.student_id, r.rubric_id, val);
-                                  } else if (e.target.value === '') {
-                                    // Allow clearing for UX, but maybe handle empty save
-                                    updateStudentMark(s.student_id, r.rubric_id, '');
-                                  }
-                                }}
-                                className="w-full text-center p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm font-bold"
-                              />
-                            ) : (
-                              blocked ? '-' : marks[s.student_id]?.[r.rubric_id] || '-'
-                            )}
-                          </td>
-                        ))}
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-lg font-bold text-slate-900">{blocked ? (m.attendance === 'absent' ? '0' : 'PAT') : getStudentTotal(s.student_id)}</span>
-                          <span className="text-sm text-slate-400"> / {grandHeader}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {isEditing ? (
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => setEditingStudentId(null)} className="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200" title="Save">
-                                <CheckIcon className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            !blocked && (
-                              <button
-                                onClick={() => setEditingStudentId(s.student_id)}
-                                className="text-slate-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors"
-                                title="Quick Edit"
-                              >
-                                <PencilSquareIcon className="w-5 h-5" />
-                              </button>
-                            )
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Team Feedback Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">
-                  Final Team Comments <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={teamMeta.teamComment}
-                  onChange={e => { setTeamMeta(p => ({ ...p, teamComment: e.target.value })); setHasChanges(true); }}
-                  className={`w-full h-40 p-5 rounded-2xl border-2 resize-none focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-lg
-                              ${isValid ? 'border-slate-200 bg-white' : 'border-red-200 bg-red-50 focus:border-red-400'}`}
-                  placeholder="Enter constructive feedback for the entire team..."
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div
-                  onClick={() => { setTeamMeta(p => ({ ...p, pptApproved: !p.pptApproved })); setHasChanges(true); }}
-                  className={`cursor-pointer p-6 rounded-2xl border-2 transition-all group ${teamMeta.pptApproved ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200 hover:border-blue-400'}`}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-bold text-lg">Presentation Approved</h4>
-                    {teamMeta.pptApproved ? <CheckCircleIcon className="w-6 h-6" /> : <div className="w-6 h-6 rounded border-2 border-slate-300" />}
-                  </div>
-                  <p className={`text-sm ${teamMeta.pptApproved ? 'text-blue-100' : 'text-slate-500'}`}>Confirm that the presentation slides meet the required standard.</p>
-                </div>
-
-                <div>
-                  <button
-                    onClick={handleSave}
-                    disabled={!isValid || saving}
-                    className={`w-full py-5 rounded-2xl font-bold text-xl shadow-xl transition-all
-                                ${isValid && !saving
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:translate-y-[-2px] hover:shadow-blue-200'
-                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-                  >
-                    {saving ? 'Saving...' : 'Submit Grades'}
-                  </button>
-                  {!isValid && (
-                    <p className="text-center text-xs text-red-500 mt-2 font-medium">
-                      {10 - teamMeta.teamComment.trim().length} more characters required for comments.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </Modal>
-    );
-  }
-
-  // 3. MARKING INTERFACE
-  const isHighDensity = currentRubric.levels.length > 6;
-  const currentLevelDetails = currentRubric.levels.find(l => l.score === currentScore) || {};
+  const getGridCols = (count) => {
+    if (count <= 4) return 'grid-cols-2 md:grid-cols-4';
+    if (count === 5) return 'grid-cols-2 md:grid-cols-5';
+    if (count <= 8) return 'grid-cols-3 md:grid-cols-4';
+    return 'grid-cols-3 md:grid-cols-5';
+  };
 
   return (
     <>
-      <Modal isOpen={true} onClose={hasChanges ? () => setShowCloseConfirm(true) : onClose} size="full" hideHeader noPadding>
-        <div className="flex h-screen bg-white font-sans text-slate-800 overflow-hidden relative">
+      <Modal isOpen={isOpen} onClose={onClose} size="full" hideHeader={true} noPadding={true}>
+        <div className="flex bg-slate-50 h-screen overflow-hidden font-sans">
 
           {/* LEFT SIDEBAR */}
-          <div className="w-64 bg-slate-50 border-r border-slate-200 hidden md:flex flex-col z-10 shrink-0">
-            <div className="p-6 border-b border-slate-200">
-              <h2 className="font-bold text-slate-900 truncate text-lg">{team.team_name}</h2>
-              <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-bold">Project Assessment</p>
+          <div className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-sm">
+            <div className="p-6 border-b border-slate-100">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Reviewing Team</h2>
+              <div className="text-lg font-bold text-slate-800 leading-tight">{team.team_name}</div>
             </div>
+
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {team.students.map((s, idx) => {
-                const m = meta[s.student_id];
-                const isAbsent = m?.attendance === 'absent';
-                const isPat = m?.pat;
-                const isMarked = !isAbsent && !isPat && hasStudentMarks(s.student_id);
+              {team.students.map(s => {
+                const isActive = activeStudent === s.student_id && viewMode === 'student';
+                const isComplete = isStudentComplete(s.student_id);
+                const total = calculateStudentTotal(s.student_id);
+                const m = meta[s.student_id] || DEFAULT_META;
+                const isAbsOrPat = m.pat || m.attendance === 'absent';
 
                 return (
-                  <div
+                  <button
                     key={s.student_id}
-                    onClick={() => {
-                      if (workflowPhase === 'marking') {
-                        setActiveStudentIndex(idx);
-                        setActiveRubricIndex(0);
-                      }
-                    }}
-                    className={`p-4 rounded-xl text-sm font-medium flex justify-between items-center cursor-pointer transition-all border
-                        ${idx === activeStudentIndex
-                        ? 'bg-white text-blue-700 shadow-sm border-blue-200 ring-1 ring-blue-100'
-                        : idx < activeStudentIndex || isMarked || isAbsent || isPat
-                          ? 'text-slate-600 border-transparent hover:bg-white hover:shadow-sm'
-                          : 'text-slate-400 border-transparent hover:bg-white hover:shadow-sm'}`}
+                    onClick={() => { setActiveStudent(s.student_id); setViewMode('student'); }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all relative border
+                      ${isActive ? 'bg-blue-50/80 border-blue-500 ring-1 ring-blue-100' : 'bg-white hover:bg-slate-50 border-transparent'}
+                    `}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${idx === activeStudentIndex ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'}`}>
-                        {s.student_name.charAt(0)}
+                    <div className="relative shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-white shadow-sm">
+                        <img src={s.profile_image || `https://ui-avatars.com/api/?name=${s.student_name}`} alt="" className="w-full h-full object-cover" />
                       </div>
-                      <span>{s.student_name}</span>
+                      {isComplete && !isAbsOrPat && (
+                        <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm">
+                          <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                        </div>
+                      )}
                     </div>
-                    {isAbsent && <XCircleIcon className="w-5 h-5 text-red-500" title="Absent" />}
-                    {isPat && <ClockIcon className="w-5 h-5 text-blue-500" title="PAT" />}
-                    {isMarked && <CheckCircleIcon className="w-5 h-5 text-green-500" title="Marked" />}
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-bold truncate ${isActive ? 'text-blue-900' : 'text-slate-700'}`}>{s.student_name}</div>
+                      <div className="text-xs text-slate-400 truncate">{s.roll_no}</div>
+                    </div>
+                    {isAbsOrPat ? (
+                      <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">abs</span>
+                    ) : (
+                      <div className={`text-sm font-bold ${isActive ? 'text-blue-600' : 'text-slate-300'}`}>
+                        {Math.round(total)}
+                      </div>
+                    )}
+                  </button>
                 );
               })}
+              <div className="my-2 border-t border-slate-100"></div>
+              <button
+                onClick={() => setViewMode('dashboard')}
+                className={`w-full flex items-center gap-3 p-4 rounded-xl text-left transition-all border
+                  ${viewMode === 'dashboard' ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-100 text-purple-900' : 'bg-white hover:bg-slate-50 border-transparent text-slate-600'}
+                `}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${viewMode === 'dashboard' ? 'bg-purple-200 text-purple-700' : 'bg-slate-100 text-slate-400'}`}>
+                  <UserGroupIcon className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold">Team Dashboard</div>
+                  <div className="text-xs opacity-70">Submit Review</div>
+                </div>
+              </button>
             </div>
           </div>
 
-          {/* MAIN CONTENT */}
-          <div className="flex-1 flex flex-col relative w-full h-full bg-white">
-
-            {/* Top Bar */}
-            <div className="h-20 border-b border-slate-100 px-8 flex items-center justify-between shrink-0 z-20">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">
-                    Student {activeStudentIndex + 1} of {team.students.length}
-                  </span>
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 flex flex-col relative min-w-0 bg-slate-50/50">
+            {/* Header */}
+            {viewMode === 'student' && activeStudentData && (
+              <div className="bg-white/80 backdrop-blur-md px-8 py-4 border-b border-slate-200 flex justify-between items-center shrink-0 sticky top-0 z-30">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{activeStudentData.student_name}</h1>
+                  <div className="text-sm text-slate-500">{activeStudentData.roll_no}</div>
                 </div>
-                <h1 className="text-2xl font-bold text-slate-900">{activeStudent.student_name}</h1>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-100">
-                  <button
-                    onClick={() => updateMeta(activeStudent.student_id, { attendance: currentMeta.attendance === 'absent' ? 'present' : 'absent', pat: false })}
-                    className={`
-                              px-4 py-2 rounded-md font-bold text-xs uppercase tracking-wide transition-all
-                              ${currentMeta.attendance === 'absent'
-                        ? 'bg-red-500 text-white shadow-sm'
-                        : 'text-slate-500 hover:bg-gray-200'}
-                           `}
-                  >
-                    {currentMeta.attendance === 'absent' ? 'Absent' : 'Mark Absent'}
-                  </button>
-
-                  <button
-                    onClick={() => updateMeta(activeStudent.student_id, { pat: !currentMeta.pat, attendance: 'present' })}
-                    className={`
-                              px-4 py-2 rounded-md font-bold text-xs uppercase tracking-wide transition-all
-                              ${currentMeta.pat
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-slate-500 hover:bg-gray-200'}
-                           `}
-                  >
-                    PAT
-                  </button>
-                </div>
-                <div className="w-px h-8 bg-slate-100 mx-2"></div>
-                <Button variant="ghost" onClick={hasChanges ? () => setShowCloseConfirm(true) : onClose} className="text-slate-400 hover:text-slate-600">
-                  Exit
-                </Button>
-              </div>
-            </div>
-
-            {/* ACTIVE AREA */}
-            <div className="flex-1 overflow-hidden relative flex flex-col items-center bg-white p-6 md:p-12">
-
-              {(!currentMeta.pat && currentMeta.attendance !== 'absent') && (
-                <div className="w-full max-w-5xl flex flex-col h-full animate-slideUp">
-
-                  {/* QUESTION / RUBRIC HEADER */}
-                  <div className="flex-shrink-0 mb-10">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold uppercase tracking-wider">
-                        Criterion {activeRubricIndex + 1} / {mockRubrics.length}
-                      </span>
-                    </div>
-                    <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6 leading-tight">
-                      {currentRubric.component_name}
-                    </h2>
-                    <p className="text-xl text-slate-600 leading-relaxed max-w-3xl">
-                      {currentRubric.component_description}
-                    </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex bg-slate-100 p-1 rounded-lg">
+                    <button onClick={() => handleAttendanceChange('attendance', 'present')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${currentMeta.attendance === 'present' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>Present</button>
+                    <button onClick={() => handleAttendanceChange('attendance', 'absent')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${currentMeta.attendance === 'absent' ? 'bg-red-500 shadow text-white' : 'text-slate-500 hover:text-red-600'}`}>Absent</button>
                   </div>
+                  <button onClick={() => handleAttendanceChange('pat', !currentMeta.pat)} className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all flex items-center gap-2 ${currentMeta.pat ? 'bg-orange-50 border-orange-500 text-orange-700' : 'bg-white border-slate-200 text-slate-500 hover:border-orange-300'}`}>
+                    <span>PAT</span>{currentMeta.pat && <CheckCircleIcon className="w-4 h-4" />}
+                  </button>
+                  <button onClick={onClose} className="ml-4 p-2 text-slate-400 hover:text-slate-600"><XCircleIcon className="w-8 h-8" /></button>
+                </div>
+              </div>
+            )}
 
-                  {/* SCORE INPUT AREA */}
-                  <div className="flex-1 flex flex-col justify-center">
+            {/* CONTENT */}
+            <div className="flex-1 p-8 overflow-y-auto flex flex-col relative w-full">
+              {viewMode === 'student' && activeStudentData && (
+                <div className="max-w-5xl mx-auto w-full flex-1 flex flex-col">
+                  {/* LOADING OVERLAY FOR STUDENT SWITCH */}
+                  {isSwitching && (
+                    <div className="absolute inset-0 z-40 bg-white/80 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
+                      <div className="text-center">
+                        <div className="inline-block w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <h3 className="text-xl font-bold text-slate-800">Switching to {activeStudentData.student_name}...</h3>
+                      </div>
+                    </div>
+                  )}
 
-                    {/* High Density: Horizontal Number Scale + Selection Detail */}
-                    {isHighDensity ? (
-                      <div className="space-y-8">
-                        {/* Selected Detail View - Shows mostly when something IS selected */}
-                        <div className={`min-h-[120px] p-6 rounded-2xl transition-all duration-300 border-l-4 ${currentScore !== undefined ? 'bg-blue-50 border-blue-500 opacity-100 translate-y-0' : 'bg-slate-50 border-slate-200 opacity-50'}`}>
-                          {currentScore !== undefined ? (
-                            <div>
-                              <div className="flex items-center gap-3 mb-2">
-                                <span className="text-4xl font-bold text-blue-600">{currentScore}</span>
-                                <span className="text-lg font-bold text-slate-900 uppercase tracking-wide">{currentLevelDetails.label}</span>
-                              </div>
-                              <p className="text-slate-700 text-lg">{currentLevelDetails.description}</p>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center h-full text-slate-400 text-lg font-medium">
-                              Select a score from below to see details
-                            </div>
-                          )}
+                  {/* SPOTLIGHT OVERLAY */}
+                  {spotlight && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
+                      <div className="bg-slate-900 text-white p-10 rounded-3xl shadow-2xl flex flex-col items-center transform scale-110 transition-transform animate-bounce-subtle">
+                        <div className="text-7xl font-black mb-2 tracking-tighter">{spotlight.score}</div>
+                        <div className="text-2xl font-bold text-slate-300 uppercase tracking-widest">{spotlight.label}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isSwitching && rubrics.length > 0 && (() => {
+                    const rubric = rubrics[activeRubricIndex];
+                    const selectedLevel = marks[activeStudent]?.[rubric.rubric_id];
+                    // Find description to show: either hovered or selected
+                    const activeLevelInfo = hoveredLevel || rubric.levels.find(l => l.score === selectedLevel);
+                    const maxLevel = Math.max(...rubric.levels.map(l => l.score));
+
+                    return (
+                      <div className="flex-1 flex flex-col animate-fadeIn">
+                        {/* Rubric Progress */}
+                        <div className="flex justify-center gap-2 mb-8">
+                          {rubrics.map((_, idx) => (
+                            <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeRubricIndex ? 'w-12 bg-blue-600' : 'w-2 bg-slate-200'}`} />
+                          ))}
                         </div>
 
-                        {/* Number Grid/Tape */}
-                        <div className="flex flex-wrap gap-3 justify-start">
-                          {currentRubric.levels.map(level => {
-                            const isSel = currentScore === level.score;
+                        <div className="text-center mb-10">
+                          <h3 className="text-3xl font-extrabold text-slate-900 mb-3 tracking-tight">{rubric.component_name}</h3>
+                          <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">{rubric.component_description}</p>
+                        </div>
+
+                        {/* MARKS GRID */}
+                        <div className={`grid gap-4 mb-8 ${getGridCols(rubric.levels.length)}`} onMouseLeave={() => setHoveredLevel(null)}>
+                          {rubric.levels.map(level => {
+                            const isSelected = selectedLevel === level.score;
+                            const colorClass = getScoreColor(level.score, maxLevel);
                             return (
                               <button
                                 key={level.score}
-                                onClick={() => selectScore(level.score)}
+                                onClick={() => setComponentLevel(activeStudent, rubric.rubric_id, level.score, level.label)}
+                                onMouseEnter={() => setHoveredLevel(level)}
+                                disabled={isBlocked}
                                 className={`
-                                                  w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold transition-all duration-200 shadow-sm
-                                                  ${isSel
-                                    ? 'bg-blue-600 text-white shadow-blue-300 scale-110 ring-4 ring-blue-100'
-                                    : 'bg-white border-2 border-slate-100 text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:-translate-y-1'}
-                                              `}
+                                        group relative p-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center text-center
+                                        ${isSelected ? `${colorClass} shadow-xl scale-105 z-10 border-current` : 'bg-white border-slate-100 hover:border-blue-300 hover:shadow-lg hover:-translate-y-1'}
+                                        ${isBlocked ? 'opacity-40 cursor-not-allowed' : ''}
+                                     `}
                               >
-                                {level.score}
+                                <div className={`text-4xl font-black mb-1 transition-transform group-hover:scale-110 ${isSelected ? 'text-inherit' : 'text-slate-800'}`}>{level.score}</div>
+                                <div className="text-xs uppercase font-bold tracking-wider opacity-70">{level.label}</div>
                               </button>
                             )
                           })}
                         </div>
+
+                        {/* DESCRIPTION AREA */}
+                        <div className="bg-blue-50/50 rounded-xl p-6 mb-8 min-h-[100px] flex items-center justify-center text-center border border-blue-100/50 transition-all">
+                          {activeLevelInfo ? (
+                            <div className="animate-fadeIn">
+                              <div className="text-sm font-bold text-blue-900 uppercase tracking-wide mb-1 opacity-70">{activeLevelInfo.label} ({activeLevelInfo.score})</div>
+                              {/* Using description if available, else label */}
+                              <div className="text-lg text-slate-700 leading-relaxed font-medium">{activeLevelInfo.description || activeLevelInfo.label}</div>
+                            </div>
+                          ) : (
+                            <div className="text-slate-400 italic">Hover over a mark to see details</div>
+                          )}
+                        </div>
+
+                        {/* BOTTOM NAVIGATION */}
+                        <div className="mt-auto flex justify-between items-center sticky bottom-0 bg-white/90 backdrop-blur p-4 rounded-xl border border-slate-100 shadow-sm z-20">
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              if (activeRubricIndex > 0) setActiveRubricIndex(p => p - 1);
+                              else {
+                                const currIdx = team.students.findIndex(s => s.student_id === activeStudent);
+                                if (currIdx > 0) setActiveStudent(team.students[currIdx - 1].student_id);
+                              }
+                            }}
+                            disabled={activeRubricIndex === 0 && team.students[0].student_id === activeStudent}
+                            className="w-32 rounded-full"
+                          >
+                            <ChevronLeftIcon className="w-4 h-4 mr-2" /> Back
+                          </Button>
+                          <div className="text-xs font-bold text-slate-300 uppercase tracking-widest hidden md:block">Navigation</div>
+                          <Button
+                            variant="primary"
+                            onClick={() => {
+                              if (activeRubricIndex < rubrics.length - 1) setActiveRubricIndex(p => p + 1);
+                              else handleNextStudent(team.students.findIndex(s => s.student_id === activeStudent));
+                            }}
+                            className="w-32 rounded-full"
+                          >
+                            {activeRubricIndex === rubrics.length - 1 ? 'Finish' : 'Next'}
+                            <ChevronRightIcon className="w-4 h-4 ml-2" />
+                          </Button>
+                        </div>
                       </div>
-                    ) : (
-                      /* Low Density: Card Grid (Refined) */
-                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {currentRubric.levels.map(level => {
-                          const isSel = currentScore === level.score;
-                          return (
-                            <button
-                              key={level.score}
-                              onClick={() => selectScore(level.score)}
-                              className={`
-                                                  aspect-[4/5] p-5 rounded-2xl text-left border-2 transition-all duration-200 flex flex-col justify-between
-                                                  ${isSel
-                                  ? 'bg-blue-600 border-blue-600 text-white shadow-xl scale-[1.02]'
-                                  : 'bg-white border-slate-100 text-slate-500 hover:border-blue-300 hover:shadow-lg hover:-translate-y-1'}
-                                              `}
-                            >
-                              <div>
-                                <div className="text-3xl font-bold mb-1">{level.score}</div>
-                                <div className={`text-xs font-bold uppercase tracking-wider mb-4 ${isSel ? 'text-blue-200' : 'text-blue-600'}`}>
-                                  {level.label}
-                                </div>
-                                <p className={`text-sm leading-relaxed ${isSel ? 'text-indigo-100' : 'text-slate-400'}`}>
-                                  {level.description}
-                                </p>
-                              </div>
-                              {isSel && <div className="self-end"><CheckCircleIcon className="w-8 h-8 text-white" /></div>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
               )}
 
-              {/* BLOCKED STATE */}
-              {(currentMeta.pat || currentMeta.attendance === 'absent') && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400">
-                  <div className="w-24 h-24 mx-auto mb-6 bg-slate-50 rounded-full flex items-center justify-center">
-                    {currentMeta.pat ? <ClockIcon className="w-10 h-10 text-blue-500" /> : <XCircleIcon className="w-10 h-10 text-red-500" />}
+              {viewMode === 'dashboard' && (
+                <div className="max-w-4xl mx-auto w-full animate-slideUp">
+                  <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 mb-4">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600"><UserGroupIcon className="w-5 h-5" /></div>
+                      <div><h2 className="text-xl font-bold text-slate-800">Team Dashboard</h2><p className="text-xs text-slate-500">Edit marks directly and provide feedback.</p></div>
+                      <button onClick={onClose} className="ml-auto p-2 text-slate-400 hover:text-slate-600"><XCircleIcon className="w-8 h-8" /></button>
+                    </div>
+
+                    {/* EDITABLE MARKS TABLE */}
+                    <div className="overflow-x-auto mb-6 border rounded-xl border-slate-200 shadow-sm custom-scrollbar">
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-xs">
+                          <tr>
+                            <th className="px-5 py-3">Student</th>
+                            {rubrics.map(r => <th key={r.rubric_id} className="px-3 py-3 text-center">{r.component_name} <span className="text-[10px] text-slate-400">({r.max_marks})</span></th>)}
+                            <th className="px-5 py-3 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {team.students.map(s => {
+                            const total = calculateStudentTotal(s.student_id);
+                            return (
+                              <tr key={s.student_id} className="bg-white hover:bg-slate-50 transition-colors">
+                                <td className="px-5 py-3 font-bold text-slate-800 flex items-center gap-3">
+                                  <img src={s.profile_image || `https://ui-avatars.com/api/?name=${s.student_name}`} className="w-7 h-7 rounded-full bg-slate-200" alt="" />
+                                  <span className="truncate max-w-[120px]" title={s.student_name}>{s.student_name}</span>
+                                </td>
+                                {rubrics.map(r => {
+                                  const score = marks[s.student_id]?.[r.rubric_id] ?? '';
+                                  return (
+                                    <td key={r.rubric_id} className="px-3 py-3 text-center">
+                                      <input
+                                        type="number"
+                                        value={score}
+                                        onChange={(e) => handleDashboardScoreChange(s.student_id, r.rubric_id, e.target.value)}
+                                        className="w-14 p-1.5 text-center border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-bold text-slate-700 bg-slate-50 focus:bg-white transition-all text-xs"
+                                        max={Math.max(...r.levels.map(l => l.score))}
+                                        min={0}
+                                      />
+                                    </td>
+                                  )
+                                })}
+                                <td className="px-5 py-3 text-right font-black text-slate-900 text-base">{total}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mb-0">
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Team Feedback <span className="text-red-500">*</span></label>
+                      <textarea
+                        value={teamMeta.teamComment}
+                        onChange={(e) => setTeamMeta(prev => ({ ...prev, teamComment: e.target.value }))}
+                        placeholder="Enter specific feedback for the entire team..."
+                        className="w-full h-24 p-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none bg-slate-50 focus:bg-white transition-colors"
+                      />
+                      <div className="flex justify-between items-center mt-3">
+                        <label className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-2 rounded-lg transition-colors">
+                          <input type="checkbox" checked={teamMeta.pptApproved} onChange={(e) => setTeamMeta(prev => ({ ...prev, pptApproved: e.target.checked }))} className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 border-gray-300" />
+                          <span className="text-sm font-bold text-slate-700">PPT Approved by Guide</span>
+                        </label>
+                        <span className={`text-xs font-bold ${teamMeta.teamComment.length >= 10 ? 'text-green-600' : 'text-slate-400'}`}>{teamMeta.teamComment.length} / 10 chars</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-4 pt-5 mt-5 border-t border-slate-100">
+                      <Button variant="secondary" onClick={onClose} className="w-28 justify-center text-sm">Cancel</Button>
+                      <Button variant="primary" onClick={handleSave} disabled={!allValid || saving} className="w-40 justify-center py-2.5 bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-200 rounded-xl text-sm">{saving ? 'Submitting...' : 'Submit Evaluation'}</Button>
+                    </div>
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">{currentMeta.pat ? 'PAT Enabled' : 'Student Absent'}</h3>
-                  <p className="mb-8 max-w-md mx-auto text-slate-500">Grading skipped for this student. You can proceed to the next student.</p>
-                  <Button
-                    onClick={() => {
-                      if (activeStudentIndex < team.students.length - 1) {
-                        handleStudentTransition();
-                      } else {
-                        setWorkflowPhase('team_dashboard');
-                      }
-                    }}
-                    variant="primary"
-                    className="mx-auto px-8 py-3 rounded-full shadow-lg"
-                  >
-                    Skip & Continue
-                  </Button>
                 </div>
               )}
             </div>
           </div>
         </div>
-
-        {/* Close Confirmation */}
-        {showCloseConfirm && (
-          <Modal isOpen={showCloseConfirm} onClose={() => setShowCloseConfirm(false)} title="Unsaved Changes">
-            <div className="space-y-4 p-4">
-              <p className="text-slate-600">You have unsaved changes. All progress will be lost.</p>
-              <div className="flex justify-end gap-3">
-                <Button variant="secondary" onClick={() => setShowCloseConfirm(false)}>Resume</Button>
-                <Button variant="danger" onClick={() => { setShowCloseConfirm(false); onClose(); }}>Discard & Exit</Button>
-              </div>
-            </div>
-          </Modal>
-        )}
-
-        {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
+        <style jsx>{`
+          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+          .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+          .animate-slideUp { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        `}</style>
       </Modal>
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
     </>
   );
 };

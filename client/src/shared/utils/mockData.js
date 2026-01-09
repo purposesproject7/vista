@@ -24,12 +24,29 @@ export const MOCK_USERS = {
   }
 };
 
+export const MOCK_MASTER_DATA = {
+  academicYears: [
+    { year: '2025-26', isActive: true },
+    { year: '2024-25', isActive: false }
+  ],
+  schools: [
+    { code: 'SCOPE', name: 'School of Computer Science', isActive: true },
+    { code: 'SENSE', name: 'School of Electronics', isActive: true },
+    { code: 'SELECT', name: 'School of Electrical', isActive: true }
+  ],
+  programs: [
+    { name: 'B.Tech CSE', isActive: true },
+    { name: 'B.Tech ECE', isActive: true },
+    { name: 'M.Tech SE', isActive: true }
+  ]
+};
+
 export const MOCK_REVIEWS = [
   {
     review_id: 'R1',
     review_name: 'Project Proposal Review',
-    start_date: '2025-12-01',
-    end_date: '2025-12-20',
+    start_date: '2026-01-01',
+    end_date: '2026-01-20',
     review_type: 'guide',
     rubric_structure: [
       {
@@ -200,9 +217,9 @@ export const MOCK_REVIEWS = [
   {
     review_id: 'R2',
     review_name: 'Mid-Term Progress Review',
-    start_date: '2025-12-05',
-    end_date: '2025-12-25',
-    review_type: 'guide',
+    start_date: '2026-01-05',
+    end_date: '2026-01-25',
+    review_type: 'panel',
     rubric_structure: [
       {
         rubric_id: 'R2-C1',
@@ -372,7 +389,7 @@ export const MOCK_REVIEWS = [
     review_name: 'Design Review',
     start_date: '2025-11-10',
     end_date: '2025-11-28',
-    review_type: 'panel',
+    review_type: 'guide',
     rubric_structure: [
       {
         rubric_id: 'R3-C1',

@@ -7,9 +7,18 @@ import PastReviewsSection from '../components/PastReviewsSection';
 import MarkEntryModal from '../components/MarkEntryModal';
 import Button from '../../../shared/components/Button';
 import { FunnelIcon, CalendarIcon, AcademicCapIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
-import { getMasterData } from '../services/facultyService';
+import { MOCK_MASTER_DATA } from '../../../shared/utils/mockData';
 
 const FacultyDashboard = () => {
+    // Filter State
+    const [filters, setFilters] = useState({ year: '', school: '', program: '', role: 'guide' });
+    const [filterOptions, setFilterOptions] = useState({
+        years: [],
+        schools: [],
+        programs: [],
+        roles: ['guide', 'panel']
+    });
+
     const {
         active,
         deadlinePassed,
@@ -17,37 +26,32 @@ const FacultyDashboard = () => {
         loading,
         error,
         refreshReviews
-    } = useFacultyReviews('FAC_001');
-
-    // Filter State
-    const [filters, setFilters] = useState({ year: '', school: '', program: '' });
-    const [filterOptions, setFilterOptions] = useState({
-        years: [],
-        schools: [],
-        programs: []
-    });
+    } = useFacultyReviews('FAC_001', filters);
     const [loadingFilters, setLoadingFilters] = useState(true);
 
     // Initial Data Fetch
     useEffect(() => {
         const fetchFilters = async () => {
             try {
-                const data = await getMasterData();
+                // Fetch Master Data
+                const api = (await import('../../../services/api')).default;
+                const response = await api.get('/faculty/master-data');
+                const data = response.data.data;
 
                 // Process Master Data
                 const years = data.academicYears.filter(y => y.isActive).map(y => y.year);
                 const schools = data.schools.filter(s => s.isActive).map(s => s.code);
                 const programs = data.programs.filter(p => p.isActive).map(p => p.name);
-                // Programs might need to be filtered by selected school later
 
-                setFilterOptions({ years, schools, programs });
+                setFilterOptions({ years, schools, programs, roles: ['guide', 'panel'] });
 
                 // Set defaults if available
                 setFilters(prev => ({
                     ...prev,
-                    year: years[0] || '',
+                    year: years.find(y => y === '2024-2025') || years[0] || '',
                     school: schools[0] || '',
-                    program: 'All Programs'
+                    program: 'All Programs',
+                    role: 'guide'
                 }));
             } catch (err) {
                 console.error("Failed to load filter options", err);
@@ -58,8 +62,6 @@ const FacultyDashboard = () => {
 
         fetchFilters();
     }, []);
-
-    // Workflow State
 
     // Workflow State
     const [isInitialized, setIsInitialized] = useState(false);
@@ -138,6 +140,17 @@ const FacultyDashboard = () => {
                                     ))}
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Role</label>
+                                <select
+                                    value={filters.role}
+                                    onChange={e => setFilters(f => ({ ...f, role: e.target.value }))}
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium text-slate-700 uppercase"
+                                >
+                                    <option value="guide">GUIDE</option>
+                                    <option value="panel">PANEL</option>
+                                </select>
+                            </div>
                         </div>
 
                         <button
@@ -154,20 +167,22 @@ const FacultyDashboard = () => {
 
     // --- DASHBOARD VIEW (Normal) ---
 
-    // Define Filter Component to pass to Navbar (Compact Mode)
+    // Define Filter Content (Body Mode)
     const FilterBar = (
-        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
-            <div className="flex items-center px-2 text-slate-400 gap-1 text-xs font-bold uppercase tracking-wide">
-                <FunnelIcon className="w-3 h-3" /> Filter
+        <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 animate-slideUp">
+            <div className="flex items-center gap-2 text-slate-500 font-bold uppercase tracking-wide text-xs">
+                <FunnelIcon className="w-4 h-4" /> Filters
             </div>
-            <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+            <div className="h-8 w-px bg-slate-200 mx-2 hidden md:block"></div>
 
             {/* Year Filter */}
-            <div className="relative group">
+            <div className="flex flex-col gap-1 min-w-[140px]">
+                <label className="text-[10px] uppercase font-bold text-slate-400">Academic Year</label>
                 <select
                     value={filters.year}
                     onChange={e => setFilters(f => ({ ...f, year: e.target.value }))}
-                    className="pl-2 pr-6 py-1 bg-transparent text-sm font-medium text-slate-700 focus:ring-0 border-none outline-none cursor-pointer hover:text-blue-600 transition-colors appearance-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 transition-colors"
                 >
                     {filterOptions.years.map(year => (
                         <option key={year} value={year}>{year}</option>
@@ -175,14 +190,13 @@ const FacultyDashboard = () => {
                 </select>
             </div>
 
-            <div className="h-4 w-px bg-slate-200"></div>
-
             {/* School Filter */}
-            <div className="relative group">
+            <div className="flex flex-col gap-1 min-w-[140px]">
+                <label className="text-[10px] uppercase font-bold text-slate-400">School</label>
                 <select
                     value={filters.school}
                     onChange={e => setFilters(f => ({ ...f, school: e.target.value }))}
-                    className="pl-2 pr-6 py-1 bg-transparent text-sm font-medium text-slate-700 focus:ring-0 border-none outline-none cursor-pointer hover:text-blue-600 transition-colors appearance-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 transition-colors"
                 >
                     {filterOptions.schools.map(school => (
                         <option key={school} value={school}>{school}</option>
@@ -190,20 +204,36 @@ const FacultyDashboard = () => {
                 </select>
             </div>
 
-            <div className="h-4 w-px bg-slate-200"></div>
-
             {/* Program Filter */}
-            <div className="relative">
+            <div className="flex flex-col gap-1 min-w-[180px]">
+                <label className="text-[10px] uppercase font-bold text-slate-400">Program</label>
                 <select
                     value={filters.program}
                     onChange={e => setFilters(f => ({ ...f, program: e.target.value }))}
-                    className="pl-2 pr-6 py-1 bg-transparent text-sm font-bold text-blue-700 focus:ring-0 border-none outline-none cursor-pointer hover:text-blue-800 transition-colors appearance-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-2 text-sm font-bold text-blue-600 outline-none focus:border-blue-500 transition-colors"
                 >
                     <option>All Programs</option>
                     {filterOptions.programs.map(program => (
                         <option key={program} value={program}>{program}</option>
                     ))}
                 </select>
+            </div>
+
+            <div className="flex-1"></div>
+
+            {/* Role Filter */}
+            <div className="flex flex-col gap-1 min-w-[120px]">
+                <label className="text-[10px] uppercase font-bold text-slate-400">Your Role</label>
+                <div className="relative">
+                    <select
+                        value={filters.role}
+                        onChange={e => setFilters(f => ({ ...f, role: e.target.value }))}
+                        className="w-full bg-slate-800 text-white border border-slate-800 rounded-lg py-1.5 px-2 text-sm font-bold uppercase outline-none focus:ring-2 focus:ring-slate-500 transition-colors appearance-none"
+                    >
+                        <option value="guide">Guide</option>
+                        <option value="panel">Panel</option>
+                    </select>
+                </div>
             </div>
         </div>
     );
@@ -214,34 +244,39 @@ const FacultyDashboard = () => {
     return (
         <div className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans">
 
-            {/* 1. MERGED HEADER (Navbar + Filters) */}
+            {/* 1. NAVBAR (Standard) */}
             <div className="shrink-0 z-30">
-                <Navbar centerContent={FilterBar} />
+                <Navbar />
             </div>
 
             {/* 2. SCROLLABLE CONTENT AREA */}
             <div className="flex-1 overflow-y-auto px-6 py-8 space-y-8 pb-32">
 
-                {/* Active Reviews (Always Open) */}
-                <section className="animate-slideUp">
-                    <ActiveReviewsSection
-                        reviews={active}
-                        onEnterMarks={(review, team) => handleEnterMarks(review, team)}
-                    />
-                </section>
+                <div className="container mx-auto max-w-7xl">
+                    {/* FILTERS (In Body) */}
+                    {FilterBar}
 
-                {/* Collapsible Sections */}
-                <section className="space-y-6 animate-slideUp delay-100">
-                    <DeadlinePassedSection
-                        reviews={deadlinePassed}
-                        onEnterMarks={handleEnterMarks}
-                    />
+                    {/* Active Reviews (Always Open) */}
+                    <section className="animate-slideUp">
+                        <ActiveReviewsSection
+                            reviews={active}
+                            onEnterMarks={(review, team) => handleEnterMarks(review, team)}
+                        />
+                    </section>
 
-                    <PastReviewsSection
-                        reviews={past}
-                        onEnterMarks={handleEnterMarks}
-                    />
-                </section>
+                    {/* Collapsible Sections */}
+                    <section className="space-y-6 mt-8 animate-slideUp delay-100">
+                        <DeadlinePassedSection
+                            reviews={deadlinePassed}
+                            onEnterMarks={handleEnterMarks}
+                        />
+
+                        <PastReviewsSection
+                            reviews={past}
+                            onEnterMarks={handleEnterMarks}
+                        />
+                    </section>
+                </div>
 
             </div>
 

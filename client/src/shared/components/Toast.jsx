@@ -1,6 +1,6 @@
 // src/shared/components/Toast.jsx
 import React, { useEffect } from 'react';
-import { CheckCircleIcon, XCircleIcon, ExclamationCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon, ExclamationCircleIcon, XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
 const Toast = ({ message, type = 'success', onClose, duration = 3000 }) => {
   useEffect(() => {
@@ -31,6 +31,13 @@ const Toast = ({ message, type = 'success', onClose, duration = 3000 }) => {
       text: 'text-yellow-800',
       icon: ExclamationCircleIcon,
       iconColor: 'text-yellow-600'
+    },
+    info: {
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+      text: 'text-blue-800',
+      icon: InformationCircleIcon,
+      iconColor: 'text-blue-600'
     }
   };
 
