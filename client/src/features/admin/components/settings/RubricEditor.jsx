@@ -7,15 +7,28 @@ import Select from '../../../../shared/components/Select';
 import { PlusIcon, TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 const RubricEditor = ({ component, onSave, onCancel }) => {
-  const [formData, setFormData] = useState(component || {
-    name: '',
-    category: 'Other',
-    description: '',
-    suggestedWeight: 0,
-    predefinedSubComponents: [],
-    allowCustomSubComponents: true,
-    isActive: true,
-    applicableFor: ['both']
+  const [formData, setFormData] = useState(() => {
+    const initialData = component || {
+      name: '',
+      category: 'Other',
+      description: [],
+      suggestedWeight: 0,
+      predefinedSubComponents: [],
+      allowCustomSubComponents: true,
+      isActive: true,
+      applicableFor: ['both']
+    };
+
+    // Normalize description to array if it's a string
+    if (typeof initialData.description === 'string') {
+      initialData.description = initialData.description.trim() !== ''
+        ? [{ label: initialData.description, marks: '' }]
+        : [];
+    } else if (!Array.isArray(initialData.description)) {
+      initialData.description = [];
+    }
+
+    return initialData;
   });
 
   const [showSubComponentForm, setShowSubComponentForm] = useState(false);
@@ -74,6 +87,24 @@ const RubricEditor = ({ component, onSave, onCancel }) => {
       const updated = formData.predefinedSubComponents.filter((_, i) => i !== index);
       setFormData({ ...formData, predefinedSubComponents: updated });
     }
+  };
+
+  // Description Criteria Handlers
+  const handleAddDescriptionCriteria = () => {
+    const updatedDescription = [...(formData.description || [])];
+    updatedDescription.push({ label: '', marks: '' });
+    setFormData({ ...formData, description: updatedDescription });
+  };
+
+  const handleUpdateDescriptionCriteria = (index, field, value) => {
+    const updatedDescription = [...(formData.description || [])];
+    updatedDescription[index] = { ...updatedDescription[index], [field]: value };
+    setFormData({ ...formData, description: updatedDescription });
+  };
+
+  const handleRemoveDescriptionCriteria = (index) => {
+    const updatedDescription = (formData.description || []).filter((_, i) => i !== index);
+    setFormData({ ...formData, description: updatedDescription });
   };
 
   const handleSubmit = (e) => {
@@ -243,17 +274,54 @@ const RubricEditor = ({ component, onSave, onCancel }) => {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description of this component"
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-              />
+            <div className="border-l-2 border-yellow-200 pl-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Description Criteria (JSON)
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddDescriptionCriteria}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  <PlusIcon className="h-4 w-4 mr-1" /> Add Criteria
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {Array.isArray(formData.description) && formData.description.map((crit, index) => (
+                  <div key={index} className="flex gap-3 items-center">
+                    <input
+                      type="text"
+                      placeholder="Label (e.g., Implemented 5 papers)"
+                      value={crit.label || ''}
+                      onChange={(e) => handleUpdateDescriptionCriteria(index, 'label', e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Marks"
+                      value={crit.marks || ''}
+                      onChange={(e) => handleUpdateDescriptionCriteria(index, 'marks', e.target.value)}
+                      className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDescriptionCriteria(index)}
+                      className="text-gray-400 hover:text-red-600 p-1"
+                    >
+                      <TrashIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+                {(!Array.isArray(formData.description) || formData.description.length === 0) && (
+                  <div className="text-sm text-gray-500 italic py-2">
+                    No description criteria added. Click "Add Criteria" to define specific requirements.
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>

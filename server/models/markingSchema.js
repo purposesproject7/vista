@@ -19,7 +19,7 @@ const componentSchema = new mongoose.Schema(
     name: { type: String, required: true },
     maxMarks: { type: Number, required: true },
     subComponents: [subComponentSchema],
-    description: { type: String },
+    description: { type: mongoose.Schema.Types.Mixed },
   },
   { _id: false }
 );

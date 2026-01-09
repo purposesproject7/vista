@@ -10,8 +10,20 @@ import {
 } from "@heroicons/react/24/outline";
 
 const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
-  const [formData, setFormData] = useState(
-    review || {
+  const [formData, setFormData] = useState(() => {
+    if (review) {
+      // Normalize existing components to ensure description is an array
+      const normalizedComponents = (review.components || []).map(comp => ({
+        ...comp,
+        description: Array.isArray(comp.description)
+          ? comp.description
+          : (typeof comp.description === 'string' && comp.description.trim() !== '')
+            ? [{ label: comp.description, marks: '' }]
+            : []
+      }));
+      return { ...review, components: normalizedComponents };
+    }
+    return {
       reviewName: "", // Backend will auto-generate if empty
       displayName: "",
       facultyType: "guide",
@@ -21,8 +33,8 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
       draftRequired: false,
       order: 1,
       isActive: true,
-    }
-  );
+    };
+  });
 
   const [dateError, setDateError] = useState("");
 
@@ -57,7 +69,15 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
       if (selected) {
         updatedComponents[index].name = selected.name;
         updatedComponents[index].maxMarks = selected.suggestedWeight || 0;
-        updatedComponents[index].description = selected.description;
+
+        // Initialize description as an array of criteria if it's a string from library
+        if (typeof selected.description === 'string' && selected.description.trim() !== '') {
+          updatedComponents[index].description = [{ label: selected.description, marks: '' }];
+        } else if (Array.isArray(selected.description)) {
+          updatedComponents[index].description = selected.description;
+        } else {
+          updatedComponents[index].description = [];
+        }
 
         // Populate sub-components from the library component if they exist
         if (selected.predefinedSubComponents && selected.predefinedSubComponents.length > 0) {
@@ -103,6 +123,36 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
       compIndex
     ].subComponents.filter((_, i) => i !== subIndex);
     setFormData({ ...formData, components: updatedComponents });
+  };
+
+  // Description Criteria Handlers
+  const handleAddDescriptionCriteria = (compIndex) => {
+    const updatedComponents = [...formData.components];
+    if (!Array.isArray(updatedComponents[compIndex].description)) {
+      updatedComponents[compIndex].description = [];
+    }
+    updatedComponents[compIndex].description.push({ label: '', marks: '' });
+    setFormData({ ...formData, components: updatedComponents });
+  };
+
+  const handleUpdateDescriptionCriteria = (compIndex, critIndex, field, value) => {
+    const updatedComponents = [...formData.components];
+    if (!Array.isArray(updatedComponents[compIndex].description)) {
+      updatedComponents[compIndex].description = []; // Safety check
+    }
+    updatedComponents[compIndex].description[critIndex] = {
+      ...updatedComponents[compIndex].description[critIndex],
+      [field]: value
+    };
+    setFormData({ ...formData, components: updatedComponents });
+  };
+
+  const handleRemoveDescriptionCriteria = (compIndex, critIndex) => {
+    const updatedComponents = [...formData.components];
+    if (Array.isArray(updatedComponents[compIndex].description)) {
+      updatedComponents[compIndex].description = updatedComponents[compIndex].description.filter((_, i) => i !== critIndex);
+      setFormData({ ...formData, components: updatedComponents });
+    }
   };
 
   const handleRemoveComponent = (index) => {
@@ -371,6 +421,53 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
                     >
                       <TrashIcon className="h-5 w-5" />
                     </button>
+                  </div>
+
+                  {/* Component Description (Criteria) - Key/Value pairs */}
+                  <div className="mb-4 pl-4 border-l-2 border-yellow-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold text-gray-500 uppercase">
+                        Description Criteria (JSON)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleAddDescriptionCriteria(idx)}
+                        className="text-xs text-blue-600 font-medium hover:underline flex items-center"
+                      >
+                        <PlusIcon className="h-3 w-3 mr-1" /> Add Criteria
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {Array.isArray(comp.description) && comp.description.map((crit, cIdx) => (
+                        <div key={cIdx} className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="Label (e.g. Implemented 5 papers)"
+                            value={crit.label || ''}
+                            onChange={(e) => handleUpdateDescriptionCriteria(idx, cIdx, 'label', e.target.value)}
+                            className="flex-1 text-sm border-gray-300 rounded px-2 py-1"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Marks"
+                            value={crit.marks || ''}
+                            onChange={(e) => handleUpdateDescriptionCriteria(idx, cIdx, 'marks', e.target.value)}
+                            className="w-20 text-sm border-gray-300 rounded px-2 py-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDescriptionCriteria(idx, cIdx)}
+                            className="text-gray-400 hover:text-red-500"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {(!Array.isArray(comp.description) || comp.description.length === 0) && (
+                        <p className="text-xs text-gray-400 italic">No description criteria added.</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Sub-components Editor - NOW ADDED AS REQUESTED */}

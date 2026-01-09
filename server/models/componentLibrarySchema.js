@@ -26,7 +26,7 @@ const componentLibraryItemSchema = new mongoose.Schema(
       ],
       default: "Other",
     },
-    description: { type: String },
+    description: { type: mongoose.Schema.Types.Mixed },
     suggestedWeight: { type: Number },
 
     // Predefined subcomponents
