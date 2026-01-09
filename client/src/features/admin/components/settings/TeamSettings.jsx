@@ -281,9 +281,8 @@ const TeamSettings = ({
 
           {/* Team Size Configuration */}
           <div
-            className={`bg-gray-50 p-6 rounded-lg transition-opacity ${
-              isLoading ? "opacity-50 pointer-events-none" : ""
-            }`}
+            className={`bg-gray-50 p-6 rounded-lg transition-opacity ${isLoading ? "opacity-50 pointer-events-none" : ""
+              }`}
           >
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
@@ -295,55 +294,48 @@ const TeamSettings = ({
               Team Size Settings
             </h4>
 
-            {/* Minimum Students */}
+            {/* Min and Max Students Side by Side */}
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Minimum Students Per Team
-                </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Minimum Students Per Team
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={settings.minStudentsPerTeam}
+                    disabled={!isContextSelected || isLoading}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        minStudentsPerTeam: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Maximum Students Per Team
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={settings.maxStudentsPerTeam}
+                    disabled={!isContextSelected || isLoading}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        maxStudentsPerTeam: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
               </div>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={settings.minStudentsPerTeam}
-                disabled={!isContextSelected || isLoading}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    minStudentsPerTeam: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
               <p className="text-sm text-gray-600 mt-3">
-                The minimum number of students allowed in a team. Set to 1 to
-                allow individual projects.
-              </p>
-            </div>
-
-            {/* Maximum Students */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Maximum Students Per Team
-                </label>
-              </div>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={settings.maxStudentsPerTeam}
-                disabled={!isContextSelected || isLoading}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    maxStudentsPerTeam: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
-              <p className="text-sm text-gray-600 mt-3">
-                The maximum number of students allowed in a team. Typical values
-                are 3-5 students.
+                Set the minimum and maximum number of students allowed in a team. Set minimum to 1 to allow individual projects.
               </p>
             </div>
 
@@ -378,48 +370,49 @@ const TeamSettings = ({
               Panel Size Settings
             </h4>
 
-            {/* Minimum Panel Size */}
+            {/* Min and Max Panel Size Side by Side */}
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Minimum Faculty Per Panel
-                </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Minimum Faculty Per Panel
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={settings.minPanelSize}
+                    disabled={!isContextSelected || isLoading}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        minPanelSize: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Maximum Faculty Per Panel
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={settings.maxPanelSize}
+                    disabled={!isContextSelected || isLoading}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        maxPanelSize: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
               </div>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={settings.minPanelSize}
-                disabled={!isContextSelected || isLoading}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    minPanelSize: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-
-            {/* Maximum Panel Size */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Maximum Faculty Per Panel
-                </label>
-              </div>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={settings.maxPanelSize}
-                disabled={!isContextSelected || isLoading}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    maxPanelSize: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
+              <p className="text-sm text-gray-600 mt-3">
+                Set the minimum and maximum number of faculty members allowed per panel.
+              </p>
             </div>
 
             <hr className="my-8 border-gray-200" />
@@ -428,53 +421,48 @@ const TeamSettings = ({
               Project Constraints
             </h4>
 
-            {/* Max Projects Per Guide */}
+            {/* Max Projects Side by Side */}
             <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Max Projects Per Guide
-                </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max Projects Per Guide
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={settings.maxProjectsPerGuide}
+                    disabled={!isContextSelected || isLoading}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        maxProjectsPerGuide: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max Projects Per Panel
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={settings.maxProjectsPerPanel}
+                    disabled={!isContextSelected || isLoading}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        maxProjectsPerPanel: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
               </div>
-              <Input
-                type="number"
-                min={1}
-                max={50}
-                value={settings.maxProjectsPerGuide}
-                disabled={!isContextSelected || isLoading}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    maxProjectsPerGuide: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
               <p className="text-sm text-gray-600 mt-3">
-                Maximum number of projects a single faculty member can guide.
-              </p>
-            </div>
-
-            {/* Max Projects Per Panel */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Max Projects Per Panel
-                </label>
-              </div>
-              <Input
-                type="number"
-                min={1}
-                max={50}
-                value={settings.maxProjectsPerPanel}
-                disabled={!isContextSelected || isLoading}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    maxProjectsPerPanel: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
-              <p className="text-sm text-gray-600 mt-3">
-                Maximum number of projects a panel can look after.
+                Set the maximum number of projects a faculty member can guide and the maximum number of projects a panel can oversee.
               </p>
             </div>
 
