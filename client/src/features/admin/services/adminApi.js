@@ -727,6 +727,33 @@ export const updateRequestStatus = async (
   return response.data;
 };
 
+/**
+ * Fetch all access requests (Project Coordinators)
+ */
+export const fetchAccessRequests = async (filters = {}) => {
+  const response = await api.get("/admin/access-requests", { params: filters });
+  return response.data;
+};
+
+/**
+ * Update access request status
+ */
+export const updateAccessRequestStatus = async (
+  requestId,
+  status,
+  reason = "",
+  grantStartTime = null,
+  grantEndTime = null
+) => {
+  const response = await api.put(`/admin/access-requests/${requestId}/status`, {
+    status,
+    reason,
+    grantStartTime,
+    grantEndTime,
+  });
+  return response.data;
+};
+
 // ==================== Broadcast APIs ====================
 
 /**

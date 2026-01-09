@@ -1,312 +1,431 @@
-// src/features/admin/components/request-management/RequestList.jsx
-import React, { useState, useMemo } from 'react';
-import Card from '../../../../shared/components/Card';
-import Button from '../../../../shared/components/Button';
-import Modal from '../../../../shared/components/Modal';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { CheckCircleIcon } from '@heroicons/react/24/outline';
-import RequestFilters from './requests/RequestFilters';
-import FacultyRequestCard from './requests/FacultyRequestCard';
+import React, { useState, useEffect } from "react";
+import { fetchRequests, updateRequestStatus } from "../../services/adminApi";
 import {
-  groupRequestsByFaculty,
-  applyFilters
-} from './requests/requestUtils';
-import {
-  fetchRequests as apiFetchRequests,
-  updateRequestStatus as apiUpdateRequestStatus
-} from '../../services/adminApi';
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  ExclamationCircleIcon,
+  UserIcon,
+  ShieldCheckIcon
+} from "@heroicons/react/24/outline";
+import { useAuth } from "../../../../shared/hooks/useAuth";
+import AccessRequestList from "./AccessRequestList"; // Import the new component
 
 const RequestList = () => {
-  const { showToast } = useToast();
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState("faculty"); // 'faculty' or 'access'
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    school: '',
-    program: '',
-    category: '',
-    status: ''
-  });
+  const [error, setError] = useState(null);
 
-  // Fetch requests on mount
-  React.useEffect(() => {
-    const loadRequests = async () => {
-      try {
-        setLoading(true);
-        const response = await apiFetchRequests();
+  // Filtering
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
-        if (response.success) {
-          const flattenedRequests = (response.data || []).flatMap(group =>
-            group.requests.map(req => ({
-              id: req._id,
-              facultyId: group._id,
-              facultyName: group.name,
-              studentName: req.student?.name || 'Unknown',
-              category: req.facultyType,
-              projectTitle: req.project?.name || 'Unknown',
-              message: req.reason,
-              status: req.status,
-              date: req.createdAt,
-              school: group.school,
-              program: group.program,
-              // Keep original fields just in case
-              _id: req._id,
-              requestType: req.requestType,
-              reviewType: req.reviewType,
-              approvalReason: req.remarks || '', // Map remarks if available
-              rejectionReason: req.remarks || ''
-            }))
-          );
-          setRequests(flattenedRequests);
-        } else {
-          showToast(response.message || 'Failed to load requests', 'error');
-        }
-      } catch (error) {
-        console.error('Error fetching requests:', error);
-        showToast(error.response?.data?.message || 'Failed to load requests', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Action Modals
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [actionType, setActionType] = useState(null); // 'approve' or 'reject'
+  const [actionRemarks, setActionRemarks] = useState("");
+  const [newDeadline, setNewDeadline] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-    loadRequests();
-  }, [showToast]);
+  useEffect(() => {
+    if (activeTab === "faculty") {
+      loadRequests();
+    }
+  }, [activeTab]);
 
-  const [showApproveAllModal, setShowApproveAllModal] = useState(false);
-  const [selectedFacultyId, setSelectedFacultyId] = useState(null);
-  const [approvalReason, setApprovalReason] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  // Apply filters and group by faculty
-  const filteredRequests = useMemo(() => {
-    return applyFilters(requests, filters);
-  }, [requests, filters]);
-
-  const facultyGroups = useMemo(() => {
-    return groupRequestsByFaculty(filteredRequests);
-  }, [filteredRequests]);
-
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleResetFilters = () => {
-    setFilters({
-      school: '',
-      program: '',
-      category: '',
-      status: ''
-    });
-  };
-
-  const handleApproveRequest = async (requestId) => {
+  const loadRequests = async () => {
+    // ... existing loadRequests logic ...
     try {
-      const response = await apiUpdateRequestStatus(requestId, 'approved', 'Approved by admin');
-
-      if (response.success) {
-        setRequests(prevRequests =>
-          prevRequests.map(request =>
-            request.id === requestId || request._id === requestId
-              ? { ...request, status: 'approved', approvalReason: 'Approved by admin' }
-              : request
-          )
-        );
-        showToast('Request approved successfully', 'success');
+      setLoading(true);
+      // Pass filters if needed, currently fetching all suitable for admin view
+      const data = await fetchRequests();
+      if (data.success) {
+        setRequests(data.data || []);
       } else {
-        showToast(response.message || 'Failed to approve request', 'error');
+        setError("Failed to fetch requests.");
       }
-    } catch (error) {
-      console.error('Error approving request:', error);
-      showToast(error.response?.data?.message || 'Failed to approve request', 'error');
+    } catch (err) {
+      setError(err.message || "An error occurred fetching requests.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRejectRequest = async (requestId) => {
-    const reason = window.prompt('Please provide a reason for rejection:');
-    if (!reason) return;
+  // ... existing handler functions ...
 
-    try {
-      const response = await apiUpdateRequestStatus(requestId, 'rejected', reason);
-
-      if (response.success) {
-        setRequests(prevRequests =>
-          prevRequests.map(request =>
-            request.id === requestId || request._id === requestId
-              ? { ...request, status: 'rejected', rejectionReason: reason }
-              : request
-          )
-        );
-        showToast('Request rejected', 'success');
-      } else {
-        showToast(response.message || 'Failed to reject request', 'error');
-      }
-    } catch (error) {
-      console.error('Error rejecting request:', error);
-      showToast(error.response?.data?.message || 'Failed to reject request', 'error');
-    }
+  const handleActionClick = (request, type) => {
+    setSelectedRequest(request);
+    setActionType(type);
+    setActionRemarks("");
+    setNewDeadline("");
   };
 
-  const handleOpenApproveAllModal = (facultyId) => {
-    setSelectedFacultyId(facultyId);
-    setShowApproveAllModal(true);
+  const handleCloseModal = () => {
+    setSelectedRequest(null);
+    setActionType(null);
+    setSubmitting(false);
   };
 
-  const handleApproveAllForFaculty = async () => {
-    if (!approvalReason.trim()) {
-      showToast('Please provide a reason for approval', 'error');
+  const handleSubmitAction = async () => {
+    if (!actionRemarks && actionType === "reject") {
+      alert("Please provide remarks for rejection.");
       return;
     }
 
-    setIsProcessing(true);
-
     try {
-      // Approve each request individually
-      const requestIds = pendingRequestsForFaculty.map(r => r.id || r._id);
-      const approvePromises = requestIds.map(requestId =>
-        apiUpdateRequestStatus(requestId, 'approved', approvalReason)
+      setSubmitting(true);
+      const status = actionType === "approve" ? "approved" : "rejected";
+
+      const response = await updateRequestStatus(
+        selectedRequest._id,
+        status,
+        actionRemarks,
+        newDeadline || null
       );
 
-      const results = await Promise.allSettled(approvePromises);
-      const successCount = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
-
-      if (successCount > 0) {
-        setRequests(prevRequests =>
-          prevRequests.map(request =>
-            requestIds.includes(request.id || request._id)
-              ? { ...request, status: 'approved', approvalReason }
-              : request
+      if (response.success) {
+        // Update local state
+        setRequests((prev) =>
+          prev.map((r) =>
+            r._id === selectedRequest._id ? response.data : r
           )
         );
-
-        const faculty = facultyGroups.find(f => f.id === selectedFacultyId);
-
-        showToast(
-          `Successfully approved ${successCount} request${successCount !== 1 ? 's' : ''} for ${faculty?.name}`,
-          'success'
-        );
-
-        setShowApproveAllModal(false);
-        setSelectedFacultyId(null);
-        setApprovalReason('');
+        handleCloseModal();
       } else {
-        showToast('Failed to approve requests', 'error');
+        alert(response.message || "Failed to update request.");
       }
-    } catch (error) {
-      console.error('Error approving requests:', error);
-      showToast(error.response?.data?.message || 'Failed to approve requests', 'error');
+    } catch (err) {
+      alert(err.message || "An error occurred.");
     } finally {
-      setIsProcessing(false);
+      setSubmitting(false);
     }
   };
 
-  const selectedFaculty = facultyGroups.find(f => f.id === selectedFacultyId);
-  const pendingRequestsForFaculty = selectedFaculty?.requests.filter(r => r.status === 'pending') || [];
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "approved":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            Approved
+          </span>
+        );
+      case "rejected":
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            Rejected
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            Pending
+          </span>
+        );
+    }
+  };
+
+  // Filter logic
+  const filteredRequests = requests.filter((req) => {
+    const matchesStatus =
+      statusFilter === "all" || req.status === statusFilter;
+    const matchesType =
+      typeFilter === "all" || req.requestType === typeFilter;
+    const matchesSearch =
+      req.faculty?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      req.student?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      req.faculty?.employeeId
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase());
+
+    return matchesStatus && matchesType && matchesSearch;
+  });
 
   return (
-    <>
-      {/* Filters */}
-      <RequestFilters
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onReset={handleResetFilters}
-      />
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="bg-white rounded-lg p-1 shadow-sm inline-flex">
+        <button
+          onClick={() => setActiveTab("faculty")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "faculty"
+            ? "bg-indigo-50 text-indigo-700 shadow-sm"
+            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+            }`}
+        >
+          <UserIcon className="h-4 w-4" />
+          Faculty Requests
+        </button>
+        <button
+          onClick={() => setActiveTab("access")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "access"
+            ? "bg-indigo-50 text-indigo-700 shadow-sm"
+            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+            }`}
+        >
+          <ShieldCheckIcon className="h-4 w-4" />
+          Access Requests
+        </button>
+      </div>
 
-      {/* Loading State */}
-      {loading ? (
-        <Card>
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-500">Loading requests...</p>
-          </div>
-        </Card>
+      {activeTab === "access" ? (
+        <AccessRequestList />
       ) : (
-        /* Faculty Request Cards */
-        <div className="space-y-4">
-          {facultyGroups.length === 0 ? (
-            <Card>
-              <div className="p-8 text-center text-gray-500">
-                <p>No requests found matching the selected filters</p>
+        <div className="bg-white rounded-lg shadow">
+          {/* Header & Filters */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Faculty Requests
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Manage requests from guides and panelists
+                </p>
               </div>
-            </Card>
-          ) : (
-            facultyGroups.map((faculty) => (
-              <FacultyRequestCard
-                key={faculty.id}
-                faculty={faculty}
-                requests={faculty.requests}
-                onApproveRequest={handleApproveRequest}
-                onRejectRequest={handleRejectRequest}
-                onApproveAll={handleOpenApproveAllModal}
-              />
-            ))
-          )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search requests..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 w-full sm:w-64"
+                  />
+                  <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                </div>
+
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="deadline_extension">Deadline Extension</option>
+                  <option value="mark_edit">Mark Edit</option>
+                  <option value="resubmission">Resubmission</option>
+                </select>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Request Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Faculty & Student
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type & Reason
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Context
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Submitted
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-12 text-center">
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredRequests.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="6"
+                      className="px-6 py-12 text-center text-gray-500"
+                    >
+                      <div className="flex flex-col items-center justify-center">
+                        <ExclamationCircleIcon className="h-10 w-10 text-gray-300 mb-3" />
+                        <p>No requests found matching your filters.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRequests.map((req) => (
+                    <tr key={req._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-900">
+                            {req.faculty?.name}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            for {req.student?.name}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 w-fit">
+                            {req.requestType?.replace("_", " ").toUpperCase()}
+                          </span>
+                          <p
+                            className="text-xs text-gray-500 max-w-xs truncate"
+                            title={req.reason}
+                          >
+                            {req.reason}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex flex-col">
+                          <span>{req.reviewType}</span>
+                          <span className="text-xs text-gray-400">
+                            {req.school}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <ClockIcon className="h-4 w-4" />
+                          {new Date(req.createdAt).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(req.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {req.status === "pending" && (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleActionClick(req, "reject")}
+                              className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded"
+                              title="Reject"
+                            >
+                              <XCircleIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleActionClick(req, "approve")}
+                              className="text-green-600 hover:text-green-900 p-1 hover:bg-green-50 rounded"
+                              title="Approve"
+                            >
+                              <CheckCircleIcon className="h-5 w-5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Approve All Modal */}
-      <Modal
-        isOpen={showApproveAllModal}
-        onClose={() => {
-          setShowApproveAllModal(false);
-          setSelectedFacultyId(null);
-          setApprovalReason('');
-        }}
-        title={`Approve All Requests for ${selectedFaculty?.name}`}
-      >
-        <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              You are about to approve <strong>{pendingRequestsForFaculty.length}</strong> pending request{pendingRequestsForFaculty.length !== 1 ? 's' : ''} for <strong>{selectedFaculty?.name}</strong>:
-            </p>
-            <ul className="mt-3 space-y-1 text-sm text-blue-700">
-              {pendingRequestsForFaculty.map(req => (
-                <li key={req.id} className="flex items-start gap-2">
-                  <CheckCircleIcon className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>{req.studentName} - {req.category === 'guide' ? 'Guide' : 'Panel'} ({req.projectTitle})</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+      {/* Action Modal (Only for Faculty Requests) */}
+      {selectedRequest && activeTab === "faculty" && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative p-5 border w-full max-w-md shadow-lg rounded-lg bg-white">
+            <div className="mt-3 text-center sm:text-left">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 capitalize">
+                {actionType} Request
+              </h3>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Approval Reason <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={approvalReason}
-              onChange={(e) => setApprovalReason(e.target.value)}
-              rows={4}
-              placeholder="Please provide a reason for approving all these requests (e.g., 'All requests reviewed and found valid', 'Emergency approval for upcoming deadlines', etc.)"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-            />
-            <p className="mt-2 text-xs text-gray-500">
-              This reason will be recorded and visible to faculty members.
-            </p>
-          </div>
+              <div className="mt-2 text-sm text-gray-500 mb-4">
+                <p>
+                  Request from:{" "}
+                  <span className="font-semibold">
+                    {selectedRequest.faculty?.name}
+                  </span>
+                </p>
+                <p>Type: {selectedRequest.requestType}</p>
+                <p>Reason: {selectedRequest.reason}</p>
+              </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowApproveAllModal(false);
-                setSelectedFacultyId(null);
-                setApprovalReason('');
-              }}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleApproveAllForFaculty}
-              disabled={isProcessing || !approvalReason.trim()}
-            >
-              {isProcessing ? 'Processing...' : `Approve All ${pendingRequestsForFaculty.length} Requests`}
-            </Button>
+              <div className="mt-4 space-y-4">
+                {actionType === "approve" &&
+                  selectedRequest.requestType === "deadline_extension" && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        New Deadline (Optional)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={newDeadline}
+                        onChange={(e) => setNewDeadline(e.target.value)}
+                        className="w-full border rounded px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                  )}
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    {actionType === "approve"
+                      ? "Remarks (Optional)"
+                      : "Reason for Rejection"}
+                  </label>
+                  <textarea
+                    className="w-full border rounded p-2 text-sm"
+                    rows="3"
+                    value={actionRemarks}
+                    onChange={(e) => setActionRemarks(e.target.value)}
+                    placeholder={
+                      actionType === "approve"
+                        ? "Add any notes..."
+                        : "Why is this being rejected?"
+                    }
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 bg-white text-gray-500 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitAction}
+                  className={`px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white ${actionType === "approve"
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-red-600 hover:bg-red-700"
+                    }`}
+                  disabled={submitting}
+                >
+                  {submitting
+                    ? "Processing..."
+                    : actionType === "approve"
+                      ? "Approve"
+                      : "Reject"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </Modal>
-    </>
+      )}
+    </div>
   );
 };
 

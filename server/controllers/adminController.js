@@ -17,6 +17,7 @@ import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
 import { BroadcastService } from "../services/broadcastService.js";
 import { RequestService } from "../services/requestService.js";
+import { AccessRequestService } from "../services/accessRequestService.js";
 
 // Faculty Management
 export async function createFaculty(req, res) {
@@ -511,6 +512,49 @@ export async function updateRequestStatus(req, res) {
     res.status(200).json({
       success: true,
       message: `Request ${status} successfully.`,
+      data: request,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+// ===== ACCESS REQUESTS (Project Coordinators) =====
+
+export async function getAllAccessRequests(req, res) {
+  try {
+    const requests = await AccessRequestService.getAllAccessRequests(req.query);
+
+    res.status(200).json({
+      success: true,
+      data: requests,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateAccessRequestStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const { status, reason, grantStartTime, grantEndTime } = req.body;
+
+    const request = await AccessRequestService.updateAccessRequestStatus(
+      id,
+      status,
+      req.user._id,
+      { reason, grantStartTime, grantEndTime }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Access request ${status} successfully.`,
       data: request,
     });
   } catch (error) {

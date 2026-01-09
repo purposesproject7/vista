@@ -296,6 +296,17 @@ router.put(
 );
 
 /**
+ * Project Coordinator Access Requests
+ */
+router.get("/access-requests", adminController.getAllAccessRequests);
+
+router.put(
+  "/access-requests/:id/status",
+  validateRequired(["status"]),
+  adminController.updateAccessRequestStatus
+);
+
+/**
  * Broadcast messages
  */
 router.get("/broadcasts", adminController.getBroadcastMessages);
