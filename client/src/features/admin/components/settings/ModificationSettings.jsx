@@ -25,7 +25,8 @@ import {
   getPanels,
   batchReassignGuide,
   batchReassignPanel,
-  batchAssignFacultyAsPanel
+  batchAssignFacultyAsPanel,
+  getMarkingSchema
 } from '../../../../services/modificationApi';
 import { useAdminContext } from '../../context/AdminContext';
 
@@ -57,6 +58,12 @@ const ModificationSettings = () => {
   const [availablePanels, setAvailablePanels] = useState([]);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [panelAssignType, setPanelAssignType] = useState('existing'); // 'existing' | 'faculty'
+  const [ignoreSpecialization, setIgnoreSpecialization] = useState(false);
+
+  // New state for flexible panel assignment
+  const [panelAssignmentScope, setPanelAssignmentScope] = useState('main'); // 'main' | 'review'
+  const [selectedReviewType, setSelectedReviewType] = useState('');
+  const [availableReviews, setAvailableReviews] = useState([]);
 
   // Loading states
   const [loading, setLoading] = useState({
@@ -92,13 +99,13 @@ const ModificationSettings = () => {
             label: school.name
           }));
 
-        // Transform departments as programs (will be filtered by school later)
-        const allDepartments = (masterData.departments || [])
-          .filter(dept => dept.isActive !== false)
-          .map(dept => ({
-            value: dept.code || dept.name,
-            label: dept.name,
-            school: dept.school
+        // Transform programs (will be filtered by school later)
+        const allPrograms = (masterData.programs || masterData.departments || [])
+          .filter(prog => prog.isActive !== false)
+          .map(prog => ({
+            value: prog.code || prog.name,
+            label: prog.name,
+            school: prog.school
           }));
 
         // Transform academic years
@@ -109,11 +116,11 @@ const ModificationSettings = () => {
             label: year.year
           }));
 
-        console.log('Transformed data:', { schools, allDepartments, academicYears });
+        console.log('Transformed data:', { schools, allPrograms, academicYears });
 
         setContextOptions({
           schools,
-          programs: allDepartments,
+          programs: allPrograms,
           academicYears
         });
       } else {
@@ -174,6 +181,37 @@ const ModificationSettings = () => {
     }
   }, [academicContext.school, academicContext.program, academicContext.year]);
 
+  // Fetch marking schema to get available reviews
+  useEffect(() => {
+    if (academicContext.school && academicContext.program && academicContext.year) {
+      fetchReviews();
+    }
+  }, [academicContext.school, academicContext.program, academicContext.year]);
+
+  const fetchReviews = async () => {
+    try {
+      const response = await getMarkingSchema(
+        academicContext.year,
+        academicContext.school,
+        academicContext.program
+      );
+      if (response && response.data && response.data.reviews) {
+        // Map reviews to { value: reviewName, label: displayName }
+        const reviews = response.data.reviews.map(r => ({
+          value: r.reviewName,
+          label: r.displayName || r.reviewName
+        }));
+        setAvailableReviews(reviews);
+        if (reviews.length > 0) {
+          setSelectedReviewType(reviews[0].value);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching marking schema:', error);
+      // Don't block UI but maybe log
+    }
+  };
+
   const fetchFacultyList = async () => {
     setLoading(prev => ({ ...prev, faculty: true }));
     setFacultyList([]);
@@ -181,8 +219,7 @@ const ModificationSettings = () => {
     try {
       const response = await apiFetchFacultyList(
         academicContext.school,
-        academicContext.program,
-        academicContext.year // Use year from context
+        academicContext.program
       );
 
       if (!response.data || response.data.length === 0) {
@@ -227,9 +264,10 @@ const ModificationSettings = () => {
         // Count panel projects
         let panelCount = 0;
         allPanelData.forEach(panelGroup => {
-          const isMember = panelGroup.members?.some(member =>
-            member.faculty?.employeeId === faculty.employeeId
-          );
+          const isMember = panelGroup.members?.some(member => {
+            const memberId = member.faculty?._id || member.faculty;
+            return memberId === faculty._id || member.faculty?.employeeId === faculty.employeeId;
+          });
           if (isMember) {
             panelCount += panelGroup.projects?.length || 0;
           }
@@ -310,10 +348,10 @@ const ModificationSettings = () => {
       if (panelResponse.data && Array.isArray(panelResponse.data)) {
         panelResponse.data.forEach(panelGroup => {
           // Check if the selected faculty is a member of this panel
-          const isMember = panelGroup.members?.some(member =>
-            member.faculty?.employeeId === selectedFaculty.employeeId ||
-            member.faculty?._id === selectedFaculty._id
-          );
+          const isMember = panelGroup.members?.some(member => {
+            const memberId = member.faculty?._id || member.faculty;
+            return memberId === selectedFaculty._id || member.faculty?.employeeId === selectedFaculty.employeeId;
+          });
 
           if (isMember) {
             console.log('Found matching panel group:', panelGroup);
@@ -373,7 +411,7 @@ const ModificationSettings = () => {
     return facultyList.filter(f =>
       f.name.toLowerCase().includes(search) ||
       f.employeeId.toLowerCase().includes(search) ||
-      f.email.toLowerCase().includes(search)
+      (f.emailId && f.emailId.toLowerCase().includes(search))
     );
   }, [facultyList, facultySearch]);
 
@@ -409,12 +447,18 @@ const ModificationSettings = () => {
 
       if (reassignMode === 'guide') {
         // Batch reassign guide
-        results = await batchReassignGuide(projectIds, targetFaculty.employeeId);
+        results = await batchReassignGuide(projectIds, targetFaculty.employeeId, ignoreSpecialization);
       } else {
         // Panel reassignment
         if (panelAssignType === 'existing') {
           // Assign to existing panel
-          results = await batchReassignPanel(projectIds, targetPanel._id);
+          results = await batchReassignPanel(
+            projectIds,
+            targetPanel._id,
+            ignoreSpecialization,
+            panelAssignmentScope,
+            panelAssignmentScope === 'review' ? selectedReviewType : null
+          );
         } else {
           // Create temporary panels with single faculty
           results = await batchAssignFacultyAsPanel(
@@ -422,7 +466,10 @@ const ModificationSettings = () => {
             targetFaculty.employeeId,
             academicContext.year, // Use year from context
             academicContext.school,
-            academicContext.program
+            academicContext.program,
+            ignoreSpecialization, // Added ignoreSpecialization
+            panelAssignmentScope, // Added scope
+            panelAssignmentScope === 'review' ? selectedReviewType : null // Added review type
           );
         }
       }
@@ -456,6 +503,8 @@ const ModificationSettings = () => {
 
       // Refresh projects
       await fetchFacultyProjects();
+      // Refresh faculty list counts
+      await fetchFacultyList();
     } catch (error) {
       console.error('Error reassigning projects:', error);
       setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to reassign projects' });
@@ -572,7 +621,7 @@ const ModificationSettings = () => {
                     >
                       <div>
                         <p className="font-medium text-gray-900">{faculty.name}</p>
-                        <p className="text-xs text-gray-500">{faculty.employeeId} • {faculty.email}</p>
+                        <p className="text-xs text-gray-500">{faculty.employeeId} • {faculty.emailId}</p>
                       </div>
                       <div className="flex gap-2">
                         <Badge variant="info" size="sm">Guide: {faculty.guideCount}</Badge>
@@ -723,6 +772,7 @@ const ModificationSettings = () => {
           setTargetFaculty(null);
           setTargetPanel(null);
           setPanelAssignType('existing');
+          setIgnoreSpecialization(false);
         }}
         title={`Reassign ${reassignMode === 'guide' ? 'Guide' : 'Panel'}`}
         size="md"
@@ -771,6 +821,48 @@ const ModificationSettings = () => {
                 </button>
               </div>
 
+              {/* Assignment Scope Selection */}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-gray-700">Assignment Scope</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="panelScope"
+                      value="main"
+                      checked={panelAssignmentScope === 'main'}
+                      onChange={(e) => setPanelAssignmentScope(e.target.value)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    Main Project Panel
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="panelScope"
+                      value="review"
+                      checked={panelAssignmentScope === 'review'}
+                      onChange={(e) => setPanelAssignmentScope(e.target.value)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    Specific Review Only
+                  </label>
+                </div>
+              </div>
+
+              {/* Review Type Selection */}
+              {panelAssignmentScope === 'review' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Review</label>
+                  <Select
+                    options={availableReviews}
+                    value={selectedReviewType}
+                    onChange={setSelectedReviewType}
+                    placeholder="Select a review..."
+                  />
+                </div>
+              )}
+
               {panelAssignType === 'existing' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -813,6 +905,19 @@ const ModificationSettings = () => {
             </div>
           )}
 
+          <div className="flex items-center gap-2 pt-2">
+            <input
+              type="checkbox"
+              id="ignoreSpecialization"
+              checked={ignoreSpecialization}
+              onChange={(e) => setIgnoreSpecialization(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="ignoreSpecialization" className="text-sm text-gray-700">
+              Ignore Specialization Mismatch
+            </label>
+          </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               variant="secondary"
@@ -821,6 +926,7 @@ const ModificationSettings = () => {
                 setShowReassignModal(false);
                 setTargetFaculty(null);
                 setTargetPanel(null);
+                setIgnoreSpecialization(false);
               }}
             >
               Cancel

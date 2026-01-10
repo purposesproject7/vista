@@ -506,6 +506,9 @@ export class ProjectService {
     const guideFacultyEmpId = projectUpdates?.guideFacultyEmpId;
     const panelId = projectUpdates?.panelId;
     const reviewPanelsUpdates = projectUpdates?.reviewPanelsUpdates || [];
+    const ignoreSpecialization = projectUpdates?.ignoreSpecialization; // Extract flag
+    const assignmentScope = projectUpdates?.assignmentScope || 'main';
+    const reviewType = projectUpdates?.reviewType;
 
     // Remove helper keys so they don't get blindly assigned to project doc
     if (projectUpdates) {
@@ -514,6 +517,9 @@ export class ProjectService {
       delete projectUpdates.guideFacultyEmpId;
       delete projectUpdates.panelId;
       delete projectUpdates.reviewPanelsUpdates;
+      delete projectUpdates.ignoreSpecialization; // Remove flag
+      delete projectUpdates.assignmentScope;
+      delete projectUpdates.reviewType;
     }
 
     // ---------- Update project scalar fields ----------
@@ -616,9 +622,11 @@ export class ProjectService {
       }
 
       // Ensure same academic context
+      // Skip check if ignoreSpecialization is true
       if (
-        newGuide.school !== project.school ||
-        newGuide.program !== project.program
+        !ignoreSpecialization &&
+        (newGuide.school !== project.school ||
+          newGuide.program !== project.program)
       ) {
         throw new Error(
           "Guide must belong to the same school and program as the project."
@@ -643,40 +651,49 @@ export class ProjectService {
       }
     }
 
-    // ---------- Main panel reassignment ----------
+    // ---------- Main/Review panel reassignment ----------
     if (panelId) {
-      const newPanel = await Panel.findById(panelId);
+      if (assignmentScope === 'review') {
+        if (!reviewType) {
+          throw new Error("Review type is required for review-specific panel assignment.");
+        }
+        reviewPanelsUpdates.push({ reviewType, panelId });
+      } else {
+        const newPanel = await Panel.findById(panelId);
 
-      if (!newPanel) {
-        throw new Error("Panel not found.");
-      }
+        if (!newPanel) {
+          throw new Error("Panel not found.");
+        }
 
-      // Ensure same academic context
-      if (
-        newPanel.academicYear !== project.academicYear ||
-        newPanel.school !== project.school ||
-        newPanel.program !== project.program
-      ) {
-        throw new Error(
-          "Panel must belong to the same academic context as the project."
-        );
-      }
+        // Ensure same academic context
+        // Skip check if ignoreSpecialization is true
+        if (
+          !ignoreSpecialization &&
+          (newPanel.academicYear !== project.academicYear ||
+            newPanel.school !== project.school ||
+            newPanel.program !== project.program)
+        ) {
+          throw new Error(
+            "Panel must belong to the same academic context as the project."
+          );
+        }
 
-      const previousPanel = project.panel;
+        const previousPanel = project.panel;
 
-      if (
-        !previousPanel ||
-        previousPanel.toString() !== newPanel._id.toString()
-      ) {
-        project.history.push({
-          action: "panel_reassigned",
-          previousPanel: previousPanel || null,
-          newPanel: newPanel._id,
-          performedBy: updatedBy,
-          performedAt: new Date(),
-        });
+        if (
+          !previousPanel ||
+          previousPanel.toString() !== newPanel._id.toString()
+        ) {
+          project.history.push({
+            action: "panel_reassigned",
+            previousPanel: previousPanel || null,
+            newPanel: newPanel._id,
+            performedBy: updatedBy,
+            performedAt: new Date(),
+          });
 
-        project.panel = newPanel._id;
+          project.panel = newPanel._id;
+        }
       }
     }
 
@@ -692,9 +709,10 @@ export class ProjectService {
         }
 
         if (
-          newPanel.academicYear !== project.academicYear ||
-          newPanel.school !== project.school ||
-          newPanel.program !== project.program
+          !ignoreSpecialization &&
+          (newPanel.academicYear !== project.academicYear ||
+            newPanel.school !== project.school ||
+            newPanel.program !== project.program)
         ) {
           throw new Error(
             `Review panel for '${reviewType}' must be in same academic context as project.`
@@ -735,7 +753,9 @@ export class ProjectService {
     // ---------- Keep teamSize in sync ----------
     project.teamSize = project.students.length;
 
-    await project.save();
+    // Use validateBeforeSave: false if ignoreSpecialization is true
+    // This allows bypassing validation errors (like missing specialization on existing doc)
+    await project.save({ validateBeforeSave: !ignoreSpecialization });
 
     // ---------- Update existing student profiles ----------
     let updatedStudents = 0;
@@ -762,6 +782,7 @@ export class ProjectService {
       updatedBy,
       studentsUpdated: updatedStudents,
       studentsAdded: addedStudentsCount,
+      ignoreSpecialization,
     });
 
     return {
