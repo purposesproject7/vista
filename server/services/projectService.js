@@ -262,7 +262,7 @@ export class ProjectService {
   /**
    * Create multiple projects
    */
-  static async createProjectsBulk(data, createdBy) {
+  static async bulkCreateProjects(data, createdBy) {
     let projectsToCreate = [];
 
     if (Array.isArray(data)) {

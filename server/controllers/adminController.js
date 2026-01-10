@@ -871,7 +871,7 @@ export async function getStudentByRegNo(req, res) {
  */
 export async function createStudent(req, res) {
   try {
-    const { regNo, name, emailId, phoneNumber, school, program, academicYear } =
+    const { regNo, name, emailId, phoneNumber, guideEmpId, school, program, academicYear } =
       req.body;
 
     // Check if student already exists
@@ -885,7 +885,7 @@ export async function createStudent(req, res) {
 
     // Use bulk upload with single student
     const result = await StudentService.uploadStudents(
-      [{ regNo, name, emailId, phoneNumber }],
+      [{ regNo, name, emailId, phoneNumber, guideEmpId }],
       academicYear,
       school,
       program,

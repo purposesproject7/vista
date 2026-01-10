@@ -21,6 +21,7 @@ const StudentUploadTab = () => {
     name: '',
     emailId: '',
     phoneNumber: '',
+    guideEmpId: '',
     PAT: false
   });
   const { showToast } = useToast();
@@ -51,7 +52,9 @@ const StudentUploadTab = () => {
         PAT: student.PAT === 'true' || student.PAT === 'TRUE' || student.PAT === true || student.PAT === 1,
         schoolId: filters?.school,
         programmeId: filters?.programme,
-        yearId: filters?.year,
+        programmeId: filters?.programme,
+        yearId: filters?.academicYear,
+        academicYear: filters?.academicYear,
         semesterId: filters?.semester,
         schoolName: filters?.schoolName,
         programmeName: filters?.programmeName,
@@ -232,6 +235,14 @@ const StudentUploadTab = () => {
                       onChange={handleInputChange}
                       placeholder="e.g., 9876543210"
                     />
+
+                    <Input
+                      label="Guide Employee ID (Optional)"
+                      name="guideEmpId"
+                      value={formData.guideEmpId}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 10023"
+                    />
                   </div>
 
                   <div className="flex items-center">
@@ -258,6 +269,7 @@ const StudentUploadTab = () => {
                         name: '',
                         emailId: '',
                         phoneNumber: '',
+                        guideEmpId: '',
                         PAT: false
                       })}
                     >

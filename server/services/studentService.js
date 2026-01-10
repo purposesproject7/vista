@@ -2,6 +2,7 @@ import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import Request from "../models/requestSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
+import Faculty from "../models/facultySchema.js";
 import { logger } from "../utils/logger.js";
 
 export class StudentService {
@@ -413,13 +414,51 @@ export class StudentService {
           });
 
           await student.save();
-          results.created++;
 
-          logger.info("student_created_via_bulk", {
-            regNo: studentData.regNo,
-            createdBy: userId,
-          });
+          // Handle Guide Assignment if guideEmpId provided
+          if (studentData.guideEmpId) {
+            const faculty = await Faculty.findOne({ employeeId: studentData.guideEmpId });
+
+            if (faculty) {
+              // Check if project already exists for this student
+              const existingProject = await Project.findOne({
+                students: existing ? existing._id : student._id,
+                status: "active"
+              });
+
+              if (!existingProject) {
+                const newProject = new Project({
+                  name: `Project - ${studentData.regNo}`,
+                  students: [existing ? existing._id : student._id],
+                  guideFaculty: faculty._id,
+                  academicYear,
+                  school,
+                  program,
+                  specialization: faculty.specialization || "General",
+                  type: "software", // Default
+                  teamSize: 1,
+                  status: "active"
+                });
+                await newProject.save();
+                logger.info("project_created_with_guide", { regNo: studentData.regNo, guide: faculty.employeeId });
+              }
+            } else {
+              // warning: guide not found, but student created.
+              logger.warn("guide_not_found_on_student_upload", { regNo: studentData.regNo, guideEmpId: studentData.guideEmpId });
+              // We could add a note to results.details? 
+            }
+          }
+
+          if (!existing) { // increment only if new, existing flow was updated above
+            results.created++;
+
+            logger.info("student_created_via_bulk", {
+              regNo: studentData.regNo,
+              createdBy: userId,
+            });
+          }
         }
+
       } catch (error) {
         results.errors++;
         results.details.push({
