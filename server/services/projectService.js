@@ -24,7 +24,14 @@ export class ProjectService {
     return await Project.find(query)
       .populate("students", "regNo name emailId")
       .populate("guideFaculty", "name employeeId emailId")
-      .populate("panel", "panelName members venue")
+      .populate({
+        path: "panel",
+        select: "panelName members venue",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId emailId",
+        },
+      })
       .lean();
   }
 

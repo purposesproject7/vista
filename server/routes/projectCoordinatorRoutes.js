@@ -238,7 +238,13 @@ router.post(
 /**
  * Marking schema and component library (view and limited edit)
  */
+/* Marking schema and component library (view and limited edit) */
 router.get("/marking-schema", coordinatorController.getMarkingSchema);
+router.post(
+  "/marking-schema",
+  checkCoordinatorPermission("project_management"),
+  coordinatorController.saveMarkingSchema
+);
 
 router.put(
   "/marking-schema/:id/deadlines",

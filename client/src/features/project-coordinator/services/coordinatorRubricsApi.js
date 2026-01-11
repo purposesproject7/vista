@@ -36,6 +36,6 @@ export const updateMarkingSchemaDeadlines = async (schemaId, deadlines) => {
 export const createOrUpdateMarkingSchema = async (data) => {
     // Use admin endpoint for now as PC might need to save reviews
     // This may need adjustment based on backend implementation
-    const response = await api.post('/admin/marking-schema', data);
+    const response = await api.post('/coordinator/marking-schema', data);
     return response.data;
 };

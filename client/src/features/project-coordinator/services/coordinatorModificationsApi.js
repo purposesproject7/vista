@@ -52,21 +52,8 @@ export const reassignGuide = async (projectId, newGuideFacultyEmpId, reason) => 
     return response.data;
 };
 
-/**
- * Reassign panel for a project
- */
-export const reassignPanel = async (projectId, panelId, reason) => {
-    const response = await api.put('/coordinator/projects/reassign-panel', {
-        projectId,
-        panelId,
-        reason
-    });
-    return response.data;
-};
-
-/**
- * Assign panel to project
- */
+// Reassign panel - now handled by enhanced function below
+// export const reassignPanel = ... 
 export const assignPanel = async (projectId, panelId) => {
     const response = await api.post('/coordinator/projects/assign-panel', {
         projectId,
@@ -90,6 +77,7 @@ export const assignReviewPanel = async (projectId, reviewType, panelId) => {
 /**
  * Batch reassign guide for multiple projects
  */
+
 export const batchReassignGuide = async (projectIds, newGuideFacultyEmpId, reason) => {
     const promises = projectIds.map(projectId =>
         reassignGuide(projectId, newGuideFacultyEmpId, reason)
@@ -100,9 +88,27 @@ export const batchReassignGuide = async (projectIds, newGuideFacultyEmpId, reaso
 /**
  * Batch reassign panel for multiple projects
  */
-export const batchReassignPanel = async (projectIds, panelId, reason) => {
+export const batchReassignPanel = async (projectIds, panelId, reason, options = {}) => {
     const promises = projectIds.map(projectId =>
-        reassignPanel(projectId, panelId, reason)
+        reassignPanel(projectId, panelId, reason, options)
     );
     return await Promise.allSettled(promises);
 };
+
+/**
+ * Enhanced reassign panel with options
+ */
+export const reassignPanel = async (projectId, panelId, reason, options = {}) => {
+    const { scope, reviewType, ignoreSpecialization, memberEmployeeIds } = options;
+
+    const response = await api.put('/coordinator/projects/reassign-panel', {
+        projectId,
+        panelId,
+        reason,
+        scope,
+        reviewType,
+        ignoreSpecialization,
+        memberEmployeeIds // For single faculty assignment
+    });
+    return response.data;
+}; 

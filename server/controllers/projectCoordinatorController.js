@@ -16,6 +16,7 @@ import BroadcastMessage from "../models/broadcastMessageSchema.js";
 import MasterData from "../models/masterDataSchema.js";
 import Marks from "../models/marksSchema.js";
 import AccessRequest from "../models/accessRequestSchema.js";
+import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -1744,7 +1745,7 @@ export async function autoAssignPanels(req, res) {
 
 export async function reassignPanel(req, res) {
   try {
-    const { projectId, panelId, memberEmployeeIds, reason } = req.body;
+    const { projectId, panelId, memberEmployeeIds, reason, scope, reviewType, ignoreSpecialization } = req.body;
     const context = getCoordinatorContext(req);
 
     if (!projectId) {
@@ -1788,13 +1789,21 @@ export async function reassignPanel(req, res) {
     }
 
     // Perform reassignment
-    // We skip specialization check for both cases as per requirement
-    await PanelService.reassignProjectToPanel(
+    // Perform reassignment using updateProjectDetails to support scope and reviewType reviews
+    const updates = {
+      panelId: targetPanelId,
+      assignmentScope: scope,
+      reviewType: reviewType,
+      ignoreSpecialization: ignoreSpecialization
+    };
+
+    // Pass reason if supported or just for logging? modify updateProjectDetails if needed later
+    // For now we use the robust update function
+    await ProjectService.updateProjectDetails(
       projectId,
-      targetPanelId,
-      reason,
-      req.user._id,
-      true // skipSpecializationCheck
+      updates,
+      null, // No student updates
+      req.user._id
     );
 
     res.status(200).json({
@@ -2019,6 +2028,52 @@ export async function getMarkingSchema(req, res) {
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function saveMarkingSchema(req, res) {
+  try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can manage marking schema.",
+      });
+    }
+
+    const context = getCoordinatorContext(req);
+    const { reviews } = req.body;
+
+    let schema = await MarkingSchema.findOne(context);
+    if (!schema) {
+      schema = new MarkingSchema({ ...context, reviews: [] });
+    } else {
+      // Verify context just in case, though findOne(context) ensures it
+      if (!verifyContext(schema, req.coordinator)) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to update this marking schema.",
+        });
+      }
+    }
+
+    schema.reviews = reviews;
+    await schema.save();
+
+    logger.info("marking_schema_updated_by_coordinator", {
+      schemaId: schema._id,
+      coordinatorId: req.coordinator._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Marking schema saved successfully.",
+      data: schema,
+    });
+  } catch (error) {
+    res.status(400).json({
       success: false,
       message: error.message,
     });

@@ -49,6 +49,12 @@ const PCModificationSettings = ({ filters }) => {
     // Available reviews for scoped panel assignment
     const [availableReviews, setAvailableReviews] = useState([]);
 
+    // Enhanced Reassignment State
+    const [panelAssignType, setPanelAssignType] = useState('existing'); // 'existing' | 'faculty'
+    const [panelAssignmentScope, setPanelAssignmentScope] = useState('main'); // 'main' | 'review'
+    const [selectedReviewType, setSelectedReviewType] = useState('');
+    const [ignoreSpecialization, setIgnoreSpecialization] = useState(false);
+
     // Loading states
     const [loading, setLoading] = useState({
         faculty: false,
@@ -183,6 +189,28 @@ const PCModificationSettings = ({ filters }) => {
         setSelectedProjects([]);
     }, [selectedFaculty, allProjects]);
 
+    // Update faculty counts when projects loading completes
+    useEffect(() => {
+        if (allProjects.length > 0 && facultyList.length > 0) {
+            setFacultyList(prev => prev.map(f => {
+                const guideCount = allProjects.filter(p =>
+                    p.guideFaculty?.employeeId === f.employeeId ||
+                    p.guideFacultyEmpId === f.employeeId
+                ).length;
+
+                const panelCount = allProjects.filter(p => {
+                    const panelMembers = p.panel?.members || [];
+                    return panelMembers.some(m =>
+                        m.faculty?.employeeId === f.employeeId ||
+                        m.employeeId === f.employeeId
+                    );
+                }).length;
+
+                return { ...f, guideCount, panelCount };
+            }));
+        }
+    }, [allProjects.length]); // Only run when projects length changes to avoid loops
+
     // Filter faculty by search
     const filteredFaculty = useMemo(() => {
         if (!facultySearch.trim()) return facultyList;
@@ -214,6 +242,11 @@ const PCModificationSettings = ({ filters }) => {
         setReassignMode(mode);
         setShowReassignModal(true);
         setReassignReason('');
+        // Reset enhanced state
+        setPanelAssignType('existing');
+        setPanelAssignmentScope('main');
+        setSelectedReviewType('');
+        setIgnoreSpecialization(false);
     };
 
     // Handle batch reassignment
@@ -235,18 +268,47 @@ const PCModificationSettings = ({ filters }) => {
                 }
                 results = await batchReassignGuide(projectIds, targetFaculty.employeeId, reassignReason);
             } else {
-                if (!targetPanel) {
-                    setMessage({ type: 'error', text: 'Please select a target panel' });
-                    return;
+                // Panel Reassignment Logic
+                if (panelAssignType === 'existing') {
+                    if (!targetPanel) {
+                        setMessage({ type: 'error', text: 'Please select a target panel' });
+                        return;
+                    }
+                    results = await batchReassignPanel(
+                        projectIds,
+                        targetPanel._id,
+                        reassignReason,
+                        { // Enhanced params object
+                            scope: panelAssignmentScope,
+                            reviewType: panelAssignmentScope === 'review' ? selectedReviewType : null,
+                            ignoreSpecialization
+                        }
+                    );
+                } else {
+                    // Single Faculty as Panel
+                    if (!targetFaculty) {
+                        setMessage({ type: 'error', text: 'Please select a faculty' });
+                        return;
+                    }
+                    // For Single Faculty, we pass memberEmployeeIds logic
+                    results = await batchReassignPanel(
+                        projectIds,
+                        null, // No panelId
+                        reassignReason,
+                        {
+                            memberEmployeeIds: [targetFaculty.employeeId],
+                            scope: panelAssignmentScope,
+                            reviewType: panelAssignmentScope === 'review' ? selectedReviewType : null,
+                            ignoreSpecialization
+                        }
+                    );
                 }
-                results = await batchReassignPanel(projectIds, targetPanel._id, reassignReason);
             }
 
-            // Count successes and failures
             const successCount = results.filter(r => r.status === 'fulfilled').length;
             const failureCount = results.filter(r => r.status === 'rejected').length;
 
-            const targetName = reassignMode === 'guide' ? targetFaculty.name : targetPanel.name;
+            const targetName = reassignMode === 'guide' ? targetFaculty.name : (panelAssignType === 'existing' ? targetPanel?.name : targetFaculty?.name);
 
             if (failureCount === 0) {
                 setMessage({
@@ -266,6 +328,7 @@ const PCModificationSettings = ({ filters }) => {
             setTargetFaculty(null);
             setTargetPanel(null);
             setReassignReason('');
+            setIgnoreSpecialization(false);
 
             // Refresh data
             await fetchAllData();
@@ -421,8 +484,8 @@ const PCModificationSettings = ({ filters }) => {
                                                     key={project._id}
                                                     onClick={() => toggleProjectSelection(project._id, 'guide')}
                                                     className={`p-3 border rounded-lg cursor-pointer transition-all ${isProjectSelected(project._id)
-                                                            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                                                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                                         }`}
                                                 >
                                                     <div className="flex items-center justify-between">
@@ -464,8 +527,8 @@ const PCModificationSettings = ({ filters }) => {
                                                     key={project._id}
                                                     onClick={() => toggleProjectSelection(project._id, 'panel')}
                                                     className={`p-3 border rounded-lg cursor-pointer transition-all ${isProjectSelected(project._id)
-                                                            ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
-                                                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                                        ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
+                                                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                                         }`}
                                                 >
                                                     <div className="flex items-center justify-between">
@@ -503,7 +566,8 @@ const PCModificationSettings = ({ filters }) => {
                     setShowReassignModal(false);
                     setTargetFaculty(null);
                     setTargetPanel(null);
-                    setReassignReason('');
+                    setPanelAssignType('existing');
+                    setIgnoreSpecialization(false);
                 }}
                 title={`Reassign ${reassignMode === 'guide' ? 'Guide' : 'Panel'}`}
                 size="md"
@@ -533,23 +597,58 @@ const PCModificationSettings = ({ filters }) => {
                             </div>
                         </div>
                     ) : (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Select New Panel
-                            </label>
-                            <Select
-                                options={availablePanels.map(p => ({ value: p._id, label: p.name }))}
-                                value={targetPanel?._id || ''}
-                                onChange={(val) => {
-                                    const panel = availablePanels.find(p => p._id === val);
-                                    setTargetPanel(panel);
-                                }}
-                                placeholder="Select a panel..."
-                            />
-                            {targetPanel && (
-                                <p className="text-xs text-gray-500 mt-2">
-                                    Members: {targetPanel.members.join(', ')}
-                                </p>
+                        <div className="space-y-4">
+                            {/* Toggle between existing panel and single faculty */}
+                            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                                <button onClick={() => { setPanelAssignType('existing'); setTargetFaculty(null); }} className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${panelAssignType === 'existing' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>Existing Panel</button>
+                                <button onClick={() => { setPanelAssignType('faculty'); setTargetPanel(null); }} className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${panelAssignType === 'faculty' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>Single Faculty</button>
+                            </div>
+
+                            {/* Assignment Scope */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-gray-700">Assignment Scope</label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                        <input type="radio" value="main" checked={panelAssignmentScope === 'main'} onChange={(e) => setPanelAssignmentScope(e.target.value)} className="text-blue-600 focus:ring-blue-500" /> Main Project Panel
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                        <input type="radio" value="review" checked={panelAssignmentScope === 'review'} onChange={(e) => setPanelAssignmentScope(e.target.value)} className="text-blue-600 focus:ring-blue-500" /> Specific Review Only
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Review Type Selection */}
+                            {panelAssignmentScope === 'review' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Review</label>
+                                    <Select options={availableReviews} value={selectedReviewType} onChange={setSelectedReviewType} placeholder="Select a review..." />
+                                </div>
+                            )}
+
+                            {panelAssignType === 'existing' ? (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Target Panel</label>
+                                    <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                                        {availablePanels.map((panel) => (
+                                            <button key={panel._id} onClick={() => setTargetPanel(panel)} className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetPanel?._id === panel._id ? 'bg-blue-50' : ''}`}>
+                                                <p className="font-medium text-gray-900">{panel.name}</p>
+                                                <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Faculty as Panel</label>
+                                    <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+                                        {availableFacultyForReassign.map((faculty) => (
+                                            <button key={faculty.employeeId} onClick={() => setTargetFaculty(faculty)} className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''}`}>
+                                                <p className="font-medium text-gray-900">{faculty.name}</p>
+                                                <p className="text-xs text-gray-500">{faculty.employeeId} • Will be assigned as single-member panel</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     )}
@@ -569,6 +668,11 @@ const PCModificationSettings = ({ filters }) => {
                         />
                     </div>
 
+                    <div className="flex items-center gap-2 pt-2">
+                        <input type="checkbox" id="ignoreSpecialization" checked={ignoreSpecialization} onChange={(e) => setIgnoreSpecialization(e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        <label htmlFor="ignoreSpecialization" className="text-sm text-gray-700">Ignore Specialization Mismatch</label>
+                    </div>
+
                     <div className="flex justify-end gap-3 pt-4 border-t">
                         <Button variant="secondary" onClick={() => setShowReassignModal(false)}>
                             Cancel
@@ -576,7 +680,7 @@ const PCModificationSettings = ({ filters }) => {
                         <Button
                             variant="primary"
                             onClick={handleBatchReassign}
-                            disabled={loading.reassigning || !reassignReason.trim() || (reassignMode === 'guide' ? !targetFaculty : !targetPanel)}
+                            disabled={loading.reassigning || !reassignReason.trim() || (reassignMode === 'guide' ? !targetFaculty : (panelAssignType === 'existing' ? !targetPanel : !targetFaculty))}
                         >
                             {loading.reassigning ? 'Reassigning...' : 'Confirm Reassignment'}
                         </Button>
