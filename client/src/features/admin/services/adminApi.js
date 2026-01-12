@@ -126,6 +126,14 @@ const adaptPanel = (backendPanel) => {
     members:
       backendPanel.members?.map((m) => ({
         _id: m._id,
+        faculty: {
+          _id: m.faculty?._id,
+          employeeId: m.faculty?.employeeId,
+          name: m.faculty?.name,
+          email: m.faculty?.emailId,
+          emailId: m.faculty?.emailId,
+          specialization: m.faculty?.specialization,
+        },
         employeeId: m.faculty?.employeeId,
         name: m.faculty?.name,
         email: m.faculty?.emailId,
@@ -189,6 +197,12 @@ const adaptProject = (backendProject) => {
       backendProject.panel && typeof backendProject.panel === "object"
         ? backendProject.panel._id
         : backendProject.panel,
+    reviewPanels: backendProject.reviewPanels?.map(rp => ({
+      reviewType: rp.reviewType,
+      panel: rp.panel ? adaptPanel(rp.panel) : null,
+      assignedAt: rp.assignedAt,
+      assignedBy: rp.assignedBy,
+    })) || [],
     createdAt: backendProject.createdAt,
   };
 };

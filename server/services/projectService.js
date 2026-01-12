@@ -32,6 +32,14 @@ export class ProjectService {
           select: "name employeeId emailId",
         },
       })
+      .populate({
+        path: "reviewPanels.panel",
+        select: "panelName members venue",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId emailId",
+        },
+      })
       .lean();
   }
 
@@ -211,6 +219,14 @@ export class ProjectService {
         populate: {
           path: "members.faculty",
           select: "name employeeId",
+        },
+      })
+      .populate({
+        path: "reviewPanels.panel",
+        select: "panelName members venue",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId emailId",
         },
       })
       .lean();
