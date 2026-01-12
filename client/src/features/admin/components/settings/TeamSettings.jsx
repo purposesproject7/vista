@@ -27,7 +27,7 @@ const TeamSettings = ({
   const defaultSettings = {
     minStudentsPerTeam: 1,
     maxStudentsPerTeam: 4,
-    defaultStudentsPerTeam: 3,
+
     minPanelSize: 3,
     maxPanelSize: 5,
     maxProjectsPerGuide: 8,
@@ -96,12 +96,7 @@ const TeamSettings = ({
           setSettings({
             minStudentsPerTeam: response.data.minTeamSize || 1,
             maxStudentsPerTeam: response.data.maxTeamSize || 4,
-            defaultStudentsPerTeam:
-              response.data.defaultTeamSize ||
-              Math.floor(
-                (response.data.minTeamSize + response.data.maxTeamSize) / 2
-              ) ||
-              3,
+
             minPanelSize: response.data.minPanelSize || 3,
             maxPanelSize: response.data.maxPanelSize || 5,
             maxProjectsPerGuide: response.data.maxProjectsPerGuide || 8,
@@ -134,17 +129,7 @@ const TeamSettings = ({
       return;
     }
 
-    // Default isn't in DB yet, but simplified validation
-    if (
-      settings.defaultStudentsPerTeam < settings.minStudentsPerTeam ||
-      settings.defaultStudentsPerTeam > settings.maxStudentsPerTeam
-    ) {
-      showToast(
-        "Recommended team size must be between minimum and maximum",
-        "error"
-      );
-      return;
-    }
+
 
     if (!selectedSchool || !selectedProgram || !selectedYear) {
       showToast("Please select all filters before saving", "error");
@@ -168,7 +153,7 @@ const TeamSettings = ({
         program: selectedProgram,
         minTeamSize: settings.minStudentsPerTeam,
         maxTeamSize: settings.maxStudentsPerTeam,
-        defaultTeamSize: settings.defaultStudentsPerTeam,
+
         minPanelSize: settings.minPanelSize,
         maxPanelSize: settings.maxPanelSize,
         maxProjectsPerGuide: settings.maxProjectsPerGuide,
@@ -339,30 +324,7 @@ const TeamSettings = ({
               </p>
             </div>
 
-            {/* Default Students (UI Helper only now) */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-blue-900">
-                  Default Students Per Team (Recommended)
-                </label>
-              </div>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={settings.defaultStudentsPerTeam}
-                disabled={!isContextSelected || isLoading}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    defaultStudentsPerTeam: parseInt(e.target.value) || 0,
-                  })
-                }
-              />
-              <p className="text-sm text-blue-900 mt-3">
-                This value is for reference and will be used as a suggestion.
-              </p>
-            </div>
+
 
             <hr className="my-8 border-gray-200" />
 

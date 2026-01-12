@@ -44,19 +44,7 @@ const programConfigSchema = new mongoose.Schema(
       min: 1,
       max: 10,
     },
-    defaultTeamSize: {
-      type: Number,
-      required: false,
-      default: 3,
-      min: 1,
-      max: 10,
-      validate: {
-        validator: function (value) {
-          return value >= this.minTeamSize && value <= this.maxTeamSize;
-        },
-        message: "defaultTeamSize must be between minTeamSize and maxTeamSize",
-      },
-    },
+
 
     // Panel size constraints
     minPanelSize: {

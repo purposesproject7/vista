@@ -2427,7 +2427,7 @@ export async function createProgramConfig(req, res) {
       program,
       maxTeamSize,
       minTeamSize,
-      defaultTeamSize,
+
       maxPanelSize,
       minPanelSize,
       featureLocks,
@@ -2453,7 +2453,7 @@ export async function createProgramConfig(req, res) {
       program,
       maxTeamSize: maxTeamSize || 4,
       minTeamSize: minTeamSize || 1,
-      defaultTeamSize: defaultTeamSize || 3,
+
       maxPanelSize: maxPanelSize || 5,
       minPanelSize: minPanelSize || 3,
       featureLocks:
