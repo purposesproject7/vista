@@ -102,6 +102,12 @@ const adaptProject = (backendProject) => {
     createdAt: backendProject.createdAt,
     updatedAt: backendProject.updatedAt,
     id: backendProject._id, // Add id alias
+    reviewPanels: backendProject.reviewPanels?.map(rp => ({
+      reviewType: rp.reviewType,
+      panel: rp.panel ? adaptPanel(rp.panel) : null,
+      assignedAt: rp.assignedAt,
+      assignedBy: rp.assignedBy,
+    })) || [],
   };
 };
 
