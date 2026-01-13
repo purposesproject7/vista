@@ -7,11 +7,14 @@ import { AcademicCapIcon, UserGroupIcon, ChartBarIcon } from '@heroicons/react/2
 import { fetchProjectMarks } from '../../services/adminApi';
 import { useToast } from '../../../../shared/hooks/useToast';
 
+import { useAdminContext } from '../../context/AdminContext';
+
 const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [marksByStudent, setMarksByStudent] = useState({});
   const [loadingMarks, setLoadingMarks] = useState(false);
   const { showToast } = useToast();
+  const { academicContext } = useAdminContext();
 
   // Set first student as default when modal opens
   useEffect(() => {
@@ -26,7 +29,14 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
       if (isOpen && project?._id) {
         setLoadingMarks(true);
         try {
-          const response = await fetchProjectMarks(project._id);
+          // Map context to API params
+          const context = {
+            academicYear: academicContext.year,
+            school: academicContext.school,
+            program: academicContext.program
+          };
+
+          const response = await fetchProjectMarks(project._id, context);
           if (response.success) {
             setMarksByStudent(response.marksByStudent);
           } else {
@@ -43,7 +53,7 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
     };
 
     loadMarks();
-  }, [isOpen, project]);
+  }, [isOpen, project, academicContext]);
 
   const selectedStudentMarks = useMemo(() => {
     if (!selectedStudent || !marksByStudent) return null;

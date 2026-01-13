@@ -26,10 +26,16 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
       if (isOpen && project?._id) {
         setLoadingMarks(true);
         try {
+          // Debugging log
+          console.log('Fetching marks for project:', project._id);
           const response = await fetchProjectMarks(project._id);
+          console.log('Marks response:', response);
+
           if (response.success) {
+            console.log('Setting marks:', response.marksByStudent);
             setMarksByStudent(response.marksByStudent);
           } else {
+            console.warn('Failed to fetch marks, using fallback');
             // Use mock data or empty object if no marks available
             setMarksByStudent(project.marksByStudent || {});
           }

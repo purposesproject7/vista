@@ -118,18 +118,18 @@ const RubricEditor = ({ component, onSave, onCancel }) => {
     onSave(formData);
   };
 
-  // Auto-calculate suggested weight from sub-components
-  React.useEffect(() => {
-    if (formData.predefinedSubComponents.length > 0) {
-      const total = formData.predefinedSubComponents.reduce((sum, s) => sum + (parseFloat(s.weight) || 0), 0);
-      setFormData(prev => {
-        if (prev.suggestedWeight !== total) {
-          return { ...prev, suggestedWeight: total };
-        }
-        return prev;
-      });
-    }
-  }, [formData.predefinedSubComponents]);
+  // Auto-calculate suggested weight from sub-components - REMOVED
+  // React.useEffect(() => {
+  //   if (formData.predefinedSubComponents.length > 0) {
+  //     const total = formData.predefinedSubComponents.reduce((sum, s) => sum + (parseFloat(s.weight) || 0), 0);
+  //     setFormData(prev => {
+  //       if (prev.suggestedWeight !== total) {
+  //         return { ...prev, suggestedWeight: total };
+  //       }
+  //       return prev;
+  //     });
+  //   }
+  // }, [formData.predefinedSubComponents]);
 
   const handleKeyDown = (e) => {
     if (['e', 'E', '+', '-'].includes(e.key)) {
@@ -338,15 +338,11 @@ const RubricEditor = ({ component, onSave, onCancel }) => {
                 onWheel={(e) => e.target.blur()}
                 min="0"
                 step="0.1"
-                readOnly={formData.predefinedSubComponents.length > 0}
-                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${formData.predefinedSubComponents.length > 0 ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
-                  }`}
+                // readOnly={formData.predefinedSubComponents.length > 0} 
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p className="text-xs text-gray-500 mt-1">
-                {formData.predefinedSubComponents.length > 0
-                  ? "Calculated automatically from sub-components"
-                  : "Suggested weightage for this component in marking schema"
-                }
+                Suggested weightage for this component in marking schema
               </p>
             </div>
 
@@ -366,15 +362,7 @@ const RubricEditor = ({ component, onSave, onCancel }) => {
             </div>
 
             <div className="flex items-center gap-3">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.allowCustomSubComponents}
-                  onChange={(e) => setFormData({ ...formData, allowCustomSubComponents: e.target.checked })}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Allow custom sub-components</span>
-              </label>
+
 
               <label className="flex items-center">
                 <input
@@ -388,87 +376,9 @@ const RubricEditor = ({ component, onSave, onCancel }) => {
             </div>
           </div>
 
-          {/* Sub-Components */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900">
-                  Predefined Sub-Components
-                </h4>
-                <p className="text-sm text-gray-600 mt-1">Optional: Define sub-components for detailed assessment</p>
-              </div>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={handleAddSubComponent}
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add Sub-Component
-              </Button>
-            </div>
+          {/* Sub-Components Section Removed */}
 
-            {formData.predefinedSubComponents.length === 0 ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500">
-                <p className="text-lg">No sub-components added yet</p>
-                <p className="text-sm mt-2">Click the button above to add sub-components</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {formData.predefinedSubComponents.map((sub, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 rounded-lg p-5 bg-white hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h5 className="font-semibold text-gray-900 text-lg mb-2">
-                          {sub.name}
-                        </h5>
-                        {sub.description && (
-                          <p className="text-sm text-gray-600 mb-2">{sub.description}</p>
-                        )}
-                        {sub.weight > 0 && (
-                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-medium text-sm">
-                            Weight: {sub.weight}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2 ml-4">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleEditSubComponent(sub, index)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleDeleteSubComponent(index)}
-                          className="text-red-600 hover:bg-red-50"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Total Weight Summary */}
-          {formData.predefinedSubComponents.length > 0 && totalWeight > 0 && (
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-blue-200">
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-gray-900">Total Sub-Component Weight</span>
-                <span className="text-3xl font-bold text-blue-600">{totalWeight.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
+          {/* Total Weight Summary Removed */}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
@@ -480,8 +390,8 @@ const RubricEditor = ({ component, onSave, onCancel }) => {
             </Button>
           </div>
         </form>
-      </div>
-    </Card>
+      </div >
+    </Card >
   );
 };
 

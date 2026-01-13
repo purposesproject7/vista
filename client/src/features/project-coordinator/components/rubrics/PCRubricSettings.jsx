@@ -180,8 +180,8 @@ const PCRubricSettings = ({ filters }) => {
                 <div className="flex border-b border-gray-200 mb-6">
                     <button
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeView === "schema"
-                                ? "border-blue-600 text-blue-600"
-                                : "border-transparent text-gray-500 hover:text-gray-700"
+                            ? "border-blue-600 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
                             }`}
                         onClick={() => setActiveView("schema")}
                     >
@@ -190,8 +190,8 @@ const PCRubricSettings = ({ filters }) => {
                     </button>
                     <button
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeView === "library"
-                                ? "border-blue-600 text-blue-600"
-                                : "border-transparent text-gray-500 hover:text-gray-700"
+                            ? "border-blue-600 text-blue-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
                             }`}
                         onClick={() => setActiveView("library")}
                     >
@@ -344,24 +344,7 @@ const PCRubricSettings = ({ filters }) => {
                                                     <p className="text-sm text-gray-600 mt-1">{comp.description}</p>
                                                 )}
 
-                                                {/* Display Sub-components */}
-                                                {comp.predefinedSubComponents && comp.predefinedSubComponents.length > 0 && (
-                                                    <div className="mt-3">
-                                                        <p className="text-xs font-semibold text-gray-600 uppercase mb-1">
-                                                            Sub-components:
-                                                        </p>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {comp.predefinedSubComponents.map((sub, idx) => (
-                                                                <span
-                                                                    key={idx}
-                                                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100"
-                                                                >
-                                                                    {sub.name} <span className="ml-1 opacity-75">({sub.weight})</span>
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                {/* Display Sub-components - Removed */}
                                             </div>
                                             {/* NO Edit/Delete buttons - READ ONLY */}
                                         </div>

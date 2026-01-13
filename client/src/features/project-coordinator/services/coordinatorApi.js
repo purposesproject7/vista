@@ -523,6 +523,14 @@ export const fetchProfile = async () => {
 };
 
 /**
+ * Get faculty master data (schools, programs, academic years)
+ */
+export const fetchFacultyMasterData = async () => {
+  const response = await api.get("/faculty/master-data");
+  return response.data;
+};
+
+/**
  * Get coordinator permissions
  */
 export const fetchPermissions = async () => {
@@ -575,4 +583,5 @@ export default {
   requestAccess,
   fetchPermissions,
   fetchProfile,
+  fetchFacultyMasterData,
 };

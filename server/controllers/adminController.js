@@ -1564,10 +1564,20 @@ export async function getProjectsReport(req, res) {
 
 export async function getMarksReport(req, res) {
   try {
-    const { academicYear, school, program, reviewType } = req.query;
+    const { academicYear, school, program, reviewType, projectId } = req.query;
 
     const query = { academicYear, school, program };
     if (reviewType) query.reviewType = reviewType;
+    if (projectId) query.project = projectId;
+
+    console.log("getMarksReport - Query params:", req.query);
+    console.log("getMarksReport - Constructed Query:", query);
+
+    // Debug: Check if marks exist for this project without other filters
+    if (projectId) {
+      const allProjectMarks = await Marks.countDocuments({ project: projectId });
+      console.log(`Debug: Total marks for project ${projectId} (ignoring other filters): ${allProjectMarks}`);
+    }
 
     const marks = await Marks.find(query)
       .populate("student", "regNo name")

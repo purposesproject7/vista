@@ -682,10 +682,10 @@ export const markAsBestProject = async (projectId, isBest) => {
 /**
  * Get marks for a specific project (all students)
  */
-export const fetchProjectMarks = async (projectId) => {
+export const fetchProjectMarks = async (projectId, context = {}) => {
   try {
     const response = await api.get(`/admin/reports/marks`, {
-      params: { projectId },
+      params: { projectId, ...context },
     });
 
     if (response.data.success) {

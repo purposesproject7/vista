@@ -20,8 +20,8 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
           ? comp.description
           : typeof comp.description === "string" &&
             comp.description.trim() !== ""
-          ? [{ label: comp.description, marks: "" }]
-          : [],
+            ? [{ label: comp.description, marks: "" }]
+            : [],
       }));
       return { ...review, components: normalizedComponents };
     }
@@ -185,22 +185,22 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
       return;
     }
 
-    // Validate component marks
-    for (const comp of formData.components) {
-      if (comp.subComponents && comp.subComponents.length > 0) {
-        const subTotal = comp.subComponents.reduce(
-          (sum, sub) => sum + (parseFloat(sub.weight) || 0),
-          0
-        );
-        if (Math.abs(subTotal - comp.maxMarks) > 0.01) {
-          // Floating point tolerance
-          setDateError(
-            `Total marks for "${comp.name}" (${comp.maxMarks}) do not match sum of sub-components (${subTotal})`
-          );
-          return;
-        }
-      }
-    }
+    // Validate component marks - Sub-Component validation removed
+    // for (const comp of formData.components) {
+    //   if (comp.subComponents && comp.subComponents.length > 0) {
+    //     const subTotal = comp.subComponents.reduce(
+    //       (sum, sub) => sum + (parseFloat(sub.weight) || 0),
+    //       0
+    //     );
+    //     if (Math.abs(subTotal - comp.maxMarks) > 0.01) {
+    //       // Floating point tolerance
+    //       setDateError(
+    //         `Total marks for "${comp.name}" (${comp.maxMarks}) do not match sum of sub-components (${subTotal})`
+    //       );
+    //       return;
+    //     }
+    //   }
+    // }
 
     setDateError(""); // Clear any previous errors
     onSave(formData);
@@ -445,76 +445,14 @@ const ReviewEditor = ({ review, onSave, onCancel, availableComponents }) => {
                         ))}
                       {(!Array.isArray(comp.description) ||
                         comp.description.length === 0) && (
-                        <p className="text-xs text-gray-400 italic">
-                          No description criteria added.
-                        </p>
-                      )}
+                          <p className="text-xs text-gray-400 italic">
+                            No description criteria added.
+                          </p>
+                        )}
                     </div>
                   </div>
 
-                  {/* Sub-components Editor - NOW ADDED AS REQUESTED */}
-                  <div className="pl-4 border-l-2 border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-semibold text-gray-500 uppercase">
-                        Sub-components (Rubric)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleAddSubComponent(idx)}
-                        className="text-xs text-blue-600 font-medium hover:underline flex items-center"
-                      >
-                        <PlusIcon className="h-3 w-3 mr-1" /> Add Sub-component
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {comp.subComponents?.map((sub, sIdx) => (
-                        <div key={sIdx} className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            placeholder="Criteria Name"
-                            value={sub.name}
-                            onChange={(e) =>
-                              handleUpdateSubComponent(
-                                idx,
-                                sIdx,
-                                "name",
-                                e.target.value
-                              )
-                            }
-                            className="flex-1 text-sm border-gray-300 rounded px-2 py-1"
-                          />
-                          <input
-                            type="number"
-                            placeholder="Weight"
-                            value={sub.weight}
-                            onChange={(e) =>
-                              handleUpdateSubComponent(
-                                idx,
-                                sIdx,
-                                "weight",
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="w-20 text-sm border-gray-300 rounded px-2 py-1"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSubComponent(idx, sIdx)}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                      {(!comp.subComponents ||
-                        comp.subComponents.length === 0) && (
-                        <p className="text-xs text-gray-400 italic">
-                          No sub-components defined.
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                  {/* Sub-components Editor - Removed */}
                 </div>
               ))}
               {formData.components.length === 0 && (

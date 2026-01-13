@@ -3,95 +3,113 @@ import React, { useState, useEffect } from "react";
 import Select from "../../../../shared/components/Select";
 import Card from "../../../../shared/components/Card";
 import { AcademicCapIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
-import { fetchAcademicYears } from "../../services/coordinatorApi";
-import { useAuth } from "../../../../shared/hooks/useAuth";
+import { fetchFacultyMasterData } from "../../services/coordinatorApi";
 import { useCoordinatorContext } from "../../context/CoordinatorContext";
 
 const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   const [loading, setLoading] = useState(false);
-  const [academicYearSemesterOptions, setAcademicYearSemesterOptions] =
-    useState([]);
+  const [masterData, setMasterData] = useState({ programs: [], academicYears: [] });
+  const [academicYearOptions, setAcademicYearOptions] = useState([]);
+  const [programOptions, setProgramOptions] = useState([]);
+  const [localFilters, setLocalFilters] = useState({
+    program: "",
+    academicYear: ""
+  });
 
   const { academicContext, updateAcademicContext } = useCoordinatorContext();
 
-  const { user } = useAuth();
-
-  // Fetch combined academic year and semester options on mount
+  // Load Master Data
   useEffect(() => {
-    const loadOptions = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
-        const response = await fetchAcademicYears();
+        const response = await fetchFacultyMasterData();
 
-        if (response.success && Array.isArray(response.data)) {
-          const options = [];
+        if (response.success && response.data) {
+          const { programs = [], academicYears = [] } = response.data;
+          setMasterData({ programs, academicYears });
 
-          // Sort years in descending order (newest first)
-          const sortedYears = [...response.data].sort().reverse();
+          // Format Academic Year Options
+          const yearOptions = academicYears
+            .filter(y => y.isActive)
+            .map(y => ({
+              value: y.year,
+              label: y.year
+            }))
+            .sort((a, b) => b.value.localeCompare(a.value)); // Newest first
 
-          sortedYears.forEach((year) => {
-            // Use the year string exactly as provided by the backend
-            // Try to infer semester for metadata if present, but value/label matches backend
-            const upperYear = year.toUpperCase();
-            let semesterPart = "Unknown";
+          setAcademicYearOptions(yearOptions);
 
-            if (upperYear.includes("FALL")) semesterPart = "Fall";
-            else if (upperYear.includes("WINTER")) semesterPart = "Winter";
+          // Format Program Options
+          const progOptions = programs
+            .filter(p => p.isActive)
+            .map(p => ({
+              value: p.code,
+              label: p.name,
+              school: p.school // Store school code for context derivation
+            }));
 
-            options.push({
-              value: year,
-              label: year,
-              originalYear: year, // sending full year string as originalYear too
-              semester: semesterPart,
-            });
-          });
+          setProgramOptions(progOptions);
 
-          setAcademicYearSemesterOptions(options);
-
-          // Auto-select first option (newest) if not already selected in context
-          if (options.length > 0 && !academicContext.academicYearSemester) {
-            updateAcademicContext({ academicYearSemester: options[0].value });
+          // Auto-select defaults derived from context or first available
+          if (academicContext.academicYearSemester) {
+            setLocalFilters(prev => ({ ...prev, academicYear: academicContext.academicYearSemester }));
+          } else if (yearOptions.length > 0) {
+            // Optional: Auto-select latest year
+            // setLocalFilters(prev => ({ ...prev, academicYear: yearOptions[0].value }));
           }
         }
       } catch (error) {
-        console.error("Failed to load academic years", error);
-        // Fallback or empty options
+        console.error("Failed to load master data", error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadOptions();
+    loadData();
   }, []);
 
-  // Notify parent when filter is selected
-  useEffect(() => {
-    if (academicContext.academicYearSemester) {
-      const selectedOption = academicYearSemesterOptions.find(
-        (opt) => opt.value === academicContext.academicYearSemester
-      );
+  // Handle local filter changes
+  const handleFilterChange = (key, value) => {
+    setLocalFilters(prev => {
+      const newFilters = { ...prev, [key]: value };
+      return newFilters;
+    });
 
-      if (selectedOption) {
+    // Update global context immediately for year (legacy support) or when both are ready?
+    // Maintaining consistency with previous behavior:
+    if (key === 'academicYear') {
+      updateAcademicContext({ academicYearSemester: value });
+    }
+  };
+
+  // Notify parent when both Program and Year are selected
+  useEffect(() => {
+    const { program, academicYear } = localFilters;
+
+    if (program && academicYear) {
+      // Find selected program to get school code
+      const selectedProgram = masterData.programs.find(p => p.code === program);
+
+      if (selectedProgram) {
         onFilterComplete({
-          year: selectedOption.value, // Use the full value (e.g. "2024-2025 winter") to match DB
-          semester: selectedOption.semester,
-          academicYearSemester: academicContext.academicYearSemester,
-          // Removed school/programme from here to prevent loops when user object updates.
-          // Parent component should use its own user context for those values.
+          school: selectedProgram.school, // Derived school
+          program: selectedProgram.code,
+          year: academicYear,
+          academicYearSemester: academicYear // Legacy field alias
         });
       }
     }
-  }, [
-    academicContext.academicYearSemester,
-    academicYearSemesterOptions,
-    onFilterComplete,
-  ]);
+  }, [localFilters, masterData.programs, onFilterComplete]);
 
-  const handleChange = (value) => {
-    updateAcademicContext({ academicYearSemester: value });
-  };
+  // Sync with context updates if they happen externally
+  useEffect(() => {
+    if (academicContext.academicYearSemester && academicContext.academicYearSemester !== localFilters.academicYear) {
+      setLocalFilters(prev => ({ ...prev, academicYear: academicContext.academicYearSemester }));
+    }
+  }, [academicContext.academicYearSemester]);
 
-  const allSelected = !!academicContext.academicYearSemester;
+  const allSelected = !!(localFilters.program && localFilters.academicYear);
 
   return (
     <Card className={`sticky top-4 z-30 ${className}`}>
@@ -110,7 +128,7 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
             </div>
           </div>
           <span className="text-xs font-semibold text-gray-600">
-            {allSelected ? "1" : "0"}/1
+            {allSelected ? "2" : (localFilters.program || localFilters.academicYear ? "1" : "0")}/2
           </span>
         </div>
 
@@ -124,33 +142,24 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
         )}
       </div>
 
-      {/* Display coordinator's fixed school and programme in grid layout matching admin */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-            School
-          </label>
-          <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 font-medium cursor-not-allowed">
-            {user?.school || "Loading..."}
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-            Program
-          </label>
-          <div className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 font-medium cursor-not-allowed">
-            {user?.program || "Loading..."}
-          </div>
-        </div>
-        {/* Academic Year & Semester Selection */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        {/* Program Selection */}
+        <Select
+          label="Program"
+          value={localFilters.program}
+          onChange={(val) => handleFilterChange('program', val)}
+          options={programOptions}
+          placeholder="Select Program"
+          disabled={loading}
+        />
+
+        {/* Academic Year Selection */}
         <Select
           label="Academic Year"
-          value={academicContext.academicYearSemester}
-          onChange={handleChange}
-          options={academicYearSemesterOptions}
-          placeholder={
-            loading ? "Loading years..." : "Select Academic Year & Semester"
-          }
+          value={localFilters.academicYear}
+          onChange={(val) => handleFilterChange('academicYear', val)}
+          options={academicYearOptions}
+          placeholder="Select Academic Year"
           disabled={loading}
         />
       </div>
