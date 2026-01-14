@@ -25,7 +25,8 @@ export class MarksService {
     // Determine faculty type
     const { facultyType, project: projectDoc } = await getFacultyTypeForProject(
       facultyId,
-      project
+      project,
+      reviewType
     );
 
     // Check for existing marks

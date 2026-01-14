@@ -19,8 +19,17 @@ export function extractPrimaryContext(faculty) {
 /**
  * Determine faculty type for a project (guide or panel)
  */
-export async function getFacultyTypeForProject(facultyId, projectId) {
-  const project = await Project.findById(projectId).populate("panel");
+export async function getFacultyTypeForProject(
+  facultyId,
+  projectId,
+  reviewType = null
+) {
+  const project = await Project.findById(projectId)
+    .populate("panel")
+    .populate({
+      path: "reviewPanels.panel",
+      populate: { path: "members.faculty", select: "_id" },
+    });
 
   if (!project) {
     throw new Error("Project not found.");
@@ -31,13 +40,46 @@ export async function getFacultyTypeForProject(facultyId, projectId) {
     return { facultyType: "guide", project };
   }
 
-  // Check if panel member
-  const isPanelMember = project.panel?.members?.some(
+  // Check if panel member (Main Panel)
+  const isMainPanelMember = project.panel?.members?.some(
     (m) => m.faculty.toString() === facultyId.toString()
   );
 
-  if (isPanelMember) {
+  if (isMainPanelMember) {
     return { facultyType: "panel", project };
+  }
+
+  // Check review-specific panels
+  if (project.reviewPanels && project.reviewPanels.length > 0) {
+    // If reviewType is provided, check specifically for that review
+    if (reviewType) {
+      const reviewPanelAssignment = project.reviewPanels.find(
+        (rp) => rp.reviewType === reviewType
+      );
+
+      if (reviewPanelAssignment && reviewPanelAssignment.panel) {
+        const isReviewPanelMember =
+          reviewPanelAssignment.panel.members?.some(
+            (m) => m.faculty._id.toString() === facultyId.toString()
+          );
+
+        if (isReviewPanelMember) {
+          return { facultyType: "panel", project };
+        }
+      }
+    } else {
+      // If no reviewType provided, check if member of ANY assigned review panel
+      // (This is useful for general access checks)
+      const isAnyReviewPanelMember = project.reviewPanels.some((rp) =>
+        rp.panel?.members?.some(
+          (m) => m.faculty._id.toString() === facultyId.toString()
+        )
+      );
+
+      if (isAnyReviewPanelMember) {
+        return { facultyType: "panel", project };
+      }
+    }
   }
 
   throw new Error("You are not assigned to this project.");

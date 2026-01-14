@@ -34,6 +34,11 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
     if (!isOpen || !team) return;
     const initMarks = {};
     const initMeta = {};
+
+    // Initialize team-level metadata
+    let foundTeamComment = team.teamComment || '';
+    let foundPptApproved = team.pptApproved || false;
+
     team.students.forEach(s => {
       const studentMarks = {};
       if (s.existingMarks && Array.isArray(s.existingMarks)) {
@@ -43,19 +48,35 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
       }
       initMarks[s.student_id] = studentMarks;
 
+      const rawComment = s.existingMeta?.comment || '';
+
+      // Try to extract team feedback if we haven't found it yet
+      if (!foundTeamComment && rawComment.includes('| Team Feedback:')) {
+        const match = rawComment.match(/\|\s*Team Feedback:\s*(.*?)(?:\s*\|\s*PPT Approved|$)/);
+        if (match && match[1]) {
+          foundTeamComment = match[1].trim();
+        }
+      }
+
+      // Try to extract PPT approval if we haven't found it yet
+      if (!foundPptApproved && rawComment.includes('| PPT Approved')) {
+        foundPptApproved = true;
+      }
+
       initMeta[s.student_id] = {
         ...DEFAULT_META,
-        comment: s.existingMeta?.comment?.replace(/^\[ABSENT\]\s*|^\[PAT\]\s*|\|\s*Team Feedback:.*|\|\s*PPT Approved/g, '').trim() || '',
-        attendance: s.existingMeta?.comment?.includes('[ABSENT]') ? 'absent' : 'present',
-        pat: s.existingMeta?.comment?.includes('[PAT]') ? true : false
+        comment: rawComment.replace(/^\[ABSENT\]\s*|^\[PAT\]\s*|\|\s*Team Feedback:.*|\|\s*PPT Approved/g, '').trim() || '',
+        attendance: rawComment.includes('[ABSENT]') ? 'absent' : 'present',
+        pat: rawComment.includes('[PAT]') ? true : false
       };
     });
+
     setMarks(initMarks);
     setMeta(initMeta);
     setInitialState({ marks: JSON.stringify(initMarks), meta: JSON.stringify(initMeta) });
     setTeamMeta({
-      pptApproved: team.pptApproved || false,
-      teamComment: team.teamComment || ''
+      pptApproved: foundPptApproved,
+      teamComment: foundTeamComment
     });
   }, [isOpen, team]);
 

@@ -402,7 +402,11 @@ export async function createRequest(req, res) {
     const { student, project, reviewType, requestType, reason } = req.body;
     const facultyId = req.user._id;
 
-    const { facultyType } = await getFacultyTypeForProject(facultyId, project);
+    const { facultyType } = await getFacultyTypeForProject(
+      facultyId,
+      project,
+      reviewType
+    );
 
     const [studentDoc] = await Promise.all([Student.findById(student)]);
 
