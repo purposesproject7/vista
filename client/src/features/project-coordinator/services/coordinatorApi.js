@@ -538,6 +538,21 @@ export const fetchPermissions = async () => {
   return response.data;
 };
 
+// ==================== Report APIs ====================
+
+/**
+ * Fetch report data based on type
+ */
+export const fetchReportData = async (type, filters = {}) => {
+  const response = await api.get("/coordinator/reports", {
+    params: {
+      type,
+      ...filters,
+    },
+  });
+  return response.data;
+};
+
 // Export all functions
 export default {
   // Students
@@ -584,4 +599,5 @@ export default {
   fetchPermissions,
   fetchProfile,
   fetchFacultyMasterData,
+  fetchReportData,
 };
