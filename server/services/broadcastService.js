@@ -1,4 +1,6 @@
 import BroadcastMessage from "../models/broadcastMessageSchema.js";
+import Faculty from "../models/facultySchema.js";
+import { EmailService } from "./emailService.js";
 import { logger } from "../utils/logger.js";
 
 export class BroadcastService {
@@ -15,6 +17,7 @@ export class BroadcastService {
       expiresAt,
       action = "notice",
       priority = "medium",
+      sendEmail = false,
     } = data;
 
     if (!message || !expiresAt) {
@@ -54,6 +57,46 @@ export class BroadcastService {
       targetPrograms: targetPrograms.length,
       createdBy: createdBy._id,
     });
+
+    // Send email if requested
+    if (sendEmail) {
+      try {
+        const query = { isActive: true };
+
+        // Filter by schools if provided
+        if (targetSchools.length > 0) {
+          query.school = { $in: targetSchools };
+        }
+
+        // Filter by programs if provided
+        // Note: Broadcast schema uses 'programs', Faculty uses 'school' & 'program'
+        // If targetPrograms are provided, we should filter by them
+        // Assuming targetPrograms contains simple program names or codes
+        if (targetPrograms.length > 0) {
+          query.program = { $in: targetPrograms };
+        }
+
+        // Fetch faculty emails
+        const facultyMembers = await Faculty.find(query).select("emailId").lean();
+        const emailList = facultyMembers.map((f) => f.emailId);
+
+        if (emailList.length > 0) {
+          logger.info("sending_broadcast_emails", { count: emailList.length });
+
+          // Send asynchronously
+          EmailService.sendBroadcastEmail(
+            emailList,
+            title || "New Important Announcement",
+            message
+          );
+        } else {
+          logger.info("no_recipients_for_broadcast_email");
+        }
+      } catch (err) {
+        logger.error("broadcast_email_failed", { error: err.message });
+        // Don't fail the request if email fails
+      }
+    }
 
     return broadcast;
   }

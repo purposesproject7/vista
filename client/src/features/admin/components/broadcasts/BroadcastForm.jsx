@@ -124,11 +124,10 @@ const BroadcastForm = ({
             </label>
             <div className="flex gap-4">
               <label
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer ${
-                  formData.action === "notice"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer ${formData.action === "notice"
                     ? "border-blue-500 bg-blue-50 text-blue-700"
                     : "border-gray-200 bg-white"
-                }`}
+                  }`}
               >
                 <input
                   type="radio"
@@ -143,11 +142,10 @@ const BroadcastForm = ({
                 </span>
               </label>
               <label
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer ${
-                  formData.action === "block"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer ${formData.action === "block"
                     ? "border-red-500 bg-red-50 text-red-700"
                     : "border-gray-200 bg-white"
-                }`}
+                  }`}
               >
                 <input
                   type="radio"
@@ -168,7 +166,6 @@ const BroadcastForm = ({
             </p>
           </div>
 
-          {/* Active Status */}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -186,6 +183,24 @@ const BroadcastForm = ({
             </label>
           </div>
 
+          {/* Email Broadcast Toggle */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="broadcast-email"
+              name="sendEmail"
+              checked={formData.sendEmail || false}
+              onChange={onInputChange}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label
+              htmlFor="broadcast-email"
+              className="text-sm font-medium text-gray-700"
+            >
+              Send as email to selected audience
+            </label>
+          </div>
+
           {/* Submit */}
           <div className="flex justify-end">
             <Button type="submit" disabled={sending}>
@@ -195,8 +210,8 @@ const BroadcastForm = ({
                   ? "Saving..."
                   : "Sending..."
                 : editingBroadcastId
-                ? "Update Broadcast"
-                : "Send Broadcast"}
+                  ? "Update Broadcast"
+                  : "Send Broadcast"}
             </Button>
           </div>
         </form>

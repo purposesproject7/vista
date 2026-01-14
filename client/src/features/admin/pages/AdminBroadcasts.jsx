@@ -31,6 +31,7 @@ const AdminBroadcasts = () => {
     expiresAt: "",
     action: "notice",
     isActive: true,
+    sendEmail: false,
   });
   const [sending, setSending] = useState(false);
   const [history, setHistory] = useState([]);
@@ -86,6 +87,7 @@ const AdminBroadcasts = () => {
       expiresAt: "",
       action: "notice",
       isActive: true,
+      sendEmail: false,
     });
     setEditingBroadcastId(null);
   }, []);
@@ -138,14 +140,16 @@ const AdminBroadcasts = () => {
   };
 
   const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    if (name === "isActive") {
+    const { name, value, type, checked } = event.target;
+
+    if (type === "checkbox") {
       setFormData((prev) => ({
         ...prev,
-        isActive: event.target.checked,
+        [name]: checked,
       }));
       return;
     }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -221,6 +225,7 @@ const AdminBroadcasts = () => {
         expiresAt: expiryIso,
         action: formData.action || "notice",
         isActive: formData.isActive,
+        sendEmail: formData.sendEmail,
       };
 
       let response;
@@ -231,7 +236,11 @@ const AdminBroadcasts = () => {
           payload.message,
           payload.expiresAt,
           payload.targetSchools,
-          payload.targetPrograms
+          payload.targetPrograms,
+          payload.title,
+          payload.action,
+          payload.priority,
+          payload.sendEmail
         );
       }
 

@@ -788,13 +788,21 @@ export const createBroadcast = async (
   message,
   expiresAt,
   targetSchools = [],
-  targetPrograms = []
+  targetPrograms = [],
+  title = "",
+  action = "notice",
+  priority = "medium",
+  sendEmail = false
 ) => {
   const response = await api.post("/admin/broadcasts", {
     message,
     expiresAt,
     targetSchools,
     targetPrograms,
+    title,
+    action,
+    priority,
+    sendEmail,
   });
   return response.data;
 };

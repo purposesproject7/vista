@@ -301,4 +301,94 @@ export class EmailService {
       // Don't throw - this is a non-critical email
     }
   }
+
+  /**
+   * Send broadcast email
+   */
+  static async sendBroadcastEmail(recipientEmails, subject, message) {
+    if (!recipientEmails.length) return;
+
+    try {
+      const transporter = this.createTransporter();
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${subject}</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+            <tr>
+              <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+
+                  <!-- Header -->
+                  <tr>
+                    <td style="background-color: #2455a3; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">VIT Faculty Portal: New Broadcast</h1>
+                    </td>
+                  </tr>
+
+                  <!-- Content -->
+                  <tr>
+                    <td style="padding: 40px 30px;">
+                      <h2 style="color: #333333; margin: 0 0 20px 0;">${subject}</h2>
+                      <div style="color: #666666; font-size: 16px; line-height: 1.5; margin: 0 0 30px 0; white-space: pre-wrap;">
+                        ${message}
+                      </div>
+                      
+                      <p style="color: #666666; font-size: 14px; line-height: 1.5; margin: 30px 0 0 0;">
+                        Best regards,<br>
+                        <strong>VIT Faculty Portal Team</strong>
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-radius: 0 0 8px 8px;">
+                      <p style="color: #999999; font-size: 12px; margin: 0;">
+                        © ${new Date().getFullYear()} VIT Faculty Portal. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `;
+
+      // Split recipients into chunks to avoid limits
+      const chunkSize = 50;
+      for (let i = 0; i < recipientEmails.length; i += chunkSize) {
+        const chunk = recipientEmails.slice(i, i + chunkSize);
+
+        await transporter.sendMail({
+          from: `VIT Faculty Portal <${process.env.EMAIL_USER}>`,
+          bcc: chunk, // Use BCC for privacy
+          subject: subject || "New Broadcast Message",
+          html: htmlContent,
+        });
+      }
+
+      logger.info("broadcast_email_sent", {
+        recipientCount: recipientEmails.length,
+        subject,
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Failed to send broadcast email:", error);
+      logger.error("send_broadcast_email_error", {
+        error: error.message,
+      });
+      // Don't throw to prevent blocking the HTTP response
+    }
+  }
 }
