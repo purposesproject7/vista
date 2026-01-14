@@ -9,6 +9,7 @@ import Request from "../models/requestSchema.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarksService } from "../services/marksService.js";
 import { ApprovalService } from "../services/approvalService.js";
+import { ActivityLogService } from "../services/activityLogService.js";
 import {
   extractPrimaryContext,
   getFacultyTypeForProject,
@@ -305,6 +306,23 @@ export async function submitMarks(req, res) {
       message: "Marks submitted successfully.",
       data: marks,
     });
+
+    // Log Activity
+    ActivityLogService.logActivity(
+      req.user._id,
+      "MARK_ENTRY",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: req.body.academicYear || "Unknown",
+      },
+      {
+        targetId: marks._id,
+        targetModel: "Marks",
+        description: `Submitted marks for student ${req.body.studentId}`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -326,6 +344,23 @@ export async function updateMarks(req, res) {
       message: "Marks updated successfully.",
       data: marks,
     });
+
+    // Log Activity
+    ActivityLogService.logActivity(
+      req.user._id,
+      "MARK_UPDATE",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: "Unknown",
+      },
+      {
+        targetId: marks._id,
+        targetModel: "Marks",
+        description: `Updated marks ${id}`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -366,6 +401,20 @@ export async function approvePPT(req, res) {
       success: true,
       message: "PPT approved successfully.",
     });
+
+    ActivityLogService.logActivity(
+      req.user._id,
+      "PPT_APPROVAL",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: "Unknown",
+      },
+      {
+        description: `Approved PPT for student ${studentId} (${reviewType})`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -386,6 +435,20 @@ export async function approveDraft(req, res) {
       success: true,
       message: "Draft approved successfully.",
     });
+
+    ActivityLogService.logActivity(
+      req.user._id,
+      "DRAFT_APPROVAL",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: "Unknown",
+      },
+      {
+        description: `Approved Draft for student ${studentId} (${reviewType})`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,

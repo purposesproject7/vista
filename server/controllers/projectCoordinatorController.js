@@ -5,6 +5,7 @@ import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
 import { ReportService } from "../services/reportService.js";
+import { ActivityLogService } from "../services/activityLogService.js";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
@@ -417,6 +418,22 @@ export async function handleRequest(req, res) {
       message: `Request ${status} successfully.`,
       data: request,
     });
+
+    ActivityLogService.logActivity(
+      req.user._id,
+      "REQUEST_HANDLED",
+      {
+        school: req.coordinator.school,
+        program: req.coordinator.program,
+        academicYear: req.coordinator.academicYear,
+      },
+      {
+        targetId: request._id,
+        targetModel: "Request",
+        description: `Request ${status}: ${request.requestType} for ${request.student?.regNo || "student"}`,
+      },
+      req
+    );
   } catch (error) {
     res.status(500).json({
       success: false,

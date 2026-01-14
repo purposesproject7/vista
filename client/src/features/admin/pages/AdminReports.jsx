@@ -11,8 +11,10 @@ import {
   AcademicCapIcon,
   UserGroupIcon,
   ClipboardDocumentCheckIcon,
-  TableCellsIcon
+  TableCellsIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
+import { processTimeSheetData } from '../utils/reportHelpers';
 import { YEARS } from '../../../shared/constants/config';
 import { useToast } from '../../../shared/hooks/useToast';
 import * as XLSX from 'xlsx';
@@ -90,6 +92,8 @@ const AdminReports = () => {
     fetchConfig();
   }, []);
 
+
+
   const reportTypes = [
     {
       id: 'master-report',
@@ -163,6 +167,14 @@ const AdminReports = () => {
       icon: UserGroupIcon,
       filters: ['school', 'programme', 'year'],
       color: 'pink'
+    },
+    {
+      id: 'faculty-time-sheet',
+      name: 'Faculty Time Sheet (Activity Log)',
+      description: 'Log of faculty activities including logins, marks entry, and approvals',
+      icon: ChartBarIcon, // Debug: ClockIcon might be missing?
+      filters: ['year', 'school', 'programme'], // Programme optional, but useful context
+      color: 'cyan'
     }
   ];
 
@@ -269,6 +281,8 @@ const AdminReports = () => {
           const wsPanels = XLSX.utils.json_to_sheet(reportData.panels);
           XLSX.utils.book_append_sheet(wb, wsPanels, "Panels");
         }
+      } else if (selectedReport === 'faculty-time-sheet') {
+        processTimeSheetData(reportData, wb, XLSX.utils);
       } else {
         // Standard Report: Single Sheet
         // Flatten data if needed? Backend sends flat JSON usually.

@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
 import crypto from "crypto";
+import { ActivityLogService } from "../services/activityLogService.js";
 
 /**
  * Generate JWT token
@@ -86,6 +87,19 @@ export async function login(req, res) {
       isProjectCoordinator: faculty.isProjectCoordinator,
       ip: req.ip,
     });
+
+    // Activity Log
+    ActivityLogService.logActivity(
+      faculty._id,
+      "LOGIN",
+      {
+        school: faculty.school,
+        program: faculty.program,
+        academicYear: "N/A", // Faculty login isn't tied to a year
+      },
+      { description: "Faculty logged in" },
+      req
+    );
 
     // If project coordinator, fetch primary status
     let isPrimary = false;

@@ -4,6 +4,7 @@ import Project from "../models/projectSchema.js";
 import Marks from "../models/marksSchema.js";
 import Panel from "../models/panelSchema.js";
 import mongoose from "mongoose";
+import { ActivityLogService } from "./activityLogService.js";
 
 export class ReportService {
     /**
@@ -29,6 +30,8 @@ export class ReportService {
                 return this.generateMarksDistributionReport(filters);
             case "student-complete-details":
                 return this.generateStudentCompleteReport(filters);
+            case "faculty-time-sheet":
+                return this.generateTimeSheetReport(filters);
             default:
                 throw new Error("Invalid report type");
         }
@@ -388,5 +391,31 @@ export class ReportService {
         if (filters.programme) query.program = filters.programme;
         if (filters.year) query.academicYear = filters.year;
         return query;
+    }
+
+    /**
+     * 10. Faculty Time Sheet
+     */
+    static async generateTimeSheetReport(filters) {
+        const logs = await ActivityLogService.getTimeSheetData(filters);
+
+        // Calculate summary stats
+        const totalActions = logs.length;
+        const uniqueFaculty = new Set(logs.map(l => l.employeeId)).size;
+        const loginCount = logs.filter(l => l.action === 'LOGIN').length;
+        const marksEntryCount = logs.filter(l => l.action === 'MARK_ENTRY' || l.action === 'MARK_UPDATE').length;
+
+        const summary = [
+            { Metric: 'Total Recorded Actions', Value: totalActions },
+            { Metric: 'Unique Faculty Active', Value: uniqueFaculty },
+            { Metric: 'Total Logins', Value: loginCount },
+            { Metric: 'Marks Entry/Updates', Value: marksEntryCount },
+            { Metric: 'Generated At', Value: new Date().toLocaleString() }
+        ];
+
+        return {
+            summary,
+            logs
+        };
     }
 }
