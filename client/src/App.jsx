@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./shared/hooks/useAuth";
+import { AuthProvider } from "./shared/context/AuthContext";
+import { useAuth } from "./shared/hooks/useAuth";
 import { AdminProvider } from "./features/admin/context/AdminContext";
 import { CoordinatorProvider } from "./features/project-coordinator/context/CoordinatorContext";
 import GlobalErrorBoundary from "./shared/components/GlobalErrorBoundary";
