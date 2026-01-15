@@ -8,9 +8,9 @@ const Card = ({ children, className = '', padding = 'md', onClick, ...rest }) =>
     md: 'p-5',
     lg: 'p-6'
   };
-  
+
   return (
-    <div 
+    <div
       className={`bg-white rounded-xl shadow-sm border border-gray-200 ${paddings[padding]} ${className}`}
       onClick={onClick}
       {...rest}
@@ -20,4 +20,5 @@ const Card = ({ children, className = '', padding = 'md', onClick, ...rest }) =>
   );
 };
 
-export default Card;
+// Memoize to prevent unnecessary re-renders (performance optimization)
+export default React.memo(Card);

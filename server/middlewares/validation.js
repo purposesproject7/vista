@@ -51,7 +51,7 @@ export const validateSpecialization = async (req, res, next) => {
     }
 
     const hasMatchingSpecialization = faculty.specialization?.some(
-      (spec) => spec === project.specialization,
+      (spec) => spec === project.specialization
     );
 
     if (!hasMatchingSpecialization) {
@@ -77,12 +77,12 @@ export const validateSpecialization = async (req, res, next) => {
  * Validate academic context consistency
  */
 export const validateAcademicContext = (req, res, next) => {
-  const { academicYear, school, department } = req.body || req.query;
+  const { academicYear, school, program } = req.body || req.query;
 
-  if (!academicYear || !school || !department) {
+  if (!academicYear || !school || !program) {
     return res.status(400).json({
       success: false,
-      message: "Academic context required: academicYear, school, department.",
+      message: "Academic context required: academicYear, school, program.",
     });
   }
 
@@ -116,7 +116,7 @@ export const sanitizeInput = (req, res, next) => {
         // Basic XSS prevention
         obj[key] = obj[key].replace(
           /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-          "",
+          ""
         );
       } else if (typeof obj[key] === "object") {
         sanitize(obj[key]);

@@ -26,6 +26,7 @@ export class MarksService {
     const { facultyType, project: projectDoc } = await getFacultyTypeForProject(
       facultyId,
       project,
+      reviewType
     );
 
     // Check for existing marks
@@ -37,21 +38,38 @@ export class MarksService {
 
     if (existingMarks && existingMarks.isSubmitted) {
       throw new Error(
-        "Marks already submitted for this review. Use update endpoint.",
+        "Marks already submitted for this review. Use update endpoint."
       );
     }
 
     // Get student and faculty context
-    const [studentDoc, facultyDoc] = await Promise.all([
+    const [studentDoc, facultyDoc, projectDocFull] = await Promise.all([
       Student.findById(student),
       Faculty.findById(facultyId),
+      Project.findById(project)
     ]);
 
-    if (!studentDoc || !facultyDoc) {
-      throw new Error("Student or faculty not found.");
+    if (!studentDoc || !facultyDoc || !projectDocFull) {
+      throw new Error("Student, Faculty, or Project not found.");
     }
 
-    const { school, department } = extractPrimaryContext(facultyDoc);
+    // --- PPT Approval Check (Panel Only) ---
+    if (facultyType === 'panel') {
+      const pptApproval = projectDocFull.pptApprovals?.find(p => p.reviewType === reviewType);
+      if (!pptApproval || !pptApproval.isApproved) {
+        throw new Error(`PPT Approval Pending. Guide must approve the PPT before panel can enter marks.`);
+      }
+    }
+
+    const { school, program } = extractPrimaryContext(facultyDoc);
+
+    if (!school || !program) {
+      throw new Error(`Faculty profile incomplete: School or Program missing. (School: ${school}, Program: ${program})`);
+    }
+
+    if (!studentDoc.academicYear) {
+      throw new Error("Student profile incomplete: Academic Year missing.");
+    }
 
     // Create marks
     const marks = new Marks({
@@ -62,7 +80,7 @@ export class MarksService {
       facultyType,
       academicYear: studentDoc.academicYear,
       school,
-      department,
+      program,
       componentMarks,
       totalMarks,
       maxTotalMarks,
@@ -102,7 +120,7 @@ export class MarksService {
 
     if (!marks) {
       throw new Error(
-        "Marks not found or you don't have permission to update.",
+        "Marks not found or you don't have permission to update."
       );
     }
 

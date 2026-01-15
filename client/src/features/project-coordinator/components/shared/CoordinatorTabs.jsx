@@ -190,8 +190,10 @@ import {
   DocumentTextIcon,
   UsersIcon,
   ClipboardDocumentListIcon,
+  BookOpenIcon,
 } from "@heroicons/react/24/outline";
 import { toast } from "react-hot-toast";
+import { fetchPermissions as apiFetchPermissions } from "../../services/coordinatorApi";
 
 const CoordinatorTabs = () => {
   const navigate = useNavigate();
@@ -203,23 +205,69 @@ const CoordinatorTabs = () => {
   // ==================================================================
   // FOR DEVELOPMENT: Bypass permission check → All tabs are free
   // ==================================================================
-  const IS_DEVELOPMENT = true; // <<<<< CHANGE THIS TO `false` IN PRODUCTION
+  const IS_DEVELOPMENT = false;
 
-  // Fetch coordinator data (only needed in production)
+  // Helper: Check if a permission is active
+  const isPermissionActive = (perm) => {
+    if (!perm || !perm.enabled) return false;
+    if (perm.deadline && new Date(perm.deadline) < new Date()) {
+      return false; // Expired
+    }
+    return true;
+  };
+
+  // Check if coordinator has access to features
+  const getAccessRights = (coordinator) => {
+    if (IS_DEVELOPMENT) return {
+      studentAccess: true,
+      facultyAccess: true,
+      projectAccess: true,
+      panelAccess: true,
+    };
+
+    if (!coordinator?.permissions) return {
+      studentAccess: false,
+      facultyAccess: false,
+      projectAccess: false,
+      panelAccess: false,
+    };
+
+    const p = coordinator.permissions;
+
+    // Check for Grouped (New) OR Individual (Legacy) permissions
+    const checkGroupOrLegacy = (groupKey, legacyKeys) => {
+      // Check main group key first
+      if (isPermissionActive(p[groupKey])) return true;
+
+      // Check legacy keys
+      if (legacyKeys && legacyKeys.length > 0) {
+        return legacyKeys.some(key => isPermissionActive(p[key]));
+      }
+      return false;
+    };
+
+    return {
+      studentAccess: checkGroupOrLegacy("student_management", ["canUploadStudents", "canModifyStudents", "canDeleteStudents"]),
+      facultyAccess: checkGroupOrLegacy("faculty_management", ["canCreateFaculty", "canEditFaculty", "canDeleteFaculty"]),
+      projectAccess: checkGroupOrLegacy("project_management", ["canCreateProjects", "canEditProjects", "canDeleteProjects", "canAssignGuides", "canReassignGuides", "canMergeTeams", "canSplitTeams"]),
+      panelAccess: checkGroupOrLegacy("panel_management", ["canCreatePanels", "canEditPanels", "canDeletePanels", "canAssignPanels", "canReassignPanels"]),
+    };
+  };
+
+  // Fetch coordinator data
   useEffect(() => {
     const fetchCoordinator = async () => {
       if (IS_DEVELOPMENT) {
-        // Simulate loaded state instantly for dev
-        setCoordinator({ permissions: "mock" }); // any truthy value
+        setCoordinator({ permissions: "mock" });
         setLoading(false);
         return;
       }
 
       try {
-        const res = await fetch("/api/coordinator/me");
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setCoordinator(data);
+        const data = await apiFetchPermissions();
+        if (data.success) {
+          setCoordinator(data.data);
+        }
       } catch (err) {
         console.error("Failed to fetch coordinator permissions", err);
         toast.error("Failed to load permissions");
@@ -231,52 +279,12 @@ const CoordinatorTabs = () => {
     fetchCoordinator();
   }, []);
 
+  const accessRights = getAccessRights(coordinator);
+
   const isActiveTab = (path) => location.pathname.startsWith(path);
 
-  // Helper: Check if a permission is active (used only in production)
-  const isPermissionActive = (perm) => {
-    if (!perm || !perm.enabled) return false;
-    if (perm.deadline && new Date(perm.deadline) < new Date()) {
-      return false; // Expired (uses real current date)
-    }
-    return true;
-  };
-
-  // Real permission logic (only used when IS_DEVELOPMENT = false)
-  const hasManagementAccess = (coordinator) => {
-    if (IS_DEVELOPMENT) return true; // <<<<< DEV: Always allow
-
-    if (!coordinator?.permissions) return false;
-
-    const p = coordinator.permissions;
-
-    const studentAccess =
-      isPermissionActive(p.canUploadStudents) ||
-      isPermissionActive(p.canModifyStudents) ||
-      isPermissionActive(p.canDeleteStudents);
-
-    const facultyAccess =
-      isPermissionActive(p.canCreateFaculty) ||
-      isPermissionActive(p.canEditFaculty) ||
-      isPermissionActive(p.canDeleteFaculty);
-
-    const projectAccess =
-      isPermissionActive(p.canCreateProjects) ||
-      isPermissionActive(p.canEditProjects) ||
-      isPermissionActive(p.canDeleteProjects);
-
-    const panelAccess =
-      isPermissionActive(p.canCreatePanels) ||
-      isPermissionActive(p.canEditPanels) ||
-      isPermissionActive(p.canDeletePanels) ||
-      isPermissionActive(p.canAssignPanels) ||
-      isPermissionActive(p.canReassignPanels);
-
-    return studentAccess && facultyAccess && projectAccess && panelAccess;
-  };
-
-  // Final decision: Are management tabs allowed?
-  const managementAllowed = hasManagementAccess(coordinator);
+  // Permissions logic
+  // const p = coordinator?.permissions || {}; // This line is no longer needed as permissions are checked within hasManagementAccess
 
   const tabs = [
     {
@@ -284,28 +292,28 @@ const CoordinatorTabs = () => {
       label: "Student Management",
       path: "/coordinator/students",
       icon: UserGroupIcon,
-      blocked: !managementAllowed,
+      blocked: !accessRights.studentAccess,
     },
     {
       id: "faculty",
       label: "Faculty Management",
       path: "/coordinator/faculty",
       icon: AcademicCapIcon,
-      blocked: !managementAllowed,
+      blocked: !accessRights.facultyAccess,
     },
     {
       id: "projects",
       label: "Project Management",
       path: "/coordinator/projects",
       icon: DocumentTextIcon,
-      blocked: !managementAllowed,
+      blocked: !accessRights.projectAccess,
     },
     {
       id: "panels",
       label: "Panel Management",
       path: "/coordinator/panels",
       icon: UsersIcon,
-      blocked: !managementAllowed,
+      blocked: !accessRights.panelAccess,
     },
     {
       id: "requests",
@@ -319,6 +327,27 @@ const CoordinatorTabs = () => {
       label: "Feature Request",
       path: "/coordinator/request-access",
       icon: ClipboardDocumentListIcon,
+      blocked: false,
+    },
+    {
+      id: "rubrics",
+      label: "Rubrics",
+      path: "/coordinator/rubrics",
+      icon: BookOpenIcon,
+      blocked: false,
+    },
+    {
+      id: "modifications",
+      label: "Modifications",
+      path: "/coordinator/modifications",
+      icon: UserGroupIcon,
+      blocked: false,
+    },
+    {
+      id: "reports",
+      label: "Reports",
+      path: "/coordinator/reports",
+      icon: DocumentTextIcon,
       blocked: false,
     },
   ];
@@ -354,12 +383,14 @@ const CoordinatorTabs = () => {
                 className={`
                   flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
                   transition-all duration-200 whitespace-nowrap relative
-                  ${
-                    isCurrent
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow"
+                  ${isCurrent
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow"
                   }
-                  ${tab.blocked ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                  ${tab.blocked
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                  }
                 `}
                 title={
                   tab.blocked

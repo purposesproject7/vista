@@ -1,63 +1,69 @@
-// src/features/auth/pages/Login.jsx
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../../shared/hooks/useAuth';
-import Button from '../../../shared/components/Button';
-import Input from '../../../shared/components/Input';
-import Card from '../../../shared/components/Card';
-import { useToast } from '../../../shared/hooks/useToast';
+import React, { useState } from "react";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../shared/hooks/useAuth";
+import Button from "../../../shared/components/Button";
+import Input from "../../../shared/components/Input";
+import Card from "../../../shared/components/Card";
+import { useToast } from "../../../shared/hooks/useToast";
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [loginResult, setLoginResult] = useState(null);
   const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     // Clear any old token before login
-    localStorage.removeItem('authToken');
+    localStorage.removeItem("authToken");
 
     try {
       const result = await login({ email, password });
-      
-      console.log('Login result:', result);
-      console.log('User data:', result.user);
-      console.log('isProjectCoordinator:', result.user.isProjectCoordinator);
-      console.log('Role:', result.user.role);
-      
-      showToast('Login successful!', 'success');
-      
+
+      console.log("Login result:", result);
+      console.log("User data:", result.user);
+      console.log("isProjectCoordinator:", result.user.isProjectCoordinator);
+      console.log("Role:", result.user.role);
+
+      showToast("Login successful!", "success");
+
       // Check if user is both faculty and project coordinator
-      if (result.user.role === 'faculty' && result.user.isProjectCoordinator) {
+      if (result.user.role === "faculty" && result.user.isProjectCoordinator) {
         // Show role selection modal
-        console.log('Showing role modal');
+        console.log("Showing role modal");
         setLoginResult(result);
         setShowRoleModal(true);
         setLoading(false);
         return;
       }
-      
+
       // Direct routing for other roles
-      if (result.user.role === 'admin') {
-        navigate('/admin');
-      } else if (result.user.role === 'faculty') {
-        navigate('/faculty');
+      if (result.user.role === "admin") {
+        navigate("/admin");
+      } else if (result.user.role === "faculty") {
+        navigate("/faculty");
       } else {
-        navigate('/');
+        navigate("/");
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Invalid email or password';
+      const errorMessage =
+        err.response?.data?.message || "Invalid email or password";
       setError(errorMessage);
-      showToast(errorMessage, 'error');
+      showToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -65,26 +71,31 @@ const Login = () => {
 
   const handleRoleSelection = (selectedRole) => {
     setShowRoleModal(false);
-    if (selectedRole === 'coordinator') {
-      navigate('/coordinator');
+    if (selectedRole === "coordinator") {
+      navigate("/coordinator");
     } else {
-      navigate('/faculty');
+      navigate("/faculty");
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <Card className="w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+        <div className="text-center mb-2">
+          <span className="vista-brand text-5xl font-bold text-blue-600">
+            VISTA
+          </span>
+        </div>
+        <h1 className="text-xl text-gray-600 mb-6 text-center">
           Faculty Evaluation Portal
         </h1>
-        
+
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Email"
@@ -94,23 +105,31 @@ const Login = () => {
             placeholder="faculty@university.edu"
             required
           />
-          
+
           <Input
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             required
+            endIcon={
+              showPassword ? (
+                <EyeSlashIcon className="h-5 w-5" />
+              ) : (
+                <EyeIcon className="h-5 w-5" />
+              )
+            }
+            onEndIconClick={togglePasswordVisibility}
           />
 
-          <Button 
-            type="submit" 
-            variant="primary" 
+          <Button
+            type="submit"
+            variant="primary"
             className="w-full"
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? "Logging in..." : "Login"}
           </Button>
         </form>
 
@@ -129,20 +148,21 @@ const Login = () => {
               Select Your Role
             </h2>
             <p className="text-gray-600 mb-6">
-              You have access to both Faculty and Project Coordinator portals. Please choose how you would like to proceed:
+              You have access to both Faculty and Project Coordinator portals.
+              Please choose how you would like to proceed:
             </p>
             <div className="space-y-3">
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => handleRoleSelection('coordinator')}
+                onClick={() => handleRoleSelection("coordinator")}
               >
                 Login as Project Coordinator
               </Button>
               <Button
                 variant="secondary"
                 className="w-full"
-                onClick={() => handleRoleSelection('faculty')}
+                onClick={() => handleRoleSelection("faculty")}
               >
                 Login as Faculty
               </Button>

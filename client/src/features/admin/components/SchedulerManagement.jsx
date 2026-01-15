@@ -1,110 +1,106 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from "react";
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   TrashIcon,
-  ClockIcon
-} from '@heroicons/react/24/outline';
-import Card from '../../../shared/components/Card';
-import Button from '../../../shared/components/Button';
-import LoadingSpinner from '../../../shared/components/LoadingSpinner';
-import { useToast } from '../../../shared/hooks/useToast';
-import { fetchDepartmentConfig, createDepartmentConfig, updateDepartmentConfig, updateFeatureLock } from '../services/adminApi';
+  ClockIcon,
+} from "@heroicons/react/24/outline";
+import Card from "../../../shared/components/Card";
+import Button from "../../../shared/components/Button";
+import LoadingSpinner from "../../../shared/components/LoadingSpinner";
+import DateTimePicker from "../../../shared/components/DateTimePicker";
+import { useToast } from "../../../shared/hooks/useToast";
+import {
+  fetchProgramConfig,
+  createProgramConfig,
+  updateProgramConfig,
+  updateFeatureLock,
+} from "../services/adminApi";
 
 const FEATURES = [
-  { id: 'faculty-addition', label: 'Faculty Addition' },
-  { id: 'student-addition', label: 'Student Addition' },
-  { id: 'panel-creation', label: 'Panel Creation' },
-  { id: 'project-assignment', label: 'Project Assignment' },
-  { id: 'marks-entry', label: 'Marks Entry' }
+  { id: "faculty_creation", label: "Faculty Addition" },
+  { id: "student_upload", label: "Student Addition" },
+  { id: "panel_creation", label: "Panel Creation" },
+  { id: "project_creation", label: "Project Assignment" },
+  { id: "marks_entry", label: "Marks Entry" },
 ];
 
 const toDatetimeLocalValue = (isoString) => {
-  if (!isoString) return '';
+  if (!isoString) return "";
   const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return '';
+  if (Number.isNaN(date.getTime())) return "";
 
-  const pad = (n) => String(n).padStart(2, '0');
-  const y = date.getFullYear();
-  const m = pad(date.getMonth() + 1);
-  const d = pad(date.getDate());
-  const hh = pad(date.getHours());
-  const mm = pad(date.getMinutes());
-  return `${y}-${m}-${d}T${hh}:${mm}`;
+  return date.toISOString();
 };
 
-const SchedulerManagement = ({
-  schools,
-  programsBySchool,
-  years
-}) => {
+const SchedulerManagement = ({ schools, programsBySchool, years }) => {
   const { showToast } = useToast();
 
   // Academic Context Selection
-  const [selectedSchool, setSelectedSchool] = useState('');
-  const [selectedProgramme, setSelectedProgramme] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedProgramme, setSelectedProgramme] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
 
-  // Department config data
-  const [departmentConfig, setDepartmentConfig] = useState(null);
+  // Program config data
+  const [programConfig, setProgramConfig] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Form state
-  const [selectedFeature, setSelectedFeature] = useState('');
-  const [activeUntil, setActiveUntil] = useState('');
+  const [selectedFeature, setSelectedFeature] = useState("");
+  const [activeUntil, setActiveUntil] = useState("");
 
   const availableProgrammes = useMemo(() => {
     if (!selectedSchool) return [];
-    const schoolObj = schools.find(s => s.code === selectedSchool);
+    const schoolObj = schools.find((s) => s.code === selectedSchool);
     if (!schoolObj) return [];
     return programsBySchool?.[schoolObj.code] || [];
   }, [selectedSchool, programsBySchool, schools]);
 
   const filtersComplete = useMemo(() => {
-    const completed = [
-      selectedSchool,
-      selectedProgramme,
-      selectedYear
-    ].filter(Boolean).length;
+    const completed = [selectedSchool, selectedProgramme, selectedYear].filter(
+      Boolean
+    ).length;
     return { completed, total: 3, percentage: (completed / 3) * 100 };
   }, [selectedSchool, selectedProgramme, selectedYear]);
 
   // Load department config when context changes
   useEffect(() => {
     if (filtersComplete.completed === 3) {
-      loadDepartmentConfig();
+      loadProgramConfig();
     } else {
-      setDepartmentConfig(null);
+      setProgramConfig(null);
     }
   }, [selectedSchool, selectedProgramme, selectedYear]);
 
-  const loadDepartmentConfig = async () => {
+  const loadProgramConfig = async () => {
     setLoading(true);
     try {
-      const yearObj = years.find(y => y.id === parseInt(selectedYear));
-      const schoolObj = schools.find(s => s.code === selectedSchool);
-      const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
+      const yearObj = years.find((y) => y.id === selectedYear);
+      const schoolObj = schools.find((s) => s.code === selectedSchool);
+      const programObj = programsBySchool[selectedSchool]?.find(
+        (p) => p.code === selectedProgramme
+      );
 
       if (!yearObj || !schoolObj || !programObj) {
         return;
       }
 
-      const response = await fetchDepartmentConfig(
+      const response = await fetchProgramConfig(
         yearObj.name,
         schoolObj.code,
         programObj.code
       );
 
       if (response.success) {
-        setDepartmentConfig(response.data);
+        setProgramConfig(response.data);
       }
     } catch (error) {
       if (error.response?.status === 404) {
         // Config doesn't exist yet
-        setDepartmentConfig(null);
+        setProgramConfig(null);
       } else {
-        console.error('Error loading department config:', error);
-        showToast('Failed to load configuration', 'error');
+        console.error("Error loading department config:", error);
+        showToast("Failed to load configuration", "error");
       }
     } finally {
       setLoading(false);
@@ -112,81 +108,89 @@ const SchedulerManagement = ({
   };
 
   const contextSchedules = useMemo(() => {
-    if (!departmentConfig || !departmentConfig.featureLocks) return [];
-    return departmentConfig.featureLocks;
-  }, [departmentConfig]);
+    if (!programConfig || !programConfig.featureLocks) return [];
+    return programConfig.featureLocks;
+  }, [programConfig]);
 
   const handleSchoolChange = (value) => {
     setSelectedSchool(value);
-    setSelectedProgramme('');
-    setSelectedYear('');
-    setSelectedFeature('');
-    setActiveUntil('');
+    setSelectedProgramme("");
+    setSelectedYear("");
+    setSelectedFeature("");
+    setActiveUntil("");
   };
 
   const handleProgrammeChange = (value) => {
     setSelectedProgramme(value);
-    setSelectedYear('');
-    setSelectedFeature('');
-    setActiveUntil('');
+    setSelectedYear("");
+    setSelectedFeature("");
+    setActiveUntil("");
   };
 
   const handleYearChange = (value) => {
     setSelectedYear(value);
-    setSelectedFeature('');
-    setActiveUntil('');
+    setSelectedFeature("");
+    setActiveUntil("");
   };
 
   const handleSaveSchedule = async () => {
     if (!selectedFeature) {
-      showToast('Please select a feature', 'error');
+      showToast("Please select a feature", "error");
       return;
     }
 
     if (!activeUntil) {
-      showToast('Please set an active until date/time', 'error');
+      showToast("Please set an active until date/time", "error");
       return;
     }
 
     const activeUntilIso = new Date(activeUntil).toISOString();
     if (Number.isNaN(new Date(activeUntilIso).getTime())) {
-      showToast('Invalid date/time selected', 'error');
+      showToast("Invalid date/time selected", "error");
       return;
     }
 
-    const yearObj = years.find(y => y.id === parseInt(selectedYear));
-    const schoolObj = schools.find(s => s.code === selectedSchool);
-    const programObj = programsBySchool[selectedSchool]?.find(p => p.code === selectedProgramme);
+    const yearObj = years.find((y) => y.id === selectedYear);
+    const schoolObj = schools.find((s) => s.code === selectedSchool);
+    const programObj = programsBySchool[selectedSchool]?.find(
+      (p) => p.code === selectedProgramme
+    );
 
     if (!yearObj || !schoolObj || !programObj) {
-      showToast('Invalid context', 'error');
+      showToast("Invalid context", "error");
       return;
     }
 
     setLoading(true);
     try {
-      let updatedLocks = [...(contextSchedules || [])];
-      const existingIndex = updatedLocks.findIndex(l => l.feature === selectedFeature);
+      let updatedLocks = (contextSchedules || []).map((schedule) => ({
+        featureName: schedule.featureName || schedule.feature,
+        deadline: schedule.deadline || schedule.activeUntil,
+        isLocked: schedule.isLocked || false,
+      }));
+      const existingIndex = updatedLocks.findIndex(
+        (l) => l.featureName === selectedFeature
+      );
 
       if (existingIndex >= 0) {
         updatedLocks[existingIndex] = {
           ...updatedLocks[existingIndex],
-          activeUntil: activeUntilIso
+          deadline: activeUntilIso,
         };
       } else {
         updatedLocks.push({
-          feature: selectedFeature,
-          activeUntil: activeUntilIso,
-          isLocked: false
+          featureName: selectedFeature,
+          deadline: activeUntilIso,
+          isLocked: false,
         });
       }
 
-      if (departmentConfig) {
+      if (programConfig) {
         // Update existing config
-        await updateFeatureLock(departmentConfig._id, updatedLocks);
+        await updateFeatureLock(programConfig._id, updatedLocks);
       } else {
         // Create new config
-        await createDepartmentConfig(
+        await createProgramConfig(
           yearObj.name,
           schoolObj.code,
           programObj.code,
@@ -195,60 +199,67 @@ const SchedulerManagement = ({
             minTeamSize: 1,
             maxPanelSize: 5,
             minPanelSize: 3,
-            featureLocks: updatedLocks
+            featureLocks: updatedLocks,
           }
         );
       }
 
-      showToast('Schedule saved successfully', 'success');
-      await loadDepartmentConfig();
-      setSelectedFeature('');
-      setActiveUntil('');
+      showToast("Schedule saved successfully", "success");
+      await loadProgramConfig();
+      setSelectedFeature("");
+      setActiveUntil("");
     } catch (error) {
-      console.error('Error saving schedule:', error);
-      showToast(error.response?.data?.message || 'Failed to save schedule', 'error');
+      console.error("Error saving schedule:", error);
+      showToast(
+        error.response?.data?.message || "Failed to save schedule",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const handleRemoveSchedule = async (featureId) => {
-    if (!departmentConfig) return;
+    if (!programConfig) return;
 
     setLoading(true);
     try {
-      const updatedLocks = contextSchedules.filter(l => l.feature !== featureId);
-      await updateFeatureLock(departmentConfig._id, updatedLocks);
-      
-      showToast('Schedule removed', 'success');
-      await loadDepartmentConfig();
+      const updatedLocks = contextSchedules.filter(
+        (l) => l.featureName !== featureId
+      );
+      await updateFeatureLock(programConfig._id, updatedLocks);
+
+      showToast("Schedule removed", "success");
+      await loadProgramConfig();
 
       if (selectedFeature === featureId) {
-        setSelectedFeature('');
-        setActiveUntil('');
+        setSelectedFeature("");
+        setActiveUntil("");
       }
     } catch (error) {
-      console.error('Error removing schedule:', error);
-      showToast('Failed to remove schedule', 'error');
+      console.error("Error removing schedule:", error);
+      showToast("Failed to remove schedule", "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSelectExisting = (featureId) => {
-    const existingSchedule = contextSchedules.find(s => s.feature === featureId);
+    const existingSchedule = contextSchedules.find(
+      (s) => s.featureName === featureId
+    );
     if (existingSchedule) {
       setSelectedFeature(featureId);
-      setActiveUntil(toDatetimeLocalValue(existingSchedule.activeUntil));
+      setActiveUntil(toDatetimeLocalValue(existingSchedule.deadline));
     }
   };
 
   const isFeatureScheduled = (featureId) => {
-    return contextSchedules.some(s => s.feature === featureId);
+    return contextSchedules.some((s) => s.featureName === featureId);
   };
 
   const getFeatureSchedule = (featureId) => {
-    return contextSchedules.find(s => s.feature === featureId);
+    return contextSchedules.find((s) => s.featureName === featureId);
   };
 
   return (
@@ -264,8 +275,10 @@ const SchedulerManagement = ({
       {/* Context Selection */}
       <Card>
         <div className="p-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">Academic Context</h3>
-          
+          <h3 className="text-base font-semibold text-gray-900 mb-4">
+            Academic Context
+          </h3>
+
           <div className="space-y-4">
             {/* Progress Bar */}
             <div>
@@ -382,14 +395,13 @@ const SchedulerManagement = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Active Until
-                    </label>
-                    <input
-                      type="datetime-local"
+                    <DateTimePicker
+                      label="Active Until"
                       value={activeUntil}
-                      onChange={(e) => setActiveUntil(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onChange={(value) => setActiveUntil(value)}
+                      placeholder="Select deadline date and time"
+                      timeFormat="12"
+                      required
                     />
                   </div>
                 </div>
@@ -418,13 +430,15 @@ const SchedulerManagement = ({
 
             <div className="space-y-3">
               {contextSchedules.map((schedule) => {
-                const feature = FEATURES.find(f => f.id === schedule.feature);
-                const deadline = new Date(schedule.activeUntil);
+                const feature = FEATURES.find(
+                  (f) => f.id === schedule.featureName
+                );
+                const deadline = new Date(schedule.deadline);
                 const isExpired = deadline < new Date();
 
                 return (
                   <div
-                    key={schedule.feature}
+                    key={schedule.featureName}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex-1">
@@ -436,7 +450,7 @@ const SchedulerManagement = ({
                         )}
                         <div>
                           <p className="font-medium text-gray-900">
-                            {feature?.label || schedule.feature}
+                            {feature?.label || schedule.featureName}
                           </p>
                           <p className="text-sm text-gray-500">
                             Active until: {deadline.toLocaleString()}
@@ -448,7 +462,9 @@ const SchedulerManagement = ({
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleSelectExisting(schedule.feature)}
+                        onClick={() =>
+                          handleSelectExisting(schedule.featureName)
+                        }
                         disabled={loading}
                       >
                         Edit
@@ -456,7 +472,9 @@ const SchedulerManagement = ({
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleRemoveSchedule(schedule.feature)}
+                        onClick={() =>
+                          handleRemoveSchedule(schedule.featureName)
+                        }
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         disabled={loading}
                       >

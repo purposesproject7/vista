@@ -1,23 +1,20 @@
 // src/features/admin/pages/AdminSettings.jsx
-import React, { useState, useEffect } from 'react';
-import Navbar from '../../../shared/components/Navbar';
-import AdminTabs from '../components/shared/AdminTabs';
-import AcademicDataSettings from '../components/settings/AcademicDataSettings';
-import SchoolSettings from '../components/settings/SchoolSettings';
-import AcademicYearSettings from '../components/settings/AcademicYearSettings';
-import ProgramSettings from '../components/settings/ProgramSettings';
-import TeamSettings from '../components/settings/TeamSettings';
-import RubricSettings from '../components/settings/RubricSettings';
-import ModificationSettings from '../components/settings/ModificationSettings';
-import RoleManagement from '../components/RoleManagement';
-import SchedulerManagement from '../components/SchedulerManagement';
-import { INITIAL_FACULTY } from '../components/faculty-management/facultyData';
-import { fetchMasterData } from '../services/adminApi';
-import { useToast } from '../../../shared/hooks/useToast';
+import React, { useState, useEffect } from "react";
+import Navbar from "../../../shared/components/Navbar";
+import AdminTabs from "../components/shared/AdminTabs";
+import OrganizationSettings from "../components/settings/OrganizationSettings";
+import TeamSettings from "../components/settings/TeamSettings";
+import RubricSettings from "../components/settings/RubricSettings";
+import ModificationSettings from "../components/settings/ModificationSettings";
+import RoleManagement from "../components/RoleManagement";
+
+import { INITIAL_FACULTY } from "../components/faculty-management/facultyData";
+import { fetchMasterData } from "../services/adminApi";
+import { useToast } from "../../../shared/hooks/useToast";
 import {
   initialTeamSettings,
-  initialRubrics
-} from '../components/settings/settingsData';
+  initialRubrics,
+} from "../components/settings/settingsData";
 
 import {
   BuildingOffice2Icon,
@@ -28,11 +25,11 @@ import {
   KeyIcon,
   ClockIcon,
   DocumentTextIcon,
-  PencilSquareIcon
-} from '@heroicons/react/24/outline';
+  PencilSquareIcon,
+} from "@heroicons/react/24/outline";
 
 const AdminSettings = () => {
-  const [activeTab, setActiveTab] = useState('schools');
+  const [activeTab, setActiveTab] = useState("academic-data");
   const [loading, setLoading] = useState(true);
   const [schools, setSchools] = useState([]);
   const [programs, setPrograms] = useState({});
@@ -51,101 +48,89 @@ const AdminSettings = () => {
     try {
       setLoading(true);
       const response = await fetchMasterData();
-      
+
       if (response.success) {
         const data = response.data;
-        
+
         // Transform schools
-        const transformedSchools = data.schools
-          ?.filter(s => s.isActive !== false)
-          ?.map(s => ({ id: s._id, name: s.name, code: s.code })) || [];
-        
+        const transformedSchools =
+          data.schools
+            ?.filter((s) => s.isActive !== false)
+            ?.map((s) => ({ id: s._id, name: s.name, code: s.code })) || [];
+
         // Transform programs grouped by school (using departments from backend)
         const programsBySchool = {};
-        data.departments?.filter(d => d.isActive !== false).forEach(d => {
-          const schoolCode = d.school;
-          if (!programsBySchool[schoolCode]) {
-            programsBySchool[schoolCode] = [];
-          }
-          programsBySchool[schoolCode].push({
-            id: d._id,
-            name: d.name,
-            code: d.code
+        const programsList = data.programs || data.departments;
+        programsList
+          ?.filter((d) => d.isActive !== false)
+          .forEach((d) => {
+            const schoolCode = d.school;
+            if (!programsBySchool[schoolCode]) {
+              programsBySchool[schoolCode] = [];
+            }
+            programsBySchool[schoolCode].push({
+              id: d._id,
+              name: d.name,
+              code: d.code,
+            });
           });
-        });
-        
+
         // Transform academic years
-        const transformedYears = data.academicYears
-          ?.filter(y => y.isActive !== false)
-          ?.map(y => ({ id: y._id, name: y.year })) || [];
-        
+        const transformedYears =
+          data.academicYears
+            ?.filter((y) => y.isActive !== false)
+            ?.map((y) => ({ id: y._id, name: y.year })) || [];
+
         setSchools(transformedSchools);
         setPrograms(programsBySchool);
         setYears(transformedYears);
-        
+
         // Keep mock semesters for now
         setSemesters([
-          { id: '1', name: 'Winter Semester' },
-          { id: '2', name: 'Summer Semester' }
+          { id: "1", name: "Winter Semester" },
+          { id: "2", name: "Summer Semester" },
         ]);
       }
     } catch (error) {
-      console.error('Error loading master data:', error);
-      showToast('Failed to load settings data', 'error');
+      console.error("Error loading master data:", error);
+      showToast("Failed to load settings data", "error");
     } finally {
       setLoading(false);
     }
   };
 
   const settingsTabs = [
-    { 
-      id: 'schools', 
-      label: 'Schools', 
+    {
+      id: "academic-data",
+      label: "Academic Data",
       icon: BuildingOffice2Icon,
-      description: 'Manage schools'
+      description: "Manage schools, programs, and academic years",
     },
-    { 
-      id: 'programs', 
-      label: 'Programs', 
-      icon: AcademicCapIcon,
-      description: 'Manage programs'
-    },
-    { 
-      id: 'years', 
-      label: 'Academic Years', 
-      icon: CalendarDaysIcon,
-      description: 'Manage academic years with semesters'
-    },
-    { 
-      id: 'teams', 
-      label: 'Team Settings', 
+    {
+      id: "teams",
+      label: "Team Settings",
       icon: UserGroupIcon,
-      description: 'Configure team sizes'
+      description: "Configure team sizes",
     },
-    { 
-      id: 'roles', 
-      label: 'Roles / AD', 
+    {
+      id: "roles",
+      label: "Roles / AD",
       icon: KeyIcon,
-      description: 'Assign coordinators by context'
+      description: "Assign coordinators by context",
     },
-    { 
-      id: 'scheduler', 
-      label: 'Scheduler', 
-      icon: ClockIcon,
-      description: 'Set feature deadlines for coordinators'
-    },
-    { 
-      id: 'rubrics', 
-      label: 'Rubrics', 
+
+    {
+      id: "rubrics",
+      label: "Rubrics",
       icon: DocumentTextIcon,
-      description: 'Manage rubric templates'
+      description: "Manage rubric templates",
     },
-    { 
-      id: 'modification', 
-      label: 'Modification', 
+    {
+      id: "modification",
+      label: "Modification",
       icon: PencilSquareIcon,
-      description: 'Modify project assignments'
-    }
+      description: "Modify project assignments",
+    },
   ];
 
   const handleUpdateSchools = async (updated) => {
@@ -157,7 +142,7 @@ const AdminSettings = () => {
   const handleUpdatePrograms = async (updated) => {
     setPrograms(updated);
     // Programs are updated via individual API calls in ProgramSettings
-    showToast('Programs list updated', 'success');
+    showToast("Programs list updated", "success");
   };
 
   const handleUpdateYears = async (updated) => {
@@ -169,26 +154,26 @@ const AdminSettings = () => {
   const handleUpdateSemesters = (updated) => {
     setSemesters(updated);
     // TODO: Save to backend
-    console.log('Semesters updated:', updated);
+    console.log("Semesters updated:", updated);
   };
 
   const handleUpdateTeamSettings = (updated) => {
     setTeamSettings(updated);
     // TODO: Save to backend
-    console.log('Team settings updated:', updated);
+    console.log("Team settings updated:", updated);
   };
 
   const handleUpdateRubrics = (updated) => {
     setRubrics(updated);
     // TODO: Save to backend
-    console.log('Rubrics updated:', updated);
+    console.log("Rubrics updated:", updated);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <AdminTabs />
-      
+
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
@@ -200,16 +185,17 @@ const AdminSettings = () => {
             {settingsTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
-              
+
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
                     flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all
-                    ${isActive 
-                      ? 'bg-blue-600 text-white shadow-md' 
-                      : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                    ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-md"
+                        : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                     }
                   `}
                   title={tab.description}
@@ -224,29 +210,18 @@ const AdminSettings = () => {
 
         {/* Settings Content */}
         <div>
-          {activeTab === 'schools' && (
-            <SchoolSettings
-              schools={schools}
-              onUpdate={handleUpdateSchools}
-            />
-          )}
-
-          {activeTab === 'programs' && (
-            <ProgramSettings
+          {activeTab === "academic-data" && (
+            <OrganizationSettings
               schools={schools}
               programs={programs}
-              onUpdate={handleUpdatePrograms}
-            />
-          )}
-
-          {activeTab === 'years' && (
-            <AcademicYearSettings
               years={years}
-              onUpdate={handleUpdateYears}
+              onUpdateSchools={handleUpdateSchools}
+              onUpdatePrograms={handleUpdatePrograms}
+              onUpdateYears={handleUpdateYears}
             />
           )}
 
-          {activeTab === 'teams' && (
+          {activeTab === "teams" && (
             <TeamSettings
               schools={schools}
               programs={programs}
@@ -257,14 +232,17 @@ const AdminSettings = () => {
             />
           )}
 
-          {activeTab === 'rubrics' && (
+          {activeTab === "rubrics" && (
             <RubricSettings
               rubrics={rubrics}
               onUpdate={handleUpdateRubrics}
+              schools={schools}
+              programs={programs}
+              years={years}
             />
           )}
 
-          {activeTab === 'roles' && (
+          {activeTab === "roles" && (
             <RoleManagement
               schools={schools}
               programsBySchool={programs}
@@ -272,17 +250,7 @@ const AdminSettings = () => {
             />
           )}
 
-          {activeTab === 'scheduler' && (
-            <SchedulerManagement
-              schools={schools}
-              programsBySchool={programs}
-              years={years}
-            />
-          )}
-
-          {activeTab === 'modification' && (
-            <ModificationSettings />
-          )}
+          {activeTab === "modification" && <ModificationSettings />}
         </div>
       </div>
     </div>
@@ -290,4 +258,3 @@ const AdminSettings = () => {
 };
 
 export default AdminSettings;
-

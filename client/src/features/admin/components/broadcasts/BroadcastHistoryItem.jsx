@@ -11,13 +11,12 @@ const BroadcastHistoryItem = ({ broadcast, onEdit, onDelete }) => {
 
   return (
     <div
-      className={`p-4 rounded-lg border ${
-        isExpired
+      className={`p-4 rounded-lg border ${isExpired
           ? 'border-gray-200 bg-gray-50'
           : isBlocking
             ? 'border-red-200 bg-red-50/50'
             : 'border-blue-100 bg-blue-50/50'
-      }`}
+        }`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
@@ -54,7 +53,7 @@ const BroadcastHistoryItem = ({ broadcast, onEdit, onDelete }) => {
           Schools: {broadcast.targetSchools?.length ? broadcast.targetSchools.join(', ') : 'All'}
         </Badge>
         <Badge variant="secondary">
-          Departments: {broadcast.targetDepartments?.length ? broadcast.targetDepartments.join(', ') : 'All'}
+          Programs: {(broadcast.targetPrograms?.length ? broadcast.targetPrograms : broadcast.targetDepartments)?.length ? (broadcast.targetPrograms || broadcast.targetDepartments).join(', ') : 'All'}
         </Badge>
         {broadcast.createdByName && (
           <Badge variant="secondary">By {broadcast.createdByName}</Badge>

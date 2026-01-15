@@ -1,0 +1,58 @@
+[
+  {
+    "id": "695cb3a9397c8b7da1f394b2",
+    "school": "SCH01",
+    "department": "DPT01",
+    "academicYear": "2025-2026",
+    "reviews": [
+      {
+        "deadline": {
+          "from": "2026-01-05T07:03:05.689Z",
+          "to": "2026-03-07T07:03:05.689Z"
+        },
+        "reviewName": "review1",
+        "displayName": "Review 1",
+        "facultyType": "both",
+        "components": [
+          {
+            "componentId": "695cb3a9397c8b7da1f3949c",
+            "name": "Problem Definition",
+            "maxMarks": 10,
+            "subComponents": []
+          },
+          {
+            "componentId": "695cb3a9397c8b7da1f3949d",
+            "name": "Literature Survey",
+            "maxMarks": 10,
+            "subComponents": []
+          }
+        ],
+        "pptRequired": false,
+        "draftRequired": false,
+        "order": 1,
+        "isActive": true
+      },
+      {
+        "deadline": {
+          "from": "2026-02-05T07:03:05.689Z",
+          "to": "2026-04-06T07:03:05.689Z"
+        },
+        "reviewName": "review2",
+        "displayName": "Review 2",
+        "facultyType": "guide",
+        "components": [
+          {
+            "componentId": "695cb3a9397c8b7da1f3949e",
+            "name": "Implementation",
+            "maxMarks": 40,
+            "subComponents": []
+          }
+        ],
+        "pptRequired": false,
+        "draftRequired": false,
+        "order": 2,
+        "isActive": true
+      }
+    ]
+  }
+]

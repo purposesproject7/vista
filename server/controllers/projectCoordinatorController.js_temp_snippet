@@ -1,0 +1,41 @@
+
+// ==================== Master Data ====================
+
+export async function getAcademicYears(req, res) {
+  try {
+    const masterData = await MasterData.findOne().lean();
+    const academicYears = masterData ? masterData.academicYears : [];
+    res.status(200).json({
+      success: true,
+      data: academicYears,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getPrograms(req, res) {
+  try {
+    const masterData = await MasterData.findOne().lean();
+    // Coordinators only see programs in their school, or all?
+    // Routes typically exposed all or filtered. Let's return programs filtered by school if context available,
+    // but usually this is for dropdowns.
+    // If we want to restrict to coordinator's context:
+    const programs = masterData
+      ? masterData.programs.filter((p) => p.school === req.coordinator.school)
+      : [];
+
+    res.status(200).json({
+      success: true,
+      data: programs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}

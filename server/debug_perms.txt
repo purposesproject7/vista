@@ -1,0 +1,173 @@
+Connected to MongoDB
+Found 5 coordinators
+
+Coordinator: Project Coordinator (pc@vit.ac.in)
+Context: SCOPE | BTECH-CSE | 2023-2024
+Permissions: {
+  "canEdit": {
+    "enabled": true
+  },
+  "canView": {
+    "enabled": true
+  },
+  "canCreateFaculty": {
+    "enabled": true
+  },
+  "canEditFaculty": {
+    "enabled": true
+  },
+  "canDeleteFaculty": {
+    "enabled": true
+  },
+  "canCreatePanels": {
+    "enabled": true
+  },
+  "canEditPanels": {
+    "enabled": true
+  },
+  "canDeletePanels": {
+    "enabled": true
+  },
+  "canAssignPanels": {
+    "enabled": true
+  },
+  "canReassignPanels": {
+    "enabled": true
+  },
+  "canUploadStudents": {
+    "enabled": true
+  },
+  "canModifyStudents": {
+    "enabled": true
+  },
+  "canDeleteStudents": {
+    "enabled": true
+  },
+  "canCreateProjects": {
+    "enabled": true
+  },
+  "canEditProjects": {
+    "enabled": true
+  },
+  "canDeleteProjects": {
+    "enabled": true
+  },
+  "canAssignGuides": {
+    "enabled": true
+  },
+  "canReassignGuides": {
+    "enabled": true
+  },
+  "canMergeTeams": {
+    "enabled": true
+  },
+  "canSplitTeams": {
+    "enabled": true
+  },
+  "canEditMarkingSchema": {
+    "enabled": true
+  },
+  "canManageRequests": {
+    "enabled": true
+  },
+  "canCreateBroadcasts": {
+    "enabled": true
+  },
+  "canEditBroadcasts": {
+    "enabled": true
+  },
+  "canDeleteBroadcasts": {
+    "enabled": true
+  }
+}
+
+Coordinator: Dr. A. Bose (abose32@vista.com)
+Context: SCOPE | BTECH-CSE | 2023-2024
+Permissions: {
+  "student_management": {
+    "enabled": true,
+    "deadline": "2026-01-21T18:30:00.000Z"
+  },
+  "faculty_management": {
+    "enabled": true,
+    "deadline": "2026-01-21T18:30:00.000Z"
+  },
+  "project_management": {
+    "enabled": true,
+    "deadline": "2026-01-28T18:30:00.000Z"
+  },
+  "panel_management": {
+    "enabled": true,
+    "deadline": "2026-01-15T18:30:00.000Z"
+  }
+}
+
+Coordinator: Aditya Desai (adityadesai47@vit.ac.in)
+Context: SCOPE | BTECH-CSE | 2023-2024
+Permissions: {
+  "student_management": {
+    "enabled": true,
+    "deadline": "2026-01-21T18:30:00.000Z"
+  },
+  "faculty_management": {
+    "enabled": true,
+    "deadline": "2026-01-21T18:30:00.000Z"
+  },
+  "project_management": {
+    "enabled": true,
+    "deadline": "2026-01-28T18:30:00.000Z"
+  },
+  "panel_management": {
+    "enabled": true,
+    "deadline": "2026-01-15T18:30:00.000Z"
+  }
+}
+
+Coordinator: Aditya Desai (adityadesai47@vit.ac.in)
+Context: SCOPE | BTECH-CSE | 2023-2024
+Permissions: {
+  "student_management": {
+    "enabled": true,
+    "deadline": "2026-01-21T18:30:00.000Z"
+  },
+  "faculty_management": {
+    "enabled": true,
+    "deadline": "2026-01-21T18:30:00.000Z"
+  },
+  "project_management": {
+    "enabled": true,
+    "deadline": "2026-01-28T18:30:00.000Z"
+  },
+  "panel_management": {
+    "enabled": true,
+    "deadline": "2026-01-15T18:30:00.000Z"
+  }
+}
+
+Coordinator: Dr. John Doe (john.doe@vit.ac.in)
+Context: T1 | BTECH-CSE | 2024-2025 winter
+Permissions: {
+  "student_management": {
+    "enabled": true,
+    "deadline": "2026-01-12T14:47:00.000Z"
+  },
+  "faculty_management": {
+    "enabled": true,
+    "deadline": "2026-01-09T17:49:09.146Z"
+  },
+  "project_management": {
+    "enabled": true,
+    "deadline": "2026-01-09T17:49:09.146Z"
+  },
+  "panel_management": {
+    "enabled": true,
+    "deadline": "2026-01-09T17:49:09.146Z"
+  }
+}
+
+Last 5 Access Requests:
+- Status: approved, Feature: panel_management, User: john.doe@vit.ac.in (6961366c2b5564e89519a5d1)
+- Status: approved, Feature: student_management, User: john.doe@vit.ac.in (6961366c2b5564e89519a5d1)
+- Status: pending, Feature: project_management, User: john.doe@vit.ac.in (6961366c2b5564e89519a5d1)
+- Status: approved, Feature: faculty_management, User: pc@vit.ac.in (695dfcaaa2b271ce75ce855b)
+- Status: rejected, Feature: student_management, User: pc@vit.ac.in (695dfcaaa2b271ce75ce855b)

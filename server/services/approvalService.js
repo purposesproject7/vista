@@ -20,28 +20,33 @@ export class ApprovalService {
       throw new Error("Only the guide can approve PPT.");
     }
 
-    // Update approvals
-    if (!student.approvals) {
-      student.approvals = new Map();
+    // Update Project PPT Approvals (Team-level)
+    const existingApprovalIndex = project.pptApprovals.findIndex(
+      (a) => a.reviewType === reviewType
+    );
+
+    if (existingApprovalIndex > -1) {
+      project.pptApprovals[existingApprovalIndex].isApproved = true;
+      project.pptApprovals[existingApprovalIndex].approvedBy = facultyId;
+      project.pptApprovals[existingApprovalIndex].approvedAt = new Date();
+    } else {
+      project.pptApprovals.push({
+        reviewType: reviewType,
+        isApproved: true,
+        approvedBy: facultyId,
+        approvedAt: new Date(),
+      });
     }
 
-    const approval = student.approvals.get(reviewType) || {};
-    approval.ppt = {
-      approved: true,
-      approvedAt: new Date(),
-      locked: true,
-    };
-    student.approvals.set(reviewType, approval);
-
-    await student.save();
+    await project.save();
 
     logger.info("ppt_approved", {
-      studentId,
+      projectId: project._id,
       reviewType,
       approvedBy: facultyId,
     });
 
-    return student;
+    return project;
   }
 
   /**

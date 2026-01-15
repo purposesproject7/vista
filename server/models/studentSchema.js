@@ -5,12 +5,12 @@ const studentSchema = new mongoose.Schema(
     regNo: { type: String, required: true },
     name: { type: String, required: true },
     emailId: { type: String, required: true },
+    phoneNumber: { type: String },
 
     PAT: { type: Boolean, default: false },
 
     school: { type: String, required: true },
-    program: { type: String },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
     academicYear: { type: String, required: true },
 
     isActive: { type: Boolean, default: true },
@@ -47,11 +47,11 @@ const studentSchema = new mongoose.Schema(
       },
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 studentSchema.index({ regNo: 1, academicYear: 1 }, { unique: true });
-studentSchema.index({ school: 1, program: 1, department: 1, academicYear: 1 });
+studentSchema.index({ school: 1, program: 1, academicYear: 1 });
 studentSchema.index({ emailId: 1 });
 
 const Student = mongoose.model("Student", studentSchema);

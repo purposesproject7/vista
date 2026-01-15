@@ -4,15 +4,21 @@ import { PanelService } from "../services/panelService.js";
 import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
+import { ReportService } from "../services/reportService.js";
+import { ActivityLogService } from "../services/activityLogService.js";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import Panel from "../models/panelSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import ComponentLibrary from "../models/componentLibrarySchema.js";
-import DepartmentConfig from "../models/departmentConfigSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 import Request from "../models/requestSchema.js";
 import BroadcastMessage from "../models/broadcastMessageSchema.js";
+import MasterData from "../models/masterDataSchema.js";
+import Marks from "../models/marksSchema.js";
+import AccessRequest from "../models/accessRequestSchema.js";
+import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -22,7 +28,7 @@ function getCoordinatorContext(req) {
   return {
     academicYear: req.coordinator.academicYear,
     school: req.coordinator.school,
-    department: req.coordinator.department,
+    program: req.coordinator.program,
   };
 }
 
@@ -36,8 +42,7 @@ function verifyContext(item, coordinator) {
   }
 
   return (
-    item.school === coordinator.school &&
-    item.department === coordinator.department
+    item.school === coordinator.school && item.program === coordinator.program
   );
 }
 
@@ -45,7 +50,20 @@ function verifyContext(item, coordinator) {
 
 export async function getProfile(req, res) {
   try {
-    const coordinator = await ProjectCoordinator.findById(req.coordinator._id)
+    // Handle case where user might be coordinator for multiple contexts
+    let coordinatorId;
+    if (req.coordinator) {
+      coordinatorId = req.coordinator._id;
+    } else if (req.coordinators && req.coordinators.length > 0) {
+      coordinatorId = req.coordinators[0]._id; // Default to first for profile view
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: "No active coordinator profile found",
+      });
+    }
+
+    const coordinator = await ProjectCoordinator.findById(coordinatorId)
       .populate("faculty", "name emailId employeeId")
       .lean();
 
@@ -88,7 +106,7 @@ export async function createFaculty(req, res) {
     // Ensure faculty is created in coordinator's context
     req.body.academicYear = context.academicYear;
     req.body.school = context.school;
-    req.body.department = context.department;
+    req.body.program = context.program;
 
     // Fixes 1 & 2: Enforce role 'faculty', prevent creating coordinators
     // and set default password "Vit<empid>@123"
@@ -117,20 +135,40 @@ export async function createFaculty(req, res) {
   }
 }
 
-export async function getFacultyList(req, res) {
+export async function createFacultyBulk(req, res) {
   try {
-    const context = getCoordinatorContext(req);
-    const filters = { ...req.query, ...context };
+    const { facultyList } = req.body;
 
-    const faculties = await Faculty.find(filters)
-      .select("-password")
-      .sort({ name: 1 })
-      .lean();
+    if (!Array.isArray(facultyList) || facultyList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Faculty list must be a non-empty array.",
+      });
+    }
+
+    const results = {
+      created: 0,
+      errors: 0,
+      details: [],
+    };
+
+    for (let i = 0; i < facultyList.length; i++) {
+      try {
+        await FacultyService.createFaculty(facultyList[i], req.user._id);
+        results.created++;
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          row: i + 1,
+          error: error.message,
+        });
+      }
+    }
 
     res.status(200).json({
       success: true,
-      data: faculties,
-      count: faculties.length,
+      message: `Bulk creation complete: ${results.created} created, ${results.errors} errors.`,
+      data: results,
     });
   } catch (error) {
     res.status(500).json({
@@ -140,16 +178,23 @@ export async function getFacultyList(req, res) {
   }
 }
 
-export async function getFacultyDetailsBulk(req, res) {
+export async function getFacultyList(req, res) {
   try {
-    const { employeeIds } = req.body;
+    const context = getCoordinatorContext(req);
+    const filters = { ...req.query, ...context };
 
-    // Optional: Filter by coordinator's context to only show faculty in same school/dept?
-    // User requirement was just to validate if they exist.
-    // For now, allow checking any faculty, or we could filter found ones.
-    // Let's stick to simple retrieval for validation purposes.
+    // Faculty are not bound by academic year, so remove it from filters
+    if (filters.academicYear) delete filters.academicYear;
 
-    const faculties = await FacultyService.getFacultyDetailsBulk(employeeIds);
+    // Use regex for name search if provided
+    if (req.query.name) {
+      filters.name = new RegExp(req.query.name, 'i');
+    }
+
+    const faculties = await Faculty.find(filters)
+      .select("-password")
+      .sort({ name: 1 })
+      .lean();
 
     res.status(200).json({
       success: true,
@@ -187,7 +232,7 @@ export async function updateFaculty(req, res) {
     if (!verifyContext(faculty, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Faculty not in your department.",
+        message: "Faculty not in your program.",
       });
     }
 
@@ -235,7 +280,7 @@ export async function deleteFaculty(req, res) {
     if (!verifyContext(faculty, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Faculty not in your department.",
+        message: "Faculty not in your program.",
       });
     }
 
@@ -271,6 +316,180 @@ export async function deleteFaculty(req, res) {
   }
 }
 
+// ==================== Request Management ====================
+
+export async function getRequests(req, res) {
+  try {
+    const context = getCoordinatorContext(req);
+    const filters = { ...req.query, ...context };
+
+    // Support categorization
+    if (req.query.category) {
+      if (req.query.category === "guide") {
+        filters.requestType = "guide_reassignment"; // Example mapping
+      }
+      // Add other mappings as per schema
+    }
+
+    const requests = await Request.find(filters)
+      .populate("student", "name regNo emailId")
+      .populate("faculty", "name employeeId")
+      .populate("project", "name")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Transform for frontend if needed (adapting to RequestList expectation)
+    const transformedRequests = requests.map((req) => ({
+      _id: req._id,
+      id: req._id, // Frontend uses both
+      facultyId: req.faculty?._id,
+      faculty: req.faculty,
+      facultyName: req.faculty?.name,
+      studentId: req.student?._id,
+      student: req.student,
+      studentName: req.student?.name,
+      category: req.requestType, // Assuming requestType maps to category
+      projectTitle: req.project?.name,
+      message: req.reason,
+      status: req.status,
+      date: req.createdAt,
+      school: req.school || context.school,
+      program: req.program || context.program,
+      approvalReason: req.remarks, // Map remarks to approval/rejection reason
+      rejectionReason: req.remarks,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: transformedRequests,
+      count: transformedRequests.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function handleRequest(req, res) {
+  try {
+    const { id } = req.params;
+    const { status, remarks } = req.body;
+
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Must be 'approved' or 'rejected'.",
+      });
+    }
+
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Request not found.",
+      });
+    }
+
+    // Verify context
+    if (!verifyContext(request, req.coordinator)) {
+      return res.status(403).json({
+        success: false,
+        message: "Request not in your program.",
+      });
+    }
+
+    request.status = status;
+    request.remarks = remarks;
+    request.processedBy = req.user._id;
+    request.processedAt = new Date();
+
+    await request.save();
+
+    logger.info("request_handled", {
+      requestId: request._id,
+      status,
+      processedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Request ${status} successfully.`,
+      data: request,
+    });
+
+    ActivityLogService.logActivity(
+      req.user._id,
+      "REQUEST_HANDLED",
+      {
+        school: req.coordinator.school,
+        program: req.coordinator.program,
+        academicYear: req.coordinator.academicYear,
+      },
+      {
+        targetId: request._id,
+        targetModel: "Request",
+        description: `Request ${status}: ${request.requestType} for ${request.student?.regNo || "student"}`,
+      },
+      req
+    );
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function approveMultipleRequests(req, res) {
+  try {
+    const { requestIds, remarks } = req.body;
+
+    if (!Array.isArray(requestIds) || requestIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "requestIds array is required.",
+      });
+    }
+
+    const context = getCoordinatorContext(req);
+
+    const result = await Request.updateMany(
+      {
+        _id: { $in: requestIds },
+        school: context.school,
+        program: context.program,
+        status: "pending",
+      },
+      {
+        $set: {
+          status: "approved",
+          remarks: remarks || "Approved by coordinator",
+          processedBy: req.user._id,
+          processedAt: new Date(),
+        },
+      }
+    );
+
+    logger.info("bulk_requests_approved", {
+      matchCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+      coordinatorId: req.coordinator._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `${result.modifiedCount} requests approved successfully.`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ==================== Student Management ====================
 
 /**
@@ -281,9 +500,9 @@ export async function getStudentList(req, res) {
     const coordinator = req.coordinator; // From requireProjectCoordinator middleware
 
     const filters = {
-      academicYear: coordinator.academicYear,
+      academicYear: req.query.academicYear || coordinator.academicYear,
       school: coordinator.school,
-      programme: coordinator.programme,
+      program: coordinator.program,
       regNo: req.query.regNo,
       name: req.query.name,
       specialization: req.query.specialization,
@@ -318,16 +537,16 @@ export async function getStudentByRegNo(req, res) {
       });
     }
 
-    // Verify student belongs to coordinator's programme
+    // Verify student belongs to coordinator's program
     const coordinator = req.coordinator;
     if (
       student.school !== coordinator.school ||
-      student.programme !== coordinator.programme ||
+      student.program !== coordinator.program ||
       student.academicYear !== coordinator.academicYear
     ) {
       return res.status(403).json({
         success: false,
-        message: "You can only view students from your programme",
+        message: "You can only view students from your program",
       });
     }
 
@@ -365,8 +584,8 @@ export async function createStudent(req, res) {
       [{ regNo, name, emailId, phoneNumber }],
       coordinator.academicYear,
       coordinator.school,
-      coordinator.programme,
-      req.user._id,
+      coordinator.program,
+      req.user._id
     );
 
     if (result.created === 1) {
@@ -410,8 +629,8 @@ export async function uploadStudents(req, res) {
       students,
       coordinator.academicYear,
       coordinator.school,
-      coordinator.programme,
-      req.user._id,
+      coordinator.program,
+      req.user._id
     );
 
     res.status(200).json({
@@ -449,22 +668,22 @@ export async function updateStudent(req, res) {
       });
     }
 
-    // Verify student belongs to coordinator's programme
+    // Verify student belongs to coordinator's program
     if (
       student.school !== coordinator.school ||
-      student.programme !== coordinator.programme ||
+      student.program !== coordinator.program ||
       student.academicYear !== coordinator.academicYear
     ) {
       return res.status(403).json({
         success: false,
-        message: "You can only update students from your programme",
+        message: "You can only update students from your program",
       });
     }
 
     const updatedStudent = await StudentService.updateStudent(
       req.params.regNo,
       req.body,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -502,15 +721,15 @@ export async function deleteStudent(req, res) {
       });
     }
 
-    // Verify student belongs to coordinator's department
+    // Verify student belongs to coordinator's program
     if (
       student.school !== coordinator.school ||
-      student.department !== coordinator.department ||
+      student.program !== coordinator.program ||
       student.academicYear !== coordinator.academicYear
     ) {
       return res.status(403).json({
         success: false,
-        message: "You can only delete students from your department",
+        message: "You can only delete students from your program",
       });
     }
 
@@ -534,6 +753,7 @@ export async function getProjectList(req, res) {
   try {
     const context = getCoordinatorContext(req);
     const filters = { ...req.query, ...context };
+    if (req.query.academicYear) filters.academicYear = req.query.academicYear;
 
     const projects = await ProjectService.getProjectList(filters);
 
@@ -557,7 +777,7 @@ export async function createProject(req, res) {
     // Apply context
     req.body.academicYear = context.academicYear;
     req.body.school = context.school;
-    req.body.programme = context.programme;
+    req.body.program = context.program;
 
     // Validate guide faculty exists and belongs to same dept
     const guide = await Faculty.findOne({
@@ -574,7 +794,7 @@ export async function createProject(req, res) {
     if (!verifyContext(guide, req.coordinator)) {
       return res.status(400).json({
         success: false,
-        message: "Guide faculty must be from the same programme.",
+        message: "Guide faculty must be from the same program.",
       });
     }
 
@@ -598,10 +818,7 @@ export async function createProject(req, res) {
     res.status(201).json({
       success: true,
       message: "Project created successfully.",
-      data: {
-        projectId: project._id,
-        name: project.name,
-      },
+      data: project,
     });
   } catch (error) {
     res.status(400).json({
@@ -613,41 +830,34 @@ export async function createProject(req, res) {
 
 export async function createProjectsBulk(req, res) {
   try {
-    const context = getCoordinatorContext(req);
     const { projects } = req.body;
 
     if (!Array.isArray(projects) || projects.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Please provide an array of projects.",
+        message: "Projects array is required and cannot be empty.",
       });
     }
 
-    // Enrich projects with context
-    const enrichedProjects = projects.map((p) => ({
+    const context = getCoordinatorContext(req);
+
+    // Enrich projects with coordinator context
+    const enrichedProjects = projects.map(p => ({
       ...p,
       academicYear: context.academicYear,
       school: context.school,
-      department: context.department,
+      program: context.program
     }));
 
-    const results = await ProjectService.createProjectsBulk(
-      enrichedProjects,
-      req.user._id,
-    );
-
-    logger.info("bulk_projects_created_by_coordinator", {
-      count: results.created,
-      coordinatorId: req.coordinator._id,
-    });
+    const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id);
 
     res.status(200).json({
       success: true,
-      message: `Bulk creation completed. Created: ${results.created}, Failed: ${results.failed}`,
-      data: results,
+      message: `Bulk creation complete: ${result.created} created, ${result.failed} errors.`,
+      data: result,
     });
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -676,7 +886,7 @@ export async function updateProject(req, res) {
     if (!verifyContext(project, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Project not in your department.",
+        message: "Project not in your program.",
       });
     }
 
@@ -745,7 +955,7 @@ export async function assignGuide(req, res) {
     if (!verifyContext(project, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Project not in your department.",
+        message: "Project not in your program.",
       });
     }
 
@@ -762,7 +972,7 @@ export async function assignGuide(req, res) {
     if (!verifyContext(guide, req.coordinator)) {
       return res.status(400).json({
         success: false,
-        message: "Guide must be from the same department.",
+        message: "Guide must be from the same program.",
       });
     }
 
@@ -777,7 +987,7 @@ export async function assignGuide(req, res) {
     */
 
     // Check max projects per guide
-    const config = await DepartmentConfig.findOne(getCoordinatorContext(req));
+    const config = await ProgramConfig.findOne(getCoordinatorContext(req));
     if (config?.maxProjectsPerGuide) {
       const projectCount = await Project.countDocuments({
         guideFaculty: guide._id,
@@ -836,7 +1046,7 @@ export async function reassignGuide(req, res) {
     if (!verifyContext(project, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Project not in your department.",
+        message: "Project not in your program.",
       });
     }
 
@@ -855,7 +1065,7 @@ export async function reassignGuide(req, res) {
     if (!verifyContext(newGuide, req.coordinator)) {
       return res.status(400).json({
         success: false,
-        message: "New guide must be from the same department.",
+        message: "New guide must be from the same program.",
       });
     }
 
@@ -953,19 +1163,19 @@ export async function createPanel(req, res) {
 
     // Verify all members are from same dept
     const invalidMembers = members.filter(
-      (m) => !verifyContext(m, req.coordinator),
+      (m) => !verifyContext(m, req.coordinator)
     );
     if (invalidMembers.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "All panel members must be from the same department.",
+        message: "All panel members must be from the same program.",
         invalidMembers: invalidMembers.map((m) => m.employeeId),
       });
     }
 
     req.body.academicYear = context.academicYear;
     req.body.school = context.school;
-    req.body.department = context.department;
+    req.body.program = context.program;
 
     const panel = await PanelService.createPanel(req.body, req.user._id);
 
@@ -995,10 +1205,10 @@ export async function autoCreatePanels(req, res) {
     const result = await PanelService.autoCreatePanels(
       context.academicYear,
       context.school,
-      context.department,
+      context.program,
       panelSize || null,
       req.user._id,
-      facultyList,
+      facultyList
     );
 
     res.status(200).json({
@@ -1014,10 +1224,61 @@ export async function autoCreatePanels(req, res) {
   }
 }
 
+export async function createPanelsBulk(req, res) {
+  try {
+    const context = getCoordinatorContext(req);
+    const { panels } = req.body;
+
+    if (!Array.isArray(panels) || panels.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Panels array is required and cannot be empty",
+      });
+    }
+
+    const results = {
+      created: 0,
+      errors: 0,
+      details: [],
+    };
+
+    for (let i = 0; i < panels.length; i++) {
+      try {
+        const panelData = {
+          ...panels[i],
+          academicYear: context.academicYear,
+          school: context.school,
+          program: context.program,
+        };
+        await PanelService.createPanel(panelData, req.user._id);
+        results.created++;
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          row: i + 1,
+          error: error.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk creation complete: ${results.created} panels created, ${results.errors} errors.`,
+      data: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 export async function getPanelList(req, res) {
   try {
     const context = getCoordinatorContext(req);
     const filters = { ...req.query, ...context };
+    if (req.query.academicYear) filters.academicYear = req.query.academicYear;
 
     const panels = await PanelService.getPanelList(filters);
 
@@ -1057,7 +1318,7 @@ export async function updatePanelMembers(req, res) {
     if (!verifyContext(panel, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Panel not in your department.",
+        message: "Panel not in your program.",
       });
     }
 
@@ -1074,12 +1335,12 @@ export async function updatePanelMembers(req, res) {
     }
 
     const invalidMembers = members.filter(
-      (m) => !verifyContext(m, req.coordinator),
+      (m) => !verifyContext(m, req.coordinator)
     );
     if (invalidMembers.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "All panel members must be from the same department.",
+        message: "All panel members must be from the same program.",
       });
     }
 
@@ -1137,7 +1398,7 @@ export async function deletePanel(req, res) {
     if (!verifyContext(panel, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Panel not in your department.",
+        message: "Panel not in your program.",
       });
     }
 
@@ -1160,6 +1421,101 @@ export async function deletePanel(req, res) {
     res.status(200).json({
       success: true,
       message: "Panel deleted successfully.",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getPanelSummary(req, res) {
+  try {
+    const context = getCoordinatorContext(req);
+
+    const panels = await Panel.find({
+      ...context,
+      isActive: true,
+    }).populate("members.faculty", "name employeeId");
+
+    const totalProjects = await Project.countDocuments({
+      ...context,
+    });
+
+    const assignedProjects = await Project.countDocuments({
+      ...context,
+      panel: { $ne: null },
+    });
+
+    const totalPanels = panels.length;
+
+    const facultySet = new Set();
+    panels.forEach((p) => {
+      p.members.forEach((m) => {
+        if (m.faculty) facultySet.add(m.faculty._id.toString());
+      });
+    });
+
+    const avgFacultyPerPanel =
+      totalPanels > 0
+        ? (
+          panels.reduce((sum, p) => sum + p.members.length, 0) / totalPanels
+        ).toFixed(1)
+        : 0;
+
+    const avgProjectsPerPanel =
+      totalPanels > 0 ? (assignedProjects / totalPanels).toFixed(1) : 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalPanels,
+        totalFaculty: facultySet.size,
+        totalProjects,
+        assignedProjects,
+        avgFacultyPerPanel,
+        avgProjectsPerPanel,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getFacultyDetailsBulk(req, res) {
+  try {
+    const { employeeIds } = req.body;
+    const context = getCoordinatorContext(req);
+
+    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "employeeIds array is required",
+      });
+    }
+
+    // Only fetch faculty from same context/school?
+    // Usually fetching details allows cross-department if necessary, but strictly usually
+    // we only want valid faculty. Let's keep it scoped to context for safety or at least school.
+    // However, existing admin implementation didn't restrict.
+    // For coordinator, we should probably restrict to their school/dept or just check existence.
+    // Let's rely on Faculty find.
+    const faculty = await Faculty.find({
+      employeeId: { $in: employeeIds },
+      role: "faculty",
+      // Restrict to same school is reasonable, maybe same dept too.
+      // Let's stick to context to prevent unauthorized lookups.
+      school: context.school,
+      // program: context.program // Maybe optional if inter-disciplinary? Safest to include.
+    }).select("name employeeId emailId school program specialization");
+
+    res.status(200).json({
+      success: true,
+      data: faculty,
     });
   } catch (error) {
     res.status(500).json({
@@ -1208,7 +1564,7 @@ export async function assignPanel(req, res) {
     ) {
       return res.status(403).json({
         success: false,
-        message: "Project and panel must be in your department.",
+        message: "Project and panel must be in your program.",
       });
     }
 
@@ -1220,7 +1576,9 @@ export async function assignPanel(req, res) {
     ) {
       return res.status(400).json({
         success: false,
-        message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(", ")}], but project requires ${project.specialization}.`,
+        message: `Specialization mismatch blocked. Panel specializes in [${panel.specializations.join(
+          ", "
+        )}], but project requires ${project.specialization}.`,
       });
     }
 
@@ -1253,12 +1611,12 @@ export async function assignReviewPanel(req, res) {
           memberEmployeeIds,
           academicYear: context.academicYear,
           school: context.school,
-          department: context.department,
+          program: context.program,
           venue: "TBD (Review Panel)",
           specializations: [], // Temp panel
           type: "temporary",
         },
-        req.user._id,
+        req.user._id
       );
       targetPanelId = newPanel._id;
     } else if (!targetPanelId) {
@@ -1294,7 +1652,7 @@ export async function assignReviewPanel(req, res) {
     ) {
       return res.status(403).json({
         success: false,
-        message: "Project and panel must be in your department.",
+        message: "Project and panel must be in your program.",
       });
     }
 
@@ -1315,7 +1673,7 @@ export async function assignReviewPanel(req, res) {
     // Validate review type exists in marking schema
     const schema = await MarkingSchema.findOne(getCoordinatorContext(req));
     const validReview = schema?.reviews.find(
-      (r) => r.reviewName === reviewType,
+      (r) => r.reviewName === reviewType
     );
 
     if (!validReview) {
@@ -1329,7 +1687,7 @@ export async function assignReviewPanel(req, res) {
     // Update or add review panel
     project.reviewPanels = project.reviewPanels || [];
     const existingIdx = project.reviewPanels.findIndex(
-      (rp) => rp.reviewType === reviewType,
+      (rp) => rp.reviewType === reviewType
     );
 
     if (existingIdx >= 0) {
@@ -1375,9 +1733,9 @@ export async function autoAssignPanels(req, res) {
     const result = await PanelService.autoAssignPanels(
       context.academicYear,
       context.school,
-      context.department,
+      context.program,
       buffer || 0,
-      req.user._id,
+      req.user._id
     );
 
     res.status(200).json({
@@ -1395,7 +1753,7 @@ export async function autoAssignPanels(req, res) {
 
 export async function reassignPanel(req, res) {
   try {
-    const { projectId, panelId, memberEmployeeIds, reason } = req.body;
+    const { projectId, panelId, memberEmployeeIds, reason, scope, reviewType, ignoreSpecialization } = req.body;
     const context = getCoordinatorContext(req);
 
     if (!projectId) {
@@ -1419,12 +1777,12 @@ export async function reassignPanel(req, res) {
           memberEmployeeIds,
           academicYear: context.academicYear,
           school: context.school,
-          department: context.department,
+          program: context.program,
           venue: "TBD (Reassignment)",
           specializations: [], // Temp panel, skip strict specialization
           type: "temporary",
         },
-        req.user._id,
+        req.user._id
       );
 
       targetPanelId = newPanel._id;
@@ -1439,13 +1797,21 @@ export async function reassignPanel(req, res) {
     }
 
     // Perform reassignment
-    // We skip specialization check for both cases as per requirement
-    await PanelService.reassignProjectToPanel(
+    // Perform reassignment using updateProjectDetails to support scope and reviewType reviews
+    const updates = {
+      panelId: targetPanelId,
+      assignmentScope: scope,
+      reviewType: reviewType,
+      ignoreSpecialization: ignoreSpecialization
+    };
+
+    // Pass reason if supported or just for logging? modify updateProjectDetails if needed later
+    // For now we use the robust update function
+    await ProjectService.updateProjectDetails(
       projectId,
-      targetPanelId,
-      reason,
-      req.user._id,
-      true, // skipSpecializationCheck
+      updates,
+      null, // No student updates
+      req.user._id
     );
 
     res.status(200).json({
@@ -1492,12 +1858,12 @@ export async function mergeTeams(req, res) {
     ) {
       return res.status(403).json({
         success: false,
-        message: "Both projects must be in your department.",
+        message: "Both projects must be in your program.",
       });
     }
 
     // Check team size limits
-    const config = await DepartmentConfig.findOne(getCoordinatorContext(req));
+    const config = await ProgramConfig.findOne(getCoordinatorContext(req));
     const mergedSize = project1.students.length + project2.students.length;
 
     if (config && mergedSize > config.maxTeamSize) {
@@ -1579,12 +1945,12 @@ export async function splitTeam(req, res) {
     if (!verifyContext(project, req.coordinator)) {
       return res.status(403).json({
         success: false,
-        message: "Project not in your department.",
+        message: "Project not in your program.",
       });
     }
 
     // Validate team sizes after split
-    const config = await DepartmentConfig.findOne(getCoordinatorContext(req));
+    const config = await ProgramConfig.findOne(getCoordinatorContext(req));
     const remainingSize = project.students.length - studentIds.length;
 
     if (config) {
@@ -1611,7 +1977,7 @@ export async function splitTeam(req, res) {
 
     // Remove students from original project
     project.students = project.students.filter(
-      (s) => !studentIds.includes(s._id.toString()),
+      (s) => !studentIds.includes(s._id.toString())
     );
     project.teamSize = remainingSize;
     project.history = project.history || [];
@@ -1660,7 +2026,7 @@ export async function getMarkingSchema(req, res) {
     if (!schema) {
       return res.status(404).json({
         success: false,
-        message: "Marking schema not found for your department.",
+        message: "Marking schema not found for your program.",
       });
     }
 
@@ -1670,6 +2036,52 @@ export async function getMarkingSchema(req, res) {
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function saveMarkingSchema(req, res) {
+  try {
+    if (!req.coordinator.isPrimary) {
+      return res.status(403).json({
+        success: false,
+        message: "Only primary coordinator can manage marking schema.",
+      });
+    }
+
+    const context = getCoordinatorContext(req);
+    const { reviews } = req.body;
+
+    let schema = await MarkingSchema.findOne(context);
+    if (!schema) {
+      schema = new MarkingSchema({ ...context, reviews: [] });
+    } else {
+      // Verify context just in case, though findOne(context) ensures it
+      if (!verifyContext(schema, req.coordinator)) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to update this marking schema.",
+        });
+      }
+    }
+
+    schema.reviews = reviews;
+    await schema.save();
+
+    logger.info("marking_schema_updated_by_coordinator", {
+      schemaId: schema._id,
+      coordinatorId: req.coordinator._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Marking schema saved successfully.",
+      data: schema,
+    });
+  } catch (error) {
+    res.status(400).json({
       success: false,
       message: error.message,
     });
@@ -1755,17 +2167,17 @@ export async function getComponentLibrary(req, res) {
   }
 }
 
-// ==================== Department Config ====================
+// ==================== Program Config ====================
 
-export async function getDepartmentConfig(req, res) {
+export async function getProgramConfig(req, res) {
   try {
     const context = getCoordinatorContext(req);
-    const config = await DepartmentConfig.findOne(context).lean();
+    const config = await ProgramConfig.findOne(context).lean();
 
     if (!config) {
       return res.status(404).json({
         success: false,
-        message: "Department configuration not found.",
+        message: "Program configuration not found.",
       });
     }
 
@@ -1775,81 +2187,6 @@ export async function getDepartmentConfig(req, res) {
     });
   } catch (error) {
     res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-// ==================== Requests ====================
-
-export async function getRequests(req, res) {
-  try {
-    const context = getCoordinatorContext(req);
-
-    const requests = await Request.find({
-      ...context,
-      status: { $in: ["pending", "approved", "rejected"] },
-    })
-      .populate("faculty", "name employeeId")
-      .populate("student", "regNo name")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    res.status(200).json({
-      success: true,
-      data: requests,
-      count: requests.length,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-export async function handleRequest(req, res) {
-  try {
-    const { id } = req.params;
-    const { status, remarks } = req.body;
-
-    if (!["approved", "rejected"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status. Must be 'approved' or 'rejected'.",
-      });
-    }
-
-    const request = await Request.findById(id);
-
-    if (!request) {
-      return res.status(404).json({
-        success: false,
-        message: "Request not found.",
-      });
-    }
-
-    request.status = status;
-    request.remarks = remarks;
-    request.reviewedBy = req.user._id;
-    request.reviewedAt = new Date();
-
-    await request.save();
-
-    logger.info("request_handled_by_coordinator", {
-      requestId: id,
-      status,
-      coordinatorId: req.coordinator._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: `Request ${status} successfully.`,
-      data: request,
-    });
-  } catch (error) {
-    res.status(400).json({
       success: false,
       message: error.message,
     });
@@ -1867,8 +2204,8 @@ export async function getBroadcasts(req, res) {
       $and: [
         {
           $or: [
-            { targetDepartments: { $size: 0 } },
-            { targetDepartments: context.department },
+            { targetPrograms: { $size: 0 } },
+            { targetPrograms: context.program },
           ],
         },
       ],
@@ -1896,7 +2233,7 @@ export async function createBroadcast(req, res) {
     const broadcast = new BroadcastMessage({
       ...req.body,
       targetSchools: [context.school],
-      targetDepartments: [context.department],
+      targetPrograms: [context.program],
       createdBy: req.user._id,
     });
 
@@ -2083,13 +2420,101 @@ export async function getPanelsReport(req, res) {
       panels.map(async (panel) => {
         const projectCount = await Project.countDocuments({ panel: panel._id });
         return { ...panel, projectCount };
-      }),
+      })
     );
 
     res.status(200).json({
       success: true,
       data: panelsWithProjects,
       count: panelsWithProjects.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+// ==================== Master Data & Marks ====================
+
+export async function getAcademicYears(req, res) {
+  try {
+    const masterData = await MasterData.findOne().select("academicYears");
+    if (!masterData) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    // Filter active years only or all? Usually all for history
+    const years = masterData.academicYears
+      .filter((y) => y.isActive)
+      .map((y) => y.year);
+
+    res.status(200).json({
+      success: true,
+      data: years,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getPrograms(req, res) {
+  try {
+    const { school } = req.coordinator;
+
+    const masterData = await MasterData.findOne().lean();
+    if (!masterData) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const programs = masterData.programs
+      ? masterData.programs
+        .filter((p) => p.school === school)
+        .map((p) => ({ name: p.name, code: p.code }))
+      : [];
+
+    res.status(200).json({
+      success: true,
+      data: programs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getProjectMarks(req, res) {
+  try {
+    const { id } = req.params; // project ID
+    const context = getCoordinatorContext(req);
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Project not found" });
+    }
+
+    if (!verifyContext(project, req.coordinator)) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Project not in your program" });
+    }
+
+    const marks = await Marks.find({ project: id })
+      .populate("faculty", "name employeeId")
+      .populate("student", "regNo name")
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: marks,
     });
   } catch (error) {
     res.status(500).json({
@@ -2119,7 +2544,7 @@ export async function getFacultyWorkloadReport(req, res) {
           projectsAsGuide: asGuide,
           panelsAsMember: asPanelMember,
         };
-      }),
+      })
     );
 
     res.status(200).json({
@@ -2127,6 +2552,31 @@ export async function getFacultyWorkloadReport(req, res) {
       data: workload,
     });
   } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getReportData(req, res) {
+  try {
+    const { type } = req.query;
+    const context = getCoordinatorContext(req);
+
+    // Merge query filters with context (context overrides to ensure security)
+    const filters = { ...req.query, ...context };
+
+    console.log(`Generating report ${type} for context:`, context);
+
+    const reportData = await ReportService.generateReport(type, filters);
+
+    res.status(200).json({
+      success: true,
+      data: reportData,
+    });
+  } catch (error) {
+    console.error("Report generation error:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -2183,3 +2633,44 @@ export async function getStudentPerformanceReport(req, res) {
     });
   }
 }
+
+/**
+ * Request access to restricted features
+ * @route POST /api/coordinator/request-access
+ */
+export const requestAccess = async (req, res) => {
+  try {
+    const { reason, featureName, priority } = req.body;
+    const coordinatorId = req.user._id;
+
+    // Create a new Access Request record
+    const newRequest = await AccessRequest.create({
+      featureName,
+      reason,
+      priority: priority || "medium",
+      // Default deadline to 7 days from now
+      requiredDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      requestedBy: coordinatorId,
+      school: req.user.school || "Unknown",
+      program: req.user.program || "Unknown",
+      status: "pending",
+    });
+
+    console.log(
+      `Access requested by ${coordinatorId} for ${featureName}: ${reason}`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Access request submitted successfully",
+      data: newRequest,
+    });
+  } catch (error) {
+    console.error("Error requesting access:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit access request",
+      error: error.message,
+    });
+  }
+};

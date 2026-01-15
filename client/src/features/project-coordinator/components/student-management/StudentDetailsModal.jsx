@@ -13,30 +13,12 @@ const StudentDetailsModal = ({ isOpen, onClose, student, onNavigateToStudent, st
 
   if (!student) return null;
 
-  const calculateMarks = () => {
-    if (!student.marksByStudent) {
-      return { total: student.totalMarks || 0, guide: 0, panel: 0 };
-    }
-
-    const studentMarks = student.marksByStudent[student.regNo];
-    if (!studentMarks || studentMarks.length === 0) {
-      return { total: student.totalMarks || 0, guide: 0, panel: 0 };
-    }
-
-    let guideTotal = 0;
-    let panelTotal = 0;
-
-    studentMarks.forEach(review => {
-      const componentTotal = review.components.reduce((sum, comp) => sum + comp.score, 0);
-      // Assuming guides give reviews first, then panels
-      // For now, split evenly or based on review type if available
-      guideTotal += componentTotal;
-    });
-
-    return { total: student.totalMarks || 0, guide: guideTotal, panel: panelTotal };
+  // marks object is now provided by backend
+  const marks = student.marks || {
+    total: student.totalMarks || 0,
+    guide: 0,
+    panel: 0
   };
-
-  const marks = calculateMarks();
 
   return (
     <>
@@ -49,15 +31,15 @@ const StudentDetailsModal = ({ isOpen, onClose, student, onNavigateToStudent, st
         <div className="space-y-4">
           <StudentHeader student={student} />
           <ProjectFacultyCard student={student} />
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ContactCard student={student} />
             <MarksCard marks={marks} onClick={() => setIsMarksModalOpen(true)} />
           </div>
 
           <ReviewStatusCard reviewStatuses={student.reviewStatuses} />
-          <TeamMembersCard 
-            teammates={student.teammates} 
+          <TeamMembersCard
+            teammates={student.teammates}
             onNavigateToStudent={onNavigateToStudent}
             onCloseModal={onClose}
             students={students}

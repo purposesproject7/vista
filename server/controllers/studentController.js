@@ -174,12 +174,12 @@ export async function getApprovals(req, res) {
  */
 export async function getBroadcasts(req, res) {
   try {
-    const { school, department } = req.query;
+    const { school, program } = req.query;
 
-    if (!school || !department) {
+    if (!school || !program) {
       return res.status(400).json({
         success: false,
-        message: "School and department are required.",
+        message: "School and program are required.",
       });
     }
 
@@ -193,10 +193,7 @@ export async function getBroadcasts(req, res) {
           $or: [{ targetSchools: { $size: 0 } }, { targetSchools: school }],
         },
         {
-          $or: [
-            { targetDepartments: { $size: 0 } },
-            { targetDepartments: department },
-          ],
+          $or: [{ targetPrograms: { $size: 0 } }, { targetPrograms: program }],
         },
       ],
     })

@@ -50,7 +50,7 @@ const ProjectUploadTab = () => {
         const teamMembersArray = typeof project.teamMembers === 'string'
           ? project.teamMembers.split(',').map(m => m.trim())
           : project.teamMembers || [];
-        
+
         return {
           name: project.name,
           guideFacultyEmpId: project.guideFacultyEmpId,
@@ -64,7 +64,7 @@ const ProjectUploadTab = () => {
       });
 
       const response = await adminApi.bulkCreateProjects(enrichedData);
-      
+
       if (!response.success) {
         throw new Error(response.message || 'Failed to upload projects');
       }
@@ -88,7 +88,7 @@ const ProjectUploadTab = () => {
 
   const handleSubmitSingleProject = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.guideFacultyEmpId) {
       showToast('Please fill all required fields', 'error');
       return;
@@ -96,7 +96,7 @@ const ProjectUploadTab = () => {
 
     try {
       setIsAddingProject(true);
-      
+
       // Parse team members (comma-separated registration numbers)
       const teamMembersArray = formData.teamMembers
         .split(',')
@@ -115,12 +115,12 @@ const ProjectUploadTab = () => {
       };
 
       const response = await adminApi.createProject(projectData);
-      
+
       if (!response.success) {
         throw new Error(response.message || 'Failed to create project');
       }
       showToast('Project added successfully', 'success');
-      
+
       // Reset form
       setFormData({
         name: '',
@@ -146,25 +146,25 @@ const ProjectUploadTab = () => {
       {filters && (
         <>
           <div className="flex flex-wrap gap-2 mb-4">
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={activeUploadMode === 'bulk' ? 'primary' : 'secondary'}
               onClick={() => setActiveUploadMode('bulk')}
             >
               <ArrowUpTrayIcon className="w-4 h-4 mr-1" />
               Bulk Upload
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={activeUploadMode === 'single' ? 'primary' : 'secondary'}
               onClick={() => setActiveUploadMode('single')}
             >
               <PlusCircleIcon className="w-4 h-4 mr-1" />
               Single Entry
             </Button>
-            <span className="text-xs text-gray-500 self-center ml-2">
+            {/* <span className="text-xs text-gray-500 self-center ml-2">
               {filters.school} → {filters.department} → {filters.academicYear}
-            </span>
+            </span> */}
           </div>
 
           {/* Bulk Upload Section */}
@@ -172,7 +172,7 @@ const ProjectUploadTab = () => {
             <Card>
               <div className="p-4 space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Bulk Upload Projects</h3>
-                
+
                 <ExcelUpload
                   onDataParsed={handleDataParsed}
                   templateColumns={templateColumns}
@@ -208,75 +208,75 @@ const ProjectUploadTab = () => {
               <div className="p-4">
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Add Single Project</h3>
 
-              <form onSubmit={handleSubmitSingleProject} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Project Name"
-                    name="name"
-                    value={formData.name}
-                    onChange={(value) => handleInputChange('name', value)}
-                    placeholder="e.g., AI-Based Traffic Management System"
-                    required
-                  />
-                  
-                  <Input
-                    label="Guide Faculty Employee ID"
-                    name="guideFacultyEmpId"
-                    value={formData.guideFacultyEmpId}
-                    onChange={(value) => handleInputChange('guideFacultyEmpId', value)}
-                    placeholder="e.g., FAC001"
-                    required
-                  />
-                  
-                  <Input
-                    label="Team Members (Reg Numbers)"
-                    name="teamMembers"
-                    value={formData.teamMembers}
-                    onChange={(value) => handleInputChange('teamMembers', value)}
-                    placeholder="e.g., 21BCI0001, 21BCI0002, 21BCI0003"
-                  />
-                  
-                  <Input
-                    label="Project Type"
-                    name="type"
-                    value={formData.type}
-                    onChange={(value) => handleInputChange('type', value)}
-                    placeholder="e.g., Research, Development, Innovation"
-                  />
+                <form onSubmit={handleSubmitSingleProject} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Project Name"
+                      name="name"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="e.g., AI-Based Traffic Management System"
+                      required
+                    />
 
-                  <Input
-                    label="Specialization"
-                    name="specialization"
-                    value={formData.specialization}
-                    onChange={(value) => handleInputChange('specialization', value)}
-                    placeholder="e.g., Machine Learning, IoT, Blockchain"
-                  />
-                </div>
+                    <Input
+                      label="Guide Faculty Employee ID"
+                      name="guideFacultyEmpId"
+                      value={formData.guideFacultyEmpId}
+                      onChange={(e) => handleInputChange('guideFacultyEmpId', e.target.value)}
+                      placeholder="e.g., FAC001"
+                      required
+                    />
 
-                <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
-                  <p><strong>Note:</strong> Separate multiple team member registration numbers with commas.</p>
-                </div>
+                    <Input
+                      label="Team Members (Reg Numbers)"
+                      name="teamMembers"
+                      value={formData.teamMembers}
+                      onChange={(e) => handleInputChange('teamMembers', e.target.value)}
+                      placeholder="e.g., 21BCI0001, 21BCI0002, 21BCI0003"
+                    />
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setFormData({
-                      name: '',
-                      guideFacultyEmpId: '',
-                      teamMembers: '',
-                      type: '',
-                      specialization: ''
-                    })}
-                  >
-                    Clear Form
-                  </Button>
-                  <Button type="submit" disabled={isAddingProject} size="sm">
-                    {isAddingProject ? 'Adding...' : 'Add Project'}
-                  </Button>
-                </div>
-              </form>
+                    <Input
+                      label="Project Type"
+                      name="type"
+                      value={formData.type}
+                      onChange={(e) => handleInputChange('type', e.target.value)}
+                      placeholder="e.g., Research, Development, Innovation"
+                    />
+
+                    <Input
+                      label="Specialization"
+                      name="specialization"
+                      value={formData.specialization}
+                      onChange={(e) => handleInputChange('specialization', e.target.value)}
+                      placeholder="e.g., Machine Learning, IoT, Blockchain"
+                    />
+                  </div>
+
+                  <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
+                    <p><strong>Note:</strong> Separate multiple team member registration numbers with commas.</p>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setFormData({
+                        name: '',
+                        guideFacultyEmpId: '',
+                        teamMembers: '',
+                        type: '',
+                        specialization: ''
+                      })}
+                    >
+                      Clear Form
+                    </Button>
+                    <Button type="submit" disabled={isAddingProject} size="sm">
+                      {isAddingProject ? 'Adding...' : 'Add Project'}
+                    </Button>
+                  </div>
+                </form>
               </div>
             </Card>
           )}

@@ -60,7 +60,7 @@ if (process.env.NODE_ENV === "production") {
 // CORS Configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
-  : ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"];
+  : ["http://localhost:3000", "http://localhost:5173"];
 
 app.use(
   cors({
@@ -123,9 +123,9 @@ app.get("/", (req, res) => {
 });
 
 // API Routes
-app.use("/api/auth", authRouter); // ✅ OTP routes are now merged here
+app.use("/api/auth", authRouter); 
 app.use("/api/admin", adminRouter);
-app.use("/api/project-coordinator", projectCoordinatorRouter);
+app.use("/api/coordinator", projectCoordinatorRouter);
 app.use("/api/faculty", facultyRouter);
 app.use("/api/student", studentRouter);
 app.use("/api/project", projectRouter);

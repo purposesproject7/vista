@@ -71,7 +71,7 @@ temp/
 
 # MongoDB/database files (if running locally)
 *.mongodb
-data/
+# data/
 mongo-data/
 
 # Uploads directory (if storing user uploads locally)
@@ -84,3 +84,5 @@ uploads/
 
 # Documentation build
 docs/_build/
+
+

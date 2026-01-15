@@ -1,91 +1,119 @@
 import React, { useState } from 'react';
 import Button from '../../../shared/components/Button';
-import { CheckCircleIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import TeamsModal from './TeamsModal';
+import { CheckCircleIcon, LockOpenIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
-const PastReviewsSection = ({ reviews }) => {
-  const [expandedReview, setExpandedReview] = useState(null);
+const PastReviewsSection = ({ reviews, onEnterMarks }) => {
+    const [selectedReview, setSelectedReview] = useState(null);
+    const [isTeamsModalOpen, setIsTeamsModalOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
-  if (!reviews || reviews.length === 0) {
-    return null;
-  }
+    if (!reviews || reviews.length === 0) {
+        return null;
+    }
 
-  const toggleExpand = (reviewId) => {
-    setExpandedReview(expandedReview === reviewId ? null : reviewId);
-  };
+    const handleViewTeams = (review) => {
+        setSelectedReview(review);
+        setIsTeamsModalOpen(true);
+    };
 
-  return (
-    <div>
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Completed Reviews</h2>
+    const handleEnterMarks = (team) => {
+        setIsTeamsModalOpen(false);
+        onEnterMarks && onEnterMarks(selectedReview, team);
+    };
 
-      <div className="space-y-3">
-        {reviews.map((review) => {
-          const isExpanded = expandedReview === review.id;
-          const totalTeams = review.teams?.length || 0;
-
-          return (
-            <div 
-              key={review.id}
-              className="bg-white border rounded-lg overflow-hidden"
-            >
-              <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-                      <h3 className="font-semibold text-gray-900">{review.name}</h3>
-                      <span className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded border border-green-200">
-                        Completed
-                      </span>
+    return (
+        <>
+            <div className="bg-white border rounded-lg overflow-hidden shadow-sm mt-4">
+                {/* Accordion Header */}
+                <div
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors select-none"
+                >
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                            Completed Reviews
+                            <span className="text-slate-400 font-normal text-sm ml-2">({reviews.length} reviews)</span>
+                        </h2>
                     </div>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-600 ml-8">
-                      <span>
-                        Completed: {new Date(review.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                      <span>
-                        {totalTeams} team{totalTeams !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => toggleExpand(review.id)}
-                  >
-                    {isExpanded ? 'Hide Teams' : 'View Teams'}
-                  </Button>
-                </div>
-              </div>
 
-              {isExpanded && (
-                <div className="px-4 pb-4 border-t bg-gray-50">
-                  <div className="pt-4 space-y-2">
-                    {review.teams?.map((team) => (
-                      <div 
-                        key={team.id}
-                        className="flex items-center gap-3 p-3 bg-white rounded border"
-                      >
-                        <CheckCircleIcon className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900 text-sm">{team.name}</div>
-                          {team.projectTitle && (
-                            <div className="text-xs text-gray-600">{team.projectTitle}</div>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {team.students?.length} member{team.students?.length !== 1 ? 's' : ''}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                    <button className="text-slate-400">
+                        {isOpen ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
+                    </button>
                 </div>
-              )}
+
+                {/* Collapsible Content */}
+                {isOpen && (
+                    <div className="px-6 pb-6 pt-2 border-t border-slate-100 bg-slate-50/50 space-y-3">
+                        {reviews.map((review) => {
+                            const totalTeams = review.teams?.length || 0;
+
+                            // Badge Logic
+                            const unlockedCount = review.teams?.filter(t => t.isUnlocked).length || 0;
+                            const pendingRequests = review.teams?.filter(t => t.requestStatus === 'pending').length || 0;
+
+                            return (
+                                <div
+                                    key={review.id}
+                                    className="bg-white border rounded-lg overflow-hidden hover:shadow-sm transition-shadow"
+                                >
+                                    <div className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="font-semibold text-gray-900">{review.name}</h3>
+
+                                                    {/* Unlocked Badge */}
+                                                    {unlockedCount > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase tracking-wide rounded border border-green-200 animate-pulse">
+                                                            <LockOpenIcon className="w-3 h-3" /> {unlockedCount} Unlocked
+                                                        </span>
+                                                    )}
+
+                                                    {/* Pending Request Badge */}
+                                                    {pendingRequests > 0 && (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold uppercase tracking-wide rounded border border-yellow-200">
+                                                            <ClockIcon className="w-3 h-3" /> {pendingRequests} Request{pendingRequests !== 1 ? 's' : ''} Pending
+                                                        </span>
+                                                    )}
+
+                                                </div>
+                                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-600 ml-0 pl-0">
+                                                    <span className="text-slate-500">
+                                                        Completed: {new Date(review.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                                    </span>
+                                                    <span>•</span>
+                                                    <span>
+                                                        {totalTeams} team{totalTeams !== 1 ? 's' : ''}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() => handleViewTeams(review)}
+                                            >
+                                                View & Edit
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+
+            <TeamsModal
+                isOpen={isTeamsModalOpen}
+                onClose={() => setIsTeamsModalOpen(false)}
+                review={selectedReview}
+                onEnterMarks={handleEnterMarks}
+            />
+        </>
+    );
 };
 
 export default PastReviewsSection;

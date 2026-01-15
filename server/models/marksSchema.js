@@ -7,7 +7,7 @@ const subComponentMarkSchema = new mongoose.Schema(
     maxMarks: { type: Number, required: true },
     isPredefined: { type: Boolean, default: false },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const componentMarkSchema = new mongoose.Schema(
@@ -31,7 +31,7 @@ const componentMarkSchema = new mongoose.Schema(
 
     remarks: { type: String },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const marksSchema = new mongoose.Schema(
@@ -75,7 +75,7 @@ const marksSchema = new mongoose.Schema(
     },
 
     school: { type: String, required: true },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
 
     componentMarks: [componentMarkSchema],
 
@@ -87,7 +87,7 @@ const marksSchema = new mongoose.Schema(
     isSubmitted: { type: Boolean, default: false },
     submittedAt: { type: Date },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 marksSchema.index({ student: 1, reviewType: 1, faculty: 1 }, { unique: true });
@@ -97,7 +97,7 @@ marksSchema.index({ student: 1, academicYear: 1 });
 marksSchema.index({ student: 1, reviewType: 1, facultyType: 1 });
 
 // Pre-save validation
-marksSchema.pre("save", async function (next) {
+marksSchema.pre("save", async function () {
   if (this.facultyType === "guide" && this.isNew) {
     const existingGuideMark = await this.constructor.findOne({
       student: this.student,
@@ -108,11 +108,10 @@ marksSchema.pre("save", async function (next) {
 
     if (existingGuideMark) {
       throw new Error(
-        `Guide has already submitted marks for this student in ${this.reviewType}`,
+        `Guide has already submitted marks for this student in ${this.reviewType}`
       );
     }
   }
-  next();
 });
 
 const Marks = mongoose.model("Marks", marksSchema);

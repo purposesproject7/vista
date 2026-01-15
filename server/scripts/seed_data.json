@@ -1,0 +1,55 @@
+{
+  "schools": [
+    { "name": "School of Computer Science and Engineering", "code": "SCOPE" },
+    {
+      "name": "School of Information Technology and Engineering",
+      "code": "SITE"
+    },
+    { "name": "School of Electronics Engineering", "code": "SENSE" },
+    { "name": "School of Advanced Sciences", "code": "SAS" }
+  ],
+  "programs": [
+    {
+      "name": "B.Tech Computer Science and Engineering",
+      "code": "BTECH-CSE",
+      "school": "SCOPE"
+    },
+    {
+      "name": "B.Tech CSE with Data Science",
+      "code": "BTECH-DS",
+      "school": "SCOPE"
+    },
+    {
+      "name": "B.Tech CSE with AI and ML",
+      "code": "BTECH-AIML",
+      "school": "SCOPE"
+    },
+    {
+      "name": "B.Tech Information Technology",
+      "code": "BTECH-IT",
+      "school": "SITE"
+    },
+    {
+      "name": "Master of Computer Applications",
+      "code": "MCA",
+      "school": "SITE"
+    },
+    {
+      "name": "B.Tech Electronics and Communication",
+      "code": "BTECH-ECE",
+      "school": "SENSE"
+    },
+    {
+      "name": "B.Tech Biomedical Engineering",
+      "code": "BTECH-BME",
+      "school": "SENSE"
+    },
+    { "name": "M.Sc Data Science", "code": "MSC-DS", "school": "SAS" }
+  ],
+  "academicYears": [
+    { "year": "2023-2024" },
+    { "year": "2024-2025" },
+    { "year": "2025-2026" },
+    { "year": "2026-2027" }
+  ]
+}

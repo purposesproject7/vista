@@ -21,15 +21,15 @@ const ContactCard = ({ student }) => {
         Contact Information
       </h3>
       <div className="space-y-0">
-        <InfoRow 
-          icon={EnvelopeIcon} 
-          label="Email" 
-          value={student.email}
+        <InfoRow
+          icon={EnvelopeIcon}
+          label="Email"
+          value={student.emailId}
         />
-        <InfoRow 
-          icon={PhoneIcon} 
-          label="Phone" 
-          value={student.phone}
+        <InfoRow
+          icon={PhoneIcon}
+          label="Phone"
+          value={student.phoneNumber}
         />
       </div>
     </Card>

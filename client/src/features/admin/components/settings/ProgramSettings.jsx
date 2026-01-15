@@ -1,13 +1,22 @@
 // src/features/admin/components/settings/ProgramSettings.jsx
-import React, { useState, useEffect } from 'react';
-import Card from '../../../../shared/components/Card';
-import Button from '../../../../shared/components/Button';
-import Input from '../../../../shared/components/Input';
-import Select from '../../../../shared/components/Select';
-import Modal from '../../../../shared/components/Modal';
-import { PlusIcon, PencilIcon, TrashIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { createProgram, updateProgram, deleteProgram } from '../../services/adminApi';
+import React, { useState, useEffect } from "react";
+import Card from "../../../../shared/components/Card";
+import Button from "../../../../shared/components/Button";
+import Input from "../../../../shared/components/Input";
+import Select from "../../../../shared/components/Select";
+import Modal from "../../../../shared/components/Modal";
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  AcademicCapIcon,
+} from "@heroicons/react/24/outline";
+import { useToast } from "../../../../shared/hooks/useToast";
+import {
+  createProgram,
+  updateProgram,
+  deleteProgram,
+} from "../../services/adminApi";
 
 const ProgramSettings = ({ schools, programs, onUpdate }) => {
   const [programsBySchool, setProgramsBySchool] = useState(programs);
@@ -18,13 +27,17 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
   }, [programs]);
   const [showModal, setShowModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState(null);
-  const [formData, setFormData] = useState({ schoolCode: '', name: '', code: '' });
+  const [formData, setFormData] = useState({
+    schoolCode: "",
+    name: "",
+    code: "",
+  });
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
 
   const handleAdd = () => {
     setEditingProgram(null);
-    setFormData({ schoolCode: schools[0]?.code || '', name: '', code: '' });
+    setFormData({ schoolCode: schools[0]?.code || "", name: "", code: "" });
     setShowModal(true);
   };
 
@@ -35,26 +48,35 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
   };
 
   const handleDelete = async (programId, schoolCode) => {
-    if (!window.confirm('Are you sure you want to delete this program? This action cannot be undone.')) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this program? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
     try {
       setSaving(true);
       const response = await deleteProgram(programId);
-      
+
       if (response.success) {
         const updated = { ...programsBySchool };
-        updated[schoolCode] = updated[schoolCode].filter(p => p.id !== programId);
+        updated[schoolCode] = updated[schoolCode].filter(
+          (p) => p.id !== programId
+        );
         setProgramsBySchool(updated);
         onUpdate(updated);
-        showToast('Program deleted successfully', 'success');
+        showToast("Program deleted successfully", "success");
       } else {
-        showToast(response.message || 'Failed to delete program', 'error');
+        showToast(response.message || "Failed to delete program", "error");
       }
     } catch (error) {
-      console.error('Error deleting program:', error);
-      showToast(error.response?.data?.message || 'Failed to delete program', 'error');
+      console.error("Error deleting program:", error);
+      showToast(
+        error.response?.data?.message || "Failed to delete program",
+        "error"
+      );
     } finally {
       setSaving(false);
     }
@@ -62,16 +84,20 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.name.trim() || !formData.code.trim() || !formData.schoolCode) {
-      showToast('Please fill in all fields', 'error');
+
+    if (
+      !formData.name.trim() ||
+      !formData.code.trim() ||
+      !formData.schoolCode
+    ) {
+      showToast("Please fill in all fields", "error");
       return;
     }
 
     try {
       setSaving(true);
       let response;
-      
+
       if (editingProgram) {
         // Update existing program
         response = await updateProgram(
@@ -88,27 +114,35 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
           formData.schoolCode
         );
       }
-      
+
       if (response.success) {
         // Reload programs from backend
         window.location.reload(); // Simple approach - reload to get fresh data
-        showToast(editingProgram ? 'Program updated successfully' : 'Program added successfully', 'success');
+        showToast(
+          editingProgram
+            ? "Program updated successfully"
+            : "Program added successfully",
+          "success"
+        );
       } else {
-        showToast(response.message || 'Operation failed', 'error');
+        showToast(response.message || "Operation failed", "error");
       }
     } catch (error) {
-      console.error('Error saving program:', error);
-      showToast(error.response?.data?.message || 'Failed to save program', 'error');
+      console.error("Error saving program:", error);
+      showToast(
+        error.response?.data?.message || "Failed to save program",
+        "error"
+      );
     } finally {
       setSaving(false);
       setShowModal(false);
-      setFormData({ schoolCode: '', name: '', code: '' });
+      setFormData({ schoolCode: "", name: "", code: "" });
     }
   };
 
-  const schoolOptions = schools.map(school => ({
+  const schoolOptions = schools.map((school) => ({
     value: school.code,
-    label: school.name
+    label: school.name,
   }));
 
   return (
@@ -138,11 +172,12 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
           ) : (
             <div className="space-y-6">
               {schools.map((school) => (
-                <div key={school.id} className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-3 text-lg">
+                <div key={school.id} className="mb-6 last:mb-0">
+                  <h4 className="font-semibold text-gray-900 mb-3 text-lg border-b border-gray-200 pb-2">
                     {school.name}
                   </h4>
-                  {!programsBySchool[school.code] || programsBySchool[school.code].length === 0 ? (
+                  {!programsBySchool[school.code] ||
+                  programsBySchool[school.code].length === 0 ? (
                     <p className="text-gray-500 text-sm italic py-2">
                       No programs added for this school yet
                     </p>
@@ -154,8 +189,12 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
                           className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                         >
                           <div>
-                            <span className="text-gray-900 font-medium">{program.name}</span>
-                            <span className="text-gray-500 text-sm ml-2">({program.code})</span>
+                            <span className="text-gray-900 font-medium">
+                              {program.name}
+                            </span>
+                            <span className="text-gray-500 text-sm ml-2">
+                              ({program.code})
+                            </span>
                           </div>
                           <div className="flex gap-2">
                             <Button
@@ -170,7 +209,9 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => handleDelete(program.id, school.code)}
+                              onClick={() =>
+                                handleDelete(program.id, school.code)
+                              }
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               disabled={saving}
                             >
@@ -193,9 +234,9 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);
-          setFormData({ schoolCode: '', name: '', code: '' });
+          setFormData({ schoolCode: "", name: "", code: "" });
         }}
-        title={editingProgram ? 'Edit Program' : 'Add Program'}
+        title={editingProgram ? "Edit Program" : "Add Program"}
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -204,7 +245,9 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
             </label>
             <Select
               value={formData.schoolCode}
-              onChange={(value) => setFormData({ ...formData, schoolCode: value })}
+              onChange={(value) =>
+                setFormData({ ...formData, schoolCode: value })
+              }
               options={schoolOptions}
               required
             />
@@ -216,7 +259,9 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
             </label>
             <Input
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               placeholder="e.g., B.Tech Computer Science"
               required
               className="text-lg py-3"
@@ -232,13 +277,16 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
             </label>
             <Input
               value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+              onChange={(e) =>
+                setFormData({ ...formData, code: e.target.value.toUpperCase() })
+              }
               placeholder="e.g., BTECHCSE, MBA"
               required
               className="text-lg py-3"
             />
             <p className="mt-2 text-sm text-gray-500">
-              Enter a short code for the program (will be converted to uppercase)
+              Enter a short code for the program (will be converted to
+              uppercase)
             </p>
           </div>
 
@@ -248,14 +296,14 @@ const ProgramSettings = ({ schools, programs, onUpdate }) => {
               variant="secondary"
               onClick={() => {
                 setShowModal(false);
-                setFormData({ schoolCode: '', name: '', code: '' });
+                setFormData({ schoolCode: "", name: "", code: "" });
               }}
               disabled={saving}
             >
               Cancel
             </Button>
             <Button type="submit" variant="primary" disabled={saving}>
-              {saving ? 'Saving...' : (editingProgram ? 'Update' : 'Add')} Program
+              {saving ? "Saving..." : editingProgram ? "Update" : "Add"} Program
             </Button>
           </div>
         </form>

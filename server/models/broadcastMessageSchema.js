@@ -16,7 +16,7 @@ const broadcastMessageSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-    targetDepartments: {
+    targetPrograms: {
       type: [String],
       default: [],
     },
@@ -56,11 +56,11 @@ const broadcastMessageSchema = new mongoose.Schema(
       default: "medium",
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 broadcastMessageSchema.index({ targetSchools: 1 });
-broadcastMessageSchema.index({ targetDepartments: 1 });
+broadcastMessageSchema.index({ targetPrograms: 1 });
 broadcastMessageSchema.index({ targetAcademicYears: 1 });
 broadcastMessageSchema.index({ expiresAt: 1 });
 broadcastMessageSchema.index({ createdAt: -1 });
@@ -68,6 +68,6 @@ broadcastMessageSchema.index({ isActive: 1, action: 1 });
 
 const BroadcastMessage = mongoose.model(
   "BroadcastMessage",
-  broadcastMessageSchema,
+  broadcastMessageSchema
 );
 export default BroadcastMessage;

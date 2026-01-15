@@ -16,7 +16,7 @@ const facultySchema = new mongoose.Schema(
     },
 
     school: { type: String, required: true },
-    department: { type: String }, // Now optional
+    program: { type: String }, // Now optional
     specialization: { type: String },
 
     // Project coordinator flag
@@ -27,7 +27,7 @@ const facultySchema = new mongoose.Schema(
 
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 const Faculty = mongoose.model("Faculty", facultySchema);

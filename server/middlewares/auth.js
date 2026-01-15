@@ -35,7 +35,7 @@ export async function authenticate(req, res, next) {
       employeeId: faculty.employeeId,
       role: faculty.role,
       school: faculty.school,
-      department: faculty.department,
+      program: faculty.program,
       specialization: faculty.specialization,
       isProjectCoordinator: faculty.isProjectCoordinator, // ✅ Include flag
     };
@@ -61,6 +61,6 @@ export const generateToken = (faculty) => {
       role: faculty.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" },
+    { expiresIn: "7d" }
   );
 };

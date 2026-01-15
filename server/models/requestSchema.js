@@ -26,6 +26,14 @@ const requestSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    school: {
+      type: String,
+      required: true,
+    },
+    program: {
+      type: String,
+      required: true,
+    },
     reviewType: {
       type: String,
       required: true,
@@ -56,7 +64,7 @@ const requestSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
+  }
 );
 
 requestSchema.index({ faculty: 1, academicYear: 1 });

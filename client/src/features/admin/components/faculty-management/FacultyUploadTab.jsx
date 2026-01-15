@@ -49,7 +49,7 @@ const FacultyUploadTab = () => {
       }));
 
       const response = await bulkCreateFaculty(enrichedData);
-      
+
       if (response.success) {
         setUploadStatus({ success: true, message: response.message || `Successfully uploaded faculty members` });
         showToast('Faculty members uploaded successfully', 'success');
@@ -76,7 +76,7 @@ const FacultyUploadTab = () => {
       };
 
       const response = await createFaculty(newFaculty);
-      
+
       if (response.success) {
         showToast('Faculty member added successfully', 'success');
         setIsSingleAddOpen(false);
@@ -93,31 +93,34 @@ const FacultyUploadTab = () => {
   return (
     <div className="space-y-6">
       {/* Academic Filter Selector */}
-      <AcademicFilterSelector onFilterComplete={handleFilterComplete} />
+      <AcademicFilterSelector
+        onFilterComplete={handleFilterComplete}
+        showYear={false}
+      />
 
       {/* Upload Options - only show when filters are complete */}
       {filters && (
         <>
           <div className="flex flex-wrap gap-2 mb-4">
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={activeUploadMode === 'bulk' ? 'primary' : 'secondary'}
               onClick={() => setActiveUploadMode('bulk')}
             >
               <ArrowUpTrayIcon className="w-4 h-4 mr-1" />
               Bulk Upload
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={activeUploadMode === 'single' ? 'primary' : 'secondary'}
               onClick={() => setIsSingleAddOpen(true)}
             >
               <UserPlusIcon className="w-4 h-4 mr-1" />
               Add Faculty
             </Button>
-            <span className="text-xs text-gray-500 self-center ml-2">
-              {filters.school} → {filters.department} → {filters.academicYear}
-            </span>
+            {/* <span className="text-xs text-gray-500 self-center ml-2">
+              {filters.school} → {filters.department}
+            </span> */}
           </div>
 
           {/* Bulk Upload Section */}
@@ -125,7 +128,7 @@ const FacultyUploadTab = () => {
             <Card>
               <div className="p-4 space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Bulk Upload Faculty</h3>
-                
+
                 <ExcelUpload
                   onDataParsed={handleDataParsed}
                   templateColumns={templateColumns}

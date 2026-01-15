@@ -6,12 +6,12 @@ import Badge from '../../../../../shared/components/Badge';
 import Button from '../../../../../shared/components/Button';
 import RequestItem from './RequestItem';
 
-const FacultyRequestCard = ({ 
-  faculty, 
-  requests, 
-  onApproveRequest, 
+const FacultyRequestCard = ({
+  faculty,
+  requests,
+  onApproveRequest,
   onRejectRequest,
-  onApproveAll 
+  onApproveAll
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -39,7 +39,7 @@ const FacultyRequestCard = ({
                   {requests.length} request{requests.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              
+
               {/* Status Summary */}
               <div className="flex items-center gap-3 mt-2">
                 {pendingCount > 0 && (

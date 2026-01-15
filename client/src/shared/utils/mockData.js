@@ -1,4 +1,4 @@
-// src/shared/utils/mockData.js
+// src/shared/utils/mockData.js - REPLACE ENTIRE FILE
 export const MOCK_USERS = {
   faculty: {
     id: 'F001',
@@ -24,276 +24,168 @@ export const MOCK_USERS = {
   }
 };
 
+export const MOCK_MASTER_DATA = {
+  academicYears: [
+    { year: '2025-26', isActive: true },
+    { year: '2024-25', isActive: false }
+  ],
+  schools: [
+    { code: 'SCOPE', name: 'School of Computer Science', isActive: true },
+    { code: 'SENSE', name: 'School of Electronics', isActive: true },
+    { code: 'SELECT', name: 'School of Electrical', isActive: true }
+  ],
+  programs: [
+    { name: 'B.Tech CSE', isActive: true },
+    { name: 'B.Tech ECE', isActive: true },
+    { name: 'M.Tech SE', isActive: true }
+  ]
+};
+
 export const MOCK_REVIEWS = [
   {
     review_id: 'R1',
-    review_name: 'Review 1 - Proposal Defense',
-    start_date: '2026-01-08',
+    review_name: 'Project Proposal Review',
+    start_date: '2026-01-01',
     end_date: '2026-01-20',
     review_type: 'guide',
     rubric_structure: [
       {
         rubric_id: 'R1-C1',
-        component_name: 'Problem Definition',
-        component_description: 'Clear articulation of the problem statement, research gap, and objectives',
-        max_marks: 20,
-        sub_components: [
-          {
-            sub_id: 'R1-C1-S1',
-            name: 'Problem Statement',
-            description: 'Clarity and precision in defining the problem',
-            max_marks: 8
-          },
-          {
-            sub_id: 'R1-C1-S2',
-            name: 'Research Gap',
-            description: 'Identification of gaps in existing literature',
-            max_marks: 7
-          },
-          {
-            sub_id: 'R1-C1-S3',
-            name: 'Objectives',
-            description: 'Clear, measurable research objectives',
-            max_marks: 5
-          }
-        ],
+        component_name: 'Problem Statement',
+        max_marks: 1,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Problem clearly defined with excellent understanding; research gap well-identified; objectives SMART and aligned.'
+            label: 'Excellent',
+            description: 'Clearly and precisely defined; fully addresses the research gap with strong relevance and clarity.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Problem well defined with good understanding; research gap identified; objectives clear and mostly measurable.'
+            description: 'Well defined with minor gaps; generally clear and relevant to the research area.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Problem defined but lacks depth; research gap mentioned but not thoroughly explored; objectives stated.'
+            description: 'Stated but lacks clarity or depth; partially addresses the research gap.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Problem vaguely stated; research gap unclear; objectives broad or not well-defined.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Problem poorly defined; no clear research gap; objectives missing or unclear.'
+            label: 'Fair',
+            description: 'Vaguely stated; unclear relevance or incomplete understanding of the problem.'
           }
         ]
       },
       {
         rubric_id: 'R1-C2',
         component_name: 'Literature Review',
-        component_description: 'Comprehensive analysis of existing research and related work',
-        max_marks: 20,
-        sub_components: [
-          {
-            sub_id: 'R1-C2-S1',
-            name: 'Coverage',
-            description: 'Breadth and depth of literature covered (minimum 10 papers)',
-            max_marks: 8
-          },
-          {
-            sub_id: 'R1-C2-S2',
-            name: 'Critical Analysis',
-            description: 'Quality of analysis and synthesis of literature',
-            max_marks: 7
-          },
-          {
-            sub_id: 'R1-C2-S3',
-            name: 'Relevance',
-            description: 'Connection to research problem and objectives',
-            max_marks: 5
-          }
-        ],
+        max_marks: 1,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: '10+ high-quality papers; excellent critical analysis; perfectly aligned with problem; well-synthesized.'
+            label: 'Excellent',
+            description: 'Comprehensive review of 10+ high-quality papers from reputed journals/conferences; critically analyzed.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: '10+ relevant papers; good analysis with some critical insights; mostly aligned with problem.'
+            description: 'Review includes 10+ relevant papers; good coverage with mostly clear synthesis and some critical insight.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: '10+ papers included; basic summary provided; somewhat connected to problem.'
+            description: 'Includes 10+ papers; summary provided but lacks critical analysis or connection to research problem.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Fewer than 10 papers or low quality; limited analysis; weak connection to problem.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Insufficient papers; poor quality; no analysis; disconnected from problem.'
+            label: 'Fair',
+            description: 'Includes 10+ papers; incomplete review; limited relevance or understanding of topic.'
           }
         ]
       },
       {
         rubric_id: 'R1-C3',
-        component_name: 'Proposed Methodology',
-        component_description: 'Detailed approach, algorithms, and implementation strategy',
-        max_marks: 25,
-        sub_components: [
-          {
-            sub_id: 'R1-C3-S1',
-            name: 'Approach Design',
-            description: 'Clarity and innovation in the proposed solution',
-            max_marks: 10
-          },
-          {
-            sub_id: 'R1-C3-S2',
-            name: 'Technical Feasibility',
-            description: 'Practicality and achievability of the approach',
-            max_marks: 8
-          },
-          {
-            sub_id: 'R1-C3-S3',
-            name: 'Tools & Technologies',
-            description: 'Appropriate selection and justification of tools',
-            max_marks: 7
-          }
-        ],
+        component_name: 'Research Objectives',
+        max_marks: 1,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Innovative, well-justified approach; highly feasible; excellent tool selection; clear implementation plan.'
+            label: 'Excellent',
+            description: 'Clearly stated, specific, measurable, and aligned with the problem and literature review.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good approach with clear methodology; feasible with minor concerns; appropriate tools selected.'
+            description: 'Objectives mostly clear and relevant; some minor vagueness or lack of alignment with problem.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Acceptable approach; somewhat feasible; tools selected but justification lacking.'
+            description: 'Objectives stated but somewhat broad or vague; partial alignment with problem.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Basic approach; feasibility concerns; tool selection questionable.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Unclear approach; not feasible; poor tool selection; no implementation plan.'
+            label: 'Fair',
+            description: 'Objectives unclear, too broad, or only loosely connected to problem or literature.'
           }
         ]
       },
       {
         rubric_id: 'R1-C4',
-        component_name: 'Dataset & Resources',
-        component_description: 'Data sources, dataset characteristics, and resource requirements',
-        max_marks: 15,
-        sub_components: [
-          {
-            sub_id: 'R1-C4-S1',
-            name: 'Dataset Description',
-            description: 'Completeness of dataset details and characteristics',
-            max_marks: 7
-          },
-          {
-            sub_id: 'R1-C4-S2',
-            name: 'Data Availability',
-            description: 'Accessibility and reliability of data sources',
-            max_marks: 5
-          },
-          {
-            sub_id: 'R1-C4-S3',
-            name: 'Resource Planning',
-            description: 'Identification of hardware/software requirements',
-            max_marks: 3
-          }
-        ],
+        component_name: 'Proposed Solution',
+        max_marks: 1,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Detailed dataset description; readily available; well-planned resources; ethical considerations addressed.'
+            label: 'Excellent',
+            description: 'Innovative, well-justified, and directly addresses the problem; clearly described with rationale.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good dataset description; accessible; resources mostly identified.'
+            description: 'Solution is appropriate and mostly justified; rationale is mostly clear and relevant.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Basic dataset info; availability confirmed; minimal resource planning.'
+            description: 'Solution described but lacks innovation or strong justification; partially related to the problem.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Incomplete dataset info; availability uncertain; poor resource planning.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'No clear dataset; availability issues; no resource planning.'
+            label: 'Fair',
+            description: 'Solution unclear or weakly justified; limited connection to the problem.'
           }
         ]
       },
       {
         rubric_id: 'R1-C5',
-        component_name: 'Presentation & Communication',
-        component_description: 'Quality of presentation, clarity, and ability to answer questions',
-        max_marks: 20,
-        sub_components: [
-          {
-            sub_id: 'R1-C5-S1',
-            name: 'Slide Quality',
-            description: 'Visual appeal, organization, and content clarity',
-            max_marks: 7
-          },
-          {
-            sub_id: 'R1-C5-S2',
-            name: 'Oral Communication',
-            description: 'Delivery, confidence, and time management',
-            max_marks: 8
-          },
-          {
-            sub_id: 'R1-C5-S3',
-            name: 'Q&A Handling',
-            description: 'Understanding and response to questions',
-            max_marks: 5
-          }
-        ],
+        component_name: 'Dataset Description',
+        max_marks: 1,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Excellent slides; confident delivery; answered all questions comprehensively; within time limit.'
+            label: 'Excellent',
+            description: 'Detailed and accurate description of dataset(s); relevance and appropriateness clearly explained.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good slides; clear delivery; answered most questions well; minor timing issues.'
+            description: 'Dataset description mostly complete; relevance and appropriateness mostly clear.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Acceptable slides; adequate delivery; answered some questions; timing concerns.'
+            description: 'Basic dataset description; some details missing or relevance not fully explained.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Basic slides; unclear delivery; struggled with questions; poor time management.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Poor slides; weak delivery; unable to answer questions; exceeded time.'
+            label: 'Fair',
+            description: 'Dataset description incomplete or unclear; limited explanation of relevance or appropriateness.'
           }
         ]
       }
@@ -301,353 +193,171 @@ export const MOCK_REVIEWS = [
     teams: [
       {
         team_id: 'T1',
-        team_name: 'Team Alpha - AI Medical Diagnosis',
-        project_title: 'AI-Powered Early Disease Detection System',
+        team_name: 'Team Alpha',
         marks_entered: false,
         students: [
-          { 
-            student_id: 'S1', 
-            student_name: 'Arjun Patel', 
-            roll_no: '21BCE001',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun'
-          },
-          { 
-            student_id: 'S2', 
-            student_name: 'Priya Sharma', 
-            roll_no: '21BCE002',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Priya'
-          },
-          { 
-            student_id: 'S3', 
-            student_name: 'Vikram Singh', 
-            roll_no: '21BCE003',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram'
-          }
+          { student_id: 'S1', student_name: 'Arjun Patel', roll_no: '21BCE001' },
+          { student_id: 'S2', student_name: 'Priya Sharma', roll_no: '21BCE002' },
+          { student_id: 'S3', student_name: 'Vikram Singh', roll_no: '21BCE003' }
         ]
       },
       {
         team_id: 'T2',
-        team_name: 'Team Beta - Smart IoT',
-        project_title: 'IoT-Based Smart Home Automation System',
+        team_name: 'Team Beta',
         marks_entered: false,
         students: [
-          { 
-            student_id: 'S4', 
-            student_name: 'Anjali Reddy', 
-            roll_no: '21BCE004',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anjali'
-          },
-          { 
-            student_id: 'S5', 
-            student_name: 'Rahul Kumar', 
-            roll_no: '21BCE005',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul'
-          },
-          { 
-            student_id: 'S6', 
-            student_name: 'Neha Gupta', 
-            roll_no: '21BCE006',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Neha'
-          },
-          { 
-            student_id: 'S7', 
-            student_name: 'Karthik Raj', 
-            roll_no: '21BCE007',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Karthik'
-          }
-        ]
-      },
-      {
-        team_id: 'T5',
-        team_name: 'Team Epsilon - Blockchain',
-        project_title: 'Decentralized Supply Chain Management',
-        marks_entered: false,
-        students: [
-          { 
-            student_id: 'S10', 
-            student_name: 'Meera Nair', 
-            roll_no: '21BCE010',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Meera'
-          },
-          { 
-            student_id: 'S11', 
-            student_name: 'Rohan Das', 
-            roll_no: '21BCE011',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rohan'
-          }
+          { student_id: 'S4', student_name: 'Anjali Reddy', roll_no: '21BCE004' },
+          { student_id: 'S5', student_name: 'Rahul Kumar', roll_no: '21BCE005' },
+          { student_id: 'S6', student_name: 'Neha Gupta', roll_no: '21BCE006' },
+          { student_id: 'S7', student_name: 'Karthik Raj', roll_no: '21BCE007' }
         ]
       }
     ]
   },
   {
     review_id: 'R2',
-    review_name: 'Review 2 - Mid-Term Progress',
-    start_date: '2026-01-02',
-    end_date: '2026-01-15',
-    review_type: 'guide',
+    review_name: 'Mid-Term Progress Review',
+    start_date: '2026-01-05',
+    end_date: '2026-01-25',
+    review_type: 'panel',
     rubric_structure: [
       {
         rubric_id: 'R2-C1',
-        component_name: 'Work Completion',
-        component_description: 'Progress against planned timeline and milestones',
-        max_marks: 25,
-        sub_components: [
-          {
-            sub_id: 'R2-C1-S1',
-            name: 'Milestone Achievement',
-            description: 'Percentage of planned milestones completed',
-            max_marks: 12
-          },
-          {
-            sub_id: 'R2-C1-S2',
-            name: 'Timeline Adherence',
-            description: 'Following the project schedule',
-            max_marks: 8
-          },
-          {
-            sub_id: 'R2-C1-S3',
-            name: 'Work Quality',
-            description: 'Quality of work completed so far',
-            max_marks: 5
-          }
-        ],
+        component_name: 'Work Completed',
+        max_marks: 3,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: '80-100% milestones completed on time; exceptional progress; high-quality deliverables.'
+            label: 'Excellent',
+            description: '80-100% of planned work completed; all milestones achieved on time; exceptional progress.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: '60-79% milestones achieved; good progress; minor delays; quality work.'
+            description: '60-79% of planned work completed; most milestones achieved; good progress overall.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: '40-59% milestones completed; acceptable progress; some delays.'
+            description: '40-59% of planned work completed; some delays but on track; acceptable progress.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: '20-39% milestones achieved; significant delays; needs improvement.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Less than 20% completed; major delays; poor progress.'
+            label: 'Fair',
+            description: '20-39% of planned work completed; significant delays; needs improvement.'
           }
         ]
       },
       {
         rubric_id: 'R2-C2',
-        component_name: 'Implementation Quality',
-        component_description: 'Code quality, architecture, and technical implementation',
-        max_marks: 30,
-        sub_components: [
-          {
-            sub_id: 'R2-C2-S1',
-            name: 'Code Quality',
-            description: 'Clean, maintainable, and well-documented code',
-            max_marks: 12
-          },
-          {
-            sub_id: 'R2-C2-S2',
-            name: 'Architecture',
-            description: 'System design and component structure',
-            max_marks: 10
-          },
-          {
-            sub_id: 'R2-C2-S3',
-            name: 'Best Practices',
-            description: 'Following coding standards and patterns',
-            max_marks: 8
-          }
-        ],
+        component_name: 'Code Quality',
+        max_marks: 2,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Excellent code quality; well-architected; follows all best practices; properly documented.'
+            label: 'Excellent',
+            description: 'Clean, well-documented code; follows best practices; properly structured; maintainable.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good quality code; solid architecture; mostly follows best practices; adequate documentation.'
+            description: 'Good code quality; minor improvements needed in documentation or structure.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Acceptable code; basic architecture; some best practices followed; minimal documentation.'
+            description: 'Working code; needs improvement in organization or documentation.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Working code but poorly organized; weak architecture; limited best practices.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Poor code quality; no clear architecture; no best practices; undocumented.'
+            label: 'Fair',
+            description: 'Code works but poorly organized; minimal documentation; needs refactoring.'
           }
         ]
       },
       {
         rubric_id: 'R2-C3',
-        component_name: 'Testing & Validation',
-        component_description: 'Test coverage, bug identification, and quality assurance',
-        max_marks: 20,
-        sub_components: [
-          {
-            sub_id: 'R2-C3-S1',
-            name: 'Test Coverage',
-            description: 'Unit tests and integration tests written',
-            max_marks: 10
-          },
-          {
-            sub_id: 'R2-C3-S2',
-            name: 'Bug Management',
-            description: 'Identification and resolution of bugs',
-            max_marks: 6
-          },
-          {
-            sub_id: 'R2-C3-S3',
-            name: 'Validation',
-            description: 'Testing methodology and results validation',
-            max_marks: 4
-          }
-        ],
+        component_name: 'Testing',
+        max_marks: 2,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Comprehensive testing (>80% coverage); all critical bugs fixed; thorough validation.'
+            label: 'Excellent',
+            description: 'Comprehensive testing; unit tests written; bugs identified and fixed; test coverage >80%.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good test coverage (60-80%); most bugs identified and fixed; adequate validation.'
+            description: 'Good testing coverage; most bugs identified and fixed; test coverage 60-80%.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Basic testing (40-60% coverage); some bugs remain; partial validation.'
+            description: 'Basic testing done; some bugs remain; test coverage 40-60%.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Limited testing (<40% coverage); multiple bugs present; minimal validation.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'No systematic testing; many bugs; no validation process.'
+            label: 'Fair',
+            description: 'Limited testing; multiple bugs present; test coverage <40%.'
           }
         ]
       },
       {
         rubric_id: 'R2-C4',
         component_name: 'Documentation',
-        component_description: 'Technical documentation, user guides, and code comments',
-        max_marks: 15,
-        sub_components: [
-          {
-            sub_id: 'R2-C4-S1',
-            name: 'Technical Documentation',
-            description: 'System design, API docs, architecture diagrams',
-            max_marks: 7
-          },
-          {
-            sub_id: 'R2-C4-S2',
-            name: 'Code Comments',
-            description: 'Inline documentation and code clarity',
-            max_marks: 5
-          },
-          {
-            sub_id: 'R2-C4-S3',
-            name: 'User Documentation',
-            description: 'Installation guide and usage instructions',
-            max_marks: 3
-          }
-        ],
+        max_marks: 2,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Complete, well-organized documentation; includes all technical details, diagrams, and user guides.'
+            label: 'Excellent',
+            description: 'Complete documentation updated; clear explanations; well-organized; includes diagrams.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Most documentation complete; good technical content; minor sections need work.'
+            description: 'Most documentation updated; minor sections incomplete; good organization.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Basic documentation present; covers essentials; needs more detail.'
+            description: 'Basic documentation present; needs more detail; acceptable organization.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Minimal documentation; many sections incomplete; poorly organized.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Little to no documentation; major sections missing.'
+            label: 'Fair',
+            description: 'Minimal documentation; many sections missing; poor organization.'
           }
         ]
       },
       {
         rubric_id: 'R2-C5',
-        component_name: 'Team Collaboration & Communication',
-        component_description: 'Teamwork, coordination, and contribution distribution',
-        max_marks: 10,
-        sub_components: [
-          {
-            sub_id: 'R2-C5-S1',
-            name: 'Team Coordination',
-            description: 'Regular meetings and effective communication',
-            max_marks: 4
-          },
-          {
-            sub_id: 'R2-C5-S2',
-            name: 'Work Distribution',
-            description: 'Equal and appropriate task allocation',
-            max_marks: 4
-          },
-          {
-            sub_id: 'R2-C5-S3',
-            name: 'Version Control',
-            description: 'Proper use of Git/collaboration tools',
-            max_marks: 2
-          }
-        ],
+        component_name: 'Team Collaboration',
+        max_marks: 1,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Excellent teamwork; regular meetings; equal contribution; proper version control usage.'
+            label: 'Excellent',
+            description: 'Excellent teamwork; regular meetings; clear communication; equal contribution.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good teamwork; effective communication; mostly equal contribution.'
+            description: 'Good teamwork; most members contributing; effective communication.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Adequate teamwork; some communication gaps; acceptable contribution.'
+            description: 'Adequate teamwork; some communication gaps; uneven contribution.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Limited teamwork; irregular meetings; uneven contribution.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Poor teamwork; no coordination; highly uneven contribution.'
+            label: 'Fair',
+            description: 'Poor teamwork; limited communication; highly uneven contribution.'
           }
         ]
       }
@@ -655,215 +365,113 @@ export const MOCK_REVIEWS = [
     teams: [
       {
         team_id: 'T1',
-        team_name: 'Team Alpha - AI Medical Diagnosis',
-        project_title: 'AI-Powered Early Disease Detection System',
+        team_name: 'Team Alpha',
         marks_entered: false,
         students: [
-          { 
-            student_id: 'S1', 
-            student_name: 'Arjun Patel', 
-            roll_no: '21BCE001',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun'
-          },
-          { 
-            student_id: 'S2', 
-            student_name: 'Priya Sharma', 
-            roll_no: '21BCE002',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Priya'
-          },
-          { 
-            student_id: 'S3', 
-            student_name: 'Vikram Singh', 
-            roll_no: '21BCE003',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram'
-          }
+          { student_id: 'S1', student_name: 'Arjun Patel', roll_no: '21BCE001' },
+          { student_id: 'S2', student_name: 'Priya Sharma', roll_no: '21BCE002' },
+          { student_id: 'S3', student_name: 'Vikram Singh', roll_no: '21BCE003' }
         ]
       },
       {
         team_id: 'T3',
-        team_name: 'Team Gamma - Cloud Security',
-        project_title: 'Cloud-Based Security Monitoring System',
+        team_name: 'Team Gamma',
         marks_entered: false,
         students: [
-          { 
-            student_id: 'S8', 
-            student_name: 'Sneha Iyer', 
-            roll_no: '21BCE008',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sneha'
-          },
-          { 
-            student_id: 'S9', 
-            student_name: 'Aditya Menon', 
-            roll_no: '21BCE009',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aditya'
-          }
+          { student_id: 'S8', student_name: 'Sneha Iyer', roll_no: '21BCE008' },
+          { student_id: 'S9', student_name: 'Aditya Menon', roll_no: '21BCE009' }
         ]
       }
     ]
   },
   {
     review_id: 'R3',
-    review_name: 'Review 3 - Design & Architecture',
-    start_date: '2025-12-10',
-    end_date: '2025-12-28',
-    review_type: 'panel',
+    review_name: 'Design Review',
+    start_date: '2025-11-10',
+    end_date: '2025-11-28',
+    review_type: 'guide',
     rubric_structure: [
       {
         rubric_id: 'R3-C1',
         component_name: 'UI/UX Design',
-        component_description: 'User interface quality, experience design, and usability',
-        max_marks: 30,
-        sub_components: [
-          {
-            sub_id: 'R3-C1-S1',
-            name: 'Visual Design',
-            description: 'Aesthetics, consistency, and modern design principles',
-            max_marks: 12
-          },
-          {
-            sub_id: 'R3-C1-S2',
-            name: 'User Experience',
-            description: 'Intuitive navigation and user-friendly interface',
-            max_marks: 10
-          },
-          {
-            sub_id: 'R3-C1-S3',
-            name: 'Accessibility',
-            description: 'WCAG compliance and inclusive design',
-            max_marks: 8
-          }
-        ],
+        max_marks: 4,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Professional, modern design; exceptional UX; fully accessible; consistent throughout.'
+            label: 'Excellent',
+            description: 'Professional, intuitive interface; excellent user experience; modern design; accessibility considered.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good design quality; mostly intuitive; basic accessibility; minor inconsistencies.'
+            description: 'Good interface design; mostly intuitive; minor UX improvements needed.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Acceptable design; functional interface; limited accessibility considerations.'
+            description: 'Acceptable design; functional but could be more user-friendly.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Basic design; usability issues; no accessibility; inconsistent.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Poor design; confusing interface; major usability problems.'
+            label: 'Fair',
+            description: 'Basic design; usability issues present; needs significant improvement.'
           }
         ]
       },
       {
         rubric_id: 'R3-C2',
         component_name: 'System Architecture',
-        component_description: 'System design, scalability, and architectural patterns',
-        max_marks: 35,
-        sub_components: [
-          {
-            sub_id: 'R3-C2-S1',
-            name: 'Architecture Design',
-            description: 'System structure, modularity, and design patterns',
-            max_marks: 15
-          },
-          {
-            sub_id: 'R3-C2-S2',
-            name: 'Scalability',
-            description: 'Ability to handle growth and load',
-            max_marks: 12
-          },
-          {
-            sub_id: 'R3-C2-S3',
-            name: 'Integration',
-            description: 'Component integration and API design',
-            max_marks: 8
-          }
-        ],
+        max_marks: 3,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Well-designed, scalable architecture; follows best practices; microservices/modular; excellent integration.'
+            label: 'Excellent',
+            description: 'Well-designed architecture; scalable, maintainable; follows design patterns; microservices/modular.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good architecture; mostly scalable; appropriate patterns used; good integration.'
+            description: 'Good architecture; mostly scalable; minor improvements possible.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Acceptable architecture; limited scalability; basic patterns; adequate integration.'
+            description: 'Acceptable architecture; works but limited scalability.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Weak architecture; scalability concerns; poor patterns; integration issues.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Poor architecture; not scalable; no design patterns; broken integration.'
+            label: 'Fair',
+            description: 'Weak architecture; scalability concerns; needs redesign.'
           }
         ]
       },
       {
         rubric_id: 'R3-C3',
         component_name: 'Database Design',
-        component_description: 'Data modeling, schema design, and query optimization',
-        max_marks: 35,
-        sub_components: [
-          {
-            sub_id: 'R3-C3-S1',
-            name: 'Schema Design',
-            description: 'Normalization, relationships, and data integrity',
-            max_marks: 15
-          },
-          {
-            sub_id: 'R3-C3-S2',
-            name: 'Query Optimization',
-            description: 'Indexing, query performance, and efficiency',
-            max_marks: 12
-          },
-          {
-            sub_id: 'R3-C3-S3',
-            name: 'Data Modeling',
-            description: 'ER diagrams and logical data models',
-            max_marks: 8
-          }
-        ],
+        max_marks: 3,
+        sub_components: [],
         levels: [
           { 
             score: 5, 
-            label: 'Outstanding',
-            description: 'Normalized schema; proper indexing; efficient queries; excellent data modeling; complete ER diagrams.'
+            label: 'Excellent',
+            description: 'Normalized, efficient schema; proper indexing; relationships well-defined; optimized queries.'
           },
           { 
             score: 4, 
             label: 'Very Good',
-            description: 'Good schema; mostly normalized; adequate indexing; good queries; data models present.'
+            description: 'Good schema design; mostly normalized; minor optimization needed.'
           },
           { 
             score: 3, 
             label: 'Good',
-            description: 'Functional schema; some normalization; basic indexing; queries work; basic models.'
+            description: 'Functional schema; some normalization issues; works for current needs.'
           },
           { 
             score: 2, 
-            label: 'Satisfactory',
-            description: 'Poor schema; denormalized; no indexing; inefficient queries; incomplete models.'
-          },
-          { 
-            score: 1, 
-            label: 'Needs Improvement',
-            description: 'Very poor schema; no normalization; no optimization; no data models.'
+            label: 'Fair',
+            description: 'Poor schema design; denormalized; inefficient queries.'
           }
         ]
       }
@@ -871,48 +479,21 @@ export const MOCK_REVIEWS = [
     teams: [
       {
         team_id: 'T1',
-        team_name: 'Team Alpha - AI Medical Diagnosis',
-        project_title: 'AI-Powered Early Disease Detection System',
+        team_name: 'Team Alpha',
         marks_entered: true,
         students: [
-          { 
-            student_id: 'S1', 
-            student_name: 'Arjun Patel', 
-            roll_no: '21BCE001',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun'
-          },
-          { 
-            student_id: 'S2', 
-            student_name: 'Priya Sharma', 
-            roll_no: '21BCE002',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Priya'
-          },
-          { 
-            student_id: 'S3', 
-            student_name: 'Vikram Singh', 
-            roll_no: '21BCE003',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram'
-          }
+          { student_id: 'S1', student_name: 'Arjun Patel', roll_no: '21BCE001' },
+          { student_id: 'S2', student_name: 'Priya Sharma', roll_no: '21BCE002' },
+          { student_id: 'S3', student_name: 'Vikram Singh', roll_no: '21BCE003' }
         ]
       },
       {
         team_id: 'T2',
-        team_name: 'Team Beta - Smart IoT',
-        project_title: 'IoT-Based Smart Home Automation System',
+        team_name: 'Team Beta',
         marks_entered: true,
         students: [
-          { 
-            student_id: 'S4', 
-            student_name: 'Anjali Reddy', 
-            roll_no: '21BCE004',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anjali'
-          },
-          { 
-            student_id: 'S5', 
-            student_name: 'Rahul Kumar', 
-            roll_no: '21BCE005',
-            profile_image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul'
-          }
+          { student_id: 'S4', student_name: 'Anjali Reddy', roll_no: '21BCE004' },
+          { student_id: 'S5', student_name: 'Rahul Kumar', roll_no: '21BCE005' }
         ]
       }
     ]

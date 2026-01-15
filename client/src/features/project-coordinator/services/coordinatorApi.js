@@ -1,5 +1,5 @@
 // src/features/project-coordinator/services/coordinatorApi.js
-import api from '../../../services/api';
+import api from "../../../services/api";
 
 /**
  * Project Coordinator API Service
@@ -17,17 +17,29 @@ const adaptStudent = (backendStudent) => {
 
   return {
     _id: backendStudent._id,
+    id: backendStudent._id,
     regNo: backendStudent.regNo,
     name: backendStudent.name,
     email: backendStudent.emailId,
     emailId: backendStudent.emailId,
+    phone: backendStudent.phoneNumber, // Added map locally
+    phoneNumber: backendStudent.phoneNumber,
     school: backendStudent.school,
-    department: backendStudent.department,
+    program: backendStudent.program,
     academicYear: backendStudent.academicYear,
     PAT: backendStudent.PAT || false,
     isActive: backendStudent.isActive !== false,
-    project: backendStudent.project,
-    approvals: backendStudent.approvals || {}
+
+    // Project Info
+    guide: backendStudent.guide,
+    panelMember: backendStudent.panelMember,
+    projectTitle: backendStudent.projectTitle,
+    teammates: backendStudent.teammates || [],
+
+    // Marks & Status
+    totalMarks: backendStudent.totalMarks,
+    reviewStatuses: backendStudent.reviewStatuses || [],
+    approvals: backendStudent.approvals || {},
   };
 };
 
@@ -49,7 +61,7 @@ const adaptFaculty = (backendFaculty) => {
     specialization: backendFaculty.specialization,
     phoneNumber: backendFaculty.phoneNumber,
     isActive: backendFaculty.isActive !== false,
-    projects: backendFaculty.projects || []
+    projects: backendFaculty.projects || [],
   };
 };
 
@@ -62,26 +74,40 @@ const adaptProject = (backendProject) => {
   return {
     _id: backendProject._id,
     name: backendProject.name,
-    type: backendProject.type || 'Capstone Project',
+    type: backendProject.type || "Capstone Project",
     specialization: backendProject.specialization,
     school: backendProject.school,
     department: backendProject.department,
     academicYear: backendProject.academicYear,
-    status: backendProject.status || 'active',
-    teamMembers: backendProject.students?.map(s => ({
-      _id: s._id,
-      regNo: s.regNo,
-      name: s.name,
-      email: s.emailId
-    })) || [],
-    guide: backendProject.guideFaculty ? {
-      _id: backendProject.guideFaculty._id,
-      name: backendProject.guideFaculty.name,
-      employeeId: backendProject.guideFaculty.employeeId
-    } : null,
+    status: backendProject.status || "active",
+    teamMembers:
+      backendProject.students?.map((s) => ({
+        _id: s._id,
+        regNo: s.regNo,
+        name: s.name,
+        email: s.emailId,
+      })) || [],
+    guide: backendProject.guideFaculty
+      ? {
+        _id: backendProject.guideFaculty._id,
+        name: backendProject.guideFaculty.name,
+        employeeId: backendProject.guideFaculty.employeeId,
+      }
+      : null,
     panel: backendProject.panel || null,
+    panelId:
+      backendProject.panel && typeof backendProject.panel === "object"
+        ? backendProject.panel._id
+        : backendProject.panel || null,
     createdAt: backendProject.createdAt,
-    updatedAt: backendProject.updatedAt
+    updatedAt: backendProject.updatedAt,
+    id: backendProject._id, // Add id alias
+    reviewPanels: backendProject.reviewPanels?.map(rp => ({
+      reviewType: rp.reviewType,
+      panel: rp.panel ? adaptPanel(rp.panel) : null,
+      assignedAt: rp.assignedAt,
+      assignedBy: rp.assignedBy,
+    })) || [],
   };
 };
 
@@ -92,17 +118,47 @@ const adaptPanel = (backendPanel) => {
   if (!backendPanel) return null;
 
   return {
+    id: backendPanel._id,
     _id: backendPanel._id,
-    members: backendPanel.members?.map(m => ({
-      _id: m.faculty?._id || m._id,
-      employeeId: m.faculty?.employeeId || m.employeeId,
-      name: m.faculty?.name || m.name
-    })) || [],
+    panelName: backendPanel.panelName, // Added
+    panelNumber: backendPanel.panelNumber || backendPanel.panelName.replace(/\D/g, ""), // try to extract number
+    members:
+      backendPanel.members?.map((m) => {
+        // Member can be just an ID, or an object with faculty populated, or flat
+        const faculty = m.faculty || m;
+        return {
+          _id: faculty._id,
+          id: faculty._id,
+          employeeId: faculty.employeeId,
+          name: faculty.name || "Unknown",
+          email: faculty.emailId,
+          specialization: faculty.specialization,
+        };
+      }) || [],
+    faculty: backendPanel.members?.map((m) => { // Added aliases for UI compatibility
+      const faculty = m.faculty || m;
+      return {
+        _id: faculty._id,
+        id: faculty._id,
+        employeeId: faculty.employeeId,
+        name: faculty.name || "Unknown",
+        email: faculty.emailId,
+        specialization: faculty.specialization,
+      };
+    }) || [],
     academicYear: backendPanel.academicYear,
     school: backendPanel.school,
-    department: backendPanel.department,
+    program: backendPanel.program,
     isActive: backendPanel.isActive !== false,
-    assignedProjects: backendPanel.assignedProjects || 0
+    markingStatus: backendPanel.markingStatus || 'none', // defaults
+    teams: backendPanel.projects?.map(p => ({ // UI expects 'teams' for assigned projects
+      id: p._id,
+      projectTitle: p.name,
+      students: p.students || [],
+      markingStatus: 'none' // default
+    })) || [],
+    assignedProjects: backendPanel.assignedProjectsCount || 0,
+    maxProjects: backendPanel.maxProjects || 10,
   };
 };
 
@@ -112,11 +168,11 @@ const adaptPanel = (backendPanel) => {
  * Fetch students with filters
  */
 export const fetchStudents = async (filters = {}) => {
-  const response = await api.get('/coordinator/students', { params: filters });
+  const response = await api.get("/coordinator/students", { params: filters });
   if (response.data.success) {
     return {
       success: true,
-      students: response.data.data.map(adaptStudent)
+      students: response.data.data.map(adaptStudent),
     };
   }
   return response.data;
@@ -130,7 +186,7 @@ export const fetchStudentDetails = async (regNo) => {
   if (response.data.success) {
     return {
       success: true,
-      student: adaptStudent(response.data.data)
+      student: adaptStudent(response.data.data),
     };
   }
   return response.data;
@@ -140,7 +196,7 @@ export const fetchStudentDetails = async (regNo) => {
  * Create a single student
  */
 export const createStudent = async (studentData) => {
-  const response = await api.post('/coordinator/student', studentData);
+  const response = await api.post("/coordinator/student", studentData);
   return response.data;
 };
 
@@ -148,7 +204,7 @@ export const createStudent = async (studentData) => {
  * Bulk upload students
  */
 export const bulkUploadStudents = async (students) => {
-  const response = await api.post('/coordinator/student/bulk', { students });
+  const response = await api.post("/coordinator/student/bulk", { students });
   return response.data;
 };
 
@@ -174,11 +230,11 @@ export const deleteStudent = async (regNo) => {
  * Fetch faculty with filters
  */
 export const fetchFaculty = async (filters = {}) => {
-  const response = await api.get('/coordinator/faculty', { params: filters });
+  const response = await api.get("/coordinator/faculty", { params: filters });
   if (response.data.success) {
     return {
       success: true,
-      faculty: response.data.data.map(adaptFaculty)
+      faculty: response.data.data.map(adaptFaculty),
     };
   }
   return response.data;
@@ -188,7 +244,7 @@ export const fetchFaculty = async (filters = {}) => {
  * Create a single faculty
  */
 export const createFaculty = async (facultyData) => {
-  const response = await api.post('/coordinator/faculty', facultyData);
+  const response = await api.post("/coordinator/faculty", facultyData);
   return response.data;
 };
 
@@ -196,7 +252,9 @@ export const createFaculty = async (facultyData) => {
  * Bulk create faculty
  */
 export const bulkCreateFaculty = async (facultyList) => {
-  const response = await api.post('/coordinator/faculty/bulk', { faculty: facultyList });
+  const response = await api.post("/coordinator/faculty/bulk", {
+    faculty: facultyList,
+  });
   return response.data;
 };
 
@@ -222,11 +280,11 @@ export const deleteFaculty = async (employeeId) => {
  * Fetch projects with filters
  */
 export const fetchProjects = async (filters = {}) => {
-  const response = await api.get('/coordinator/projects', { params: filters });
+  const response = await api.get("/coordinator/projects", { params: filters });
   if (response.data.success) {
     return {
       success: true,
-      projects: response.data.data.map(adaptProject)
+      projects: response.data.data.map(adaptProject),
     };
   }
   return response.data;
@@ -240,14 +298,14 @@ export const createProject = async (projectData) => {
     name: projectData.name,
     students: projectData.teamMembers || [],
     guideFacultyEmpId: projectData.guideFacultyEmpId,
-    specialization: projectData.specialization || '',
-    type: projectData.type || 'Capstone Project',
+    specialization: projectData.specialization || "",
+    type: projectData.type || "Capstone Project",
     school: projectData.school,
     department: projectData.department,
-    academicYear: projectData.academicYear
+    academicYear: projectData.academicYear,
   };
 
-  const response = await api.post('/coordinator/projects', payload);
+  const response = await api.post("/coordinator/projects", payload);
   return response.data;
 };
 
@@ -255,18 +313,18 @@ export const createProject = async (projectData) => {
  * Bulk create projects
  */
 export const bulkCreateProjects = async (projectsList) => {
-  const projects = projectsList.map(project => ({
+  const projects = projectsList.map((project) => ({
     name: project.name,
     students: project.teamMembers || [],
     guideFacultyEmpId: project.guideFacultyEmpId,
-    specialization: project.specialization || '',
-    type: project.type || 'Capstone Project',
+    specialization: project.specialization || "",
+    type: project.type || "Capstone Project",
     school: project.school,
     department: project.department,
-    academicYear: project.academicYear
+    academicYear: project.academicYear,
   }));
 
-  const response = await api.post('/coordinator/projects/bulk', { projects });
+  const response = await api.post("/coordinator/projects/bulk", { projects });
   return response.data;
 };
 
@@ -275,6 +333,28 @@ export const bulkCreateProjects = async (projectsList) => {
  */
 export const fetchProjectMarks = async (projectId) => {
   const response = await api.get(`/coordinator/projects/${projectId}/marks`);
+  if (response.data.success) {
+    const marks = response.data.data || [];
+    const marksByStudent = {};
+
+    marks.forEach((mark) => {
+      // Ensure student is populated
+      if (mark.student && mark.student.regNo) {
+        const regNo = mark.student.regNo;
+        if (!marksByStudent[regNo]) marksByStudent[regNo] = [];
+
+        marksByStudent[regNo].push({
+          reviewName: mark.reviewType || "Review",
+          facultyType: mark.facultyType,
+          components: mark.componentMarks || [],
+          totalMarks: mark.totalMarks || 0,
+          maxTotalMarks: mark.maxTotalMarks || 0,
+          isSubmitted: mark.isSubmitted || false,
+        });
+      }
+    });
+    return { success: true, marksByStudent };
+  }
   return response.data;
 };
 
@@ -284,11 +364,11 @@ export const fetchProjectMarks = async (projectId) => {
  * Fetch panels with filters
  */
 export const fetchPanels = async (filters = {}) => {
-  const response = await api.get('/project-coordinator/panels', { params: filters });
+  const response = await api.get("/coordinator/panels", { params: filters });
   if (response.data.success) {
     return {
       success: true,
-      panels: response.data.data.map(adaptPanel)
+      panels: response.data.data.map(adaptPanel),
     };
   }
   return response.data;
@@ -298,7 +378,7 @@ export const fetchPanels = async (filters = {}) => {
  * Create panel
  */
 export const createPanel = async (panelData) => {
-  const response = await api.post('/coordinator/panels', panelData);
+  const response = await api.post("/coordinator/panels", panelData);
   return response.data;
 };
 
@@ -306,7 +386,9 @@ export const createPanel = async (panelData) => {
  * Bulk create panels
  */
 export const bulkCreatePanels = async (panelsList) => {
-  const response = await api.post('/coordinator/panels/bulk', { panels: panelsList });
+  const response = await api.post("/coordinator/panels/bulk", {
+    panels: panelsList,
+  });
   return response.data;
 };
 
@@ -314,7 +396,7 @@ export const bulkCreatePanels = async (panelsList) => {
  * Auto create panels
  */
 export const autoCreatePanels = async (data) => {
-  const response = await api.post('/coordinator/panels/auto-create', data);
+  const response = await api.post("/coordinator/panels/auto-create", data);
   return response.data;
 };
 
@@ -322,7 +404,10 @@ export const autoCreatePanels = async (data) => {
  * Assign panel to project
  */
 export const assignPanelToProject = async ({ projectId, panelId }) => {
-  const response = await api.post('/coordinator/projects/assign-panel', { projectId, panelId });
+  const response = await api.post("/coordinator/projects/assign-panel", {
+    projectId,
+    panelId,
+  });
   return response.data;
 };
 
@@ -330,7 +415,27 @@ export const assignPanelToProject = async ({ projectId, panelId }) => {
  * Auto assign panels to projects
  */
 export const autoAssignPanels = async (filters) => {
-  const response = await api.post('/coordinator/panels/auto-assign', filters);
+  const response = await api.post("/coordinator/panels/auto-assign", filters);
+  return response.data;
+};
+
+/**
+ * Fetch panel summary statistics
+ */
+export const fetchPanelSummary = async (filters = {}) => {
+  const response = await api.get("/coordinator/panels/summary", {
+    params: filters,
+  });
+  return response.data;
+};
+
+/**
+ * Fetch details for multiple faculty members
+ */
+export const fetchFacultyDetailsBulk = async (employeeIds) => {
+  const response = await api.post("/coordinator/faculty/details-bulk", {
+    employeeIds,
+  });
   return response.data;
 };
 
@@ -340,33 +445,45 @@ export const autoAssignPanels = async (filters) => {
  * Fetch requests with filters
  */
 export const fetchRequests = async (filters = {}) => {
-  const response = await api.get('/coordinator/requests', { params: filters });
+  const response = await api.get("/coordinator/requests", { params: filters });
+  if (response.data.success) {
+    return {
+      success: true,
+      requests: response.data.data,
+    };
+  }
   return response.data;
 };
 
 /**
  * Approve request
  */
-export const approveRequest = async (requestId, remarks = '') => {
-  const response = await api.post(`/coordinator/requests/${requestId}/approve`, { remarks });
+export const approveRequest = async (requestId, remarks = "") => {
+  const response = await api.put(`/coordinator/requests/${requestId}/status`, {
+    status: "approved",
+    remarks,
+  });
   return response.data;
 };
 
 /**
  * Reject request
  */
-export const rejectRequest = async (requestId, remarks = '') => {
-  const response = await api.post(`/coordinator/requests/${requestId}/reject`, { remarks });
+export const rejectRequest = async (requestId, remarks = "") => {
+  const response = await api.put(`/coordinator/requests/${requestId}/status`, {
+    status: "rejected",
+    remarks,
+  });
   return response.data;
 };
 
 /**
  * Approve multiple requests
  */
-export const approveMultipleRequests = async (requestIds, remarks = '') => {
-  const response = await api.post('/coordinator/requests/approve-multiple', {
+export const approveMultipleRequests = async (requestIds, remarks = "") => {
+  const response = await api.post("/coordinator/requests/approve-multiple", {
     requestIds,
-    remarks
+    remarks,
   });
   return response.data;
 };
@@ -377,7 +494,7 @@ export const approveMultipleRequests = async (requestIds, remarks = '') => {
  * Get academic years
  */
 export const fetchAcademicYears = async () => {
-  const response = await api.get('/coordinator/academic-years');
+  const response = await api.get("/coordinator/academic-years");
   return response.data;
 };
 
@@ -385,7 +502,54 @@ export const fetchAcademicYears = async () => {
  * Get departments
  */
 export const fetchDepartments = async () => {
-  const response = await api.get('/coordinator/departments');
+  const response = await api.get("/coordinator/departments");
+  return response.data;
+};
+
+/**
+ * Request access to features
+ */
+export const requestAccess = async (data) => {
+  const response = await api.post("/coordinator/request-access", data);
+  return response.data;
+};
+
+/**
+ * Get coordinator profile (includes school, program, academic year)
+ */
+export const fetchProfile = async () => {
+  const response = await api.get("/coordinator/profile");
+  return response.data;
+};
+
+/**
+ * Get faculty master data (schools, programs, academic years)
+ */
+export const fetchFacultyMasterData = async () => {
+  const response = await api.get("/faculty/master-data");
+  return response.data;
+};
+
+/**
+ * Get coordinator permissions
+ */
+export const fetchPermissions = async () => {
+  const response = await api.get("/coordinator/permissions");
+  return response.data;
+};
+
+// ==================== Report APIs ====================
+
+/**
+ * Fetch report data based on type
+ */
+export const fetchReportData = async (type, filters = {}) => {
+  const response = await api.get("/coordinator/reports", {
+    params: {
+      type,
+      ...filters,
+    },
+  });
   return response.data;
 };
 
@@ -419,6 +583,8 @@ export default {
   autoCreatePanels,
   assignPanelToProject,
   autoAssignPanels,
+  fetchPanelSummary,
+  fetchFacultyDetailsBulk,
 
   // Requests
   fetchRequests,
@@ -428,5 +594,10 @@ export default {
 
   // Master Data
   fetchAcademicYears,
-  fetchDepartments
+  fetchDepartments,
+  requestAccess,
+  fetchPermissions,
+  fetchProfile,
+  fetchFacultyMasterData,
+  fetchReportData,
 };

@@ -5,7 +5,7 @@ const permissionSchema = new mongoose.Schema(
     enabled: { type: Boolean, default: true },
     deadline: { type: Date }, // Individual deadline for this coordinator
   },
-  { _id: false },
+  { _id: false }
 );
 
 const projectCoordinatorSchema = new mongoose.Schema(
@@ -16,77 +16,37 @@ const projectCoordinatorSchema = new mongoose.Schema(
       required: true,
     },
     school: { type: String, required: true },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
     academicYear: { type: String, required: true },
 
     isPrimary: { type: Boolean, default: false },
 
     permissions: {
-      // Basic permissions
-      canEdit: permissionSchema,
-      canView: permissionSchema,
-
-      // Faculty management
-      canCreateFaculty: permissionSchema,
-      canEditFaculty: permissionSchema,
-      canDeleteFaculty: permissionSchema,
-
-      // Panel management
-      canCreatePanels: permissionSchema,
-      canEditPanels: permissionSchema,
-      canDeletePanels: permissionSchema,
-      canAssignPanels: permissionSchema,
-      canReassignPanels: permissionSchema,
-
-      // Student management
-      canUploadStudents: permissionSchema,
-      canModifyStudents: permissionSchema,
-      canDeleteStudents: permissionSchema,
-
-      // Project management
-      canCreateProjects: permissionSchema,
-      canEditProjects: permissionSchema,
-      canDeleteProjects: permissionSchema,
-
-      // Guide management
-      canAssignGuides: permissionSchema,
-      canReassignGuides: permissionSchema,
-
-      // Team management
-      canMergeTeams: permissionSchema,
-      canSplitTeams: permissionSchema,
-
-      // Schema management
-      canEditMarkingSchema: permissionSchema,
-
-      // Request management
-      canManageRequests: permissionSchema,
-
-      // Broadcast management
-      canCreateBroadcasts: permissionSchema,
-      canEditBroadcasts: permissionSchema,
-      canDeleteBroadcasts: permissionSchema,
+      student_management: permissionSchema,
+      faculty_management: permissionSchema,
+      project_management: permissionSchema,
+      panel_management: permissionSchema,
     },
 
     assignedAt: { type: Date, default: Date.now },
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
-projectCoordinatorSchema.index({ school: 1, department: 1, academicYear: 1 });
+projectCoordinatorSchema.index({ school: 1, program: 1, academicYear: 1 });
 projectCoordinatorSchema.index({ faculty: 1, academicYear: 1 });
 projectCoordinatorSchema.index(
-  { school: 1, department: 1, academicYear: 1, isPrimary: 1 },
+  { school: 1, program: 1, academicYear: 1, isPrimary: 1 },
   {
     unique: true,
     partialFilterExpression: { isPrimary: true },
-  },
+  }
 );
 
 const ProjectCoordinator = mongoose.model(
   "ProjectCoordinator",
-  projectCoordinatorSchema,
+  projectCoordinatorSchema
 );
 
 export default ProjectCoordinator;

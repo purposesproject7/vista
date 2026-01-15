@@ -7,11 +7,14 @@ import { AcademicCapIcon, UserGroupIcon, ChartBarIcon } from '@heroicons/react/2
 import { fetchProjectMarks } from '../../services/adminApi';
 import { useToast } from '../../../../shared/hooks/useToast';
 
+import { useAdminContext } from '../../context/AdminContext';
+
 const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [marksByStudent, setMarksByStudent] = useState({});
   const [loadingMarks, setLoadingMarks] = useState(false);
   const { showToast } = useToast();
+  const { academicContext } = useAdminContext();
 
   // Set first student as default when modal opens
   useEffect(() => {
@@ -26,7 +29,14 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
       if (isOpen && project?._id) {
         setLoadingMarks(true);
         try {
-          const response = await fetchProjectMarks(project._id);
+          // Map context to API params
+          const context = {
+            academicYear: academicContext.year,
+            school: academicContext.school,
+            program: academicContext.program
+          };
+
+          const response = await fetchProjectMarks(project._id, context);
           if (response.success) {
             setMarksByStudent(response.marksByStudent);
           } else {
@@ -43,7 +53,7 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
     };
 
     loadMarks();
-  }, [isOpen, project]);
+  }, [isOpen, project, academicContext]);
 
   const selectedStudentMarks = useMemo(() => {
     if (!selectedStudent || !marksByStudent) return null;
@@ -82,8 +92,8 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
           <p className="text-sm text-gray-600">{project.description || project.type || 'Capstone Project'}</p>
         </div>
 
-        {/* Guide & Team Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Guide, Panel & Team Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card padding="sm">
             <div className="flex items-start gap-3">
               <AcademicCapIcon className="w-6 h-6 text-blue-600 shrink-0" />
@@ -91,6 +101,59 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
                 <div className="text-xs font-medium text-gray-500 mb-1">Project Guide</div>
                 <div className="text-base font-bold text-gray-900">{project.guide?.name || 'Not Assigned'}</div>
                 <div className="text-xs text-gray-500">{project.guide?.employeeId || ''}</div>
+              </div>
+            </div>
+          </Card>
+
+          <Card padding="sm">
+            <div className="flex items-start gap-3">
+              <UserGroupIcon className="w-6 h-6 text-purple-600 shrink-0" />
+              <div className="w-full">
+                <div className="text-xs font-medium text-gray-500 mb-1">Panel Faculty</div>
+
+                {/* Main Panel */}
+                {project.panel?.members && project.panel.members.length > 0 ? (
+                  <div className="mb-2">
+                    <div className="text-xs font-medium text-purple-600 mb-1">Main Panel</div>
+                    <div className="space-y-1">
+                      {project.panel.members.map((member, idx) => (
+                        <div key={idx}>
+                          <div className="text-sm font-semibold text-gray-900">{member.faculty?.name || 'Unknown'}</div>
+                          <div className="text-xs text-gray-500">{member.faculty?.employeeId || ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Review Panels */}
+                {project.reviewPanels && project.reviewPanels.length > 0 ? (
+                  <div className="space-y-2">
+                    {project.reviewPanels.map((reviewPanel, rpIdx) => (
+                      reviewPanel.panel?.members && reviewPanel.panel.members.length > 0 ? (
+                        <div key={rpIdx}>
+                          <div className="text-xs font-medium text-purple-600 mb-1">
+                            {reviewPanel.reviewType} Panel
+                          </div>
+                          <div className="space-y-1">
+                            {reviewPanel.panel.members.map((member, idx) => (
+                              <div key={idx}>
+                                <div className="text-sm font-semibold text-gray-900">{member.faculty?.name || 'Unknown'}</div>
+                                <div className="text-xs text-gray-500">{member.faculty?.employeeId || ''}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* No panels assigned */}
+                {(!project.panel?.members || project.panel.members.length === 0) &&
+                  (!project.reviewPanels || project.reviewPanels.length === 0) && (
+                    <div className="text-base font-bold text-gray-900">Not Assigned</div>
+                  )}
               </div>
             </div>
           </Card>
@@ -164,10 +227,10 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
                           percentage >= 80
                             ? 'bg-green-500'
                             : percentage >= 60
-                            ? 'bg-blue-500'
-                            : percentage >= 40
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500';
+                              ? 'bg-blue-500'
+                              : percentage >= 40
+                                ? 'bg-yellow-500'
+                                : 'bg-red-500';
 
                         return (
                           <div key={compIdx} className="bg-white rounded-lg p-3">

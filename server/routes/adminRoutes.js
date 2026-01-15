@@ -18,56 +18,62 @@ router.use(requireRole("admin"));
  */
 router.get("/master-data", adminController.getMasterData);
 
+// Bulk create master data
 router.post(
   "/master-data/bulk",
-  validateRequired(["schools", "departments", "academicYears"]),
-  adminController.createMasterDataBulk,
+  validateRequired(["schools", "programs", "academicYears"]),
+  adminController.createMasterDataBulk
 );
 
 router.post(
   "/master-data/schools",
   validateRequired(["name", "code"]),
-  adminController.createSchool,
+  adminController.createSchool
 );
 
 router.put("/master-data/schools/:id", adminController.updateSchool);
 
+router.delete("/master-data/schools/:id", adminController.deleteSchool);
+
 router.post(
-  "/master-data/departments",
+  "/master-data/programs",
   validateRequired(["name", "code", "school"]),
-  adminController.createDepartment,
+  adminController.createProgram
 );
 
-router.put("/master-data/departments/:id", adminController.updateDepartment);
+router.put("/master-data/programs/:id", adminController.updateProgram);
 
 router.post(
   "/master-data/academic-years",
   validateRequired(["year"]),
-  adminController.createAcademicYear,
+  adminController.createAcademicYear
 );
 
-router.put("/master-data/academic-years/:id", adminController.updateAcademicYear);
+router.put(
+  "/master-data/academic-years/:id",
+  adminController.updateAcademicYear
+);
 
 /**
- * Department configuration & feature locks
+ * Program configuration & feature locks
  */
 router.get(
-  "/department-config",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getDepartmentConfig,
+  "/program-config",
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getProgramConfig
 );
 
 router.post(
-  "/department-config",
-  validateRequired(["academicYear", "school", "department"]),
-  adminController.createDepartmentConfig,
+  "/program-config",
+  validateRequired(["academicYear", "school", "program"]),
+  adminController.createProgramConfig
 );
 
-router.put("/department-config/:id", adminController.updateDepartmentConfig);
+router.put("/program-config/:id", adminController.updateProgramConfig);
 
 router.patch(
-  "/department-config/:id/feature-lock",
-  adminController.updateFeatureLock,
+  "/program-config/:id/feature-lock",
+  adminController.updateFeatureLock
 );
 
 /**
@@ -75,14 +81,14 @@ router.patch(
  */
 router.get(
   "/component-library",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getComponentLibrary,
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getComponentLibrary
 );
 
 router.post(
   "/component-library",
-  validateRequired(["academicYear", "school", "department", "components"]),
-  adminController.createComponentLibrary,
+  validateRequired(["academicYear", "school", "program", "components"]),
+  adminController.createComponentLibrary
 );
 
 router.put("/component-library/:id", adminController.updateComponentLibrary);
@@ -92,14 +98,14 @@ router.put("/component-library/:id", adminController.updateComponentLibrary);
  */
 router.get(
   "/marking-schema",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getMarkingSchema,
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getMarkingSchema
 );
 
 router.post(
   "/marking-schema",
-  validateRequired(["academicYear", "school", "department", "reviews"]),
-  adminController.createOrUpdateMarkingSchema,
+  validateRequired(["academicYear", "school", "program", "reviews"]),
+  adminController.createOrUpdateMarkingSchema
 );
 
 router.put("/marking-schema/:id", adminController.updateMarkingSchema);
@@ -118,32 +124,34 @@ router.post(
     "password",
     "role",
     "school",
-    "department",
+    "program",
+    "phoneNumber",
+    "specialization",
   ]),
-  adminController.createFaculty,
+  adminController.createFaculty
 );
 
 router.post(
   "/faculty/bulk",
   validateRequired(["facultyList"]),
-  adminController.createFacultyBulk,
-);
-
-router.post(
-  "/faculty/details-bulk",
-  validateRequired(["employeeIds"]),
-  adminController.getFacultyDetailsBulk,
+  adminController.createFacultyBulk
 );
 
 router.post(
   "/faculty/admin",
   validateRequired(["name", "emailId", "employeeId", "password"]),
-  adminController.createAdmin,
+  adminController.createAdmin
 );
 
 router.put("/faculty/:employeeId", adminController.updateFaculty);
 
 router.delete("/faculty/:employeeId", adminController.deleteFaculty);
+
+router.post(
+  "/faculty/details-bulk",
+  validateRequired(["employeeIds"]),
+  adminController.getFacultyDetailsBulk
+);
 
 /**
  * Project coordinators
@@ -152,24 +160,24 @@ router.get("/project-coordinators", adminController.getProjectCoordinators);
 
 router.post(
   "/project-coordinators",
-  validateRequired(["facultyId", "academicYear", "school", "department"]),
-  adminController.assignProjectCoordinator,
+  validateRequired(["facultyId", "academicYear", "school", "program"]),
+  adminController.assignProjectCoordinator
 );
 
 router.put(
   "/project-coordinators/:id",
-  adminController.updateProjectCoordinator,
+  adminController.updateProjectCoordinator
 );
 
 router.patch(
   "/project-coordinators/:id/permissions",
   validateRequired(["permissions"]),
-  adminController.updateCoordinatorPermissions,
+  adminController.updateCoordinatorPermissions
 );
 
 router.delete(
   "/project-coordinators/:id",
-  adminController.removeProjectCoordinator,
+  adminController.removeProjectCoordinator
 );
 
 /**
@@ -184,16 +192,16 @@ router.post(
     "name",
     "emailId",
     "school",
-    "department",
+    "program",
     "academicYear",
   ]),
-  adminController.createStudent,
+  adminController.createStudent
 );
 
 router.post(
   "/student/bulk",
-  validateRequired(["students", "academicYear", "school", "department"]),
-  adminController.bulkUploadStudents,
+  validateRequired(["students", "academicYear", "school", "program"]),
+  adminController.bulkUploadStudents
 );
 
 router.put("/student/:regNo", adminController.updateStudent);
@@ -209,6 +217,25 @@ router.get("/projects", adminController.getAllProjects);
 
 router.get("/projects/guides", adminController.getAllGuideWithProjects);
 
+router.post(
+  "/projects",
+  validateRequired([
+    "name",
+    "students",
+    "guideFacultyEmpId",
+    "school",
+    "program",
+    "academicYear",
+  ]),
+  adminController.createProject
+);
+
+router.post(
+  "/projects/bulk",
+  validateRequired(["projects"]),
+  adminController.bulkCreateProjects
+);
+
 router.get("/projects/panels", adminController.getAllPanelsWithProjects);
 
 router.patch("/projects/:id/best-project", adminController.markAsBestProject);
@@ -218,22 +245,29 @@ router.patch("/projects/:id/best-project", adminController.markAsBestProject);
  */
 router.get("/panels", adminController.getAllPanels);
 
+router.get(
+  "/panels/summary",
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getPanelSummary
+);
+
 router.post(
   "/panels",
-  validateRequired([
-    "memberEmployeeIds",
-    "academicYear",
-    "school",
-    "department",
-  ]),
+  validateRequired(["memberEmployeeIds", "academicYear", "school", "program"]),
   validatePanelSize,
-  adminController.createPanelManually,
+  adminController.createPanelManually
 );
 
 router.post(
   "/panels/auto-create",
-  validateRequired(["departments", "school", "academicYear"]),
-  adminController.autoCreatePanels,
+  validateRequired(["programs", "school", "academicYear"]),
+  adminController.autoCreatePanels
+);
+
+router.post(
+  "/panels/bulk",
+  validateRequired(["panels"]),
+  adminController.bulkCreatePanels
 );
 
 router.put("/panels/:id", adminController.updatePanel);
@@ -243,13 +277,13 @@ router.delete("/panels/:id", adminController.deletePanel);
 router.post(
   "/panels/assign",
   validateRequired(["panelId", "projectId"]),
-  adminController.assignPanelToProject,
+  adminController.assignPanelToProject
 );
 
 router.post(
   "/panels/auto-assign",
-  validateRequired(["academicYear", "school", "department"]),
-  adminController.autoAssignPanelsToProjects,
+  validateRequired(["academicYear", "school", "program"]),
+  adminController.autoAssignPanelsToProjects
 );
 
 /**
@@ -260,7 +294,18 @@ router.get("/requests", adminController.getAllRequests);
 router.put(
   "/requests/:id/status",
   validateRequired(["status"]),
-  adminController.updateRequestStatus,
+  adminController.updateRequestStatus
+);
+
+/**
+ * Project Coordinator Access Requests
+ */
+router.get("/access-requests", adminController.getAllAccessRequests);
+
+router.put(
+  "/access-requests/:id/status",
+  validateRequired(["status"]),
+  adminController.updateAccessRequestStatus
 );
 
 /**
@@ -271,44 +316,48 @@ router.get("/broadcasts", adminController.getBroadcastMessages);
 router.post(
   "/broadcasts",
   validateRequired(["message", "expiresAt"]),
-  adminController.createBroadcastMessage,
+  adminController.createBroadcastMessage
 );
 
 router.put("/broadcasts/:id", adminController.updateBroadcastMessage);
 
 router.delete("/broadcasts/:id", adminController.deleteBroadcastMessage);
 
+import { getReportData } from "../controllers/reportController.js";
+
 /**
  * Reporting endpoints
  */
 router.get(
   "/reports/overview",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getOverviewReport,
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getOverviewReport
 );
 
 router.get(
   "/reports/projects",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getProjectsReport,
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getProjectsReport
 );
 
 router.get(
   "/reports/marks",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getMarksReport,
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getMarksReport
 );
 
 router.get(
   "/reports/faculty-workload",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getFacultyWorkloadReport,
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getFacultyWorkloadReport
 );
 
 router.get(
   "/reports/student-performance",
-  validateRequired(["academicYear", "school", "department"], "query"),
-  adminController.getStudentPerformanceReport,
+  validateRequired(["academicYear", "school", "program"], "query"),
+  adminController.getStudentPerformanceReport
 );
+
+router.get("/reports", getReportData);
 
 export default router;

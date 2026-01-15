@@ -33,21 +33,21 @@ router.post(
     "specialization",
     "type",
   ]),
-  projectController.createProject,
+  projectController.createProject
 );
 
 // Create multiple projects (bulk)
 router.post(
   "/bulk",
-  validateRequired(["school", "department", "projects", "guideFacultyEmpId"]),
-  projectController.createProjectsBulk,
+  validateRequired(["school", "program", "projects", "guideFacultyEmpId"]),
+  projectController.createProjectsBulk
 );
 
 // Update project details
 router.put(
   "/:id",
   validateRequired(["projectId"]),
-  projectController.updateProjectDetails,
+  projectController.updateProjectDetails
 );
 
 // Delete project

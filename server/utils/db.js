@@ -6,9 +6,9 @@ dotenv.config();
 
 const BROADCAST_ARRAY_FIELDS = new Set([
   "targetSchools",
-  "targetDepartments",
+  "targetPrograms",
   "targetSchoolsNormalized",
-  "targetDepartmentsNormalized",
+  "targetProgramsNormalized",
 ]);
 
 const dropInvalidBroadcastIndexes = async () => {
@@ -29,13 +29,13 @@ const dropInvalidBroadcastIndexes = async () => {
         await BroadcastMessage.collection.dropIndex(index.name);
         logger.warn(
           "broadcast_invalid_index_dropped",
-          safeMeta({ indexName: index.name, keys: index.key }),
+          safeMeta({ indexName: index.name, keys: index.key })
         );
       } catch (dropError) {
         if (dropError?.codeName !== "IndexNotFound") {
           logger.error(
             "broadcast_invalid_index_drop_failed",
-            safeMeta({ indexName: index.name, error: dropError?.message }),
+            safeMeta({ indexName: index.name, error: dropError?.message })
           );
         }
       }
@@ -46,7 +46,7 @@ const dropInvalidBroadcastIndexes = async () => {
     }
     logger.error(
       "broadcast_index_scan_failed",
-      safeMeta({ error: error?.message }),
+      safeMeta({ error: error?.message })
     );
   }
 };

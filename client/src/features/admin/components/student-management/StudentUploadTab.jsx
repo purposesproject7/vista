@@ -21,6 +21,7 @@ const StudentUploadTab = () => {
     name: '',
     emailId: '',
     phoneNumber: '',
+    guideEmpId: '',
     PAT: false
   });
   const { showToast } = useToast();
@@ -51,7 +52,9 @@ const StudentUploadTab = () => {
         PAT: student.PAT === 'true' || student.PAT === 'TRUE' || student.PAT === true || student.PAT === 1,
         schoolId: filters?.school,
         programmeId: filters?.programme,
-        yearId: filters?.year,
+        programmeId: filters?.programme,
+        yearId: filters?.academicYear,
+        academicYear: filters?.academicYear,
         semesterId: filters?.semester,
         schoolName: filters?.schoolName,
         programmeName: filters?.programmeName,
@@ -81,7 +84,7 @@ const StudentUploadTab = () => {
 
   const handleSubmitSingleStudent = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.regNo || !formData.name || !formData.emailId) {
       showToast('Please fill all required fields', 'error');
       return;
@@ -91,19 +94,22 @@ const StudentUploadTab = () => {
       setIsAddingStudent(true);
       const studentData = {
         ...formData,
+        school: filters.school,
+        program: filters.programme,
+        academicYear: filters.academicYear,
+        // Keep legacy fields if needed by other consumers, but ensure required backend fields are present
         schoolId: filters.school,
         programmeId: filters.programme,
-        yearId: filters.year,
-        semesterId: filters.semester,
-        schoolName: filters.schoolName,
-        programmeName: filters.programmeName,
-        yearName: filters.yearName,
-        semesterName: filters.semesterName
+        yearId: filters.academicYear,
+        schoolName: filters.schoolName || filters.school,
+        programmeName: filters.programmeName || filters.programme,
+        yearName: filters.yearName || filters.academicYear,
+        semesterName: filters.semesterName || "N/A"
       };
 
       await adminApi.createStudent(studentData);
       showToast('Student added successfully', 'success');
-      
+
       // Reset form
       setFormData({
         regNo: '',
@@ -129,25 +135,25 @@ const StudentUploadTab = () => {
       {filters && (
         <>
           <div className="flex flex-wrap gap-2 mb-4">
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={activeUploadMode === 'bulk' ? 'primary' : 'secondary'}
               onClick={() => setActiveUploadMode('bulk')}
             >
               <ArrowUpTrayIcon className="w-4 h-4 mr-1" />
               Bulk Upload
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant={activeUploadMode === 'single' ? 'primary' : 'secondary'}
               onClick={() => setActiveUploadMode('single')}
             >
               <UserPlusIcon className="w-4 h-4 mr-1" />
               Single Entry
             </Button>
-            <span className="text-xs text-gray-500 self-center ml-2">
+            {/* <span className="text-xs text-gray-500 self-center ml-2">
               {filters.schoolName} → {filters.programmeName} → {filters.yearName} → {filters.semesterName}
-            </span>
+            </span> */}
           </div>
 
           {/* Bulk Upload Section */}
@@ -155,7 +161,7 @@ const StudentUploadTab = () => {
             <Card>
               <div className="p-4 space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Bulk Upload Students</h3>
-                
+
                 <ExcelUpload
                   onDataParsed={handleDataParsed}
                   templateColumns={templateColumns}
@@ -191,82 +197,91 @@ const StudentUploadTab = () => {
               <div className="p-4">
                 <h3 className="text-base font-semibold text-gray-900 mb-4">Add Single Student</h3>
 
-              <form onSubmit={handleSubmitSingleStudent} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Registration Number"
-                    name="regNo"
-                    value={formData.regNo}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 21BCI0001"
-                    required
-                  />
-                  
-                  <Input
-                    label="Student Name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="e.g., John Doe"
-                    required
-                  />
-                  
-                  <Input
-                    label="Email ID"
-                    name="emailId"
-                    type="email"
-                    value={formData.emailId}
-                    onChange={handleInputChange}
-                    placeholder="e.g., student@vit.ac.in"
-                    required
-                  />
-                  
-                  <Input
-                    label="Phone Number"
-                    name="phoneNumber"
-                    type="tel"
-                    value={formData.phoneNumber}
-                    onChange={handleInputChange}
-                    placeholder="e.g., 9876543210"
-                  />
-                </div>
+                <form onSubmit={handleSubmitSingleStudent} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Registration Number"
+                      name="regNo"
+                      value={formData.regNo}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 21BCI0001"
+                      required
+                    />
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="PAT"
-                    name="PAT"
-                    checked={formData.PAT}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="PAT" className="ml-2 text-sm text-gray-700">
-                    PAT Student (Project Assistance Team)
-                  </label>
-                </div>
+                    <Input
+                      label="Student Name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="e.g., John Doe"
+                      required
+                    />
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setFormData({
-                      regNo: '',
-                      name: '',
-                      emailId: '',
-                      phoneNumber: '',
-                      PAT: false
-                    })}
-                  >
-                    Clear
-                  </Button>
-                  <Button type="submit" size="sm" disabled={isAddingStudent}>
-                    {isAddingStudent ? 'Adding...' : 'Add Student'}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </Card>
+                    <Input
+                      label="Email ID"
+                      name="emailId"
+                      type="email"
+                      value={formData.emailId}
+                      onChange={handleInputChange}
+                      placeholder="e.g., student@vit.ac.in"
+                      required
+                    />
+
+                    <Input
+                      label="Phone Number"
+                      name="phoneNumber"
+                      type="tel"
+                      value={formData.phoneNumber}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 9876543210"
+                    />
+
+                    <Input
+                      label="Guide Employee ID (Optional)"
+                      name="guideEmpId"
+                      value={formData.guideEmpId}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 10023"
+                    />
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="PAT"
+                      name="PAT"
+                      checked={formData.PAT}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="PAT" className="ml-2 text-sm text-gray-700">
+                      PAT Student (Project Assistance Team)
+                    </label>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setFormData({
+                        regNo: '',
+                        name: '',
+                        emailId: '',
+                        phoneNumber: '',
+                        guideEmpId: '',
+                        PAT: false
+                      })}
+                    >
+                      Clear
+                    </Button>
+                    <Button type="submit" size="sm" disabled={isAddingStudent}>
+                      {isAddingStudent ? 'Adding...' : 'Add Student'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </Card>
           )}
         </>
       )}

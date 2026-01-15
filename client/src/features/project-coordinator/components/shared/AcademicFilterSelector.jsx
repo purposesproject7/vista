@@ -1,112 +1,168 @@
 // src/features/project-coordinator/components/shared/AcademicFilterSelector.jsx
-import React, { useState, useEffect } from 'react';
-import Select from '../../../../shared/components/Select';
-import Card from '../../../../shared/components/Card';
-import { AcademicCapIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from "react";
+import Select from "../../../../shared/components/Select";
+import Card from "../../../../shared/components/Card";
+import { AcademicCapIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { fetchFacultyMasterData } from "../../services/coordinatorApi";
+import { useCoordinatorContext } from "../../context/CoordinatorContext";
 
-const AcademicFilterSelector = ({ onFilterComplete, className = '' }) => {
+const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   const [loading, setLoading] = useState(false);
-  const [academicYearSemesterOptions, setAcademicYearSemesterOptions] = useState([]);
-  
-  const [filters, setFilters] = useState({
-    academicYearSemester: ''
-  });
-  
-  // Get coordinator's school and department from context (would come from auth in real implementation)
-  const [coordinatorContext] = useState({
-    school: 'SCOPE', // This would come from coordinator's profile
-    programme: 'B.Tech CSE' // This would come from coordinator's profile
+  const [masterData, setMasterData] = useState({ programs: [], academicYears: [] });
+  const [academicYearOptions, setAcademicYearOptions] = useState([]);
+  const [programOptions, setProgramOptions] = useState([]);
+  const [localFilters, setLocalFilters] = useState({
+    program: "",
+    academicYear: ""
   });
 
-  // Fetch combined academic year and semester options on mount
+  const { academicContext, updateAcademicContext } = useCoordinatorContext();
+
+  // Load Master Data
   useEffect(() => {
-    // Combined options: year-semester format
-    setAcademicYearSemesterOptions([
-      { value: '25-26-fall', label: '25-26 Fall' },
-      { value: '25-26-winter', label: '25-26 Winter' },
-      { value: '24-25-fall', label: '24-25 Fall' },
-      { value: '24-25-winter', label: '24-25 Winter' },
-      { value: '23-24-fall', label: '23-24 Fall' },
-      { value: '23-24-winter', label: '23-24 Winter' }
-    ]);
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetchFacultyMasterData();
+
+        if (response.success && response.data) {
+          const { programs = [], academicYears = [] } = response.data;
+          setMasterData({ programs, academicYears });
+
+          // Format Academic Year Options
+          const yearOptions = academicYears
+            .filter(y => y.isActive)
+            .map(y => ({
+              value: y.year,
+              label: y.year
+            }))
+            .sort((a, b) => b.value.localeCompare(a.value)); // Newest first
+
+          setAcademicYearOptions(yearOptions);
+
+          // Format Program Options
+          const progOptions = programs
+            .filter(p => p.isActive)
+            .map(p => ({
+              value: p.code,
+              label: p.name,
+              school: p.school // Store school code for context derivation
+            }));
+
+          setProgramOptions(progOptions);
+
+          // Auto-select defaults derived from context or first available
+          if (academicContext.academicYearSemester) {
+            setLocalFilters(prev => ({ ...prev, academicYear: academicContext.academicYearSemester }));
+          } else if (yearOptions.length > 0) {
+            // Optional: Auto-select latest year
+            // setLocalFilters(prev => ({ ...prev, academicYear: yearOptions[0].value }));
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load master data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
-  // Notify parent when filter is selected
-  useEffect(() => {
-    if (filters.academicYearSemester) {
-      // Parse the combined value to extract year and semester
-      const [year, semester] = filters.academicYearSemester.split('-').slice(0, 2);
-      const semesterFull = filters.academicYearSemester.includes('fall') ? 'Fall' : 'Winter';
-      
-      onFilterComplete({
-        year: `${year.slice(0, 2)}-${year.slice(2)}`,
-        semester: semesterFull,
-        academicYearSemester: filters.academicYearSemester,
-        school: coordinatorContext.school,
-        programme: coordinatorContext.programme
-      });
-    }
-  }, [filters, coordinatorContext.school, coordinatorContext.programme, onFilterComplete]);
+  // Handle local filter changes
+  const handleFilterChange = (key, value) => {
+    setLocalFilters(prev => {
+      const newFilters = { ...prev, [key]: value };
+      return newFilters;
+    });
 
-  const handleChange = (value) => {
-    setFilters({ academicYearSemester: value });
+    // Update global context immediately for year (legacy support) or when both are ready?
+    // Maintaining consistency with previous behavior:
+    if (key === 'academicYear') {
+      updateAcademicContext({ academicYearSemester: value });
+    }
   };
 
-  const allSelected = !!filters.academicYearSemester;
+  // Notify parent when both Program and Year are selected
+  useEffect(() => {
+    const { program, academicYear } = localFilters;
+
+    if (program && academicYear) {
+      // Find selected program to get school code
+      const selectedProgram = masterData.programs.find(p => p.code === program);
+
+      if (selectedProgram) {
+        onFilterComplete({
+          school: selectedProgram.school, // Derived school
+          program: selectedProgram.code,
+          year: academicYear,
+          academicYearSemester: academicYear // Legacy field alias
+        });
+      }
+    }
+  }, [localFilters, masterData.programs, onFilterComplete]);
+
+  // Sync with context updates if they happen externally
+  useEffect(() => {
+    if (academicContext.academicYearSemester && academicContext.academicYearSemester !== localFilters.academicYear) {
+      setLocalFilters(prev => ({ ...prev, academicYear: academicContext.academicYearSemester }));
+    }
+  }, [academicContext.academicYearSemester]);
+
+  const allSelected = !!(localFilters.program && localFilters.academicYear);
 
   return (
     <Card className={`sticky top-4 z-30 ${className}`}>
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center gap-2 flex-1">
           <AcademicCapIcon className="w-5 h-5 text-blue-600" />
-          <h2 className="text-base font-bold text-gray-900">Select Academic Year & Semester</h2>
+          <h2 className="text-base font-bold text-gray-900">
+            Select Academic Context
+          </h2>
           <div className="flex-1 mx-3">
             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-blue-600 transition-all duration-500"
                 style={{ width: `${allSelected ? 100 : 0}%` }}
               />
             </div>
           </div>
-          <span className="text-xs font-semibold text-gray-600">{allSelected ? '1' : '0'}/1</span>
+          <span className="text-xs font-semibold text-gray-600">
+            {allSelected ? "2" : (localFilters.program || localFilters.academicYear ? "1" : "0")}/2
+          </span>
         </div>
-        
+
         {allSelected && (
           <div className="flex items-center gap-1.5 bg-green-100 px-3 py-1.5 rounded-lg border border-green-300">
             <CheckCircleIcon className="w-4 h-4 text-green-700" />
-            <span className="text-xs font-semibold text-green-700">Complete</span>
+            <span className="text-xs font-semibold text-green-700">
+              Complete
+            </span>
           </div>
         )}
       </div>
 
-      {/* Display coordinator's fixed school and programme */}
-      <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs font-semibold text-gray-700 mb-1">School</p>
-            <p className="text-sm text-gray-900 font-medium">{coordinatorContext.school}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-700 mb-1">Programme</p>
-            <p className="text-sm text-gray-900 font-medium">{coordinatorContext.programme}</p>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        {/* Program Selection */}
+        <Select
+          label="Program"
+          value={localFilters.program}
+          onChange={(val) => handleFilterChange('program', val)}
+          options={programOptions}
+          placeholder="Select Program"
+          disabled={loading}
+        />
+
+        {/* Academic Year Selection */}
+        <Select
+          label="Academic Year"
+          value={localFilters.academicYear}
+          onChange={(val) => handleFilterChange('academicYear', val)}
+          options={academicYearOptions}
+          placeholder="Select Academic Year"
+          disabled={loading}
+        />
       </div>
-
-      {/* Academic Year & Semester Selection */}
-      <Select
-        label="Academic Year & Semester"
-        value={filters.academicYearSemester}
-        onChange={handleChange}
-        options={academicYearSemesterOptions}
-        placeholder="Select Academic Year & Semester"
-      />
-
-      {loading && (
-        <div className="mt-3 text-center">
-          <span className="text-xs text-gray-500">Loading options...</span>
-        </div>
-      )}
     </Card>
   );
 };

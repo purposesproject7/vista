@@ -17,7 +17,7 @@ export const downloadFacultyTemplate = () => {
   const ws = XLSX.utils.aoa_to_sheet(template);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Faculty Template');
-  
+
   // Set column widths
   ws['!cols'] = [
     { wch: 15 }
@@ -40,7 +40,7 @@ export const downloadPanelTemplate = () => {
   const ws = XLSX.utils.aoa_to_sheet(template);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Panel Template');
-  
+
   // Set column widths
   ws['!cols'] = [
     { wch: 20 },
@@ -70,7 +70,7 @@ export const validateFacultyFile = (file) => {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel'
   ];
-  
+
   if (!validTypes.includes(file.type)) {
     errors.push('Invalid file type. Please upload an Excel file (.xlsx or .xls)');
   }
@@ -103,7 +103,7 @@ export const validatePanelFile = (file) => {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel'
   ];
-  
+
   if (!validTypes.includes(file.type)) {
     errors.push('Invalid file type. Please upload an Excel file (.xlsx or .xls)');
   }
@@ -203,7 +203,7 @@ export const parseFacultyExcel = async (file) => {
         }));
 
         // Validate data
-        const invalidRows = faculty.filter(f => 
+        const invalidRows = faculty.filter(f =>
           !f.employeeId || !f.name || !f.email || !f.department
         );
 
@@ -258,7 +258,7 @@ export const parsePanelExcel = async (file) => {
         // Transform data - extract faculty employee IDs dynamically
         const panels = jsonData.map((row, index) => {
           const facultyIds = [];
-          
+
           // Look for Faculty Employee ID columns
           for (let i = 1; i <= 10; i++) {
             const key = `Faculty Employee ID ${i}`;
@@ -270,7 +270,7 @@ export const parsePanelExcel = async (file) => {
           return {
             panelName: row['Panel Name'] || `Panel ${index + 1}`,
             facultyEmployeeIds: facultyIds,
-            specializations: row['Specializations'] 
+            specializations: row['Specializations']
               ? row['Specializations'].split(',').map(s => s.trim())
               : [],
             // panelType: row['Panel Type'] || 'regular',
@@ -317,10 +317,10 @@ export const calculatePanelStats = (panels) => {
   }
 
   const totalPanels = panels.length;
-  const totalFaculty = panels.reduce((sum, panel) => 
+  const totalFaculty = panels.reduce((sum, panel) =>
     sum + (panel.faculty?.length || 0), 0
   );
-  const totalProjects = panels.reduce((sum, panel) => 
+  const totalProjects = panels.reduce((sum, panel) =>
     sum + (panel.teams?.length || 0), 0
   );
 
@@ -337,14 +337,29 @@ export const calculatePanelStats = (panels) => {
  * Format panel display name using faculty names joined with &
  */
 export const formatPanelName = (panel) => {
-  // If panel has faculty, join their names with &
+  // Priority 1: If panel has a custom panelName, use it
+  if (panel.panelName && panel.panelName !== panel._id && panel.panelName !== panel.id) {
+    return panel.panelName;
+  }
+
+  // Priority 2: If panel has members array with populated faculty, join their names
+  if (panel.members && Array.isArray(panel.members) && panel.members.length > 0) {
+    const facultyNames = panel.members
+      .map(m => m.faculty?.name || m.name)
+      .filter(Boolean);
+
+    if (facultyNames.length > 0) {
+      return facultyNames.join(' & ');
+    }
+  }
+
+  // Priority 3: If panel has faculty array, join their names with &
   if (panel.faculty && Array.isArray(panel.faculty) && panel.faculty.length > 0) {
     return panel.faculty.map(f => f.name).join(' & ');
   }
-  
-  // Fallback to panelName or Panel number
-  if (panel.panelName) return panel.panelName;
-  return `Panel ${panel.panelNumber || panel.id}`;
+
+  // Fallback: Use Panel with ID/number
+  return `Panel ${panel.panelNumber || panel.id || 'Unknown'}`;
 };
 
 /**

@@ -39,7 +39,7 @@ const FacultyViewTab = () => {
         department: filters.department,
         academicYear: filters.academicYear
       });
-      
+
       if (response.success) {
         setAllFaculty(response.faculty || []);
       } else {
@@ -63,7 +63,7 @@ const FacultyViewTab = () => {
       if (member.employeeId?.toLowerCase().includes(query)) return true;
       if (member.email?.toLowerCase().includes(query)) return true;
       if (member.specialization?.some(s => s.toLowerCase().includes(query))) return true;
-      
+
       return false;
     });
   }, [allFaculty, searchQuery]);
@@ -71,7 +71,7 @@ const FacultyViewTab = () => {
   const handleEditFaculty = async (facultyData) => {
     try {
       const response = await updateFaculty(selectedFaculty.employeeId, facultyData);
-      
+
       if (response.success) {
         // Reload faculty list to get updated data
         await loadFaculty();
@@ -91,11 +91,11 @@ const FacultyViewTab = () => {
     const confirmDelete = window.confirm(
       `Are you sure you want to delete ${member.name}? This action cannot be undone.`
     );
-    
+
     if (confirmDelete) {
       try {
         const response = await deleteFaculty(member.employeeId);
-        
+
         if (response.success) {
           // Remove from local state
           const updatedFaculty = allFaculty.filter(f => f._id !== member._id);
@@ -119,7 +119,10 @@ const FacultyViewTab = () => {
   return (
     <div className="space-y-6">
       {/* Academic Filter Selector */}
-      <AcademicFilterSelector onFilterComplete={handleFilterComplete} />
+      <AcademicFilterSelector
+        onFilterComplete={handleFilterComplete}
+        showYear={false}
+      />
 
       {/* Faculty Content - only show when filters are complete */}
       {filters && (
@@ -149,7 +152,7 @@ const FacultyViewTab = () => {
               <LoadingSpinner />
             </div>
           ) : (
-            <FacultyList 
+            <FacultyList
               faculty={filteredFaculty}
               onEdit={openEditModal}
               onDelete={handleDeleteFaculty}

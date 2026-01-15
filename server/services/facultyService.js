@@ -15,22 +15,14 @@ export class FacultyService {
 
     if (
       !data.phoneNumber ||
-      !/^(\+91[- ]?)?[6-9]\d{9}$/.test(data.phoneNumber)
+      !/^(\+91[- ]?)?[6-9]\d{9}$/.test(data.phoneNumber.toString().trim())
     ) {
       errors.push("Invalid Indian phone number format.");
     }
 
     if (data.password) {
-      if (
-        data.password.length < 8 ||
-        !/[A-Z]/.test(data.password) ||
-        !/[a-z]/.test(data.password) ||
-        !/[0-9]/.test(data.password) ||
-        !/[^A-Za-z0-9]/.test(data.password)
-      ) {
-        errors.push(
-          "Password must be at least 8 characters with uppercase, lowercase, number, and special character.",
-        );
+      if (data.password.length < 6) {
+        errors.push("Password must be at least 6 characters.");
       }
     }
 
@@ -55,13 +47,13 @@ export class FacultyService {
     emailId,
     employeeId,
     phoneNumber,
-    excludeId = null,
+    excludeId = null
   ) {
     const query = {
       $or: [
         { emailId: emailId?.trim().toLowerCase() },
         { employeeId: employeeId?.trim().toUpperCase() },
-        { phoneNumber: phoneNumber?.trim() },
+        { phoneNumber: phoneNumber?.toString().trim() },
       ],
     };
 
@@ -86,11 +78,11 @@ export class FacultyService {
     const existing = await this.checkDuplicate(
       data.emailId,
       data.employeeId,
-      data.phoneNumber,
+      data.phoneNumber
     );
     if (existing) {
       throw new Error(
-        "Faculty with this email, employee ID, or phone number already exists.",
+        "Faculty with this email, employee ID, or phone number already exists."
       );
     }
 
@@ -105,10 +97,10 @@ export class FacultyService {
       emailId: data.emailId.trim().toLowerCase(),
       password: hashedPassword,
       employeeId: data.employeeId.trim().toUpperCase(),
-      phoneNumber: data.phoneNumber.trim(),
+      phoneNumber: data.phoneNumber?.toString().trim(),
       role: data.role || "faculty",
       school: data.school.trim(),
-      department: data.department ? data.department.trim() : undefined,
+      program: data.program ? data.program.trim() : undefined,
       specialization: data.specialization ? data.specialization.trim() : "",
     });
 
@@ -136,8 +128,8 @@ export class FacultyService {
       query.school = { $in: [filters.school] };
     }
 
-    if (filters.department && filters.department !== "all") {
-      query.department = { $in: [filters.department] };
+    if (filters.program && filters.program !== "all") {
+      query.program = { $in: [filters.program] };
     }
 
     if (filters.specialization && filters.specialization !== "all") {
@@ -151,7 +143,7 @@ export class FacultyService {
     if (filters.academicYear) {
       // This might be used to filter by academic year context
       query.school = { $in: [filters.school] };
-      query.department = { $in: [filters.department] };
+      query.program = { $in: [filters.program] };
     }
 
     const sort = sortOptions.sortBy
@@ -180,7 +172,7 @@ export class FacultyService {
 
     if (
       updates.phoneNumber &&
-      !/^(\+91[- ]?)?[6-9]\d{9}$/.test(updates.phoneNumber)
+      !/^(\+91[- ]?)?[6-9]\d{9}$/.test(updates.phoneNumber.toString().trim())
     ) {
       throw new Error("Invalid phone number format.");
     }
@@ -203,7 +195,7 @@ export class FacultyService {
       });
       if (phoneExists) {
         throw new Error(
-          "Another faculty with this phone number already exists.",
+          "Another faculty with this phone number already exists."
         );
       }
     }
@@ -220,7 +212,7 @@ export class FacultyService {
     if (updates.phoneNumber) faculty.phoneNumber = updates.phoneNumber;
     if (updates.role) faculty.role = updates.role;
     if (updates.school) faculty.school = updates.school;
-    if (updates.department) faculty.department = updates.department;
+    if (updates.program) faculty.program = updates.program;
     if (updates.specialization) faculty.specialization = updates.specialization;
     if (updates.imageUrl !== undefined) faculty.imageUrl = updates.imageUrl;
 
@@ -258,24 +250,5 @@ export class FacultyService {
     }
 
     return faculty;
-  }
-
-  /**
-   * Get faculty details in bulk
-   */
-  static async getFacultyDetailsBulk(employeeIds) {
-    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
-      return [];
-    }
-
-    const uniqueIds = [...new Set(employeeIds.map((id) => id.trim().toUpperCase()))];
-
-    const faculties = await Faculty.find({
-      employeeId: { $in: uniqueIds },
-    })
-      .select("name emailId employeeId school department specialization")
-      .lean();
-
-    return faculties;
   }
 }

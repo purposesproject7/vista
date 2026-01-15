@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react";
 import renderEmp from "./renderEmpId_Panel";
 import {
   SparklesIcon,
@@ -10,22 +10,43 @@ import {
   DocumentArrowDownIcon,
   ArrowUpTrayIcon,
   InformationCircleIcon,
-  XMarkIcon
-} from '@heroicons/react/24/outline';
-import AcademicFilterSelector from '../shared/AcademicFilterSelector';
-import Card from '../../../../shared/components/Card';
-import Button from '../../../../shared/components/Button';
-import Input from '../../../../shared/components/Input';
-import Select from '../../../../shared/components/Select';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { useAuth } from '../../../../shared/hooks/useAuth';
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+import AcademicFilterSelector from "../shared/AcademicFilterSelector";
+import Card from "../../../../shared/components/Card";
+import Button from "../../../../shared/components/Button";
+import Input from "../../../../shared/components/Input";
+import Select from "../../../../shared/components/Select";
+import { useToast } from "../../../../shared/hooks/useToast";
+import { useAuth } from "../../../../shared/hooks/useAuth";
 import {
   downloadPanelTemplate,
   downloadFacultyTemplate,
   validatePanelFile,
   parseFacultyListExcel,
-  parsePanelExcel
-} from '../../utils/panelUtils';
+  parsePanelExcel,
+} from "../../utils/panelUtils";
+import {
+  createPanel,
+  autoCreatePanels,
+  bulkCreatePanels,
+  fetchFacultyDetailsBulk,
+} from "../../services/coordinatorApi";
+
+const SPECIALIZATION_OPTIONS = [
+  { value: "Artificial Intelligence", label: "Artificial Intelligence (AI)" },
+  { value: "Machine Learning", label: "Machine Learning (ML)" },
+  { value: "Data Science", label: "Data Science" },
+  { value: "Cyber Security", label: "Cyber Security" },
+  { value: "Cloud Computing", label: "Cloud Computing" },
+  { value: "Internet of Things", label: "Internet of Things (IoT)" },
+  { value: "Blockchain", label: "Blockchain" },
+  { value: "Software Engineering", label: "Software Engineering" },
+  { value: "Web Technology", label: "Web Technology" },
+  { value: "Image Processing", label: "Image Processing" },
+  { value: "Computer Networks", label: "Computer Networks" },
+  { value: "General", label: "General" },
+];
 
 const PanelCreation = () => {
   const [filters, setFilters] = useState(null);
@@ -42,16 +63,17 @@ const PanelCreation = () => {
 
   // Manual mode state
   const [manualForm, setManualForm] = useState({
-    panelName: '',
-    selectedFaculties: []
+    panelName: "",
+    selectedFaculties: [],
+    specializations: "",
   });
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
   // Auto mode state
   const [autoForm, setAutoForm] = useState({
     panelSize: 3,
-    specializations: '',
-    panelType: 'regular'
+    specializations: "",
+    panelType: "regular",
   });
   const [isCreatingAuto, setIsCreatingAuto] = useState(false);
 
@@ -69,13 +91,13 @@ const PanelCreation = () => {
     setFacultyListError(null);
     setFacultyList([]);
     setManualForm({
-      panelName: '',
-      selectedFaculties: []
+      panelName: "",
+      selectedFaculties: [],
     });
     setAutoForm({
       panelSize: 3,
-      specializations: '',
-      panelType: 'regular'
+      specializations: "",
+      panelType: "regular",
     });
     setSelectedFile(null);
     setFileError(null);
@@ -93,7 +115,7 @@ const PanelCreation = () => {
 
     const validation = validatePanelFile(file);
     if (!validation.isValid) {
-      setFacultyListError(validation.errors.join(', '));
+      setFacultyListError(validation.errors.join(", "));
       setFacultyListFile(null);
       return;
     }
@@ -103,7 +125,7 @@ const PanelCreation = () => {
 
   const handleFacultyListUpload = useCallback(async () => {
     if (!facultyListFile) {
-      showToast('Please select a file with faculty employee IDs', 'error');
+      showToast("Please select a file with faculty employee IDs", "error");
       return;
     }
 
@@ -112,46 +134,41 @@ const PanelCreation = () => {
       const empIds = await parseFacultyListExcel(facultyListFile);
 
       if (empIds.length === 0) {
-        setFacultyListError('No valid faculty employee IDs found in file');
+        setFacultyListError("No valid faculty employee IDs found in file");
         return;
       }
 
       // Fetch faculty details
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('http://localhost:3000/api/project-coordinator/faculty/details-bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ employeeIds: empIds })
-      });
+      const response = await fetchFacultyDetailsBulk(empIds);
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch faculty details');
+      if (!response.success) {
+        throw new Error("Failed to fetch faculty details");
       }
 
-      const result = await response.json();
-      const foundFaculties = result.data;
+      const foundFaculties = response.data;
 
       // Identify missing faculties
-      const foundIds = foundFaculties.map(f => f.employeeId);
-      const missingIds = empIds.filter(id => !foundIds.includes(id));
+      const foundIds = foundFaculties.map((f) => f.employeeId);
+      const missingIds = empIds.filter((id) => !foundIds.includes(id));
 
       if (missingIds.length > 0) {
-        showToast(`Warning: ${missingIds.length} faculty IDs not found: ${missingIds.join(', ')}`, 'warning');
+        showToast(
+          `Warning: ${missingIds.length
+          } faculty IDs not found: ${missingIds.join(", ")}`,
+          "warning"
+        );
       }
 
       setFacultyList(foundFaculties); // Store full objects now
       setFacultyListFile(null);
-      if (document.getElementById('faculty-list-input')) {
-        document.getElementById('faculty-list-input').value = '';
+      if (document.getElementById("faculty-list-input")) {
+        document.getElementById("faculty-list-input").value = "";
       }
-      showToast(`Loaded ${foundFaculties.length} faculty members`, 'success');
+      showToast(`Loaded ${foundFaculties.length} faculty members`, "success");
     } catch (error) {
-      console.error('Error loading faculty list:', error);
-      setFacultyListError(error.message || 'Failed to load faculty list');
-      showToast('Failed to load faculty list', 'error');
+      console.error("Error loading faculty list:", error);
+      setFacultyListError(error.message || "Failed to load faculty list");
+      showToast("Failed to load faculty list", "error");
     } finally {
       setLoadingFacultyList(false);
     }
@@ -160,25 +177,25 @@ const PanelCreation = () => {
   // ==================== MANUAL MODE ====================
   const handleAddFacultyToSelection = (empId) => {
     if (manualForm.selectedFaculties.includes(empId)) {
-      showToast('Faculty already selected', 'info');
+      showToast("Faculty already selected", "info");
       return;
     }
-    setManualForm(prev => ({
+    setManualForm((prev) => ({
       ...prev,
-      selectedFaculties: [...prev.selectedFaculties, empId]
+      selectedFaculties: [...prev.selectedFaculties, empId],
     }));
   };
 
   const handleRemoveFacultyFromSelection = (empId) => {
-    setManualForm(prev => ({
+    setManualForm((prev) => ({
       ...prev,
-      selectedFaculties: prev.selectedFaculties.filter(id => id !== empId)
+      selectedFaculties: prev.selectedFaculties.filter((id) => id !== empId),
     }));
   };
 
   const handleCreateManualPanel = async () => {
     if (manualForm.selectedFaculties.length === 0) {
-      showToast('Please select at least one faculty member', 'error');
+      showToast("Please select at least one faculty member", "error");
       return;
     }
 
@@ -192,34 +209,28 @@ const PanelCreation = () => {
         department: filters.programme,
         academicYear: filters.year,
         semester: filters.semester,
-        panelType: 'regular'
+        panelType: "regular",
+        specializations: manualForm.specializations ? [manualForm.specializations] : [],
       };
 
-      const response = await fetch('/api/admin/panels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await createPanel(payload);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create panel');
+      if (!response.success) {
+        throw new Error(response.message || "Failed to create panel");
       }
 
-      const result = await response.json();
-      setCreatedPanels(prev => [...prev, result.data]);
+      setCreatedPanels((prev) => [...prev, response.data]);
 
       setManualForm({
-        panelName: '',
-        selectedFaculties: []
+        panelName: "",
+        selectedFaculties: [],
+        specializations: "",
       });
 
-      showToast('Panel created successfully', 'success');
+      showToast("Panel created successfully", "success");
     } catch (error) {
-      console.error('Error creating panel:', error);
-      showToast(error.message || 'Failed to create panel', 'error');
+      console.error("Error creating panel:", error);
+      showToast(error.message || "Failed to create panel", "error");
     } finally {
       setIsSubmittingManual(false);
     }
@@ -228,7 +239,7 @@ const PanelCreation = () => {
   // ==================== AUTO MODE ====================
   const handleCreateAutoPanels = async () => {
     if (facultyList.length === 0) {
-      showToast('Please upload faculty list first', 'error');
+      showToast("Please upload faculty list first", "error");
       return;
     }
 
@@ -240,40 +251,34 @@ const PanelCreation = () => {
         school: filters.school,
         academicYear: filters.year,
         panelSize: autoForm.panelSize,
-        panelSize: autoForm.panelSize,
-        facultyList: facultyList.map(f => f.employeeId)
+        facultyList: facultyList.map((f) => f.employeeId),
+        specializations: autoForm.specializations
+          ? autoForm.specializations.split(",").map((s) => s.trim())
+          : [],
+        type: autoForm.panelType,
       };
 
-      const response = await fetch('/api/admin/panels/auto-create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await autoCreatePanels(payload);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create panels');
+      if (!response.success) {
+        throw new Error(response.message || "Failed to create panels");
       }
 
-      const result = await response.json();
-
       // Add created panels to list
-      if (result.data && Array.isArray(result.data.panels)) {
-        setCreatedPanels(prev => [...prev, ...result.data.panels]);
+      if (response.data && Array.isArray(response.data.panels)) {
+        setCreatedPanels((prev) => [...prev, ...response.data.panels]);
       }
 
       setAutoForm({
         panelSize: 3,
-        specializations: '',
-        panelType: 'regular'
+        specializations: "",
+        panelType: "regular",
       });
 
-      showToast(result.message || 'Panels created successfully', 'success');
+      showToast(response.message || "Panels created successfully", "success");
     } catch (error) {
-      console.error('Error creating panels:', error);
-      showToast(error.message || 'Failed to create panels', 'error');
+      console.error("Error creating panels:", error);
+      showToast(error.message || "Failed to create panels", "error");
     } finally {
       setIsCreatingAuto(false);
     }
@@ -283,20 +288,20 @@ const PanelCreation = () => {
   const handleDownloadPanelTemplate = useCallback(() => {
     try {
       downloadPanelTemplate();
-      showToast('Panel template downloaded successfully', 'success');
+      showToast("Panel template downloaded successfully", "success");
     } catch (error) {
-      console.error('Error downloading template:', error);
-      showToast('Failed to download panel template', 'error');
+      console.error("Error downloading template:", error);
+      showToast("Failed to download panel template", "error");
     }
   }, [showToast]);
 
   const handleDownloadFacultyTemplate = useCallback(() => {
     try {
       downloadFacultyTemplate();
-      showToast('Faculty template downloaded successfully', 'success');
+      showToast("Faculty template downloaded successfully", "success");
     } catch (error) {
-      console.error('Error downloading faculty template:', error);
-      showToast('Failed to download faculty template', 'error');
+      console.error("Error downloading faculty template:", error);
+      showToast("Failed to download faculty template", "error");
     }
   }, [showToast]);
 
@@ -311,7 +316,7 @@ const PanelCreation = () => {
 
     const validation = validatePanelFile(file);
     if (!validation.isValid) {
-      setFileError(validation.errors.join(', '));
+      setFileError(validation.errors.join(", "));
       setSelectedFile(null);
       return;
     }
@@ -321,7 +326,7 @@ const PanelCreation = () => {
 
   const handleUpload = useCallback(async () => {
     if (!selectedFile || !filters) {
-      showToast('Please select a file and complete academic filters', 'error');
+      showToast("Please select a file and complete academic filters", "error");
       return;
     }
 
@@ -332,38 +337,53 @@ const PanelCreation = () => {
       const panelData = await parsePanelExcel(selectedFile);
       setUploadProgress(40);
 
-      const enrichedData = panelData.map(panel => ({
+      const enrichedData = panelData.map((panel) => ({
         ...panel,
         school: filters.school,
         department: filters.programme,
         academicYear: filters.year,
-        semester: filters.semester
+        semester: filters.semester,
       }));
 
+      // Call API to save panels
+      const response = await bulkCreatePanels(enrichedData);
+
+      if (!response.success) {
+        throw new Error(response.message || "Failed to upload panels");
+      }
+
       setUploadProgress(100);
-      setCreatedPanels(prev => [...prev, ...enrichedData]);
+
+      // If server returns created panels, use those, otherwise use enrichedData
+      const savedPanels = response.data?.panels || enrichedData;
+      setCreatedPanels((prev) => [...prev, ...savedPanels]);
+
       showToast(
-        `Successfully uploaded ${enrichedData.length} panels`,
-        'success'
+        response.message ||
+        `Successfully uploaded ${savedPanels.length} panels`,
+        "success"
       );
 
       setSelectedFile(null);
-      if (document.getElementById('panel-file-input')) {
-        document.getElementById('panel-file-input').value = '';
+      if (document.getElementById("panel-file-input")) {
+        document.getElementById("panel-file-input").value = "";
       }
     } catch (error) {
-      console.error('Error uploading panels:', error);
-      showToast(error.message || 'Failed to upload panels', 'error');
+      console.error("Error uploading panels:", error);
+      showToast(error.message || "Failed to upload panels", "error");
     } finally {
       setUploading(false);
       setTimeout(() => setUploadProgress(0), 1000);
     }
   }, [selectedFile, filters, showToast]);
 
-  const handleRemovePanel = useCallback((id) => {
-    setCreatedPanels(prev => prev.filter(p => p.id !== id));
-    showToast('Panel removed', 'info');
-  }, [showToast]);
+  const handleRemovePanel = useCallback(
+    (id) => {
+      setCreatedPanels((prev) => prev.filter((p) => p.id !== id));
+      showToast("Panel removed", "info");
+    },
+    [showToast]
+  );
 
   return (
     <div className="space-y-6">
@@ -375,46 +395,60 @@ const PanelCreation = () => {
           {/* Manual Creation */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-300"
-            onClick={() => setActiveMode('manual')}
+            onClick={() => setActiveMode("manual")}
           >
             <div className="text-center py-8">
               <DocumentPlusIcon className="w-12 h-12 text-blue-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Create Manually</h3>
-              <p className="text-sm text-gray-600 mt-2">Select faculties from uploaded list to create panel</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Create Manually
+              </h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Select faculties from uploaded list to create panel
+              </p>
             </div>
           </Card>
 
           {/* Auto Creation */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-green-300"
-            onClick={() => setActiveMode('auto')}
+            onClick={() => setActiveMode("auto")}
           >
             <div className="text-center py-8">
               <SparklesIcon className="w-12 h-12 text-green-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Auto Create</h3>
-              <p className="text-sm text-gray-600 mt-2">Auto-distribute faculties to panels</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Auto Create
+              </h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Auto-distribute faculties to panels
+              </p>
             </div>
           </Card>
 
           {/* Bulk Upload */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-purple-300"
-            onClick={() => setActiveMode('upload')}
+            onClick={() => setActiveMode("upload")}
           >
             <div className="text-center py-8">
               <CloudArrowUpIcon className="w-12 h-12 text-purple-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Bulk Upload</h3>
-              <p className="text-sm text-gray-600 mt-2">Upload complete panel data from Excel</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Bulk Upload
+              </h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Upload complete panel data from Excel
+              </p>
             </div>
           </Card>
         </div>
       )}
 
       {/* MANUAL MODE */}
-      {filters && activeMode === 'manual' && (
+      {filters && activeMode === "manual" && (
         <Card>
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Create Panel Manually</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Create Panel Manually
+            </h3>
             <Button variant="secondary" onClick={() => setActiveMode(null)}>
               Back
             </Button>
@@ -426,9 +460,12 @@ const PanelCreation = () => {
                 <div className="flex items-start gap-3">
                   <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                   <div>
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Upload Faculty List</h4>
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">
+                      Upload Faculty List
+                    </h4>
                     <p className="text-sm text-blue-700 mb-4">
-                      Upload an Excel file with a single column containing faculty employee IDs (employeeId)
+                      Upload an Excel file with a single column containing
+                      faculty employee IDs (employeeId)
                     </p>
                     <Button
                       size="sm"
@@ -461,7 +498,11 @@ const PanelCreation = () => {
                     hover:file:bg-blue-100
                     disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                {facultyListError && <p className="mt-2 text-sm text-red-600">{facultyListError}</p>}
+                {facultyListError && (
+                  <p className="mt-2 text-sm text-red-600">
+                    {facultyListError}
+                  </p>
+                )}
                 {facultyListFile && !facultyListError && (
                   <p className="mt-2 text-sm text-green-600 flex items-center">
                     <CheckCircleIcon className="w-4 h-4 mr-1" />
@@ -476,15 +517,19 @@ const PanelCreation = () => {
                 className="w-full"
               >
                 <CloudArrowUpIcon className="w-5 h-5 mr-2" />
-                {loadingFacultyList ? 'Loading...' : 'Load Faculty List'}
+                {loadingFacultyList ? "Loading..." : "Load Faculty List"}
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-green-50 border border-green-300 rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-green-900">Faculty list loaded</p>
-                  <p className="text-xs text-green-700">{facultyList.length} faculty members available</p>
+                  <p className="text-sm font-medium text-green-900">
+                    Faculty list loaded
+                  </p>
+                  <p className="text-xs text-green-700">
+                    {facultyList.length} faculty members available
+                  </p>
                 </div>
                 <Button
                   size="sm"
@@ -504,7 +549,23 @@ const PanelCreation = () => {
                 placeholder="Enter panel name"
                 value={manualForm.panelName}
                 onChange={(e) =>
-                  setManualForm(prev => ({ ...prev, panelName: e.target.value }))
+                  setManualForm((prev) => ({
+                    ...prev,
+                    panelName: e.target.value,
+                  }))
+                }
+              />
+
+              <Select
+                label="Specialization"
+                placeholder="Select Specialization"
+                options={SPECIALIZATION_OPTIONS}
+                value={manualForm.specializations}
+                onChange={(value) =>
+                  setManualForm((prev) => ({
+                    ...prev,
+                    specializations: value,
+                  }))
                 }
               />
 
@@ -513,20 +574,36 @@ const PanelCreation = () => {
                   Available Faculty Members
                 </label>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-gray-300 rounded-lg bg-gray-50">
-                  {facultyList.map(faculty => (
+                  {facultyList.map((faculty) => (
                     <button
                       key={faculty.employeeId}
-                      onClick={() => handleAddFacultyToSelection(faculty.employeeId)}
+                      onClick={() =>
+                        handleAddFacultyToSelection(faculty.employeeId)
+                      }
                       className="p-2 text-left text-sm rounded-lg border border-gray-300 bg-white hover:bg-purple-50 hover:border-purple-300 transition"
                     >
-                      <div className="font-medium text-purple-900">{faculty.name}</div>
-                      <div className="text-xs text-gray-500 font-mono mb-1">{faculty.employeeId}</div>
+                      <div className="font-medium text-purple-900">
+                        {faculty.name}
+                      </div>
+                      <div className="text-xs text-gray-500 font-mono mb-1">
+                        {faculty.employeeId}
+                      </div>
 
                       <div className="text-xs text-gray-600 border-t border-purple-100 pt-1 mt-1">
-                        <div className="truncate" title={faculty.school}>{faculty.school}</div>
-                        <div className="truncate text-gray-500" title={faculty.department}>{faculty.department}</div>
+                        <div className="truncate" title={faculty.school}>
+                          {faculty.school}
+                        </div>
+                        <div
+                          className="truncate text-gray-500"
+                          title={faculty.department}
+                        >
+                          {faculty.department}
+                        </div>
                         {faculty.specialization && (
-                          <div className="truncate text-purple-600 mt-0.5" title={faculty.specialization}>
+                          <div
+                            className="truncate text-purple-600 mt-0.5"
+                            title={faculty.specialization}
+                          >
                             {faculty.specialization}
                           </div>
                         )}
@@ -543,11 +620,18 @@ const PanelCreation = () => {
                     Selected Members ({manualForm.selectedFaculties.length})
                   </label>
                   <div className="space-y-2">
-                    {manualForm.selectedFaculties.map(empId => (
-                      <div key={empId} className="flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                        <span className="font-medium text-gray-900">{empId}</span>
+                    {manualForm.selectedFaculties.map((empId) => (
+                      <div
+                        key={empId}
+                        className="flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg"
+                      >
+                        <span className="font-medium text-gray-900">
+                          {empId}
+                        </span>
                         <button
-                          onClick={() => handleRemoveFacultyFromSelection(empId)}
+                          onClick={() =>
+                            handleRemoveFacultyFromSelection(empId)
+                          }
                           className="text-red-600 hover:text-red-800"
                         >
                           <TrashIcon className="w-5 h-5" />
@@ -560,11 +644,14 @@ const PanelCreation = () => {
 
               <Button
                 onClick={handleCreateManualPanel}
-                disabled={manualForm.selectedFaculties.length === 0 || isSubmittingManual}
+                disabled={
+                  manualForm.selectedFaculties.length === 0 ||
+                  isSubmittingManual
+                }
                 className="w-full"
               >
                 <CheckCircleIcon className="w-5 h-5 mr-2" />
-                {isSubmittingManual ? 'Creating...' : 'Create Panel'}
+                {isSubmittingManual ? "Creating..." : "Create Panel"}
               </Button>
             </div>
           )}
@@ -572,10 +659,12 @@ const PanelCreation = () => {
       )}
 
       {/* AUTO MODE */}
-      {filters && activeMode === 'auto' && (
+      {filters && activeMode === "auto" && (
         <Card>
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Auto Create Panels</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Auto Create Panels
+            </h3>
             <Button variant="secondary" onClick={() => setActiveMode(null)}>
               Back
             </Button>
@@ -587,9 +676,13 @@ const PanelCreation = () => {
                 <div className="flex items-start gap-3">
                   <InformationCircleIcon className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
                   <div>
-                    <h4 className="text-sm font-medium text-green-900 mb-2">Upload Faculty List</h4>
+                    <h4 className="text-sm font-medium text-green-900 mb-2">
+                      Upload Faculty List
+                    </h4>
                     <p className="text-sm text-green-700 mb-4">
-                      Upload an Excel file with a single column of faculty employee IDs (employeeId). The system will auto-distribute them to panels based on panel size.
+                      Upload an Excel file with a single column of faculty
+                      employee IDs (employeeId). The system will auto-distribute
+                      them to panels based on panel size.
                     </p>
                     <Button
                       size="sm"
@@ -622,7 +715,11 @@ const PanelCreation = () => {
                     hover:file:bg-green-100
                     disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                {facultyListError && <p className="mt-2 text-sm text-red-600">{facultyListError}</p>}
+                {facultyListError && (
+                  <p className="mt-2 text-sm text-red-600">
+                    {facultyListError}
+                  </p>
+                )}
                 {facultyListFile && !facultyListError && (
                   <p className="mt-2 text-sm text-green-600 flex items-center">
                     <CheckCircleIcon className="w-4 h-4 mr-1" />
@@ -637,15 +734,19 @@ const PanelCreation = () => {
                 className="w-full"
               >
                 <CloudArrowUpIcon className="w-5 h-5 mr-2" />
-                {loadingFacultyList ? 'Loading...' : 'Load Faculty List'}
+                {loadingFacultyList ? "Loading..." : "Load Faculty List"}
               </Button>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-green-50 border border-green-300 rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-green-900">Faculty list loaded</p>
-                  <p className="text-xs text-green-700">{facultyList.length} faculty members will be distributed</p>
+                  <p className="text-sm font-medium text-green-900">
+                    Faculty list loaded
+                  </p>
+                  <p className="text-xs text-green-700">
+                    {facultyList.length} faculty members will be distributed
+                  </p>
                 </div>
                 <Button
                   size="sm"
@@ -668,13 +769,13 @@ const PanelCreation = () => {
                 value={autoForm.panelSize}
                 onChange={(e) => {
                   const val = e.target.value;
-                  if (val === '') {
-                    setAutoForm(prev => ({ ...prev, panelSize: '' }));
+                  if (val === "") {
+                    setAutoForm((prev) => ({ ...prev, panelSize: "" }));
                     return;
                   }
                   const num = parseInt(val, 10);
                   if (!isNaN(num) && num >= 1 && num <= 10) {
-                    setAutoForm(prev => ({ ...prev, panelSize: num }));
+                    setAutoForm((prev) => ({ ...prev, panelSize: num }));
                   }
                 }}
                 name="panelSize"
@@ -685,7 +786,10 @@ const PanelCreation = () => {
                 placeholder="e.g., AI/ML, Web Dev, Cloud"
                 value={autoForm.specializations}
                 onChange={(e) =>
-                  setAutoForm(prev => ({ ...prev, specializations: e.target.value }))
+                  setAutoForm((prev) => ({
+                    ...prev,
+                    specializations: e.target.value,
+                  }))
                 }
               />
 
@@ -693,17 +797,19 @@ const PanelCreation = () => {
                 label="Panel Type"
                 value={autoForm.panelType}
                 onChange={(value) =>
-                  setAutoForm(prev => ({ ...prev, panelType: value }))
+                  setAutoForm((prev) => ({ ...prev, panelType: value }))
                 }
                 options={[
-                  { value: 'regular', label: 'Regular' },
-                  { value: 'temporary', label: 'Temporary' }
+                  { value: "regular", label: "Regular" },
+                  { value: "temporary", label: "Temporary" },
                 ]}
               />
 
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-900">
-                  <span className="font-medium">Preview:</span> {facultyList.length} faculties will create {Math.ceil(facultyList.length / autoForm.panelSize)} panels
+                  <span className="font-medium">Preview:</span>{" "}
+                  {facultyList.length} faculties will create{" "}
+                  {Math.ceil(facultyList.length / autoForm.panelSize)} panels
                 </p>
               </div>
 
@@ -713,7 +819,7 @@ const PanelCreation = () => {
                 className="w-full"
               >
                 <SparklesIcon className="w-5 h-5 mr-2" />
-                {isCreatingAuto ? 'Creating...' : 'Create Panels'}
+                {isCreatingAuto ? "Creating..." : "Create Panels"}
               </Button>
             </div>
           )}
@@ -721,16 +827,21 @@ const PanelCreation = () => {
       )}
 
       {/* BULK UPLOAD MODE */}
-      {filters && activeMode === 'upload' && (
+      {filters && activeMode === "upload" && (
         <>
           <Card className="bg-purple-50 border-purple-200">
             <div className="flex items-start space-x-3">
               <DocumentArrowDownIcon className="w-5 h-5 text-purple-600 mt-0.5 shrink-0" />
               <div>
-                <h3 className="text-sm font-medium text-purple-900 mb-2">Bulk Upload Instructions</h3>
+                <h3 className="text-sm font-medium text-purple-900 mb-2">
+                  Bulk Upload Instructions
+                </h3>
                 <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside">
                   <li>Download the template Excel file below</li>
-                  <li>Fill in faculty employee IDs for each panel (comma-separated in one column)</li>
+                  <li>
+                    Fill in faculty employee IDs for each panel (comma-separated
+                    in one column)
+                  </li>
                   <li>School and Department will be auto-filled</li>
                   <li>Upload the completed file</li>
                   <li>Maximum file size: 5MB</li>
@@ -742,7 +853,9 @@ const PanelCreation = () => {
           <Card>
             <div className="space-y-6">
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Step 1: Download Template</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Step 1: Download Template
+                </h3>
                 <Button
                   onClick={handleDownloadPanelTemplate}
                   variant="secondary"
@@ -756,7 +869,9 @@ const PanelCreation = () => {
               <div className="border-t border-gray-200"></div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-3">Step 2: Upload Completed File</h3>
+                <h3 className="text-sm font-medium text-gray-900 mb-3">
+                  Step 2: Upload Completed File
+                </h3>
 
                 <div className="space-y-4">
                   <div>
@@ -780,11 +895,14 @@ const PanelCreation = () => {
                         hover:file:bg-purple-100
                         disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    {fileError && <p className="mt-2 text-sm text-red-600">{fileError}</p>}
+                    {fileError && (
+                      <p className="mt-2 text-sm text-red-600">{fileError}</p>
+                    )}
                     {selectedFile && !fileError && (
                       <p className="mt-2 text-sm text-green-600 flex items-center">
                         <CheckCircleIcon className="w-4 h-4 mr-1" />
-                        {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+                        {selectedFile.name} (
+                        {(selectedFile.size / 1024).toFixed(2)} KB)
                       </p>
                     )}
                   </div>
@@ -797,7 +915,9 @@ const PanelCreation = () => {
                           style={{ width: `${uploadProgress}%` }}
                         ></div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1 text-center">{uploadProgress}%</p>
+                      <p className="text-sm text-gray-600 mt-1 text-center">
+                        {uploadProgress}%
+                      </p>
                     </div>
                   )}
 
@@ -807,7 +927,7 @@ const PanelCreation = () => {
                     className="w-full sm:w-auto"
                   >
                     <CloudArrowUpIcon className="w-5 h-5 mr-2" />
-                    {uploading ? 'Uploading...' : 'Upload Panel Data'}
+                    {uploading ? "Uploading..." : "Upload Panel Data"}
                   </Button>
 
                   <Button
@@ -829,7 +949,9 @@ const PanelCreation = () => {
         <Card>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Created Panels</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Created Panels
+              </h3>
               <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
                 {createdPanels.length} Panels
               </span>
@@ -855,19 +977,26 @@ const PanelCreation = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {createdPanels.map((panel) => (
-                    <tr key={panel._id || panel.id} className="hover:bg-gray-50">
+                    <tr
+                      key={panel._id || panel.id}
+                      className="hover:bg-gray-50"
+                    >
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">
                         {panel.panelName || `Panel ${panel._id}`}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {renderEmp(panel.memberEmployeeIds || panel.facultyEmployeeIds)}
+                        {renderEmp(
+                          panel.memberEmployeeIds || panel.facultyEmployeeIds
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">
-                        {panel.panelType || 'regular'}
+                        {panel.panelType || "regular"}
                       </td>
                       <td className="px-4 py-3 text-right text-sm">
                         <button
-                          onClick={() => handleRemovePanel(panel._id || panel.id)}
+                          onClick={() =>
+                            handleRemovePanel(panel._id || panel.id)
+                          }
                           className="text-red-600 hover:text-red-800 font-medium"
                         >
                           Remove

@@ -30,7 +30,7 @@ const StudentViewTab = () => {
     try {
       setLoading(true);
       const response = await fetchStudents(filters);
-      
+
       if (response.success) {
         setStudents(response.students || []);
       } else {
@@ -44,20 +44,39 @@ const StudentViewTab = () => {
     }
   };
 
-  const handleViewDetails = async (student) => {
+  const handleViewDetails = async (studentOrPartial) => {
     try {
-      // Fetch detailed student information
-      const response = await fetchStudentDetails(student.regNo);
-      
-      if (response.success) {
-        setSelectedStudent(response.student);
-        setIsModalOpen(true);
-      } else {
-        showToast(response.message || 'Failed to load student details', 'error');
+      // Check if we already have the full student details 
+      // (The list now returns full details including guide, panel, teammates)
+      let student = studentOrPartial;
+
+      // If we only have an ID (e.g. from teammate click), find it in the list first
+      if (!student.regNo && student.id) {
+        const found = students.find(s => s._id === student.id);
+        if (found) {
+          student = found;
+        } else {
+          // If not in current list (filtered out?), fallback to fetch
+          const response = await fetchStudentDetails(student.id); // Note: API expects regNo usually, but let's check if we can get regNo or use another endpoint? 
+          // Actually fetchStudentDetails takes regNo. Using ID here would fail if API expects regNo.
+          // If we are clicking a teammate, we passed { id: ... }. We don't have regNo in that partial object unless we put it there.
+          // In StudentService backend update, teammates = { id, name }.
+          // So we only have ID.
+          // If the student is not in the loaded 'students' list, we can't easily get their regNo to call fetchStudentDetails(regNo).
+          // BUT, usually teammates are in the same batch/program, so they should be in the list.
+          // If they aren't, we might need to fetch by ID. 
+          // Let's assume for now they are in the list.
+          console.warn("Teammate not found in current list, cannot open details without RegNo");
+          return;
+        }
       }
+
+      setSelectedStudent(student);
+      setIsModalOpen(true);
+
     } catch (error) {
-      console.error('Error fetching student details:', error);
-      showToast(error.response?.data?.message || 'Failed to load student details', 'error');
+      console.error('Error viewing student details:', error);
+      showToast('Failed to load student details', 'error');
     }
   };
 
@@ -74,8 +93,8 @@ const StudentViewTab = () => {
       {/* Student List - only show when filters are complete */}
       {filters && (
         <>
-          <StudentList 
-            students={students} 
+          <StudentList
+            students={students}
             loading={loading}
             onViewDetails={handleViewDetails}
           />

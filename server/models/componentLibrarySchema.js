@@ -6,7 +6,7 @@ const predefinedSubComponentSchema = new mongoose.Schema(
     description: { type: String },
     weight: { type: Number },
   },
-  { _id: true },
+  { _id: true }
 );
 
 const componentLibraryItemSchema = new mongoose.Schema(
@@ -26,7 +26,7 @@ const componentLibraryItemSchema = new mongoose.Schema(
       ],
       default: "Other",
     },
-    description: { type: String },
+    description: { type: mongoose.Schema.Types.Mixed },
     suggestedWeight: { type: Number },
 
     // Predefined subcomponents
@@ -42,29 +42,29 @@ const componentLibraryItemSchema = new mongoose.Schema(
       default: ["both"],
     },
   },
-  { _id: true },
+  { _id: true }
 );
 
 const componentLibrarySchema = new mongoose.Schema(
   {
     academicYear: { type: String, required: true },
     school: { type: String, required: true },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
 
     components: [componentLibraryItemSchema],
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 componentLibrarySchema.index(
-  { academicYear: 1, school: 1, department: 1 },
-  { unique: true },
+  { academicYear: 1, school: 1, program: 1 },
+  { unique: true }
 );
 componentLibrarySchema.index({ "components.name": 1 });
 componentLibrarySchema.index({ "components.category": 1 });
 
 const ComponentLibrary = mongoose.model(
   "ComponentLibrary",
-  componentLibrarySchema,
+  componentLibrarySchema
 );
 export default ComponentLibrary;

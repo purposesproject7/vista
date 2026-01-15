@@ -2,6 +2,7 @@ import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import Request from "../models/requestSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
+import Faculty from "../models/facultySchema.js";
 import { logger } from "../utils/logger.js";
 
 export class StudentService {
@@ -16,7 +17,24 @@ export class StudentService {
     }
 
     // Process Maps to Objects
-    return this.processStudentData(student);
+    const processedStudent = this.processStudentData(student);
+
+    // Find active project for this student
+    const project = await Project.findOne({
+      students: student._id,
+      status: "active"
+    })
+      .populate("guideFaculty", "name")
+      .populate("panel", "panelName")
+      .lean();
+
+    // Add guide and panel details
+    return {
+      ...processedStudent,
+      guide: project?.guideFaculty?.name || "N/A",
+      panelMember: project?.panel?.panelName || "N/A",
+      projectTitle: project?.name || null
+    };
   }
 
   /**
@@ -33,14 +51,82 @@ export class StudentService {
     const query = { isActive: true };
 
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
     if (filters.name) query.name = new RegExp(filters.name, "i");
 
+    // Fetch schema map if context is available
+    let reviewTypes = null;
+    if (filters.school && filters.program && filters.academicYear) {
+      try {
+        const schema = await MarkingSchema.findOne({
+          school: filters.school,
+          program: filters.program,
+          academicYear: filters.academicYear
+        });
+        if (schema && schema.reviews) {
+          reviewTypes = new Map();
+          schema.reviews.forEach(r => {
+            reviewTypes.set(r.reviewName, r.facultyType);
+          });
+        }
+      } catch (err) {
+        logger.error("Error fetching schema for student list marks calculation", err);
+      }
+    }
+
     const students = await Student.find(query).sort({ regNo: 1 }).lean();
 
-    return students.map((student) => this.processStudentData(student));
+    // Get all student IDs
+    const studentIds = students.map(s => s._id);
+
+    // Find active projects for these students
+    const projects = await Project.find({
+      students: { $in: studentIds },
+      status: "active"
+    })
+      .populate("guideFaculty", "name")
+      .populate("panel", "panelName") // Populating panel name
+      .lean();
+
+    // Create a map of studentId -> project details
+    const studentProjectMap = {};
+    if (projects) {
+      projects.forEach(project => {
+        if (!project.students) return;
+        project.students.forEach(sId => {
+          if (!sId) return;
+          const studentIdStr = sId.toString();
+          // Get teammates (exclude self)
+          const teammates = project.students
+            .filter(id => id && id.toString() !== studentIdStr)
+            .map(id => {
+              const teammate = students.find(s => s._id.toString() === id.toString());
+              return teammate ? { id: teammate._id, name: teammate.name } : null;
+            })
+            .filter(Boolean);
+
+          studentProjectMap[studentIdStr] = {
+            guide: project.guideFaculty ? project.guideFaculty.name : "N/A",
+            panelMember: project.panel ? project.panel.panelName : "N/A",
+            projectTitle: project.name || null,
+            teammates
+          };
+        });
+      });
+    }
+
+    return students.map((student) => {
+      const projectDetails = studentProjectMap[student._id.toString()] || {};
+      return {
+        ...this.processStudentData(student, reviewTypes),
+        guide: projectDetails.guide || "N/A",
+        panelMember: projectDetails.panelMember || "N/A",
+        projectTitle: projectDetails.projectTitle,
+        teammates: projectDetails.teammates || []
+      };
+    });
   }
 
   /**
@@ -52,7 +138,7 @@ export class StudentService {
       "emailId",
       "phoneNumber",
       "school",
-      "department",
+      "program",
       "PAT",
     ];
 
@@ -63,24 +149,24 @@ export class StudentService {
       }
     }
 
-    // Validate school/department change
-    if (updates.school || updates.department) {
+    // Validate school/program change
+    if (updates.school || updates.program) {
       const student = await Student.findOne({ regNo });
       if (!student) {
         throw new Error("Student not found.");
       }
 
       const newSchool = updates.school || student.school;
-      const newDepartment = updates.department || student.department;
+      const newProgram = updates.program || student.program;
 
       const markingSchema = await MarkingSchema.findOne({
         school: newSchool,
-        department: newDepartment,
+        program: newProgram,
       });
 
       if (!markingSchema) {
         throw new Error(
-          `No marking schema found for school: ${newSchool}, department: ${newDepartment}`,
+          `No marking schema found for school: ${newSchool}, program: ${newProgram}`
         );
       }
 
@@ -103,7 +189,7 @@ export class StudentService {
     const updatedStudent = await Student.findOneAndUpdate(
       { regNo },
       { $set: validUpdates },
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     );
 
     if (!updatedStudent) {
@@ -137,7 +223,7 @@ export class StudentService {
 
     if (project) {
       throw new Error(
-        "Cannot delete student. Student is part of an active project.",
+        "Cannot delete student. Student is part of an active project."
       );
     }
 
@@ -148,7 +234,7 @@ export class StudentService {
     // Cleanup related requests
     await Request.updateMany(
       { student: student._id },
-      { $set: { status: "cancelled" } },
+      { $set: { status: "cancelled" } }
     );
 
     logger.info("student_deleted", {
@@ -162,8 +248,10 @@ export class StudentService {
 
   /**
    * Process student data (convert Maps to Objects)
+   * @param {Object} student - Student document
+   * @param {Map} reviewTypes - Map of reviewName -> facultyType
    */
-  static processStudentData(student) {
+  static processStudentData(student, reviewTypes = null) {
     // Process reviews Map
     let processedReviews = {};
     if (student.reviews) {
@@ -194,6 +282,61 @@ export class StudentService {
       }
     }
 
+    // Calculate Marks Breakdown
+    let totalMarks = 0;
+    let guideMarks = 0;
+    let panelMarks = 0;
+    let reviewStatuses = [];
+
+    Object.entries(processedReviews).forEach(([key, review]) => {
+      // Calculate marks for this review
+      let reviewTotal = 0;
+      if (review.marks) {
+        Object.values(review.marks).forEach((mark) => {
+          reviewTotal += Number(mark) || 0;
+        });
+      }
+      totalMarks += reviewTotal;
+
+      // Add to specific bucket if reviewTypes map is provided
+      if (reviewTypes && reviewTypes.has(key)) {
+        const type = reviewTypes.get(key);
+        if (type === 'guide') {
+          guideMarks += reviewTotal;
+        } else if (type === 'panel') {
+          panelMarks += reviewTotal;
+        } else if (type === 'both') {
+          // If 'both', usually separate components, but without component-level mapping
+          // we can't split easily. For now, maybe 50-50? 
+          // Or just add to total and leave breakdown ambiguous?
+          // Let's assume 'both' counts towards total but maybe not specifically guide/panel buckets?
+          // OR, assume it's shared.
+          // For simplicity in this fix, we won't add to guide/panel buckets to avoid double counting
+          // or we could split it. Let's start with strict mapping.
+        }
+      } else {
+        // Fallback or legacy logic if needed
+        // Without schema, we can't know.
+      }
+
+      // Review Status
+      let status = "pending";
+      const hasMarks = review.marks && Object.values(review.marks).some(m => m > 0);
+
+      if (review.locked) {
+        status = "approved";
+      } else if (hasMarks) {
+        status = "submitted";
+      } else {
+        status = "pending";
+      }
+
+      reviewStatuses.push({
+        name: key,
+        status: status
+      });
+    });
+
     return {
       _id: student._id,
       regNo: student.regNo,
@@ -201,7 +344,7 @@ export class StudentService {
       emailId: student.emailId,
       phoneNumber: student.phoneNumber,
       school: student.school,
-      department: student.department,
+      program: student.program,
       academicYear: student.academicYear,
       reviews: processedReviews,
       deadline: processedDeadlines,
@@ -212,6 +355,13 @@ export class StudentService {
       isActive: student.isActive,
       createdAt: student.createdAt,
       updatedAt: student.updatedAt,
+      totalMarks,
+      marks: {
+        total: totalMarks,
+        guide: guideMarks,
+        panel: panelMarks
+      },
+      reviewStatuses
     };
   }
 
@@ -227,13 +377,13 @@ export class StudentService {
 
     const schema = await MarkingSchema.findOne({
       school: student.school,
-      department: student.department,
+      program: student.program,
       academicYear: student.academicYear,
     }).lean();
 
     if (!schema) {
       throw new Error(
-        "Marking schema not found for student's academic context.",
+        "Marking schema not found for student's academic context."
       );
     }
 
@@ -247,8 +397,8 @@ export class StudentService {
     studentsData,
     academicYear,
     school,
-    department,
-    userId,
+    program,
+    userId
   ) {
     const results = {
       created: 0,
@@ -261,12 +411,12 @@ export class StudentService {
     const markingSchema = await MarkingSchema.findOne({
       academicYear,
       school,
-      department,
+      program,
     });
 
     if (!markingSchema) {
       throw new Error(
-        "Marking schema not found for this school and department. Please create marking schema first.",
+        "Marking schema not found for this school and program. Please create marking schema first."
       );
     }
 
@@ -294,7 +444,7 @@ export class StudentService {
           existing.phoneNumber =
             studentData.phoneNumber || existing.phoneNumber;
           existing.school = school;
-          existing.department = department;
+          existing.program = program;
           existing.academicYear = academicYear;
 
           await existing.save();
@@ -342,7 +492,7 @@ export class StudentService {
             phoneNumber: studentData.phoneNumber || "",
             academicYear,
             school,
-            department,
+            program,
             reviews: reviewsMap,
             deadline: deadlineMap,
             PAT: false,
@@ -352,13 +502,51 @@ export class StudentService {
           });
 
           await student.save();
-          results.created++;
 
-          logger.info("student_created_via_bulk", {
-            regNo: studentData.regNo,
-            createdBy: userId,
-          });
+          // Handle Guide Assignment if guideEmpId provided
+          if (studentData.guideEmpId) {
+            const faculty = await Faculty.findOne({ employeeId: studentData.guideEmpId });
+
+            if (faculty) {
+              // Check if project already exists for this student
+              const existingProject = await Project.findOne({
+                students: existing ? existing._id : student._id,
+                status: "active"
+              });
+
+              if (!existingProject) {
+                const newProject = new Project({
+                  name: `Project - ${studentData.regNo}`,
+                  students: [existing ? existing._id : student._id],
+                  guideFaculty: faculty._id,
+                  academicYear,
+                  school,
+                  program,
+                  specialization: faculty.specialization || "General",
+                  type: "software", // Default
+                  teamSize: 1,
+                  status: "active"
+                });
+                await newProject.save();
+                logger.info("project_created_with_guide", { regNo: studentData.regNo, guide: faculty.employeeId });
+              }
+            } else {
+              // warning: guide not found, but student created.
+              logger.warn("guide_not_found_on_student_upload", { regNo: studentData.regNo, guideEmpId: studentData.guideEmpId });
+              // We could add a note to results.details? 
+            }
+          }
+
+          if (!existing) { // increment only if new, existing flow was updated above
+            results.created++;
+
+            logger.info("student_created_via_bulk", {
+              regNo: studentData.regNo,
+              createdBy: userId,
+            });
+          }
         }
+
       } catch (error) {
         results.errors++;
         results.details.push({

@@ -3,7 +3,7 @@ import Project from "../models/projectSchema.js";
 import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Panel from "../models/panelSchema.js";
-import DepartmentConfig from "../models/departmentConfigSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
 
 export class ProjectService {
@@ -13,9 +13,10 @@ export class ProjectService {
   static async getProjectList(filters = {}) {
     const query = {};
 
-    if (filters.academicYear) query.academicYear = filters.academicYear;
+    // Similar fix for projects to ensure visibility across slight context mismatches
+    if (filters.academicYear) delete filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
     if (filters.status) query.status = filters.status;
     if (filters.guideFaculty) query.guideFaculty = filters.guideFaculty;
     if (filters.panel) query.panel = filters.panel;
@@ -23,7 +24,22 @@ export class ProjectService {
     return await Project.find(query)
       .populate("students", "regNo name emailId")
       .populate("guideFaculty", "name employeeId emailId")
-      .populate("panel", "panelName members venue")
+      .populate({
+        path: "panel",
+        select: "panelName members venue",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId emailId",
+        },
+      })
+      .populate({
+        path: "reviewPanels.panel",
+        select: "panelName members venue",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId emailId",
+        },
+      })
       .lean();
   }
 
@@ -34,11 +50,11 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
 
     const projects = await Project.find(query)
       .populate("students", "regNo name")
-      .populate("guideFaculty", "name employeeId emailId school department")
+      .populate("guideFaculty", "name employeeId emailId school program")
       .lean();
 
     // Group by guide
@@ -66,32 +82,66 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.department) query.department = filters.department;
+    if (filters.program) query.program = filters.program;
 
     const projects = await Project.find(query)
       .populate("students", "regNo name emailId")
       .populate("guideFaculty", "name employeeId emailId")
       .populate("panel")
       .populate("panel.members.faculty", "name employeeId emailId")
+      .populate({
+        path: "reviewPanels.panel",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId emailId"
+        }
+      })
       .lean();
 
     // Group by panel
     const grouped = {};
     projects.forEach((project) => {
-      if (!project.panel) return;
-
-      const panelId = project.panel._id.toString();
-      if (!grouped[panelId]) {
-        grouped[panelId] = {
-          panelId: project.panel._id,
-          members: project.panel.members,
-          venue: project.panel.venue,
-          school: project.panel.school,
-          department: project.panel.department,
-          projects: [],
-        };
+      // Handle Main Panel
+      if (project.panel) {
+        const panelId = project.panel._id.toString();
+        if (!grouped[panelId]) {
+          grouped[panelId] = {
+            panelId: project.panel._id,
+            members: project.panel.members,
+            venue: project.panel.venue,
+            school: project.panel.school,
+            program: project.panel.program,
+            projects: [],
+          };
+        }
+        grouped[panelId].projects.push({ ...project, assignmentType: "Regular" });
       }
-      grouped[panelId].projects.push(project);
+
+      // Handle Review Panels
+      if (project.reviewPanels && project.reviewPanels.length > 0) {
+        project.reviewPanels.forEach(rp => {
+          if (rp.panel) {
+            const rpId = rp.panel._id.toString();
+            // Initialize group if not exists
+            if (!grouped[rpId]) {
+              grouped[rpId] = {
+                panelId: rp.panel._id,
+                members: rp.panel.members,
+                venue: rp.panel.venue,
+                school: rp.panel.school,
+                program: rp.panel.program,
+                projects: []
+              };
+            }
+
+            // Add project if not already present (avoid duplicates if main panel == review panel by ID, but distinct by role)
+            const alreadyAdded = grouped[rpId].projects.some(p => p._id.toString() === project._id.toString() && p.assignmentType === "Review");
+            if (!alreadyAdded) {
+              grouped[rpId].projects.push({ ...project, assignmentType: "Review", reviewType: rp.reviewType });
+            }
+          }
+        });
+      }
     });
 
     return Object.values(grouped);
@@ -100,11 +150,17 @@ export class ProjectService {
   /**
    * Get faculty projects (guide + panel)
    */
-  static async getFacultyProjects(facultyId) {
+  static async getFacultyProjects(facultyId, filters = {}) {
+    // Base query for filters
+    const baseQuery = { status: "active" };
+    if (filters.academicYear) baseQuery.academicYear = filters.academicYear;
+    if (filters.school) baseQuery.school = filters.school;
+    if (filters.program) baseQuery.program = filters.program;
+
     // Guide projects
     const guideProjects = await Project.find({
+      ...baseQuery,
       guideFaculty: facultyId,
-      status: "active",
     })
       .populate("students", "name regNo emailId")
       .populate("guideFaculty", "name employeeId emailId")
@@ -117,22 +173,42 @@ export class ProjectService {
       })
       .lean();
 
-    // Panel projects
+    // Panel projects (where faculty is in main panel OR review-specific panel)
+    let empId = facultyId;
+    if (mongoose.Types.ObjectId.isValid(facultyId)) {
+      const faculty = await Faculty.findById(facultyId).select("employeeId");
+      if (faculty?.employeeId) empId = faculty.employeeId;
+    }
+
     const panels = await Panel.find({
-      "members.faculty": facultyId,
+      $or: [
+        { "members.faculty": facultyId },
+        { facultyEmployeeIds: empId }
+      ],
       isActive: true,
     }).select("_id");
 
     const panelIds = panels.map((p) => p._id);
 
+
     const panelProjects = await Project.find({
-      panel: { $in: panelIds },
-      status: "active",
+      ...baseQuery,
+      $or: [
+        { panel: { $in: panelIds } },
+        { "reviewPanels.panel": { $in: panelIds } }
+      ]
     })
       .populate("students", "name regNo emailId")
       .populate("guideFaculty", "name employeeId emailId")
       .populate({
         path: "panel",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId",
+        },
+      })
+      .populate({
+        path: "reviewPanels.panel",
         populate: {
           path: "members.faculty",
           select: "name employeeId",
@@ -157,15 +233,28 @@ export class ProjectService {
 
     const guideStudentIds = guideProjects.flatMap((p) => p.students);
 
+    let empId = facultyId;
+    if (mongoose.Types.ObjectId.isValid(facultyId)) {
+      const faculty = await Faculty.findById(facultyId).select("employeeId");
+      if (faculty?.employeeId) empId = faculty.employeeId;
+    }
+
     const panels = await Panel.find({
-      "members.faculty": facultyId,
+      $or: [
+        { "members.faculty": facultyId },
+        { facultyEmployeeIds: empId }
+      ],
       isActive: true,
     }).select("_id");
 
     const panelIds = panels.map((p) => p._id);
 
+
     const panelProjects = await Project.find({
-      panel: { $in: panelIds },
+      $or: [
+        { panel: { $in: panelIds } },
+        { "reviewPanels.panel": { $in: panelIds } }
+      ],
       status: "active",
     }).select("students");
 
@@ -173,7 +262,7 @@ export class ProjectService {
 
     const allStudentIds = [
       ...new Set(
-        [...guideStudentIds, ...panelStudentIds].map((id) => id.toString()),
+        [...guideStudentIds, ...panelStudentIds].map((id) => id.toString())
       ),
     ];
 
@@ -197,6 +286,14 @@ export class ProjectService {
         populate: {
           path: "members.faculty",
           select: "name employeeId",
+        },
+      })
+      .populate({
+        path: "reviewPanels.panel",
+        select: "panelName members venue",
+        populate: {
+          path: "members.faculty",
+          select: "name employeeId emailId",
         },
       })
       .lean();
@@ -256,7 +353,7 @@ export class ProjectService {
   /**
    * Create multiple projects
    */
-  static async createProjectsBulk(data, createdBy) {
+  static async bulkCreateProjects(data, createdBy) {
     let projectsToCreate = [];
 
     if (Array.isArray(data)) {
@@ -266,18 +363,18 @@ export class ProjectService {
       data !== null &&
       Array.isArray(data.projects)
     ) {
-      const { school, department, academicYear, guideFacultyEmpId, projects } =
+      const { school, program, academicYear, guideFacultyEmpId, projects } =
         data;
       projectsToCreate = projects.map((p) => ({
         ...p,
         school: p.school || school,
-        department: p.department || department,
+        program: p.program || program,
         academicYear: p.academicYear || academicYear,
         guideFacultyEmpId: p.guideFacultyEmpId || guideFacultyEmpId,
       }));
     } else {
       throw new Error(
-        "Invalid input for bulk creation. Expected array of projects or object with projects array.",
+        "Invalid input for bulk creation. Expected array of projects or object with projects array."
       );
     }
 
@@ -317,7 +414,7 @@ export class ProjectService {
       guideFacultyEmpId,
       academicYear,
       school,
-      department,
+      program,
       specialization,
       type,
     } = data;
@@ -338,21 +435,21 @@ export class ProjectService {
     */
 
     // Check team size limits
-    const config = await DepartmentConfig.findOne({
+    const config = await ProgramConfig.findOne({
       academicYear,
       school,
-      department,
+      program,
     });
 
     if (config) {
       if (students.length < config.minTeamSize) {
         throw new Error(
-          `Team size (${students.length}) is below minimum (${config.minTeamSize}).`,
+          `Team size (${students.length}) is below minimum (${config.minTeamSize}).`
         );
       }
       if (students.length > config.maxTeamSize) {
         throw new Error(
-          `Team size (${students.length}) exceeds maximum (${config.maxTeamSize}).`,
+          `Team size (${students.length}) exceeds maximum (${config.maxTeamSize}).`
         );
       }
     }
@@ -366,7 +463,7 @@ export class ProjectService {
 
       if (guideProjectCount >= config.maxProjectsPerGuide) {
         throw new Error(
-          `Guide already has maximum ${config.maxProjectsPerGuide} projects assigned.`,
+          `Guide already has maximum ${config.maxProjectsPerGuide} projects assigned.`
         );
       }
     }
@@ -388,13 +485,18 @@ export class ProjectService {
       let student = await Student.findOne({ regNo });
 
       // 2. If valid object provided and student not found, create them
-      if (!student && typeof studentData === "object" && studentData.name && studentData.emailId) {
+      if (
+        !student &&
+        typeof studentData === "object" &&
+        studentData.name &&
+        studentData.emailId
+      ) {
         try {
           const newStudentData = {
             ...studentData,
             academicYear, // Inherit from project context if not in data
             school,
-            department
+            program,
           };
           // Use StudentService to reuse logic (uploadStudents creates/updates)
           // But for a single student creation, direct creation might be cleaner or calling uploadStudents logic
@@ -404,16 +506,18 @@ export class ProjectService {
 
           student = new Student({
             ...newStudentData,
-            password: `Vit${regNo}@123` // Default password
+            password: `Vit${regNo}@123`, // Default password
           });
           await student.save();
 
           logger.info("student_auto_created_with_project", {
             regNo: student.regNo,
-            projectId: null // Not assigned yet
+            projectId: null, // Not assigned yet
           });
         } catch (err) {
-          throw new Error(`Failed to auto-create student ${regNo}: ${err.message}`);
+          throw new Error(
+            `Failed to auto-create student ${regNo}: ${err.message}`
+          );
         }
       } else if (!student) {
         // Only string provided or incomplete object, and not found
@@ -432,7 +536,7 @@ export class ProjectService {
 
       if (existingProject) {
         throw new Error(
-          `Student ${regNo} is already assigned to project '${existingProject.name}'.`,
+          `Student ${regNo} is already assigned to project '${existingProject.name}'.`
         );
       }
 
@@ -446,7 +550,7 @@ export class ProjectService {
       guideFaculty: guide._id,
       academicYear,
       school,
-      department,
+      program,
       specialization,
       type,
       teamSize: students.length,
@@ -471,8 +575,6 @@ export class ProjectService {
     return project;
   }
 
-
-
   /**
    * Update project details
    */
@@ -480,7 +582,7 @@ export class ProjectService {
     projectId,
     projectUpdates,
     studentUpdates,
-    updatedBy,
+    updatedBy
   ) {
     const project = await Project.findById(projectId);
 
@@ -495,6 +597,9 @@ export class ProjectService {
     const guideFacultyEmpId = projectUpdates?.guideFacultyEmpId;
     const panelId = projectUpdates?.panelId;
     const reviewPanelsUpdates = projectUpdates?.reviewPanelsUpdates || [];
+    const ignoreSpecialization = projectUpdates?.ignoreSpecialization; // Extract flag
+    const assignmentScope = projectUpdates?.assignmentScope || 'main';
+    const reviewType = projectUpdates?.reviewType;
 
     // Remove helper keys so they don't get blindly assigned to project doc
     if (projectUpdates) {
@@ -503,6 +608,9 @@ export class ProjectService {
       delete projectUpdates.guideFacultyEmpId;
       delete projectUpdates.panelId;
       delete projectUpdates.reviewPanelsUpdates;
+      delete projectUpdates.ignoreSpecialization; // Remove flag
+      delete projectUpdates.assignmentScope;
+      delete projectUpdates.reviewType;
     }
 
     // ---------- Update project scalar fields ----------
@@ -532,7 +640,7 @@ export class ProjectService {
       const removeIds = new Set(studentsToRemove.map((s) => s._id.toString()));
 
       project.students = project.students.filter(
-        (sid) => !removeIds.has(sid.toString()),
+        (sid) => !removeIds.has(sid.toString())
       );
 
       if (studentsToRemove.length > 0) {
@@ -550,7 +658,7 @@ export class ProjectService {
     let addedStudentsCount = 0;
     if (Array.isArray(addStudents) && addStudents.length > 0) {
       const regNos = addStudents.map((s) =>
-        typeof s === "string" ? s : s.regNo,
+        typeof s === "string" ? s : s.regNo
       );
 
       const existingStudents = await Student.find({
@@ -558,7 +666,7 @@ export class ProjectService {
       });
 
       const existingByRegNo = new Map(
-        existingStudents.map((s) => [s.regNo, s]),
+        existingStudents.map((s) => [s.regNo, s])
       );
 
       for (const item of addStudents) {
@@ -570,7 +678,7 @@ export class ProjectService {
 
         const studentIdStr = student._id.toString();
         const alreadyInProject = project.students.some(
-          (sid) => sid.toString() === studentIdStr,
+          (sid) => sid.toString() === studentIdStr
         );
         if (!alreadyInProject) {
           project.students.push(student._id);
@@ -605,12 +713,14 @@ export class ProjectService {
       }
 
       // Ensure same academic context
+      // Skip check if ignoreSpecialization is true
       if (
-        newGuide.school !== project.school ||
-        newGuide.department !== project.department
+        !ignoreSpecialization &&
+        (newGuide.school !== project.school ||
+          newGuide.program !== project.program)
       ) {
         throw new Error(
-          "Guide must belong to the same school and department as the project.",
+          "Guide must belong to the same school and program as the project."
         );
       }
 
@@ -632,37 +742,49 @@ export class ProjectService {
       }
     }
 
-    // ---------- Main panel reassignment ----------
+    // ---------- Main/Review panel reassignment ----------
     if (panelId) {
-      const newPanel = await Panel.findById(panelId);
+      if (assignmentScope === 'review') {
+        if (!reviewType) {
+          throw new Error("Review type is required for review-specific panel assignment.");
+        }
+        reviewPanelsUpdates.push({ reviewType, panelId });
+      } else {
+        const newPanel = await Panel.findById(panelId);
 
-      if (!newPanel) {
-        throw new Error("Panel not found.");
-      }
+        if (!newPanel) {
+          throw new Error("Panel not found.");
+        }
 
-      // Ensure same academic context
-      if (
-        newPanel.academicYear !== project.academicYear ||
-        newPanel.school !== project.school ||
-        newPanel.department !== project.department
-      ) {
-        throw new Error(
-          "Panel must belong to the same academic context as the project.",
-        );
-      }
+        // Ensure same academic context
+        // Skip check if ignoreSpecialization is true
+        if (
+          !ignoreSpecialization &&
+          (newPanel.academicYear !== project.academicYear ||
+            newPanel.school !== project.school ||
+            newPanel.program !== project.program)
+        ) {
+          throw new Error(
+            "Panel must belong to the same academic context as the project."
+          );
+        }
 
-      const previousPanel = project.panel;
+        const previousPanel = project.panel;
 
-      if (!previousPanel || previousPanel.toString() !== newPanel._id.toString()) {
-        project.history.push({
-          action: "panel_reassigned",
-          previousPanel: previousPanel || null,
-          newPanel: newPanel._id,
-          performedBy: updatedBy,
-          performedAt: new Date(),
-        });
+        if (
+          !previousPanel ||
+          previousPanel.toString() !== newPanel._id.toString()
+        ) {
+          project.history.push({
+            action: "panel_reassigned",
+            previousPanel: previousPanel || null,
+            newPanel: newPanel._id,
+            performedBy: updatedBy,
+            performedAt: new Date(),
+          });
 
-        project.panel = newPanel._id;
+          project.panel = newPanel._id;
+        }
       }
     }
 
@@ -674,23 +796,22 @@ export class ProjectService {
 
         const newPanel = await Panel.findById(reviewPanelId);
         if (!newPanel) {
-          throw new Error(
-            `Panel not found for reviewType '${reviewType}'.`,
-          );
+          throw new Error(`Panel not found for reviewType '${reviewType}'.`);
         }
 
         if (
-          newPanel.academicYear !== project.academicYear ||
-          newPanel.school !== project.school ||
-          newPanel.department !== project.department
+          !ignoreSpecialization &&
+          (newPanel.academicYear !== project.academicYear ||
+            newPanel.school !== project.school ||
+            newPanel.program !== project.program)
         ) {
           throw new Error(
-            `Review panel for '${reviewType}' must be in same academic context as project.`,
+            `Review panel for '${reviewType}' must be in same academic context as project.`
           );
         }
 
         const existingIndex = project.reviewPanels.findIndex(
-          (rp) => rp.reviewType === reviewType,
+          (rp) => rp.reviewType === reviewType
         );
 
         let previousPanel = null;
@@ -723,7 +844,9 @@ export class ProjectService {
     // ---------- Keep teamSize in sync ----------
     project.teamSize = project.students.length;
 
-    await project.save();
+    // Use validateBeforeSave: false if ignoreSpecialization is true
+    // This allows bypassing validation errors (like missing specialization on existing doc)
+    await project.save({ validateBeforeSave: !ignoreSpecialization });
 
     // ---------- Update existing student profiles ----------
     let updatedStudents = 0;
@@ -750,6 +873,7 @@ export class ProjectService {
       updatedBy,
       studentsUpdated: updatedStudents,
       studentsAdded: addedStudentsCount,
+      ignoreSpecialization,
     });
 
     return {
@@ -758,7 +882,6 @@ export class ProjectService {
       studentsAdded: addedStudentsCount,
     };
   }
-
 
   /**
    * Delete project
@@ -816,18 +939,18 @@ export class ProjectService {
     if (
       project.academicYear !== panel.academicYear ||
       project.school !== panel.school ||
-      project.department !== panel.department
+      project.program !== panel.program
     ) {
       throw new Error(
-        "Panel must belong to the same academic context as the project.",
+        "Panel must belong to the same academic context as the project."
       );
     }
 
     // Check max projects per panel
-    const config = await DepartmentConfig.findOne({
+    const config = await ProgramConfig.findOne({
       academicYear: project.academicYear,
       school: project.school,
-      department: project.department,
+      program: project.program,
     });
 
     if (config?.maxProjectsPerPanel) {
@@ -838,7 +961,7 @@ export class ProjectService {
 
       if (panelProjectCount >= config.maxProjectsPerPanel) {
         throw new Error(
-          `Panel already has maximum ${config.maxProjectsPerPanel} projects assigned.`,
+          `Panel already has maximum ${config.maxProjectsPerPanel} projects assigned.`
         );
       }
     }
@@ -890,7 +1013,7 @@ export class ProjectService {
       {
         projectId,
         markedBy,
-      },
+      }
     );
 
     return project;

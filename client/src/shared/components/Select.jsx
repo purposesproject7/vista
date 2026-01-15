@@ -2,11 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDownIcon, CheckIcon } from '@heroicons/react/24/outline';
 
-const Select = ({ 
-  label, 
-  value, 
-  onChange, 
-  options = [], 
+const Select = ({
+  label,
+  value,
+  onChange,
+  options = [],
   placeholder = 'Select',
   className = ''
 }) => {
@@ -37,23 +37,21 @@ const Select = ({
           {label}
         </label>
       )}
-      
+
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-3 py-2 bg-white border rounded-lg transition-all text-sm ${
-          isOpen
+        className={`w-full flex items-center justify-between px-3 py-2 bg-white border rounded-lg transition-all text-sm ${isOpen
             ? 'border-blue-500 ring-2 ring-blue-200'
             : 'border-gray-300 hover:border-gray-400'
-        } ${value ? 'text-gray-900 font-medium' : 'text-gray-500'}`}
+          } ${value ? 'text-gray-900 font-medium' : 'text-gray-500'}`}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronDownIcon 
-          className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ml-2 ${
-            isOpen ? 'rotate-180' : ''
-          }`} 
+        <ChevronDownIcon
+          className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ml-2 ${isOpen ? 'rotate-180' : ''
+            }`}
         />
       </button>
 
@@ -65,11 +63,10 @@ const Select = ({
                 key={option.value}
                 type="button"
                 onClick={() => handleSelect(option.value)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors ${
-                  option.value === value
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors ${option.value === value
                     ? 'bg-blue-50 text-blue-700 font-semibold'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <span className="truncate">{option.label}</span>
                 {option.value === value && (
@@ -84,4 +81,5 @@ const Select = ({
   );
 };
 
-export default Select;
+// Memoize to prevent unnecessary re-renders (performance optimization)
+export default React.memo(Select);

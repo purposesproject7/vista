@@ -5,9 +5,9 @@ import Button from '../../../../shared/components/Button';
 import Badge from '../../../../shared/components/Badge';
 import EmptyState from '../../../../shared/components/EmptyState';
 import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
-import { 
-  UserGroupIcon, 
-  PhoneIcon, 
+import {
+  UserGroupIcon,
+  PhoneIcon,
   EnvelopeIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -18,7 +18,7 @@ import {
 const StudentList = ({ students = [], loading = false, onViewDetails }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredStudents = students.filter(student => 
+  const filteredStudents = students.filter(student =>
     student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.regNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -37,13 +37,13 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
     const approved = student.reviewStatuses.filter(r => r.status === 'approved').length;
     const total = student.reviewStatuses.length;
     const pending = student.reviewStatuses.filter(r => r.status === 'pending' || r.status === 'not-submitted').length;
-    
+
     const allApproved = approved === total;
     const somePending = pending > 0;
-    
+
     const Icon = allApproved ? CheckCircleIcon : somePending ? ClockIcon : XCircleIcon;
     const variant = allApproved ? 'success' : somePending ? 'warning' : 'default';
-    
+
     return (
       <div className="flex items-center gap-1">
         <Icon className="w-4 h-4" />
@@ -107,11 +107,11 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm text-gray-700">
                       <PhoneIcon className="w-4 h-4 text-gray-400" />
-                      <span>{student.phone || 'N/A'}</span>
+                      <span>{student.phoneNumber || 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-700">
                       <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                      <span className="truncate">{student.email}</span>
+                      <span className="truncate">{student.emailId}</span>
                     </div>
                   </div>
 
@@ -161,20 +161,20 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                   </div>
                 </div>
               )}
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">PPT Approval</p>
-                      {getPPTStatusBadge(student)}
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Total Marks</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {student.totalMarks !== null && student.totalMarks !== undefined 
-                          ? `${student.totalMarks}/100` 
-                          : 'Not Graded'}
-                      </p>
-                    </div>
-                  </div>
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">PPT Approval</p>
+                  {getPPTStatusBadge(student)}
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Total Marks</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {student.totalMarks !== null && student.totalMarks !== undefined
+                      ? `${student.totalMarks}/100`
+                      : 'Not Graded'}
+                  </p>
+                </div>
+              </div>
             </Card>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import Faculty from "../models/facultySchema.js";
 import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
 
 /**
  * Require specific role
@@ -14,7 +15,7 @@ export function requireRole(...roles) {
     }
 
     // Admin has access to everything
-    if (req.user.role === "admin") {
+    if (req.user.role && req.user.role.toLowerCase() === "admin") {
       return next();
     }
 
@@ -59,6 +60,35 @@ export async function requireProjectCoordinator(req, res, next) {
     // Attach to request
     req.coordinators = coordinators;
 
+    // Apply ProgramConfig deadlines dynamically
+    for (const coordinator of coordinators) {
+      const config = await ProgramConfig.findOne({
+        academicYear: coordinator.academicYear,
+        school: coordinator.school,
+        program: coordinator.program,
+      }).lean();
+
+      if (config && config.featureLocks) {
+        config.featureLocks.forEach((lock) => {
+          const featureName = lock.featureName;
+          const deadline = lock.deadline;
+
+          // Check if coordinator has this permission group
+          if (
+            coordinator.permissions[featureName] &&
+            coordinator.permissions[featureName].enabled
+          ) {
+            // FIX: Do not overwrite existing deadline if it is set. 
+            // Admin-granted extensions (AccessRequest) allow access BEYOND the global config.
+            // Only apply config deadline if no specific deadline exists.
+            if (!coordinator.permissions[featureName].deadline) {
+              coordinator.permissions[featureName].deadline = deadline;
+            }
+          }
+        });
+      }
+    }
+
     // If single assignment, attach directly
     if (coordinators.length === 1) {
       req.coordinator = coordinators[0];
@@ -78,13 +108,13 @@ export async function requireProjectCoordinator(req, res, next) {
  */
 export function validateCoordinatorContext(req, res, next) {
   try {
-    const { academicYear, school, department } =
+    const { academicYear, school, program } =
       req.body || req.query || req.params;
 
-    if (!academicYear || !school || !department) {
+    if (!academicYear || !school || !program) {
       return res.status(400).json({
         success: false,
-        message: "academicYear, school, and department are required",
+        message: "academicYear, school, and program are required",
       });
     }
 
@@ -93,7 +123,7 @@ export function validateCoordinatorContext(req, res, next) {
       (c) =>
         c.academicYear === academicYear &&
         c.school === school &&
-        c.department === department,
+        c.program === program
     );
 
     if (!coordinator) {

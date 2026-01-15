@@ -5,6 +5,7 @@ import { requireRole } from "../middlewares/rbac.js";
 import { requireProjectCoordinator } from "../middlewares/rbac.js";
 import { checkCoordinatorPermission } from "../middlewares/rbac.js";
 import { checkFeatureLock } from "../middlewares/featureLock.js";
+import { broadcastBlockMiddleware } from "../middlewares/broadcastBlock.js";
 import { validateRequired } from "../middlewares/validation.js";
 import { validateSpecialization } from "../middlewares/validation.js";
 import { validateTeamSize } from "../middlewares/featureLock.js";
@@ -16,6 +17,7 @@ const router = express.Router();
 router.use(authenticate);
 // router.use(requireRole("project_coordinator")); // Removed: Role is "faculty", check isProjectCoordinator instead
 router.use(requireProjectCoordinator);
+router.use(broadcastBlockMiddleware); // Block access when admin broadcasts a block message
 
 /**
  * Coordinator profile and permissions
@@ -23,39 +25,32 @@ router.use(requireProjectCoordinator);
 router.get("/profile", coordinatorController.getProfile);
 router.get("/permissions", coordinatorController.getPermissions);
 
-/**
- * Faculty management (dept-specific)
- */
-router.get("/faculty", coordinatorController.getFacultyList);
+// Faculty management (dept-specific)
+router.get("/faculty", coordinatorController.getFacultyList); // Usually view is allowed if authorized
 
 router.post(
   "/faculty",
-  checkCoordinatorPermission("canCreateFaculty"),
-  validateRequired([
-    "name",
-    "emailId",
-    "employeeId",
-    "role",
-    "specialization",
-  ]),
+  checkCoordinatorPermission("faculty_management"),
+  validateRequired(["name", "emailId", "employeeId", "role", "specialization"]),
   coordinatorController.createFaculty,
 );
 
 router.post(
-  "/faculty/details-bulk",
-  validateRequired(["employeeIds"]),
-  coordinatorController.getFacultyDetailsBulk,
+  "/faculty/bulk",
+  checkCoordinatorPermission("faculty_management"), // Added check here for consistency
+  validateRequired(["facultyList"]),
+  coordinatorController.createFacultyBulk,
 );
 
 router.put(
   "/faculty/:employeeId",
-  checkCoordinatorPermission("canEditFaculty"),
+  checkCoordinatorPermission("faculty_management"),
   coordinatorController.updateFaculty,
 );
 
 router.delete(
   "/faculty/:employeeId",
-  checkCoordinatorPermission("canDeleteFaculty"),
+  checkCoordinatorPermission("faculty_management"),
   coordinatorController.deleteFaculty,
 );
 
@@ -66,27 +61,27 @@ router.get("/students", coordinatorController.getStudentList);
 
 router.post(
   "/student",
-  checkCoordinatorPermission("canUploadStudents"),
+  checkCoordinatorPermission("student_management"),
   validateRequired(["regNo", "name", "emailId"]),
   coordinatorController.createStudent,
 );
 
 router.post(
   "/student/bulk",
-  checkCoordinatorPermission("canUploadStudents"),
+  checkCoordinatorPermission("student_management"),
   validateRequired(["students"]),
   coordinatorController.uploadStudents,
 );
 
 router.put(
   "/student/:regNo",
-  checkCoordinatorPermission("canModifyStudents"),
+  checkCoordinatorPermission("student_management"),
   coordinatorController.updateStudent,
 );
 
 router.delete(
   "/student/:regNo",
-  checkCoordinatorPermission("canDeleteStudents"),
+  checkCoordinatorPermission("student_management"),
   coordinatorController.deleteStudent,
 );
 
@@ -99,14 +94,14 @@ router.get("/projects", coordinatorController.getProjectList);
 
 router.post(
   "/projects/bulk",
-  checkCoordinatorPermission("canCreateProjects"),
+  checkCoordinatorPermission("project_management"),
   validateRequired(["projects"]),
   coordinatorController.createProjectsBulk,
 );
 
 router.post(
   "/projects",
-  checkCoordinatorPermission("canCreateProjects"),
+  checkCoordinatorPermission("project_management"),
   validateRequired([
     "name",
     "students",
@@ -119,13 +114,13 @@ router.post(
 
 router.put(
   "/projects/:id",
-  checkCoordinatorPermission("canEditProjects"),
+  checkCoordinatorPermission("project_management"),
   coordinatorController.updateProject,
 );
 
 router.delete(
   "/projects/:id",
-  checkCoordinatorPermission("canDeleteProjects"),
+  checkCoordinatorPermission("project_management"),
   coordinatorController.deleteProject,
 );
 
@@ -134,14 +129,14 @@ router.delete(
  */
 router.put(
   "/projects/:projectId/assign-guide",
-  checkCoordinatorPermission("canAssignGuides"),
+  checkCoordinatorPermission("project_management"),
   validateRequired(["guideFacultyEmpId"]),
   coordinatorController.assignGuide,
 );
 
 router.put(
   "/projects/:projectId/reassign-guide",
-  checkCoordinatorPermission("canReassignGuides"),
+  checkCoordinatorPermission("project_management"),
   validateRequired(["newGuideFacultyEmpId", "reason"]),
   coordinatorController.reassignGuide,
 );
@@ -153,27 +148,42 @@ router.get("/panels", coordinatorController.getPanelList);
 
 router.post(
   "/panels",
-  checkCoordinatorPermission("canCreatePanels"),
+  checkCoordinatorPermission("panel_management"),
   validateRequired(["memberEmployeeIds"]),
   coordinatorController.createPanel,
 );
 
 router.post(
   "/panels/auto-create",
-  checkCoordinatorPermission("canCreatePanels"),
+  checkCoordinatorPermission("panel_management"),
   coordinatorController.autoCreatePanels,
+);
+
+router.post(
+  "/panels/bulk",
+  checkCoordinatorPermission("panel_management"),
+  validateRequired(["panels"]),
+  coordinatorController.createPanelsBulk,
+);
+
+router.get("/panels/summary", coordinatorController.getPanelSummary);
+
+router.post(
+  "/faculty/details-bulk",
+  validateRequired(["employeeIds"]),
+  coordinatorController.getFacultyDetailsBulk,
 );
 
 router.put(
   "/panels/:id/members",
-  checkCoordinatorPermission("canEditPanels"),
+  checkCoordinatorPermission("panel_management"),
   validateRequired(["memberEmployeeIds"]),
   coordinatorController.updatePanelMembers,
 );
 
 router.delete(
   "/panels/:id",
-  checkCoordinatorPermission("canDeletePanels"),
+  checkCoordinatorPermission("panel_management"),
   coordinatorController.deletePanel,
 );
 
@@ -182,21 +192,21 @@ router.delete(
  */
 router.post(
   "/projects/assign-panel",
-  checkCoordinatorPermission("canAssignPanels"),
+  checkCoordinatorPermission("panel_management"),
   validateRequired(["projectId", "panelId"]),
   coordinatorController.assignPanel,
 );
 
 router.post(
   "/projects/assign-review-panel",
-  checkCoordinatorPermission("canAssignPanels"),
+  checkCoordinatorPermission("panel_management"),
   validateRequired(["projectId", "reviewType", "panelId"]),
   coordinatorController.assignReviewPanel,
 );
 
 router.post(
   "/panels/auto-assign",
-  checkCoordinatorPermission("canAssignPanels"),
+  checkCoordinatorPermission("panel_management"),
   coordinatorController.autoAssignPanels,
 );
 
@@ -205,7 +215,7 @@ router.post(
  */
 router.put(
   "/projects/reassign-panel",
-  checkCoordinatorPermission("canReassignPanels"),
+  checkCoordinatorPermission("panel_management"),
   validateRequired(["projectId", "panelId", "reason"]),
   coordinatorController.reassignPanel,
 );
@@ -215,14 +225,14 @@ router.put(
  */
 router.post(
   "/teams/merge",
-  checkCoordinatorPermission("canMergeTeams"),
+  checkCoordinatorPermission("project_management"),
   validateRequired(["projectId1", "projectId2", "reason"]),
   coordinatorController.mergeTeams,
 );
 
 router.post(
   "/teams/split",
-  checkCoordinatorPermission("canSplitTeams"),
+  checkCoordinatorPermission("project_management"),
   validateRequired(["projectId", "studentIds", "reason"]),
   coordinatorController.splitTeam,
 );
@@ -230,11 +240,17 @@ router.post(
 /**
  * Marking schema and component library (view and limited edit)
  */
+/* Marking schema and component library (view and limited edit) */
 router.get("/marking-schema", coordinatorController.getMarkingSchema);
+router.post(
+  "/marking-schema",
+  checkCoordinatorPermission("project_management"),
+  coordinatorController.saveMarkingSchema,
+);
 
 router.put(
   "/marking-schema/:id/deadlines",
-  checkCoordinatorPermission("canEditMarkingSchema"),
+  checkCoordinatorPermission("project_management"),
   coordinatorController.updateMarkingSchemaDeadlines,
 );
 
@@ -247,9 +263,16 @@ router.get("/requests", coordinatorController.getRequests);
 
 router.put(
   "/requests/:id/status",
-  checkCoordinatorPermission("canManageRequests"),
+  // checkCoordinatorPermission("canManageRequests"), // Removed as mostly guides related
   validateRequired(["status"]),
   coordinatorController.handleRequest,
+);
+
+router.post(
+  "/requests/approve-multiple",
+  // checkCoordinatorPermission("canManageRequests"), // Removed as mostly guides related
+  validateRequired(["requestIds"]),
+  coordinatorController.approveMultipleRequests,
 );
 
 /**
@@ -259,26 +282,27 @@ router.get("/broadcasts", coordinatorController.getBroadcasts);
 
 router.post(
   "/broadcasts",
-  checkCoordinatorPermission("canCreateBroadcasts"),
+  checkCoordinatorPermission("project_management"),
   validateRequired(["message", "expiresAt"]),
   coordinatorController.createBroadcast,
 );
 
 router.put(
   "/broadcasts/:id",
-  checkCoordinatorPermission("canEditBroadcasts"),
+  checkCoordinatorPermission("project_management"),
   coordinatorController.updateBroadcast,
 );
 
 router.delete(
   "/broadcasts/:id",
-  checkCoordinatorPermission("canDeleteBroadcasts"),
+  checkCoordinatorPermission("project_management"),
   coordinatorController.deleteBroadcast,
 );
 
 /**
  * Reporting (dept-specific)
  */
+router.get("/reports", coordinatorController.getReportData);
 router.get("/reports/overview", coordinatorController.getOverviewReport);
 router.get("/reports/projects", coordinatorController.getProjectsReport);
 router.get("/reports/marks", coordinatorController.getMarksReport);
@@ -293,8 +317,24 @@ router.get(
 );
 
 /**
- * Department configuration (view only for coordinators)
+ * Master Data & Marks
  */
-router.get("/department-config", coordinatorController.getDepartmentConfig);
+router.get("/academic-years", coordinatorController.getAcademicYears);
+router.get("/programs", coordinatorController.getPrograms);
+router.get("/projects/:id/marks", coordinatorController.getProjectMarks);
+
+/**
+ * Program configuration (view only for coordinators)
+ */
+router.get("/program-config", coordinatorController.getProgramConfig);
+
+/**
+ * Access Request
+ */
+router.post(
+  "/request-access",
+  validateRequired(["reason"]),
+  coordinatorController.requestAccess,
+);
 
 export default router;

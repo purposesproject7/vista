@@ -1,5 +1,5 @@
 // src/features/project-coordinator/pages/PanelAssignment.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from "react";
 import {
   SparklesIcon,
   DocumentPlusIcon,
@@ -8,15 +8,16 @@ import {
   TrashIcon,
   PlusIcon,
   CheckIcon,
-  ExclamationCircleIcon
-} from '@heroicons/react/24/outline';
-import AcademicFilterSelector from '../components/shared/AcademicFilterSelector';
-import Card from '../../../shared/components/Card';
-import Button from '../../../shared/components/Button';
-import Input from '../../../shared/components/Input';
-import Select from '../../../shared/components/Select';
-import Badge from '../../../shared/components/Badge';
-import { useToast } from '../../../shared/hooks/useToast';
+  ExclamationCircleIcon,
+} from "@heroicons/react/24/outline";
+import AcademicFilterSelector from "../components/shared/AcademicFilterSelector";
+import Card from "../../../shared/components/Card";
+import Button from "../../../shared/components/Button";
+import Input from "../../../shared/components/Input";
+import Select from "../../../shared/components/Select";
+import Badge from "../../../shared/components/Badge";
+import { useToast } from "../../../shared/hooks/useToast";
+import { autoAssignPanels as apiAutoAssignPanels } from "../services/coordinatorApi";
 
 const PanelAssignment = () => {
   const [filters, setFilters] = useState(null);
@@ -26,17 +27,17 @@ const PanelAssignment = () => {
 
   // Manual assignment state
   const [manualForm, setManualForm] = useState({
-    panelId: '',
-    projectId: '',
-    studentIds: ''
+    panelId: "",
+    projectId: "",
+    studentIds: "",
   });
   const [manualError, setManualError] = useState(null);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
   // Auto assignment state
   const [autoForm, setAutoForm] = useState({
-    assignmentStrategy: 'even_distribution', // even_distribution, specialization_match, balanced_load
-    autoAssign: false
+    assignmentStrategy: "even_distribution", // even_distribution, specialization_match, balanced_load
+    autoAssign: false,
   });
   const [isProcessingAuto, setIsProcessingAuto] = useState(false);
 
@@ -45,22 +46,22 @@ const PanelAssignment = () => {
     setActiveMode(null);
     setAssignedPanels([]);
     setManualForm({
-      panelId: '',
-      projectId: '',
-      studentIds: ''
+      panelId: "",
+      projectId: "",
+      studentIds: "",
     });
     setAutoForm({
-      assignmentStrategy: 'even_distribution',
-      autoAssign: false
+      assignmentStrategy: "even_distribution",
+      autoAssign: false,
     });
   }, []);
 
   // ==================== MANUAL ASSIGNMENT ====================
   const handleManualFormChange = (e) => {
     const { name, value } = e.target;
-    setManualForm(prev => ({
+    setManualForm((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     setManualError(null);
   };
@@ -69,17 +70,17 @@ const PanelAssignment = () => {
     setManualError(null);
 
     if (!manualForm.panelId.trim()) {
-      setManualError('Panel ID is required');
+      setManualError("Panel ID is required");
       return;
     }
 
     if (!manualForm.projectId.trim()) {
-      setManualError('Project ID is required');
+      setManualError("Project ID is required");
       return;
     }
 
     if (!manualForm.studentIds.trim()) {
-      setManualError('At least one student ID is required');
+      setManualError("At least one student ID is required");
       return;
     }
 
@@ -87,9 +88,9 @@ const PanelAssignment = () => {
       setIsSubmittingManual(true);
 
       const studentIds = manualForm.studentIds
-        .split(',')
-        .map(id => id.trim())
-        .filter(id => id);
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id);
 
       const newAssignment = {
         id: Date.now(),
@@ -101,26 +102,26 @@ const PanelAssignment = () => {
         department: filters.programme,
         academicYear: filters.year,
         semester: filters.semester,
-        assignmentType: 'manual',
-        assignedAt: new Date().toLocaleString()
+        assignmentType: "manual",
+        assignedAt: new Date().toLocaleString(),
       };
 
-      setAssignedPanels(prev => [...prev, newAssignment]);
+      setAssignedPanels((prev) => [...prev, newAssignment]);
 
       // Reset form
       setManualForm({
-        panelId: '',
-        projectId: '',
-        studentIds: ''
+        panelId: "",
+        projectId: "",
+        studentIds: "",
       });
 
       showToast(
         `Project assigned to panel with ${studentIds.length} student(s)`,
-        'success'
+        "success"
       );
     } catch (error) {
-      console.error('Error assigning panel:', error);
-      showToast('Failed to assign panel', 'error');
+      console.error("Error assigning panel:", error);
+      showToast("Failed to assign panel", "error");
     } finally {
       setIsSubmittingManual(false);
     }
@@ -129,73 +130,65 @@ const PanelAssignment = () => {
   // ==================== AUTO ASSIGNMENT ====================
   const handleAutoFormChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const finalValue = type === 'checkbox' ? checked : value;
+    const finalValue = type === "checkbox" ? checked : value;
 
-    setAutoForm(prev => ({
+    setAutoForm((prev) => ({
       ...prev,
-      [name]: finalValue
+      [name]: finalValue,
     }));
   };
 
   const handleAutoAssign = async () => {
     if (!autoForm.autoAssign) {
-      showToast('Please enable auto-assignment', 'error');
+      showToast("Please enable auto-assignment", "error");
       return;
     }
 
     try {
       setIsProcessingAuto(true);
 
-      // Simulate backend processing
-      await new Promise(resolve => setTimeout(resolve, 1200));
-
-      const strategies = {
-        even_distribution: 'Even Distribution',
-        specialization_match: 'Specialization Matching',
-        balanced_load: 'Balanced Load'
-      };
-
-      const newAssignment = {
-        id: Date.now(),
-        panelId: `AUTO-${Date.now()}`,
-        projectId: `PROJECT-AUTO-${Date.now()}`,
-        studentIds: [],
-        studentCount: 0,
+      const response = await apiAutoAssignPanels({
         school: filters.school,
         department: filters.programme,
         academicYear: filters.year,
-        semester: filters.semester,
-        assignmentType: 'auto',
         strategy: autoForm.assignmentStrategy,
-        strategyLabel: strategies[autoForm.assignmentStrategy],
-        assignedAt: new Date().toLocaleString(),
-        status: 'processing'
-      };
+      });
 
-      setAssignedPanels(prev => [...prev, newAssignment]);
-
-      showToast(
-        `Auto-assignment completed using ${strategies[autoForm.assignmentStrategy]} strategy`,
-        'success'
-      );
+      if (response.success) {
+        showToast(
+          response.message || "Auto-assignment completed successfully",
+          "success"
+        );
+      } else {
+        showToast(
+          response.message || "Failed to complete auto-assignment",
+          "error"
+        );
+      }
 
       // Reset auto form
       setAutoForm({
-        assignmentStrategy: 'even_distribution',
-        autoAssign: false
+        assignmentStrategy: "even_distribution",
+        autoAssign: false,
       });
     } catch (error) {
-      console.error('Error in auto assignment:', error);
-      showToast('Failed to complete auto-assignment', 'error');
+      console.error("Error in auto assignment:", error);
+      showToast(
+        error.response?.data?.message || "Failed to complete auto-assignment",
+        "error"
+      );
     } finally {
       setIsProcessingAuto(false);
     }
   };
 
-  const handleRemoveAssignment = useCallback((id) => {
-    setAssignedPanels(prev => prev.filter(a => a.id !== id));
-    showToast('Assignment removed', 'info');
-  }, [showToast]);
+  const handleRemoveAssignment = useCallback(
+    (id) => {
+      setAssignedPanels((prev) => prev.filter((a) => a.id !== id));
+      showToast("Assignment removed", "info");
+    },
+    [showToast]
+  );
 
   return (
     <div className="space-y-6">
@@ -207,34 +200,44 @@ const PanelAssignment = () => {
           {/* Manual Assignment */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-300"
-            onClick={() => setActiveMode('manual')}
+            onClick={() => setActiveMode("manual")}
           >
             <div className="text-center py-8">
               <DocumentPlusIcon className="w-12 h-12 text-blue-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Assign Manually</h3>
-              <p className="text-sm text-gray-600 mt-2">Manually assign projects to panels</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Assign Manually
+              </h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Manually assign projects to panels
+              </p>
             </div>
           </Card>
 
           {/* Auto Assignment */}
           <Card
             className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-300"
-            onClick={() => setActiveMode('auto')}
+            onClick={() => setActiveMode("auto")}
           >
             <div className="text-center py-8">
               <SparklesIcon className="w-12 h-12 text-green-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Auto Assign</h3>
-              <p className="text-sm text-gray-600 mt-2">Automatically assign using strategies</p>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Auto Assign
+              </h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Automatically assign using strategies
+              </p>
             </div>
           </Card>
         </div>
       )}
 
       {/* MANUAL ASSIGNMENT MODE */}
-      {filters && activeMode === 'manual' && (
+      {filters && activeMode === "manual" && (
         <Card>
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Assign Panel Manually</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Assign Panel Manually
+            </h3>
             <Button variant="secondary" onClick={() => setActiveMode(null)}>
               Back
             </Button>
@@ -284,17 +287,19 @@ const PanelAssignment = () => {
               className="w-full"
             >
               <CheckCircleIcon className="w-5 h-5 mr-2" />
-              {isSubmittingManual ? 'Assigning...' : 'Assign Panel'}
+              {isSubmittingManual ? "Assigning..." : "Assign Panel"}
             </Button>
           </div>
         </Card>
       )}
 
       {/* AUTO ASSIGNMENT MODE */}
-      {filters && activeMode === 'auto' && (
+      {filters && activeMode === "auto" && (
         <Card>
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Auto Assign Panels</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Auto Assign Panels
+            </h3>
             <Button variant="secondary" onClick={() => setActiveMode(null)}>
               Back
             </Button>
@@ -303,8 +308,8 @@ const PanelAssignment = () => {
           <div className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-900">
-                Auto-assignment will analyze all unassigned panels and projects, then distribute
-                students based on your selected strategy.
+                Auto-assignment will analyze all unassigned panels and projects,
+                then distribute students based on your selected strategy.
               </p>
             </div>
 
@@ -313,21 +318,24 @@ const PanelAssignment = () => {
               name="assignmentStrategy"
               value={autoForm.assignmentStrategy}
               onChange={(value) =>
-                setAutoForm(prev => ({ ...prev, assignmentStrategy: value }))
+                setAutoForm((prev) => ({ ...prev, assignmentStrategy: value }))
               }
               options={[
                 {
-                  value: 'even_distribution',
-                  label: 'Even Distribution - Distribute students equally across panels'
+                  value: "even_distribution",
+                  label:
+                    "Even Distribution - Distribute students equally across panels",
                 },
                 {
-                  value: 'specialization_match',
-                  label: 'Specialization Matching - Match students to panel specializations'
+                  value: "specialization_match",
+                  label:
+                    "Specialization Matching - Match students to panel specializations",
                 },
                 {
-                  value: 'balanced_load',
-                  label: 'Balanced Load - Consider panel capacity and project requirements'
-                }
+                  value: "balanced_load",
+                  label:
+                    "Balanced Load - Consider panel capacity and project requirements",
+                },
               ]}
             />
 
@@ -352,7 +360,7 @@ const PanelAssignment = () => {
               className="w-full"
             >
               <SparklesIcon className="w-5 h-5 mr-2" />
-              {isProcessingAuto ? 'Processing...' : 'Start Auto-Assignment'}
+              {isProcessingAuto ? "Processing..." : "Start Auto-Assignment"}
             </Button>
           </div>
         </Card>
@@ -363,7 +371,9 @@ const PanelAssignment = () => {
         <Card>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Panel Assignments</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                Panel Assignments
+              </h3>
               <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
                 {assignedPanels.length} Assignments
               </span>
@@ -382,10 +392,18 @@ const PanelAssignment = () => {
                           Panel: {assignment.panelId}
                         </h4>
                         <Badge
-                          label={assignment.assignmentType === 'manual' ? 'Manual' : 'Auto'}
-                          variant={assignment.assignmentType === 'manual' ? 'blue' : 'green'}
+                          label={
+                            assignment.assignmentType === "manual"
+                              ? "Manual"
+                              : "Auto"
+                          }
+                          variant={
+                            assignment.assignmentType === "manual"
+                              ? "blue"
+                              : "green"
+                          }
                         />
-                        {assignment.status === 'processing' && (
+                        {assignment.status === "processing" && (
                           <Badge label="Processing" variant="yellow" />
                         )}
                       </div>
@@ -395,13 +413,17 @@ const PanelAssignment = () => {
                           <p className="text-gray-500 text-xs uppercase tracking-wider">
                             Project ID
                           </p>
-                          <p className="font-medium text-gray-900">{assignment.projectId}</p>
+                          <p className="font-medium text-gray-900">
+                            {assignment.projectId}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500 text-xs uppercase tracking-wider">
                             Students
                           </p>
-                          <p className="font-medium text-gray-900">{assignment.studentCount}</p>
+                          <p className="font-medium text-gray-900">
+                            {assignment.studentCount}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-500 text-xs uppercase tracking-wider">
@@ -415,7 +437,9 @@ const PanelAssignment = () => {
                           <p className="text-gray-500 text-xs uppercase tracking-wider">
                             Assigned At
                           </p>
-                          <p className="font-medium text-gray-900">{assignment.assignedAt}</p>
+                          <p className="font-medium text-gray-900">
+                            {assignment.assignedAt}
+                          </p>
                         </div>
                       </div>
 
@@ -424,7 +448,9 @@ const PanelAssignment = () => {
                           <p className="text-xs text-gray-500 uppercase tracking-wider">
                             Strategy
                           </p>
-                          <p className="font-medium text-gray-900">{assignment.strategyLabel}</p>
+                          <p className="font-medium text-gray-900">
+                            {assignment.strategyLabel}
+                          </p>
                         </div>
                       )}
                     </div>

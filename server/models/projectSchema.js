@@ -27,7 +27,7 @@ const projectHistorySchema = new mongoose.Schema(
     performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Faculty" },
     performedAt: { type: Date, default: Date.now },
   },
-  { _id: true },
+  { _id: true }
 );
 
 const reviewPanelAssignmentSchema = new mongoose.Schema(
@@ -41,7 +41,7 @@ const reviewPanelAssignmentSchema = new mongoose.Schema(
     assignedAt: { type: Date, default: Date.now },
     assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Faculty" },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const projectSchema = new mongoose.Schema(
@@ -72,10 +72,19 @@ const projectSchema = new mongoose.Schema(
     // Review-specific panel assignments
     reviewPanels: [reviewPanelAssignmentSchema],
 
+    // Track PPT Approvals for reviews
+    pptApprovals: [
+      {
+        reviewType: { type: String, required: true },
+        isApproved: { type: Boolean, default: false },
+        approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Faculty" },
+        approvedAt: { type: Date },
+      },
+    ],
+
     academicYear: { type: String, required: true },
     school: { type: String, required: true },
-    program: { type: String },
-    department: { type: String, required: true },
+    program: { type: String, required: true },
     specialization: { type: String, required: true },
 
     type: {
@@ -102,16 +111,16 @@ const projectSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 projectSchema.index({ name: 1, academicYear: 1 }, { unique: true });
-projectSchema.index({ school: 1, program: 1, department: 1, academicYear: 1 });
+projectSchema.index({ school: 1, program: 1, academicYear: 1 });
 projectSchema.index({ guideFaculty: 1, academicYear: 1 });
 projectSchema.index({ panel: 1, academicYear: 1 });
 projectSchema.index({ "reviewPanels.panel": 1 });
 projectSchema.index({ status: 1 });
-projectSchema.index({ specialization: 1, school: 1, department: 1 });
+projectSchema.index({ specialization: 1, school: 1, program: 1 });
 
 const Project = mongoose.model("Project", projectSchema);
 export default Project;

@@ -21,7 +21,7 @@ const accessRequestSchema = new mongoose.Schema(
       default: "medium",
     },
 
-    requiredDeadline: { type: Date, required: true },
+    requiredDeadline: { type: Date },
 
     status: {
       type: String,
@@ -37,7 +37,7 @@ const accessRequestSchema = new mongoose.Schema(
     },
 
     school: { type: String, required: true },
-    department: { type: String },
+    program: { type: String },
 
     // Admin response
     approvedBy: {
@@ -63,7 +63,7 @@ const accessRequestSchema = new mongoose.Schema(
 
     isActive: { type: Boolean, default: true },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 // Indexes for efficient queries

@@ -83,33 +83,42 @@ const PanelManagement = () => {
 
         {/* Panel Tabs */}
         <div className="mb-6 bg-white rounded-lg shadow-sm p-2">
-          <div className="flex gap-2 flex-wrap">
-            {panelTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              const isDisabled = !tab.enabled;
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex gap-2 w-full sm:w-auto flex-wrap">
+              {panelTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                const isDisabled = !tab.enabled;
 
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => !isDisabled && setActiveTab(tab.id)}
-                  disabled={isDisabled}
-                  className={`
-                    flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all
-                    ${isDisabled
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                      : isActive
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                    }
-                  `}
-                  title={tab.description}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => !isDisabled && setActiveTab(tab.id)}
+                    disabled={isDisabled}
+                    className={`
+                      flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all
+                      ${isDisabled
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                        : isActive
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                      }
+                    `}
+                    title={tab.description}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="px-4 flex items-center gap-2 text-sm text-gray-600">
+              <span className="font-medium">Total Panels:</span>
+              <span className="bg-blue-100 text-blue-800 py-1 px-3 rounded-full font-bold text-xs">
+                0
+              </span>
+            </div>
           </div>
         </div>
 

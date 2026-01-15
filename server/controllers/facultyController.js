@@ -1,4 +1,5 @@
 import Faculty from "../models/facultySchema.js";
+import Marks from "../models/marksSchema.js";
 import Project from "../models/projectSchema.js";
 import Panel from "../models/panelSchema.js";
 import Student from "../models/studentSchema.js";
@@ -8,12 +9,14 @@ import Request from "../models/requestSchema.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarksService } from "../services/marksService.js";
 import { ApprovalService } from "../services/approvalService.js";
+import { ActivityLogService } from "../services/activityLogService.js";
 import {
   extractPrimaryContext,
   getFacultyTypeForProject,
   getFacultyAudience,
 } from "../utils/facultyHelpers.js";
 import { logger } from "../utils/logger.js";
+import MasterData from "../models/masterDataSchema.js";
 
 /**
  * Get faculty profile
@@ -42,6 +45,59 @@ export async function getProfile(req, res) {
 }
 
 /**
+ * Get master data
+ */
+export async function getMasterData(req, res) {
+  try {
+    const masterData = await MasterData.findOne();
+
+    if (!masterData) {
+      return res.status(404).json({
+        success: false,
+        message: "Master data not initialized.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: masterData,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Get academic years
+ */
+export async function getAcademicYears(req, res) {
+  try {
+    const masterData = await MasterData.findOne().select("academicYears");
+
+    if (!masterData) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const years = masterData.academicYears
+      .filter((y) => y.isActive)
+      .map((y) => y.year);
+
+    res.status(200).json({
+      success: true,
+      data: years,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
  * Update faculty profile
  */
 export async function updateProfile(req, res) {
@@ -57,7 +113,7 @@ export async function updateProfile(req, res) {
     const faculty = await Faculty.findByIdAndUpdate(
       req.user._id,
       { $set: updates },
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     ).select("-password");
 
     if (!faculty) {
@@ -98,17 +154,21 @@ export async function getMarkingSchema(req, res) {
       });
     }
 
-    const { school, department } = extractPrimaryContext(faculty);
+    let { school, program } = extractPrimaryContext(faculty);
 
-    if (!school || !department) {
+    // Override with query params if provided (for filters)
+    if (req.query.school) school = req.query.school;
+    if (req.query.program && req.query.program !== "All Programs") program = req.query.program;
+
+    if (!school || !program) {
       return res.status(400).json({
         success: false,
-        message: "Faculty school or department not set.",
+        message: "School or program not specified.",
       });
     }
 
     const { academicYear } = req.query;
-    const query = { school, department };
+    const query = { school, program };
     if (academicYear) query.academicYear = academicYear;
 
     const schema = await MarkingSchema.findOne(query).lean();
@@ -137,11 +197,18 @@ export async function getMarkingSchema(req, res) {
  */
 export async function getAssignedProjects(req, res) {
   try {
-    const data = await ProjectService.getFacultyProjects(req.user._id);
+    const data = await ProjectService.getFacultyProjects(
+      req.user._id,
+      req.query
+    );
+
+    const faculty = await Faculty.findById(req.user._id).select("employeeId");
 
     res.status(200).json({
       success: true,
       data,
+      facultyId: req.user._id,
+      employeeId: faculty?.employeeId,
     });
   } catch (error) {
     res.status(500).json({
@@ -162,7 +229,7 @@ export async function getProjectDetails(req, res) {
     const project = await Project.findById(id)
       .populate(
         "students",
-        "name regNo emailId guideMarks panelMarks approvals",
+        "name regNo emailId guideMarks panelMarks approvals"
       )
       .populate("guideFaculty", "name employeeId emailId")
       .populate({
@@ -185,7 +252,7 @@ export async function getProjectDetails(req, res) {
     const isGuide =
       project.guideFaculty?._id.toString() === facultyId.toString();
     const isPanelMember = project.panel?.members?.some(
-      (m) => m.faculty._id.toString() === facultyId.toString(),
+      (m) => m.faculty._id.toString() === facultyId.toString()
     );
 
     if (!isGuide && !isPanelMember) {
@@ -239,6 +306,23 @@ export async function submitMarks(req, res) {
       message: "Marks submitted successfully.",
       data: marks,
     });
+
+    // Log Activity
+    ActivityLogService.logActivity(
+      req.user._id,
+      "MARK_ENTRY",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: req.body.academicYear || "Unknown",
+      },
+      {
+        targetId: marks._id,
+        targetModel: "Marks",
+        description: `Submitted marks for student ${req.body.studentId}`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -260,6 +344,23 @@ export async function updateMarks(req, res) {
       message: "Marks updated successfully.",
       data: marks,
     });
+
+    // Log Activity
+    ActivityLogService.logActivity(
+      req.user._id,
+      "MARK_UPDATE",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: "Unknown",
+      },
+      {
+        targetId: marks._id,
+        targetModel: "Marks",
+        description: `Updated marks ${id}`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -300,6 +401,20 @@ export async function approvePPT(req, res) {
       success: true,
       message: "PPT approved successfully.",
     });
+
+    ActivityLogService.logActivity(
+      req.user._id,
+      "PPT_APPROVAL",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: "Unknown",
+      },
+      {
+        description: `Approved PPT for student ${studentId} (${reviewType})`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -320,6 +435,20 @@ export async function approveDraft(req, res) {
       success: true,
       message: "Draft approved successfully.",
     });
+
+    ActivityLogService.logActivity(
+      req.user._id,
+      "DRAFT_APPROVAL",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: "Unknown",
+      },
+      {
+        description: `Approved Draft for student ${studentId} (${reviewType})`,
+      },
+      req
+    );
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -336,7 +465,11 @@ export async function createRequest(req, res) {
     const { student, project, reviewType, requestType, reason } = req.body;
     const facultyId = req.user._id;
 
-    const { facultyType } = await getFacultyTypeForProject(facultyId, project);
+    const { facultyType } = await getFacultyTypeForProject(
+      facultyId,
+      project,
+      reviewType
+    );
 
     const [studentDoc] = await Promise.all([Student.findById(student)]);
 
@@ -353,6 +486,8 @@ export async function createRequest(req, res) {
       student,
       project,
       academicYear: studentDoc.academicYear,
+      school: studentDoc.school,
+      program: studentDoc.program,
       reviewType,
       requestType,
       reason,
@@ -411,7 +546,7 @@ export async function getAssignedPanels(req, res) {
 export async function getBroadcasts(req, res) {
   try {
     const faculty = await Faculty.findById(req.user._id).select(
-      "school department",
+      "school program"
     );
 
     if (!faculty) {
@@ -421,7 +556,7 @@ export async function getBroadcasts(req, res) {
       });
     }
 
-    const { schools, departments } = getFacultyAudience(faculty);
+    const { schools, programs } = getFacultyAudience(faculty);
     const now = new Date();
 
     const broadcasts = await BroadcastMessage.find({
@@ -436,8 +571,8 @@ export async function getBroadcasts(req, res) {
         },
         {
           $or: [
-            { targetDepartments: { $size: 0 } },
-            { targetDepartments: { $in: departments } },
+            { targetPrograms: { $size: 0 } },
+            { targetPrograms: { $in: programs } },
           ],
         },
       ],
@@ -450,6 +585,72 @@ export async function getBroadcasts(req, res) {
       success: true,
       data: broadcasts,
       count: broadcasts.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+/**
+ * Get unified reviews list for faculty (Guide & Panel)
+ */
+export async function getFacultyReviews(req, res) {
+  try {
+    const data = await ProjectService.getFacultyProjects(
+      req.user._id,
+      req.query
+    );
+
+    // Combine and simplify for external pages like GuideReviews/PanelReviews
+    const guideProjects = data.guideProjects || [];
+    const panelProjects = data.panelProjects || [];
+
+    const reviews = [
+      ...guideProjects.map((p) => ({ ...p, role: "guide" })),
+      ...panelProjects.map((p) => ({ ...p, role: "panel" })),
+    ];
+
+    res.status(200).json({
+      success: true,
+      data: reviews,
+      count: reviews.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+/**
+ * Get evaluation context metadata (Schools, Programs, Years)
+ */
+export async function getEvaluationMetadata(req, res) {
+  try {
+    // We can get these from MarkingSchema (potential reviews)
+    // or from Marks (already submitted).
+    // Let's get them from MarkingSchema as it defines what SHOULD be there.
+    const contexts = await MarkingSchema.find().select("school program academicYear").lean();
+
+    const schools = [...new Set(contexts.map(c => c.school))].sort();
+    const years = [...new Set(contexts.map(c => c.academicYear))].sort().reverse();
+
+    // For programs, we can group them by school or just send unique ones
+    const programs = contexts.map(c => ({
+      name: c.program,
+      school: c.school,
+      code: c.program
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        schools: schools.map(s => ({ name: s, code: s })),
+        years,
+        programs: [...new Map(programs.map(p => [`${p.school}|${p.name}`, p])).values()]
+      }
     });
   } catch (error) {
     res.status(500).json({

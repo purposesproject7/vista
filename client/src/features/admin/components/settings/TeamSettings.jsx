@@ -1,124 +1,216 @@
 // src/features/admin/components/settings/TeamSettings.jsx
-import React, { useState, useMemo } from 'react';
-import Card from '../../../../shared/components/Card';
-import Button from '../../../../shared/components/Button';
-import Select from '../../../../shared/components/Select';
-import SliderInput from '../../../../shared/components/SliderInput';
-import { CheckCircleIcon } from '@heroicons/react/24/outline';
-import { useToast } from '../../../../shared/hooks/useToast';
+import React, { useState, useMemo } from "react";
+import Card from "../../../../shared/components/Card";
+import Button from "../../../../shared/components/Button";
+import Select from "../../../../shared/components/Select";
+import Input from "../../../../shared/components/Input";
+import DateTimePicker from "../../../../shared/components/DateTimePicker";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
+import { useToast } from "../../../../shared/hooks/useToast";
+import { fetchProgramConfig, saveProgramConfig } from "../../services/adminApi";
 
-const TeamSettings = ({ schools, programs, years, semesters, initialSettings, onUpdate }) => {
+const TeamSettings = ({
+  schools,
+  programs,
+  years,
+  semesters,
+  initialSettings,
+  onUpdate,
+}) => {
   // State for selected filters
-  const [selectedSchool, setSelectedSchool] = useState('');
-  const [selectedProgram, setSelectedProgram] = useState('');
-  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedProgram, setSelectedProgram] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // State for all team configurations (keyed by school-program-year)
-  const [allConfigurations, setAllConfigurations] = useState(initialSettings || {});
+  // Default settings
+  const defaultSettings = {
+    minStudentsPerTeam: 1,
+    maxStudentsPerTeam: 4,
 
-  const { showToast } = useToast();
-
-  // Generate configuration key
-  const getCurrentKey = () => {
-    return `${selectedSchool}-${selectedProgram}-${selectedYear}`;
+    minPanelSize: 3,
+    maxPanelSize: 5,
+    maxProjectsPerGuide: 8,
+    maxProjectsPerPanel: 10,
+    deadlines: {
+      student_management: "",
+      faculty_management: "",
+      project_management: "",
+      panel_management: "",
+    },
   };
 
-  // Get current configuration for selected filters
-  const currentConfig = useMemo(() => {
-    const key = getCurrentKey();
-    return allConfigurations[key] || {
-      minStudentsPerTeam: 1,
-      maxStudentsPerTeam: 4,
-      defaultStudentsPerTeam: 3
-    };
-  }, [selectedSchool, selectedProgram, selectedYear, allConfigurations]);
-
-  const [settings, setSettings] = useState(currentConfig);
-
-  // Update settings when selection changes
-  React.useEffect(() => {
-    setSettings(currentConfig);
-  }, [currentConfig]);
+  const [settings, setSettings] = useState(defaultSettings);
+  const { showToast } = useToast();
 
   // Get programs for selected school
   const availablePrograms = useMemo(() => {
     if (!selectedSchool) return [];
     // Find the school object by code
-    const schoolObj = schools.find(s => s.code === selectedSchool);
+    const schoolObj = schools.find((s) => s.code === selectedSchool);
     if (!schoolObj) return [];
     // Get programs for this school code
     return programs[schoolObj.code] || [];
   }, [selectedSchool, programs, schools]);
 
-  // Update program selection when school changes
+  // Reset program selection when available programs change or school changes
   React.useEffect(() => {
-    if (schools.length > 0 && !selectedSchool) {
-      setSelectedSchool(schools[0].code);
-    }
-  }, [schools, selectedSchool]);
-
-  React.useEffect(() => {
-    if (availablePrograms.length > 0 && !selectedProgram) {
-      setSelectedProgram(availablePrograms[0].code);
+    // If we have a selected program but it's not in the new available list, clear it
+    if (selectedProgram && availablePrograms.length > 0) {
+      const exists = availablePrograms.find((p) => p.code === selectedProgram);
+      if (!exists) {
+        setSelectedProgram("");
+      }
     } else if (availablePrograms.length === 0) {
-      setSelectedProgram('');
+      // If no programs available (e.g. school changed to one with no programs), clear selection
+      setSelectedProgram("");
     }
   }, [availablePrograms, selectedProgram]);
 
+  // Fetch configuration when filters change
   React.useEffect(() => {
-    if (years.length > 0 && !selectedYear) {
-      setSelectedYear(years[0].id);
-    }
-  }, [years, selectedYear]);
+    const loadConfig = async () => {
+      if (!selectedSchool || !selectedProgram || !selectedYear) return;
 
-  const handleSave = () => {
+      setIsLoading(true);
+      try {
+        const response = await fetchProgramConfig(
+          selectedYear,
+          selectedSchool,
+          selectedProgram
+        );
+        if (response.success && response.data) {
+          // Map feature locks array to object
+          const deadlines = { ...defaultSettings.deadlines };
+          if (response.data.featureLocks) {
+            response.data.featureLocks.forEach((lock) => {
+              if (
+                lock.featureName &&
+                deadlines.hasOwnProperty(lock.featureName)
+              ) {
+                deadlines[lock.featureName] = lock.deadline || "";
+              }
+            });
+          }
+
+          setSettings({
+            minStudentsPerTeam: response.data.minTeamSize || 1,
+            maxStudentsPerTeam: response.data.maxTeamSize || 4,
+
+            minPanelSize: response.data.minPanelSize || 3,
+            maxPanelSize: response.data.maxPanelSize || 5,
+            maxProjectsPerGuide: response.data.maxProjectsPerGuide || 8,
+            maxProjectsPerPanel: response.data.maxProjectsPerPanel || 10,
+            deadlines,
+          });
+        } else {
+          setSettings(defaultSettings);
+        }
+      } catch (error) {
+        // 404 is expected for new configs, just reset to defaults
+        setSettings(defaultSettings);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadConfig();
+  }, [selectedSchool, selectedProgram, selectedYear]);
+
+  const handleSave = async () => {
     // Validation
     if (settings.minStudentsPerTeam > settings.maxStudentsPerTeam) {
-      showToast('Minimum cannot be greater than maximum', 'error');
+      showToast("Minimum team size cannot be greater than maximum", "error");
       return;
     }
-    
-    if (settings.defaultStudentsPerTeam < settings.minStudentsPerTeam || 
-        settings.defaultStudentsPerTeam > settings.maxStudentsPerTeam) {
-      showToast('Default must be between minimum and maximum', 'error');
+
+    if (settings.minPanelSize > settings.maxPanelSize) {
+      showToast("Minimum panel size cannot be greater than maximum", "error");
       return;
     }
 
     if (!selectedSchool || !selectedProgram || !selectedYear) {
-      showToast('Please select all filters before saving', 'error');
+      showToast("Please select all filters before saving", "error");
       return;
     }
 
-    // Save configuration
-    const key = getCurrentKey();
-    const updatedConfigurations = {
-      ...allConfigurations,
-      [key]: settings
-    };
-    
-    setAllConfigurations(updatedConfigurations);
-    onUpdate?.(updatedConfigurations);
+    setIsLoading(true);
+    try {
+      // Map deadlines object back to array
+      const featureLocks = Object.entries(settings.deadlines)
+        .filter(([_, deadline]) => deadline) // Only include if deadline is set
+        .map(([featureName, deadline]) => ({
+          featureName,
+          deadline,
+          isLocked: false, // Default to unlocked, locking is managed in scheduler specifically if needed, or we imply lock by existence? Usually just setting deadline.
+        }));
 
-    // Build descriptive names for toast
-    const schoolName = schools.find(s => s.code === selectedSchool)?.name || selectedSchool;
-    const programName = availablePrograms.find(p => p.code === selectedProgram)?.name || selectedProgram;
-    const yearName = years.find(y => y.id === selectedYear)?.name || selectedYear;
-    
-    showToast(`Team settings saved for ${schoolName} - ${programName} - ${yearName}`, 'success');
+      const configData = {
+        academicYear: selectedYear,
+        school: selectedSchool,
+        program: selectedProgram,
+        minTeamSize: settings.minStudentsPerTeam,
+        maxTeamSize: settings.maxStudentsPerTeam,
+
+        minPanelSize: settings.minPanelSize,
+        maxPanelSize: settings.maxPanelSize,
+        maxProjectsPerGuide: settings.maxProjectsPerGuide,
+        maxProjectsPerPanel: settings.maxProjectsPerPanel,
+        featureLocks,
+      };
+
+      const response = await saveProgramConfig(configData);
+
+      if (response.success) {
+        // Build descriptive names for toast
+        const schoolName =
+          schools.find((s) => s.code === selectedSchool)?.name ||
+          selectedSchool;
+        const programName =
+          availablePrograms.find((p) => p.code === selectedProgram)?.name ||
+          selectedProgram;
+
+        showToast(
+          `Configuration saved for ${schoolName} - ${programName}`,
+          "success"
+        );
+        onUpdate?.(); // Notify parent
+      } else {
+        showToast(response.message || "Failed to save settings", "error");
+      }
+    } catch (error) {
+      console.error("Save settings error:", error);
+      showToast(
+        error.response?.data?.message || "Failed to connect to server",
+        "error"
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const schoolOptions = schools.map(s => ({ value: s.code, label: s.name }));
-  const programOptions = availablePrograms.map(p => ({ value: p.code, label: p.name }));
-  const yearOptions = years.map(y => ({ value: y.id, label: y.name }));
+  const schoolOptions = schools.map((s) => ({ value: s.code, label: s.name }));
+  const programOptions = availablePrograms.map((p) => ({
+    value: p.code,
+    label: p.name,
+  }));
+  // Adjust year options to use 'year' string as value if that's what backend expects (schema: academicYear: String)
+  const yearOptions = years.map((y) => ({
+    value: y.name || y.year || y.id,
+    label: y.name || y.year,
+  }));
 
-  const isConfigured = allConfigurations[getCurrentKey()] !== undefined;
+  // Check if all context filters are selected
+  const isContextSelected = selectedSchool && selectedProgram && selectedYear;
 
   return (
     <Card>
       <div className="p-6">
         <div className="mb-6">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">Team Size Configuration</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Team Size Configuration
+            </h3>
           </div>
         </div>
 
@@ -126,7 +218,6 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
           {/* Selection Filters */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
             <h4 className="font-semibold text-gray-900 mb-4 text-lg flex items-center gap-2">
-              {isConfigured && <CheckCircleIcon className="h-5 w-5 text-green-600" />}
               Select Configuration Context
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -138,7 +229,7 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
                   value={selectedSchool}
                   onChange={(value) => setSelectedSchool(value)}
                   options={schoolOptions}
-                  disabled={schools.length === 0}
+                  disabled={schools.length === 0 || isLoading}
                 />
               </div>
               <div>
@@ -149,138 +240,336 @@ const TeamSettings = ({ schools, programs, years, semesters, initialSettings, on
                   value={selectedProgram}
                   onChange={(value) => setSelectedProgram(value)}
                   options={programOptions}
-                  disabled={availablePrograms.length === 0}
+                  disabled={availablePrograms.length === 0 || isLoading}
                 />
                 {availablePrograms.length === 0 && selectedSchool && (
-                  <p className="text-xs text-red-600 mt-1">No programs for this school</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    No programs for this school
+                  </p>
                 )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Academic Year & Semester <span className="text-red-500">*</span>
+                  Academic Year <span className="text-red-500">*</span>
                 </label>
                 <Select
                   value={selectedYear}
                   onChange={(value) => setSelectedYear(value)}
                   options={yearOptions}
-                  disabled={years.length === 0}
+                  disabled={years.length === 0 || isLoading}
                 />
               </div>
             </div>
-            {isConfigured && (
-              <div className="mt-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
-                <CheckCircleIcon className="h-5 w-5" />
-                <span>Configuration saved for this combination</span>
-              </div>
-            )}
           </div>
 
-          {/* Team Size Configuration */}
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <h4 className="font-semibold text-gray-900 mb-4 text-lg">Team Size Settings</h4>
-            
-            {/* Minimum Students */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Minimum Students Per Team
-                </label>
-                <span className="text-3xl font-bold text-blue-600">
-                  {settings.minStudentsPerTeam}
-                </span>
-              </div>
-              <SliderInput
-                min={1}
-                max={10}
-                value={settings.minStudentsPerTeam}
-                onChange={(value) => setSettings({ ...settings, minStudentsPerTeam: value })}
-              />
-              <p className="text-sm text-gray-600 mt-3">
-                The minimum number of students allowed in a team. Set to 1 to allow individual projects.
+          {/* Show message if context not selected */}
+          {!isContextSelected && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+              <p className="text-yellow-800 font-medium">
+                Please select School, Program, and Academic Year to configure
+                team settings
               </p>
             </div>
+          )}
 
-            {/* Maximum Students */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-gray-700">
-                  Maximum Students Per Team
-                </label>
-                <span className="text-3xl font-bold text-blue-600">
-                  {settings.maxStudentsPerTeam}
-                </span>
-              </div>
-              <SliderInput
-                min={1}
-                max={10}
-                value={settings.maxStudentsPerTeam}
-                onChange={(value) => setSettings({ ...settings, maxStudentsPerTeam: value })}
-              />
-              <p className="text-sm text-gray-600 mt-3">
-                The maximum number of students allowed in a team. Typical values are 3-5 students.
-              </p>
-            </div>
-
-            {/* Default Students */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-medium text-blue-900">
-                  Default Students Per Team (Recommended)
-                </label>
-                <span className="text-3xl font-bold text-blue-600">
-                  {settings.defaultStudentsPerTeam}
-                </span>
-              </div>
-              <SliderInput
-                min={1}
-                max={10}
-                value={settings.defaultStudentsPerTeam}
-                onChange={(value) => setSettings({ ...settings, defaultStudentsPerTeam: value })}
-              />
-              <p className="text-sm text-blue-900 mt-3">
-                The recommended team size. This will be suggested when creating new teams.
-              </p>
-            </div>
-
-            {/* Summary */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200 mt-6">
-              <h4 className="font-semibold text-gray-900 mb-3 text-lg">Summary</h4>
-              <div className="space-y-2 text-gray-700">
-                <p className="flex items-center justify-between text-lg">
-                  <span>Team size range:</span>
-                  <strong className="text-blue-700">
-                    {settings.minStudentsPerTeam} - {settings.maxStudentsPerTeam} students
-                  </strong>
-                </p>
-                <p className="flex items-center justify-between text-lg">
-                  <span>Recommended size:</span>
-                  <strong className="text-blue-700">
-                    {settings.defaultStudentsPerTeam} students
-                  </strong>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
-              {Object.keys(allConfigurations).length > 0 && (
-                <span className="flex items-center gap-2">
-                  <CheckCircleIcon className="h-5 w-5 text-green-600" />
-                  {Object.keys(allConfigurations).length} configuration{Object.keys(allConfigurations).length !== 1 ? 's' : ''} saved
-                </span>
-              )}
-            </div>
-            <Button 
-              variant="primary" 
-              onClick={handleSave} 
-              size="lg"
-              disabled={!selectedSchool || !selectedProgram || !selectedYear}
+          {/* Team Size Configuration - Only show when context is selected */}
+          {isContextSelected && (
+            <div
+              className={`bg-gray-50 p-6 rounded-lg transition-opacity ${
+                isLoading ? "opacity-50 pointer-events-none" : ""
+              }`}
             >
-              Save Configuration
-            </Button>
-          </div>
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-10">
+                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+
+              <h4 className="font-semibold text-gray-900 mb-4 text-lg">
+                Team Size Settings
+              </h4>
+
+              {/* Min and Max Students Side by Side */}
+              <div className="mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Minimum Students Per Team
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={settings.minStudentsPerTeam}
+                      disabled={!isContextSelected || isLoading}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          minStudentsPerTeam: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Students Per Team
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={settings.maxStudentsPerTeam}
+                      disabled={!isContextSelected || isLoading}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          maxStudentsPerTeam: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mt-3">
+                  Set the minimum and maximum number of students allowed in a
+                  team. Set minimum to 1 to allow individual projects.
+                </p>
+              </div>
+
+              <hr className="my-8 border-gray-200" />
+
+              <h4 className="font-semibold text-gray-900 mb-4 text-lg">
+                Panel Size Settings
+              </h4>
+
+              {/* Min and Max Panel Size Side by Side */}
+              <div className="mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Minimum Faculty Per Panel
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={settings.minPanelSize}
+                      disabled={!isContextSelected || isLoading}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          minPanelSize: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Faculty Per Panel
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={settings.maxPanelSize}
+                      disabled={!isContextSelected || isLoading}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          maxPanelSize: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mt-3">
+                  Set the minimum and maximum number of faculty members allowed
+                  per panel.
+                </p>
+              </div>
+
+              <hr className="my-8 border-gray-200" />
+
+              <h4 className="font-semibold text-gray-900 mb-4 text-lg">
+                Project Constraints
+              </h4>
+
+              {/* Max Projects Side by Side */}
+              <div className="mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Max Projects Per Guide
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={settings.maxProjectsPerGuide}
+                      disabled={!isContextSelected || isLoading}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          maxProjectsPerGuide: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Max Projects Per Panel
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={settings.maxProjectsPerPanel}
+                      disabled={!isContextSelected || isLoading}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          maxProjectsPerPanel: parseInt(e.target.value) || 0,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mt-3">
+                  Set the maximum number of projects a faculty member can guide
+                  and the maximum number of projects a panel can oversee.
+                </p>
+              </div>
+
+              <hr className="my-8 border-gray-200" />
+
+              {/* Deadline Configuration */}
+              <div className="mb-6 mt-8">
+                <h4 className="font-semibold text-gray-900 mb-4 text-lg">
+                  Module Locks & Deadlines
+                </h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Set deadlines for broad functional areas. Once the deadline
+                  passes, Project Coordinators cannot perform actions in that
+                  module.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <DateTimePicker
+                    label="Student Management Deadline"
+                    value={settings.deadlines.student_management}
+                    onChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        deadlines: {
+                          ...settings.deadlines,
+                          student_management: value,
+                        },
+                      })
+                    }
+                    placeholder="Set deadline"
+                    disabled={!isContextSelected || isLoading}
+                  />
+                  <DateTimePicker
+                    label="Faculty Management Deadline"
+                    value={settings.deadlines.faculty_management}
+                    onChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        deadlines: {
+                          ...settings.deadlines,
+                          faculty_management: value,
+                        },
+                      })
+                    }
+                    placeholder="Set deadline"
+                    disabled={!isContextSelected || isLoading}
+                  />
+                  <DateTimePicker
+                    label="Project Management Deadline"
+                    value={settings.deadlines.project_management}
+                    onChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        deadlines: {
+                          ...settings.deadlines,
+                          project_management: value,
+                        },
+                      })
+                    }
+                    placeholder="Set deadline"
+                    disabled={!isContextSelected || isLoading}
+                  />
+                  <DateTimePicker
+                    label="Panel Management Deadline"
+                    value={settings.deadlines.panel_management}
+                    onChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        deadlines: {
+                          ...settings.deadlines,
+                          panel_management: value,
+                        },
+                      })
+                    }
+                    placeholder="Set deadline"
+                    disabled={!isContextSelected || isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200 mt-6">
+                <h4 className="font-semibold text-gray-900 mb-3 text-lg">
+                  Summary
+                </h4>
+                <div className="space-y-2 text-gray-700">
+                  <p className="flex items-center justify-between text-base">
+                    <span>Team Size Range:</span>
+                    <strong className="text-blue-700">
+                      {settings.minStudentsPerTeam} -{" "}
+                      {settings.maxStudentsPerTeam} students
+                    </strong>
+                  </p>
+                  <p className="flex items-center justify-between text-base">
+                    <span>Panel Size Range:</span>
+                    <strong className="text-blue-700">
+                      {settings.minPanelSize} - {settings.maxPanelSize} faculty
+                    </strong>
+                  </p>
+                  <p className="flex items-center justify-between text-base">
+                    <span>Max Projects/Guide:</span>
+                    <strong className="text-blue-700">
+                      {settings.maxProjectsPerGuide}
+                    </strong>
+                  </p>
+                  <p className="flex items-center justify-between text-base">
+                    <span>Max Projects/Panel:</span>
+                    <strong className="text-blue-700">
+                      {settings.maxProjectsPerPanel}
+                    </strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save Button - Only show when context is selected */}
+          {isContextSelected && (
+            <div className="flex justify-end items-center pt-4 border-t border-gray-200">
+              <Button
+                variant="primary"
+                onClick={handleSave}
+                size="lg"
+                disabled={
+                  !selectedSchool ||
+                  !selectedProgram ||
+                  !selectedYear ||
+                  isLoading
+                }
+              >
+                {isLoading ? "Saving..." : "Save Configuration"}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </Card>

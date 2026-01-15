@@ -10,7 +10,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'lg', hideHeader = fal
     xl: 'max-w-6xl',
     full: 'max-w-[95vw]'
   };
-  
+
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') onClose();
@@ -24,19 +24,19 @@ const Modal = ({ isOpen, onClose, title, children, size = 'lg', hideHeader = fal
       document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
-  
+
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div 
+      <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
-      
+
       <div className="flex min-h-screen items-center justify-center p-4">
-        <div 
+        <div
           className={`relative w-full ${sizes[size]} bg-white rounded-xl shadow-2xl border border-gray-200 transform transition-all overflow-hidden`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -51,7 +51,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'lg', hideHeader = fal
               </button>
             </div>
           )}
-          
+
           <div className={noPadding ? '' : 'bg-white p-6'}>
             {children}
           </div>

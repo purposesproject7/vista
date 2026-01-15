@@ -1,8 +1,10 @@
 import Faculty from "../models/facultySchema.js";
+import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
 import crypto from "crypto";
+import { ActivityLogService } from "../services/activityLogService.js";
 
 /**
  * Generate JWT token
@@ -14,10 +16,9 @@ const generateToken = (faculty) => {
       emailId: faculty.emailId,
       employeeId: faculty.employeeId,
       role: faculty.role,
-      isProjectCoordinator: faculty.isProjectCoordinator || false,
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || "7d" },
+    { expiresIn: process.env.JWT_EXPIRE || "7d" }
   );
 };
 
@@ -26,7 +27,7 @@ const generateToken = (faculty) => {
  */
 export async function login(req, res) {
   try {
-    console.log('Login request body:', req.body);
+    console.log("Login request body:", req.body);
     const { emailId, password, expectedRole } = req.body;
 
     const faculty = await Faculty.findOne({ emailId }).select("+password");
@@ -83,14 +84,44 @@ export async function login(req, res) {
       facultyId: faculty._id,
       employeeId: faculty.employeeId,
       role: faculty.role,
+      isProjectCoordinator: faculty.isProjectCoordinator,
       ip: req.ip,
     });
+
+    // Activity Log
+    ActivityLogService.logActivity(
+      faculty._id,
+      "LOGIN",
+      {
+        school: faculty.school,
+        program: faculty.program,
+        academicYear: "N/A", // Faculty login isn't tied to a year
+      },
+      { description: "Faculty logged in" },
+      req
+    );
+
+    // If project coordinator, fetch primary status
+    let isPrimary = false;
+    if (faculty.isProjectCoordinator) {
+      const coordinatorData = await ProjectCoordinator.findOne({
+        faculty: faculty._id,
+        isActive: true
+      });
+      if (coordinatorData) {
+        isPrimary = coordinatorData.isPrimary;
+      }
+    }
 
     res.status(200).json({
       success: true,
       message: "Login successful.",
       token,
-      data: facultyData,
+      data: {
+        ...facultyData,
+        isProjectCoordinator: faculty.isProjectCoordinator,
+        isPrimary, // Add isPrimary flag
+      },
     });
   } catch (error) {
     logger.error("login_error", {
@@ -118,7 +149,7 @@ export async function register(req, res) {
       phoneNumber,
       role,
       school,
-      department,
+      program,
       specialization,
     } = req.body;
 
@@ -144,7 +175,7 @@ export async function register(req, res) {
       phoneNumber,
       role,
       school,
-      department,
+      program,
       specialization: specialization || [],
     });
 
@@ -307,7 +338,7 @@ export async function changePassword(req, res) {
 
     const isPasswordMatch = await bcrypt.compare(
       currentPassword,
-      faculty.password,
+      faculty.password
     );
 
     if (!isPasswordMatch) {
@@ -351,10 +382,25 @@ export async function verifyToken(req, res) {
 
     delete facultyData.password;
 
+    // If project coordinator, fetch primary status
+    let isPrimary = false;
+    if (facultyData.isProjectCoordinator) {
+      const coordinatorData = await ProjectCoordinator.findOne({
+        faculty: facultyData._id,
+        isActive: true
+      });
+      if (coordinatorData) {
+        isPrimary = coordinatorData.isPrimary;
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Token is valid.",
-      data: facultyData,
+      data: {
+        ...facultyData,
+        isPrimary,
+      },
     });
   } catch (error) {
     res.status(500).json({
