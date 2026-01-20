@@ -11,6 +11,7 @@ import FacultyTutorial from "./features/faculty/pages/tutorial/FacultyTutorial";
 import GuideReviews from "./features/faculty/pages/GuideReviews";
 import StudentManagement from "./features/admin/pages/StudentManagement";
 import FacultyManagement from "./features/admin/pages/FacultyManagement";
+import AdminManagement from "./features/admin/pages/AdminManagement";
 import ProjectManagement from "./features/admin/pages/ProjectManagement";
 import PanelManagementLanding from "./features/admin/pages/PanelManagementLanding";
 import AdminReports from "./features/admin/pages/AdminReports";
@@ -169,6 +170,14 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute allowedRoles={["admin"]}>
                       <FacultyManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admins"
+                  element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <AdminManagement />
                     </ProtectedRoute>
                   }
                 />

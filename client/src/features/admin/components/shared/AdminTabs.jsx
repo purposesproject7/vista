@@ -10,11 +10,14 @@ import {
   ClipboardDocumentListIcon,
   MegaphoneIcon,
   UsersIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
+import { useAuth } from "../../../../shared/hooks/useAuth";
 
 const AdminTabs = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isSudoAdmin } = useAuth();
 
   const tabs = [
     {
@@ -30,6 +33,14 @@ const AdminTabs = () => {
       path: "/admin/faculty",
       icon: AcademicCapIcon,
       description: "Manage faculty members",
+    },
+    {
+      id: "admins",
+      label: "Admin Management",
+      path: "/admin/admins",
+      icon: ShieldCheckIcon,
+      description: "Manage admin users",
+      sudoOnly: true, // Only visible to ADMIN001
     },
     {
       id: "projects",
@@ -77,11 +88,19 @@ const AdminTabs = () => {
 
   const isActive = (path) => location.pathname === path;
 
+  // Filter tabs based on sudo admin status
+  const visibleTabs = tabs.filter(tab => {
+    if (tab.sudoOnly) {
+      return isSudoAdmin();
+    }
+    return true;
+  });
+
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center gap-2 py-3 flex-wrap">
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const active = isActive(tab.path);
 
@@ -92,10 +111,9 @@ const AdminTabs = () => {
                 className={`
                   flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
                   transition-all duration-200 whitespace-nowrap
-                  ${
-                    active
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow"
+                  ${active
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:shadow"
                   }
                 `}
                 title={tab.description}

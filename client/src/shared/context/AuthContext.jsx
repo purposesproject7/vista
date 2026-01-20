@@ -65,11 +65,16 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const isSudoAdmin = () => {
+        return user?.employeeId === "ADMIN001";
+    };
+
     const value = {
         user,
         loading,
         login,
         logout,
+        isSudoAdmin,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

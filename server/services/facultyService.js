@@ -124,6 +124,9 @@ export class FacultyService {
   static async getFacultyList(filters = {}, sortOptions = {}) {
     const query = {};
 
+    // Always exclude admins from faculty list
+    query.role = "faculty";
+
     if (filters.school && filters.school !== "all") {
       query.school = { $in: [filters.school] };
     }
@@ -134,10 +137,6 @@ export class FacultyService {
 
     if (filters.specialization && filters.specialization !== "all") {
       query.specialization = { $in: [filters.specialization] };
-    }
-
-    if (filters.role) {
-      query.role = filters.role;
     }
 
     if (filters.academicYear) {
@@ -152,6 +151,28 @@ export class FacultyService {
 
     return await Faculty.find(query).sort(sort).select("-password").lean();
   }
+
+  /**
+   * Get admin list (only for ADMIN001)
+   */
+  static async getAdminList(filters = {}, sortOptions = {}) {
+    const query = { role: "admin" };
+
+    if (filters.school && filters.school !== "all") {
+      query.school = { $in: [filters.school] };
+    }
+
+    if (filters.program && filters.program !== "all") {
+      query.program = { $in: [filters.program] };
+    }
+
+    const sort = sortOptions.sortBy
+      ? { [sortOptions.sortBy]: sortOptions.sortOrder === "desc" ? -1 : 1 }
+      : { name: 1 };
+
+    return await Faculty.find(query).sort(sort).select("-password").lean();
+  }
+
 
   /**
    * Update faculty

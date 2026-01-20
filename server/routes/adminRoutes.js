@@ -2,6 +2,7 @@ import express from "express";
 import * as adminController from "../controllers/adminController.js";
 import { authenticate } from "../middlewares/auth.js";
 import { requireRole } from "../middlewares/rbac.js";
+import { requireSudoAdmin } from "../middlewares/requireSudoAdmin.js";
 import { validateRequired } from "../middlewares/validation.js";
 import { validateAcademicContext } from "../middlewares/validation.js";
 import { validateTeamSize } from "../middlewares/featureLock.js";
@@ -111,6 +112,37 @@ router.post(
 router.put("/marking-schema/:id", adminController.updateMarkingSchema);
 
 /**
+ * Admin Management (SUDO ADMIN ONLY - ADMIN001)
+ */
+router.get("/admins", requireSudoAdmin, adminController.getAllAdmins);
+
+router.post(
+  "/admins",
+  requireSudoAdmin,
+  validateRequired(["name", "emailId", "employeeId", "password", "school", "phoneNumber"]),
+  adminController.createAdminUser
+);
+
+router.post(
+  "/admins/bulk",
+  requireSudoAdmin,
+  validateRequired(["adminList"]),
+  adminController.bulkCreateAdmins
+);
+
+router.put(
+  "/admins/:employeeId",
+  requireSudoAdmin,
+  adminController.updateAdminUser
+);
+
+router.delete(
+  "/admins/:employeeId",
+  requireSudoAdmin,
+  adminController.deleteAdminUser
+);
+
+/**
  * Faculty management
  */
 router.get("/faculty", adminController.getAllFaculty);
@@ -137,8 +169,10 @@ router.post(
   adminController.createFacultyBulk
 );
 
+// Legacy admin creation endpoint - now protected by requireSudoAdmin
 router.post(
   "/faculty/admin",
+  requireSudoAdmin,
   validateRequired(["name", "emailId", "employeeId", "password"]),
   adminController.createAdmin
 );

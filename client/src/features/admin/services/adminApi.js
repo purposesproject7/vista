@@ -486,6 +486,74 @@ export const deleteFaculty = async (employeeId) => {
   return response.data;
 };
 
+// ==================== Admin Management APIs (SUDO ADMIN ONLY) ====================
+
+/**
+ * Fetch all admins (ADMIN001 only)
+ */
+export const fetchAdmins = async (filters = {}) => {
+  const params = { ...filters };
+  if (params.department) {
+    params.program = params.department;
+    delete params.department;
+  }
+
+  const response = await api.get("/admin/admins", { params });
+  if (response.data.success) {
+    return {
+      success: true,
+      count: response.data.count,
+      admins: response.data.data.map(adaptFaculty),
+    };
+  }
+  return response.data;
+};
+
+/**
+ * Create admin (ADMIN001 only)
+ */
+export const createAdmin = async (adminData) => {
+  const payload = { ...adminData };
+  if (payload.department) {
+    payload.program = payload.department;
+  }
+  const response = await api.post("/admin/admins", payload);
+  return response.data;
+};
+
+/**
+ * Bulk create admins (ADMIN001 only)
+ */
+export const bulkCreateAdmins = async (adminList) => {
+  const admins = adminList.map(a => ({
+    ...a,
+    program: a.program || a.department
+  }));
+  const response = await api.post("/admin/admins/bulk", { adminList: admins });
+  return response.data;
+};
+
+/**
+ * Update admin (ADMIN001 only)
+ */
+export const updateAdmin = async (employeeId, data) => {
+  const payload = { ...data };
+  if (payload.department) {
+    payload.program = payload.department;
+  }
+  const response = await api.put(`/admin/admins/${employeeId}`, payload);
+  return response.data;
+};
+
+/**
+ * Delete admin (ADMIN001 only)
+ */
+export const deleteAdmin = async (employeeId) => {
+  const response = await api.delete(`/admin/admins/${employeeId}`);
+  return response.data;
+};
+
+
 // ==================== Panel APIs ====================
 
 /**

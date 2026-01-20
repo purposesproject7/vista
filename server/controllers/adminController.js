@@ -301,6 +301,156 @@ export async function getFacultyDetailsBulk(req, res) {
   }
 }
 
+// ===== ADMIN MANAGEMENT (SUDO ADMIN ONLY) =====
+
+export async function getAllAdmins(req, res) {
+  try {
+    const admins = await FacultyService.getAdminList(req.query, {
+      sortBy: req.query.sortBy,
+      sortOrder: req.query.sortOrder,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: admins,
+      count: admins.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function createAdminUser(req, res) {
+  try {
+    const adminData = {
+      ...req.body,
+      role: "admin",
+      specialization: req.body.specialization || "",
+    };
+
+    const admin = await FacultyService.createFaculty(adminData, req.user._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Admin created successfully.",
+      data: { _id: admin._id, employeeId: admin.employeeId },
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateAdminUser(req, res) {
+  try {
+    const { employeeId } = req.params;
+
+    // Prevent modifying ADMIN001
+    if (employeeId === "ADMIN001" && req.user.employeeId !== "ADMIN001") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot modify ADMIN001.",
+      });
+    }
+
+    const admin = await FacultyService.updateFaculty(
+      employeeId,
+      req.body,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Admin updated successfully.",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function deleteAdminUser(req, res) {
+  try {
+    const { employeeId } = req.params;
+
+    // Prevent deleting ADMIN001
+    if (employeeId === "ADMIN001") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot delete ADMIN001.",
+      });
+    }
+
+    await FacultyService.deleteFaculty(employeeId, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Admin deleted successfully.",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function bulkCreateAdmins(req, res) {
+  try {
+    const { adminList } = req.body;
+
+    if (!Array.isArray(adminList) || adminList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin list must be a non-empty array.",
+      });
+    }
+
+    const results = {
+      created: 0,
+      errors: 0,
+      details: [],
+    };
+
+    for (let i = 0; i < adminList.length; i++) {
+      try {
+        const adminData = {
+          ...adminList[i],
+          role: "admin",
+          specialization: adminList[i].specialization || "",
+        };
+        await FacultyService.createFaculty(adminData, req.user._id);
+        results.created++;
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          row: i + 1,
+          error: error.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk creation complete: ${results.created} created, ${results.errors} errors.`,
+      data: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+
 // ===== PANEL AUTO FUNCTIONS =====
 
 export async function autoCreatePanels(req, res) {
