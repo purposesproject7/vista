@@ -62,7 +62,13 @@ const FacultyViewTab = () => {
       if (member.name?.toLowerCase().includes(query)) return true;
       if (member.employeeId?.toLowerCase().includes(query)) return true;
       if (member.email?.toLowerCase().includes(query)) return true;
-      if (member.specialization?.some(s => s.toLowerCase().includes(query))) return true;
+      if (member.specialization) {
+        if (Array.isArray(member.specialization)) {
+          if (member.specialization.some(s => s.toLowerCase().includes(query))) return true;
+        } else if (typeof member.specialization === 'string') {
+          if (member.specialization.toLowerCase().includes(query)) return true;
+        }
+      }
 
       return false;
     });
@@ -132,7 +138,11 @@ const FacultyViewTab = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
             {/* Search Bar */}
             {allFaculty.length > 0 && !loading && (
-              <div className="relative flex-1 w-full">
+              <form
+                className="relative flex-1 w-full"
+                onSubmit={(e) => e.preventDefault()}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input
                   type="text"
@@ -141,7 +151,7 @@ const FacultyViewTab = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 w-full"
                 />
-              </div>
+              </form>
             )}
           </div>
 

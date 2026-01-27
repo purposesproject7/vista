@@ -250,6 +250,11 @@ const ModificationSettings = () => {
 
         allGuideData = guideResponse.data || [];
         allPanelData = panelResponse.data || [];
+        console.log('ModificationSettings: Loaded project data', {
+          guideCount: allGuideData.length,
+          panelCount: allPanelData.length,
+          guideSample: allGuideData[0]
+        });
       } catch (err) {
         console.error('Error fetching project data:', err);
       }

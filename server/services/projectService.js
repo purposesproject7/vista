@@ -50,7 +50,7 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.program && filters.program !== 'all') query.program = filters.program;
 
     const projects = await Project.find(query)
       .populate("students", "regNo name")
@@ -82,7 +82,7 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.program && filters.program !== 'all') query.program = filters.program;
 
     const projects = await Project.find(query)
       .populate("students", "regNo name emailId")
