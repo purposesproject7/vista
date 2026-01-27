@@ -30,18 +30,18 @@ export class PanelService {
       throw new Error(`Faculty not found: ${missing.join(", ")}`);
     }
 
-    // Validate all faculties are from the same school and program
-    const invalidMembers = faculties.filter(
-      (f) => f.school !== school || f.program !== program
-    );
+    // // Validate all faculties are from the same school and program
+    // const invalidMembers = faculties.filter(
+    //   (f) => f.school !== school || f.program !== program
+    // );
 
-    if (invalidMembers.length > 0) {
-      throw new Error(
-        `All panel members must be from ${school} - ${program}. Invalid: ${invalidMembers
-          .map((f) => f.employeeId)
-          .join(", ")}`
-      );
-    }
+    // if (invalidMembers.length > 0) {
+    //   throw new Error(
+    //     `All panel members must be from ${school} - ${program}. Invalid: ${invalidMembers
+    //       .map((f) => f.employeeId)
+    //       .join(", ")}`
+    //   );
+    // }
 
     // Validate panel size
     const config = await ProgramConfig.findOne({
