@@ -11,6 +11,10 @@ const PPTApprovalSection = ({ reviews, onRefresh }) => {
     // Filter teams that need approval
     // Logic: Active Reviews -> Teams where I am Guide -> reviewType matches -> PPT Not Approved
     const pendingApprovals = reviews.flatMap(review => {
+        // STRICT REQUIREMENT: Only show PPT Approval for Panel reviews.
+        // User explicitly stated: "it shd work for panel review only".
+        if (review.facultyType !== 'panel') return [];
+
         return (review.teams || [])
             .filter(team => {
                 // Must be Guide

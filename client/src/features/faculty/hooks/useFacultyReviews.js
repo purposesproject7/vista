@@ -113,7 +113,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                         let matches = false;
                         if (roleFilter === 'guide') {
-                            matches = isGuide && canBeGuide;
+                            // Fix: Guides must see ALL reviews involving their teams to perform actions (like PPT Approval)
+                            // even if they cannot grade (e.g., Panel reviews).
+                            matches = isGuide;
                         } else if (roleFilter === 'panel') {
                             matches = isInPanel && canBePanel;
                         } else {
@@ -243,6 +245,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         startDate: reviewSchema.deadline.from,
                         endDate: reviewSchema.deadline.to,
                         type: filters.role && filters.role !== 'All Roles' ? filters.role.toLowerCase() : (reviewSchema.facultyType === 'both' ? 'both' : reviewSchema.facultyType),
+                        facultyType: reviewSchema.facultyType,
                         rubrics: rubrics,
                         teams: relevantTeams
                     };

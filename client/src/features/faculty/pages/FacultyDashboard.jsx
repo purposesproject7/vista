@@ -175,7 +175,11 @@ const FacultyDashboard = () => {
                     {/* Active Reviews (Always Open) */}
                     <section className="animate-slideUp">
                         <ActiveReviewsSection
-                            reviews={active}
+                            reviews={active.filter(r => {
+                                // If viewing as Guide, hide reviews that are STRICTLY Panel-only (no guide grading)
+                                if (filters.role === 'guide' && r.facultyType === 'panel') return false;
+                                return true;
+                            })}
                             onEnterMarks={(review, team) => handleEnterMarks(review, team)}
                         />
                     </section>
