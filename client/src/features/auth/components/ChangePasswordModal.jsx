@@ -81,36 +81,22 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      // TODO: Replace with actual API call
-      // Mock API call for development
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulate checking current password (50% chance of failure for demo)
-      const isCurrentPasswordCorrect = Math.random() > 0.3; // 70% success rate for demo
-      
-      if (!isCurrentPasswordCorrect) {
-        setCurrentPasswordError(true);
-        showToast('Current password is incorrect', 'error');
-        return;
-      }
-
-      // Actual API call would be:
-      // await api.post('/auth/change-password', {
-      //   currentPassword,
-      //   newPassword
-      // });
+      await api.put('/auth/change-password', {
+        currentPassword,
+        newPassword
+      });
 
       showToast('Password changed successfully!', 'success');
       handleClose();
     } catch (error) {
       console.error('Error changing password:', error);
-      
+
       // Check if error is due to incorrect current password
-      if (error.response?.status === 401 || error.response?.data?.message?.includes('current password')) {
+      if (error.response?.status === 401 || error.response?.data?.message?.toLowerCase().includes('current password')) {
         setCurrentPasswordError(true);
         showToast('Current password is incorrect', 'error');
       } else {
-        showToast('Failed to change password. Please try again.', 'error');
+        showToast(error.response?.data?.message || 'Failed to change password. Please try again.', 'error');
       }
     } finally {
       setLoading(false);
