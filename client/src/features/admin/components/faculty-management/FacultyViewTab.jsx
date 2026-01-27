@@ -122,15 +122,17 @@ const FacultyViewTab = () => {
       <AcademicFilterSelector
         onFilterComplete={handleFilterComplete}
         showYear={false}
+        allowAllPrograms={true}
       />
 
       {/* Faculty Content - only show when filters are complete */}
       {filters && (
         <>
-          {/* Search Bar */}
-          {allFaculty.length > 0 && !loading && (
-            <div className="mb-6">
-              <div className="relative">
+          {/* Controls */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            {/* Search Bar */}
+            {allFaculty.length > 0 && !loading && (
+              <div className="relative flex-1 w-full">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input
                   type="text"
@@ -140,11 +142,12 @@ const FacultyViewTab = () => {
                   className="pl-10 w-full"
                 />
               </div>
-              <p className="mt-2 text-sm text-gray-600">
-                Showing {filteredFaculty.length} of {allFaculty.length} faculty members
-              </p>
-            </div>
-          )}
+            )}
+          </div>
+
+          <p className="mb-4 text-sm text-gray-600">
+            Showing {filteredFaculty.length} of {allFaculty.length} faculty members
+          </p>
 
           {/* Faculty List */}
           {loading ? (

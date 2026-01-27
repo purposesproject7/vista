@@ -59,6 +59,7 @@ const ModificationSettings = () => {
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [panelAssignType, setPanelAssignType] = useState('existing'); // 'existing' | 'faculty'
   const [ignoreSpecialization, setIgnoreSpecialization] = useState(false);
+  const [showAllPrograms, setShowAllPrograms] = useState(false);
 
   // New state for flexible panel assignment
   const [panelAssignmentScope, setPanelAssignmentScope] = useState('main'); // 'main' | 'review'
@@ -176,10 +177,11 @@ const ModificationSettings = () => {
   // Fetch faculty list when context is complete
   useEffect(() => {
     // Check if we have all necessary context (year instead of academicYear)
-    if (academicContext.school && academicContext.program && academicContext.year) {
+    const programValid = showAllPrograms || academicContext.program;
+    if (academicContext.school && programValid && academicContext.year) {
       fetchFacultyList();
     }
-  }, [academicContext.school, academicContext.program, academicContext.year]);
+  }, [academicContext.school, academicContext.program, academicContext.year, showAllPrograms]);
 
   // Fetch marking schema to get available reviews
   useEffect(() => {
@@ -219,7 +221,7 @@ const ModificationSettings = () => {
     try {
       const response = await apiFetchFacultyList(
         academicContext.school,
-        academicContext.program
+        showAllPrograms ? 'all' : academicContext.program
       );
 
       if (!response.data || response.data.length === 0) {
@@ -237,12 +239,12 @@ const ModificationSettings = () => {
           getGuideProjects(
             academicContext.year, // Use year from context
             academicContext.school,
-            academicContext.program
+            showAllPrograms ? 'all' : academicContext.program
           ),
           getPanelProjects(
             academicContext.year, // Use year from context
             academicContext.school,
-            academicContext.program
+            showAllPrograms ? 'all' : academicContext.program
           )
         ]);
 
@@ -310,14 +312,14 @@ const ModificationSettings = () => {
       const guideResponse = await getGuideProjects(
         academicContext.year, // Use year from context
         academicContext.school,
-        academicContext.program
+        showAllPrograms ? 'all' : academicContext.program
       );
 
       // Fetch all panel projects for the academic context
       const panelResponse = await getPanelProjects(
         academicContext.year, // Use year from context
         academicContext.school,
-        academicContext.program
+        showAllPrograms ? 'all' : academicContext.program
       );
 
       console.log('Guide response:', guideResponse);
@@ -524,7 +526,7 @@ const ModificationSettings = () => {
     return contextOptions.programs.filter(prog => prog.school === academicContext.school);
   }, [academicContext.school, contextOptions.programs]);
 
-  const isContextComplete = academicContext.school && academicContext.program && academicContext.year; // Use year
+  const isContextComplete = academicContext.school && (showAllPrograms || academicContext.program) && academicContext.year; // Use year
 
   return (
     <div className="space-y-6">
@@ -569,8 +571,21 @@ const ModificationSettings = () => {
               value={academicContext.program}
               onChange={(value) => updateAcademicContext({ program: value })} // Use updateAcademicContext
               placeholder="Select program..."
-              disabled={!academicContext.school}
+              disabled={!academicContext.school || showAllPrograms}
             />
+
+            <div className="flex items-center mt-2 md:mt-0">
+              <input
+                type="checkbox"
+                id="showAllPrograms"
+                checked={showAllPrograms}
+                onChange={(e) => setShowAllPrograms(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="showAllPrograms" className="ml-2 block text-sm text-gray-900">
+                Show All Faculties
+              </label>
+            </div>
 
             <Select
               label="Academic Year"

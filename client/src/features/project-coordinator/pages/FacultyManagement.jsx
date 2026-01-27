@@ -25,6 +25,7 @@ const FacultyManagement = () => {
   const [isPrimary, setIsPrimary] = useState(true);
   const [activeTab, setActiveTab] = useState("view");
   const [showModal, setShowModal] = useState(false);
+  const [showAllPrograms, setShowAllPrograms] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [coordinatorSchool, setCoordinatorSchool] = useState("1"); // Default SCOPE
   const [coordinatorProgramme, setCoordinatorProgramme] = useState("1"); // Default B.Tech CSE
@@ -64,7 +65,7 @@ const FacultyManagement = () => {
       fetchFaculty();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeTab]);
+  }, [filters, activeTab, showAllPrograms]);
 
   const fetchFaculty = async () => {
     try {
@@ -72,8 +73,9 @@ const FacultyManagement = () => {
 
       const response = await apiFetchFaculty({
         school: user?.school,
-        program: user?.program,
+        program: showAllPrograms ? 'all' : user?.program,
         academicYear: filters?.year,
+        showAllPrograms: showAllPrograms
       });
 
       if (response.success) {
@@ -191,8 +193,23 @@ const FacultyManagement = () => {
         {activeTab === "view" && (
           <div className="space-y-6">
             {/* Filter Selector */}
-            {/* Filter Selector */}
             <AcademicFilterSelector onFilterComplete={handleFilterComplete} />
+
+            {/* Show All Toggle */}
+            <div className="flex justify-end px-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="showAll"
+                  checked={showAllPrograms}
+                  onChange={(e) => setShowAllPrograms(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="showAll" className="text-sm font-medium text-gray-700 select-none">
+                  Show Faculties from All Programs
+                </label>
+              </div>
+            </div>
 
             {/* Faculty List */}
             <FacultyList faculty={faculty} />

@@ -183,6 +183,12 @@ export async function getFacultyList(req, res) {
     const context = getCoordinatorContext(req);
     const filters = { ...req.query, ...context };
 
+    // Support showing all faculties in the school (ignore program filter)
+    if (req.query.showAllPrograms === 'true') {
+      delete filters.program;
+    }
+    delete filters.showAllPrograms; // Remove non-DB field
+
     // Faculty are not bound by academic year, so remove it from filters
     if (filters.academicYear) delete filters.academicYear;
 

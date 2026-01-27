@@ -10,9 +10,11 @@ const AcademicFilterSelector = ({
   onFilterComplete,
   className = "",
   showYear = true,
+  allowAllPrograms = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [masterData, setMasterData] = useState(null);
+  const [showAllPrograms, setShowAllPrograms] = useState(false);
   const { showToast } = useToast();
 
   const [options, setOptions] = useState({
@@ -125,21 +127,21 @@ const AcademicFilterSelector = ({
     }
   }, [filters.school, masterData]);
 
-  // Notify parent when all filters are selected
   useEffect(() => {
+    const programValid = showAllPrograms || filters.program;
     const isComplete =
-      filters.school && filters.program && (!showYear || filters.year);
+      filters.school && programValid && (!showYear || filters.year);
 
     if (isComplete) {
       onFilterComplete({
         school: filters.school, // Pass school code (value of the select)
-        program: filters.program, // Backend uses 'program' field
-        department: filters.program, // Keep for backward compatibility
+        program: showAllPrograms ? 'all' : filters.program, // Backend uses 'program' field
+        department: showAllPrograms ? 'all' : filters.program, // Keep for backward compatibility
         academicYear: showYear ? filters.year : null,
-        programme: filters.program, // Also include as programme for clarity
+        programme: showAllPrograms ? 'all' : filters.program, // Also include as programme for clarity
       });
     }
-  }, [filters, onFilterComplete, showYear]);
+  }, [filters, onFilterComplete, showYear, showAllPrograms]);
 
   const handleChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
@@ -212,17 +214,35 @@ const AcademicFilterSelector = ({
           } gap-3`}
       >
         {steps.map((step) => (
-          <Select
-            key={step.key}
-            label={step.label}
-            value={filters[step.key]}
-            onChange={(value) => handleChange(step.key, value)}
-            options={step.options}
-            placeholder={
-              step.enabled ? `Select ${step.label}` : "Select previous first"
-            }
-            className={!step.enabled ? "opacity-50 pointer-events-none" : ""}
-          />
+          <div key={step.key} className="flex flex-col">
+            <Select
+              label={step.label}
+              value={filters[step.key]}
+              onChange={(value) => handleChange(step.key, value)}
+              options={step.options}
+              placeholder={
+                step.enabled ? `Select ${step.label}` : "Select previous first"
+              }
+              className={!step.enabled || (step.key === 'program' && showAllPrograms) ? "opacity-50 pointer-events-none" : ""}
+              disabled={step.key === 'program' && showAllPrograms}
+            />
+
+            {step.key === 'program' && allowAllPrograms && (
+              <div className={`flex items-center mt-2 ${!filters.school ? 'opacity-50 pointer-events-none' : ''}`}>
+                <input
+                  type="checkbox"
+                  id="showAllProgramsSelector"
+                  checked={showAllPrograms}
+                  onChange={(e) => setShowAllPrograms(e.target.checked)}
+                  disabled={!filters.school}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="showAllProgramsSelector" className="ml-2 block text-sm text-gray-900">
+                  Show All Faculties
+                </label>
+              </div>
+            )}
+          </div>
         ))}
       </div>
 
