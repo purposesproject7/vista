@@ -227,14 +227,13 @@ const AcademicFilterSelector = ({
               disabled={step.key === 'program' && showAllPrograms}
             />
 
-            {step.key === 'program' && allowAllPrograms && (
-              <div className={`flex items-center mt-2 ${!filters.school ? 'opacity-50 pointer-events-none' : ''}`}>
+            {step.key === 'program' && allowAllPrograms && filters.school && (
+              <div className="flex items-center mt-2">
                 <input
                   type="checkbox"
                   id="showAllProgramsSelector"
                   checked={showAllPrograms}
                   onChange={(e) => setShowAllPrograms(e.target.checked)}
-                  disabled={!filters.school}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="showAllProgramsSelector" className="ml-2 block text-sm text-gray-900">

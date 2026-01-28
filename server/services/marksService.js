@@ -1,6 +1,7 @@
 import Marks from "../models/marksSchema.js";
 import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
+import Project from "../models/projectSchema.js";
 import {
   getFacultyTypeForProject,
   extractPrimaryContext,
