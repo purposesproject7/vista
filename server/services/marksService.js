@@ -62,7 +62,11 @@ export class MarksService {
       }
     }
 
-    const { school, program } = extractPrimaryContext(facultyDoc);
+    let { school, program } = extractPrimaryContext(facultyDoc);
+
+    // Fallback to student context if faculty context is missing
+    if (!school) school = studentDoc.school;
+    if (!program) program = studentDoc.program;
 
     // if (!school || !program) {
     //   throw new Error(`Faculty profile incomplete: School or Program missing. (School: ${school}, Program: ${program})`);
