@@ -407,18 +407,19 @@ const ModificationSettings = () => {
   };
 
   // Fetch available panels for reassignment
-  const fetchAvailablePanels = async () => {
+  const fetchAvailablePanels = async (ignoreRestrictions = false) => {
     try {
       const response = await getPanels(
         academicContext.year, // Use year from context
         academicContext.school,
-        academicContext.program
+        ignoreRestrictions ? 'all' : academicContext.program // Fetch all programs if ignoring restrictions
       );
 
       const panels = (response.data || []).map(panel => ({
         _id: panel._id,
         name: panel.panelName || `Panel ${panel._id.slice(-4)}`,
-        members: panel.members?.map(m => m.faculty?.name || 'Unknown') || []
+        members: panel.members?.map(m => m.faculty?.name || 'Unknown') || [],
+        program: panel.program // Include program info for display
       }));
 
       setAvailablePanels(panels);
@@ -459,10 +460,17 @@ const ModificationSettings = () => {
   const openReassignModal = async (mode) => {
     setReassignMode(mode);
     if (mode === 'panel') {
-      await fetchAvailablePanels();
+      await fetchAvailablePanels(ignoreSpecialization);
     }
     setShowReassignModal(true);
   };
+
+  // Re-fetch panels when ignoreSpecialization changes (for panel reassignment)
+  useEffect(() => {
+    if (showReassignModal && reassignMode === 'panel' && panelAssignType === 'existing') {
+      fetchAvailablePanels(ignoreSpecialization);
+    }
+  }, [ignoreSpecialization]);
 
   // Handle batch reassignment
   const handleBatchReassign = async () => {
@@ -956,6 +964,14 @@ const ModificationSettings = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Target Panel
                   </label>
+                  {/* Info message when showing cross-program panels */}
+                  {ignoreSpecialization && (
+                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-700">
+                        ℹ️ Showing panels from all programs. Cross-program panels are marked.
+                      </p>
+                    </div>
+                  )}
                   {/* Search bar for panels */}
                   <div className="relative mb-3">
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -978,8 +994,17 @@ const ModificationSettings = () => {
                           className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetPanel?._id === panel._id ? 'bg-blue-50' : ''
                             }`}
                         >
-                          <p className="font-medium text-gray-900">{panel.name}</p>
-                          <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">{panel.name}</p>
+                              <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
+                              {ignoreSpecialization && panel.program && panel.program !== academicContext.program && (
+                                <p className="text-xs text-amber-600 font-medium mt-1">
+                                  📍 {panel.program} (Different Program)
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </button>
                       ))
                     )}
