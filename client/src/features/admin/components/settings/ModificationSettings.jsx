@@ -409,11 +409,16 @@ const ModificationSettings = () => {
   // Fetch available panels for reassignment
   const fetchAvailablePanels = async (ignoreRestrictions = false) => {
     try {
+      console.log('Fetching panels with ignoreRestrictions:', ignoreRestrictions);
+      console.log('Program parameter:', ignoreRestrictions ? 'all' : academicContext.program);
+
       const response = await getPanels(
         academicContext.year, // Use year from context
         academicContext.school,
         ignoreRestrictions ? 'all' : academicContext.program // Fetch all programs if ignoring restrictions
       );
+
+      console.log('Panels response:', response);
 
       const panels = (response.data || []).map(panel => ({
         _id: panel._id,
@@ -422,6 +427,7 @@ const ModificationSettings = () => {
         program: panel.program // Include program info for display
       }));
 
+      console.log('Mapped panels:', panels);
       setAvailablePanels(panels);
     } catch (error) {
       console.error('Error fetching panels:', error);
@@ -467,10 +473,13 @@ const ModificationSettings = () => {
 
   // Re-fetch panels when ignoreSpecialization changes (for panel reassignment)
   useEffect(() => {
+    console.log('useEffect triggered:', { showReassignModal, reassignMode, panelAssignType, ignoreSpecialization });
     if (showReassignModal && reassignMode === 'panel' && panelAssignType === 'existing') {
+      console.log('Re-fetching panels due to ignoreSpecialization change');
       fetchAvailablePanels(ignoreSpecialization);
     }
-  }, [ignoreSpecialization]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ignoreSpecialization, showReassignModal, reassignMode, panelAssignType]);
 
   // Handle batch reassignment
   const handleBatchReassign = async () => {
