@@ -263,17 +263,22 @@ const ModificationSettings = () => {
         console.error('Error fetching project data:', err);
       }
 
-      // Transform faculty data with project counts
+      // Transform faculty data with project counts and project names
       const facultyWithCounts = response.data.map((faculty) => {
-        // Count guide projects
+        // Collect guide projects
         let guideCount = 0;
+        const guideProjectNames = [];
         const guideEntry = allGuideData.find(g => g.faculty?.employeeId === faculty.employeeId);
         if (guideEntry) {
           guideCount = guideEntry.guidedProjects?.length || 0;
+          guideEntry.guidedProjects?.forEach(proj => {
+            if (proj.name) guideProjectNames.push(proj.name);
+          });
         }
 
-        // Count panel projects
+        // Collect panel projects
         let panelCount = 0;
+        const panelProjectNames = [];
         allPanelData.forEach(panelGroup => {
           const isMember = panelGroup.members?.some(member => {
             const memberId = member.faculty?._id || member.faculty;
@@ -281,13 +286,19 @@ const ModificationSettings = () => {
           });
           if (isMember) {
             panelCount += panelGroup.projects?.length || 0;
+            panelGroup.projects?.forEach(proj => {
+              if (proj.name) panelProjectNames.push(proj.name);
+            });
           }
         });
 
         return {
           ...faculty,
           guideCount,
-          panelCount
+          panelCount,
+          guideProjectNames,
+          panelProjectNames,
+          allProjectNames: [...guideProjectNames, ...panelProjectNames]
         };
       });
 
@@ -417,14 +428,15 @@ const ModificationSettings = () => {
     }
   };
 
-  // Filter faculty by search
+  // Filter faculty by search (including project names)
   const filteredFaculty = useMemo(() => {
     if (!facultySearch.trim()) return facultyList;
     const search = facultySearch.toLowerCase();
     return facultyList.filter(f =>
       f.name.toLowerCase().includes(search) ||
       f.employeeId.toLowerCase().includes(search) ||
-      (f.emailId && f.emailId.toLowerCase().includes(search))
+      (f.emailId && f.emailId.toLowerCase().includes(search)) ||
+      (f.allProjectNames && f.allProjectNames.some(projName => projName.toLowerCase().includes(search)))
     );
   }, [facultyList, facultySearch]);
 
@@ -644,7 +656,7 @@ const ModificationSettings = () => {
                 type="text"
                 value={facultySearch}
                 onChange={(e) => setFacultySearch(e.target.value)}
-                placeholder="Search faculty by name, ID, or email..."
+                placeholder="Search faculty by name, ID, email, or project name..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
