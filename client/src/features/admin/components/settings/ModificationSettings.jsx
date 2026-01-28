@@ -61,6 +61,10 @@ const ModificationSettings = () => {
   const [ignoreSpecialization, setIgnoreSpecialization] = useState(false);
   const [showAllPrograms, setShowAllPrograms] = useState(false);
 
+  // Search states for reassignment modal
+  const [reassignFacultySearch, setReassignFacultySearch] = useState('');
+  const [reassignPanelSearch, setReassignPanelSearch] = useState('');
+
   // New state for flexible panel assignment
   const [panelAssignmentScope, setPanelAssignmentScope] = useState('main'); // 'main' | 'review'
   const [selectedReviewType, setSelectedReviewType] = useState('');
@@ -525,6 +529,27 @@ const ModificationSettings = () => {
     return facultyList.filter(f => f.employeeId !== selectedFaculty?.employeeId);
   }, [facultyList, selectedFaculty]);
 
+  // Filtered faculty for reassignment modal with search
+  const filteredReassignFaculty = useMemo(() => {
+    if (!reassignFacultySearch.trim()) return availableFacultyForReassign;
+    const search = reassignFacultySearch.toLowerCase();
+    return availableFacultyForReassign.filter(f =>
+      f.name.toLowerCase().includes(search) ||
+      f.employeeId.toLowerCase().includes(search) ||
+      (f.emailId && f.emailId.toLowerCase().includes(search))
+    );
+  }, [availableFacultyForReassign, reassignFacultySearch]);
+
+  // Filtered panels for reassignment modal with search
+  const filteredReassignPanels = useMemo(() => {
+    if (!reassignPanelSearch.trim()) return availablePanels;
+    const search = reassignPanelSearch.toLowerCase();
+    return availablePanels.filter(p =>
+      p.name.toLowerCase().includes(search) ||
+      p.members.some(m => m.toLowerCase().includes(search))
+    );
+  }, [availablePanels, reassignPanelSearch]);
+
   // Filter programs based on selected school
   const filteredPrograms = useMemo(() => {
     if (!academicContext.school) return [];
@@ -807,6 +832,8 @@ const ModificationSettings = () => {
           setTargetPanel(null);
           setPanelAssignType('existing');
           setIgnoreSpecialization(false);
+          setReassignFacultySearch('');
+          setReassignPanelSearch('');
         }}
         title={`Reassign ${reassignMode === 'guide' ? 'Guide' : 'Panel'}`}
         size="md"
@@ -821,18 +848,33 @@ const ModificationSettings = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select New Guide Faculty
               </label>
+              {/* Search bar for faculty */}
+              <div className="relative mb-3">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={reassignFacultySearch}
+                  onChange={(e) => setReassignFacultySearch(e.target.value)}
+                  placeholder="Search faculty by name, ID, or email..."
+                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+              </div>
               <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-                {availableFacultyForReassign.map((faculty) => (
-                  <button
-                    key={faculty.employeeId}
-                    onClick={() => setTargetFaculty(faculty)}
-                    className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
-                      }`}
-                  >
-                    <p className="font-medium text-gray-900">{faculty.name}</p>
-                    <p className="text-xs text-gray-500">{faculty.employeeId}</p>
-                  </button>
-                ))}
+                {filteredReassignFaculty.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">No faculty found</div>
+                ) : (
+                  filteredReassignFaculty.map((faculty) => (
+                    <button
+                      key={faculty.employeeId}
+                      onClick={() => setTargetFaculty(faculty)}
+                      className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
+                        }`}
+                    >
+                      <p className="font-medium text-gray-900">{faculty.name}</p>
+                      <p className="text-xs text-gray-500">{faculty.employeeId} • {faculty.emailId}</p>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           ) : (
@@ -902,18 +944,33 @@ const ModificationSettings = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Target Panel
                   </label>
+                  {/* Search bar for panels */}
+                  <div className="relative mb-3">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={reassignPanelSearch}
+                      onChange={(e) => setReassignPanelSearch(e.target.value)}
+                      placeholder="Search panels by name or members..."
+                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                  </div>
                   <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-                    {availablePanels.map((panel) => (
-                      <button
-                        key={panel._id}
-                        onClick={() => setTargetPanel(panel)}
-                        className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetPanel?._id === panel._id ? 'bg-blue-50' : ''
-                          }`}
-                      >
-                        <p className="font-medium text-gray-900">{panel.name}</p>
-                        <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
-                      </button>
-                    ))}
+                    {filteredReassignPanels.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No panels found</div>
+                    ) : (
+                      filteredReassignPanels.map((panel) => (
+                        <button
+                          key={panel._id}
+                          onClick={() => setTargetPanel(panel)}
+                          className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetPanel?._id === panel._id ? 'bg-blue-50' : ''
+                            }`}
+                        >
+                          <p className="font-medium text-gray-900">{panel.name}</p>
+                          <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
               ) : (
@@ -921,35 +978,67 @@ const ModificationSettings = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Faculty as Panel
                   </label>
+                  {/* Search bar for faculty */}
+                  <div className="relative mb-3">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={reassignFacultySearch}
+                      onChange={(e) => setReassignFacultySearch(e.target.value)}
+                      placeholder="Search faculty by name, ID, or email..."
+                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                  </div>
                   <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-                    {availableFacultyForReassign.map((faculty) => (
-                      <button
-                        key={faculty.employeeId}
-                        onClick={() => setTargetFaculty(faculty)}
-                        className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
-                          }`}
-                      >
-                        <p className="font-medium text-gray-900">{faculty.name}</p>
-                        <p className="text-xs text-gray-500">{faculty.employeeId} • Will be assigned as single-member panel</p>
-                      </button>
-                    ))}
+                    {filteredReassignFaculty.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No faculty found</div>
+                    ) : (
+                      filteredReassignFaculty.map((faculty) => (
+                        <button
+                          key={faculty.employeeId}
+                          onClick={() => setTargetFaculty(faculty)}
+                          className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
+                            }`}
+                        >
+                          <p className="font-medium text-gray-900">{faculty.name}</p>
+                          <p className="text-xs text-gray-500">{faculty.employeeId} • Will be assigned as single-member panel</p>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          <div className="flex items-center gap-2 pt-2">
-            <input
-              type="checkbox"
-              id="ignoreSpecialization"
-              checked={ignoreSpecialization}
-              onChange={(e) => setIgnoreSpecialization(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="ignoreSpecialization" className="text-sm text-gray-700">
-              Ignore Specialization Mismatch
-            </label>
+          {/* Enhanced Department Override UI */}
+          <div className="pt-2 border-t">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="ignoreSpecialization" className="text-sm font-medium text-amber-900">
+                    Override Department/Specialization Restrictions
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIgnoreSpecialization(!ignoreSpecialization)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${ignoreSpecialization ? 'bg-amber-600' : 'bg-gray-200'
+                      }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${ignoreSpecialization ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-xs text-amber-700">
+                  {ignoreSpecialization
+                    ? 'Warning: Projects will be reassigned even if the target faculty has a different department or specialization. Use with caution.'
+                    : 'Enable this to allow reassignment across different departments/specializations.'}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
@@ -961,6 +1050,8 @@ const ModificationSettings = () => {
                 setTargetFaculty(null);
                 setTargetPanel(null);
                 setIgnoreSpecialization(false);
+                setReassignFacultySearch('');
+                setReassignPanelSearch('');
               }}
             >
               Cancel
