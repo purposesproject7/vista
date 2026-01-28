@@ -154,13 +154,20 @@ export class PanelService {
     // or ensure it matches exactly what's in DB.
     // Based on user request to fix like faculty, removing might be safer if DB has mixed data.
     if (filters.academicYear) delete filters.academicYear;
-    if (filters.school) query.school = filters.school;
+
+    // Handle 'all' as special case to fetch panels from all schools
+    if (filters.school && filters.school !== 'all') {
+      query.school = filters.school;
+    }
 
     // Handle 'all' as special case to fetch panels from all programs
     if (filters.program && filters.program !== 'all') {
-      query.program = filters.program;
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
     }
-    // If program is 'all' or not provided, don't filter by program
 
     if (filters.specialization) {
       query.specializations = { $in: [filters.specialization] };

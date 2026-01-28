@@ -414,7 +414,7 @@ const ModificationSettings = () => {
 
       const response = await getPanels(
         academicContext.year, // Use year from context
-        academicContext.school,
+        ignoreRestrictions ? 'all' : academicContext.school, // Fetch all schools if ignoring restrictions
         ignoreRestrictions ? 'all' : academicContext.program // Fetch all programs if ignoring restrictions
       );
 
