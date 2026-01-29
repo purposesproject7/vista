@@ -1163,6 +1163,24 @@ export const updateFeatureLock = async (configId, featureLocks) => {
   return response.data;
 };
 
+// ==================== Force PPT Approval (Super Admin Only) ====================
+
+/**
+ * Force approve PPT for all projects in a specific academic context
+ * @param {Object} context - { school, program, academicYear, reviewType }
+ */
+export const forcePPTApproval = async (context) => {
+  const payload = {
+    school: context.school,
+    program: context.program || context.programme || context.department,
+    academicYear: context.academicYear,
+    reviewType: context.reviewType,
+  };
+
+  const response = await api.post("/admin/force-ppt-approval", payload);
+  return response.data;
+};
+
 // Export all as default
 export default {
   // Master Data
@@ -1238,4 +1256,7 @@ export default {
   updateProgramConfig,
   saveProgramConfig,
   updateFeatureLock,
+
+  // Force PPT Approval (Super Admin Only)
+  forcePPTApproval,
 };

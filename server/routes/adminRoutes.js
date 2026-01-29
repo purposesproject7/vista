@@ -357,6 +357,16 @@ router.put("/broadcasts/:id", adminController.updateBroadcastMessage);
 
 router.delete("/broadcasts/:id", adminController.deleteBroadcastMessage);
 
+/**
+ * Force PPT Approval (SUPER ADMIN ONLY - ADMIN001)
+ */
+router.post(
+  "/force-ppt-approval",
+  requireSudoAdmin,
+  validateRequired(["school", "program", "academicYear", "reviewType"]),
+  adminController.forcePPTApproval
+);
+
 import { getReportData } from "../controllers/reportController.js";
 
 /**

@@ -2819,3 +2819,132 @@ export async function updateFeatureLock(req, res) {
     });
   }
 }
+
+// ===== FORCE PPT APPROVAL (SUPER ADMIN ONLY) =====
+
+export async function forcePPTApproval(req, res) {
+  try {
+    // Verify super admin
+    if (req.user.employeeId !== "ADMIN001") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. This feature is only available to super admin.",
+      });
+    }
+
+    const { school, program, academicYear, reviewType } = req.body;
+
+    // Validate required fields
+    if (!school || !program || !academicYear || !reviewType) {
+      return res.status(400).json({
+        success: false,
+        message: "School, program, academicYear, and reviewType are required.",
+      });
+    }
+
+    // Find all projects matching the academic context
+    const projects = await Project.find({
+      school,
+      program,
+      academicYear,
+      status: "active",
+    });
+
+    if (projects.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No projects found for the specified context.",
+      });
+    }
+
+    // Filter projects that don't already have PPT approval for this review
+    const projectsToUpdate = projects.filter((project) => {
+      const existingApproval = project.pptApprovals?.find(
+        (a) => a.reviewType === reviewType
+      );
+      return !existingApproval || !existingApproval.isApproved;
+    });
+
+    if (projectsToUpdate.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "All projects already have PPT approval for this review.",
+        data: {
+          totalProjects: projects.length,
+          alreadyApproved: projects.length,
+          newlyApproved: 0,
+        },
+      });
+    }
+
+    // Bulk update projects
+    let updatedCount = 0;
+    const errors = [];
+
+    for (const project of projectsToUpdate) {
+      try {
+        const existingApprovalIndex = project.pptApprovals.findIndex(
+          (a) => a.reviewType === reviewType
+        );
+
+        if (existingApprovalIndex > -1) {
+          // Update existing approval
+          project.pptApprovals[existingApprovalIndex].isApproved = true;
+          project.pptApprovals[existingApprovalIndex].approvedBy = req.user._id;
+          project.pptApprovals[existingApprovalIndex].approvedAt = new Date();
+        } else {
+          // Add new approval
+          project.pptApprovals.push({
+            reviewType: reviewType,
+            isApproved: true,
+            approvedBy: req.user._id,
+            approvedAt: new Date(),
+          });
+        }
+
+        await project.save();
+        updatedCount++;
+      } catch (error) {
+        errors.push({
+          projectId: project._id,
+          projectName: project.name,
+          error: error.message,
+        });
+      }
+    }
+
+    // Log the bulk approval action
+    logger.info("force_ppt_approval", {
+      performedBy: req.user._id,
+      employeeId: req.user.employeeId,
+      school,
+      program,
+      academicYear,
+      reviewType,
+      projectsUpdated: updatedCount,
+      totalProjects: projects.length,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully approved PPT for ${updatedCount} project(s).`,
+      data: {
+        totalProjects: projects.length,
+        alreadyApproved: projects.length - projectsToUpdate.length,
+        newlyApproved: updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+      },
+    });
+  } catch (error) {
+    logger.error("force_ppt_approval_error", {
+      error: error.message,
+      performedBy: req.user._id,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
