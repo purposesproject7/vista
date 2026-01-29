@@ -3,6 +3,7 @@ import { CheckCircleIcon, DocumentCheckIcon, ExclamationCircleIcon } from '@hero
 import Button from '../../../shared/components/Button';
 import { approvePPT } from '../services/facultyApi';
 import { useToast } from '../../../shared/hooks/useToast';
+import { findPPTApproval } from '../../../shared/utils/reviewHelpers';
 
 const PPTApprovalSection = ({ reviews, onRefresh }) => {
     const { showToast } = useToast();
@@ -20,9 +21,9 @@ const PPTApprovalSection = ({ reviews, onRefresh }) => {
                 // Must be Guide
                 if (team.role !== 'guide') return false;
 
-                // Check if already approved
+                // Check if already approved (using flexible matching for review names)
                 const pptApprovalsArray = Array.isArray(team.pptApprovals) ? team.pptApprovals : [];
-                const pptStatus = pptApprovalsArray.find(p => p.reviewType === review.id);
+                const pptStatus = findPPTApproval(pptApprovalsArray, review.id);
                 return !pptStatus || !pptStatus.isApproved;
             })
             .map(team => ({

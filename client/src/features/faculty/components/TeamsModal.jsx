@@ -5,6 +5,7 @@ import RequestEditModal from './RequestEditModal';
 import { MapPinIcon, CheckCircleIcon, UserGroupIcon, LockClosedIcon, LockOpenIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { isDeadlinePassed } from '../../../shared/utils/dateHelpers';
 import Toast from '../../../shared/components/Toast';
+import { findPPTApproval } from '../../../shared/utils/reviewHelpers';
 
 const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
   const [requestTeam, setRequestTeam] = useState(null);
@@ -55,11 +56,11 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
               const isLocked = isExpired && !team.isUnlocked;
               const isPending = team.requestStatus === 'pending';
 
-              // PPT Approval Logic
+              // PPT Approval Logic (using flexible matching for review names)
               const isPanelRole = team.role === 'panel' || (team.roleLabel && team.roleLabel.toLowerCase().includes('panel'));
-              // review.id maps to reviewType in backend
+              // review.id maps to reviewType in backend - use flexible matching
               const pptApprovalsArray = Array.isArray(team.pptApprovals) ? team.pptApprovals : [];
-              const pptApproval = pptApprovalsArray.find(a => a.reviewType === review.id);
+              const pptApproval = findPPTApproval(pptApprovalsArray, review.id);
               const isPPTApproved = pptApproval && pptApproval.isApproved;
               const isBlockedByPPT = isPanelRole && !isPPTApproved;
 
