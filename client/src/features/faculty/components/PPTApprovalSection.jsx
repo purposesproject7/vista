@@ -21,7 +21,8 @@ const PPTApprovalSection = ({ reviews, onRefresh }) => {
                 if (team.role !== 'guide') return false;
 
                 // Check if already approved
-                const pptStatus = team.pptApprovals?.find(p => p.reviewType === review.id);
+                const pptApprovalsArray = Array.isArray(team.pptApprovals) ? team.pptApprovals : [];
+                const pptStatus = pptApprovalsArray.find(p => p.reviewType === review.id);
                 return !pptStatus || !pptStatus.isApproved;
             })
             .map(team => ({

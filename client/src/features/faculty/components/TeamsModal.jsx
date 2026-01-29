@@ -58,7 +58,8 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
               // PPT Approval Logic
               const isPanelRole = team.role === 'panel' || (team.roleLabel && team.roleLabel.toLowerCase().includes('panel'));
               // review.id maps to reviewType in backend
-              const pptApproval = team.pptApprovals?.find(a => a.reviewType === review.id);
+              const pptApprovalsArray = Array.isArray(team.pptApprovals) ? team.pptApprovals : [];
+              const pptApproval = pptApprovalsArray.find(a => a.reviewType === review.id);
               const isPPTApproved = pptApproval && pptApproval.isApproved;
               const isBlockedByPPT = isPanelRole && !isPPTApproved;
 

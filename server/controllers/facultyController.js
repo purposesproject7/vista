@@ -157,8 +157,9 @@ export async function getMarkingSchema(req, res) {
     let { school, program } = extractPrimaryContext(faculty);
 
     // Override with query params if provided (for filters)
-    if (req.query.school) school = req.query.school;
-    if (req.query.program && req.query.program !== "All Programs") program = req.query.program;
+    // Treat empty strings as undefined
+    if (req.query.school && req.query.school.trim() !== '') school = req.query.school;
+    if (req.query.program && req.query.program.trim() !== '' && req.query.program !== "All Programs") program = req.query.program;
 
     if (!school || !program) {
       return res.status(400).json({
