@@ -13,8 +13,6 @@ router.use(requireRole("faculty"));
 router.get("/profile", facultyController.getProfile);
 router.put("/profile", facultyController.updateProfile);
 router.get("/master-data", facultyController.getMasterData);
-router.get("/evaluation-metadata", facultyController.getEvaluationMetadata);
-router.get("/academic-years", facultyController.getAcademicYears);
 
 router.get(
   "/projects",
