@@ -240,6 +240,13 @@ router.post(
 
 router.put("/student/:regNo", adminController.updateStudent);
 
+// Update student marks (ADMIN001 only)
+router.put(
+  "/student/:regNo/marks",
+  requireSudoAdmin,
+  adminController.updateStudentMarks
+);
+
 router.delete("/student/:regNo", adminController.deleteStudent);
 
 router.get("/student/:regNo", adminController.getStudentByRegNo);

@@ -247,6 +247,34 @@ export class StudentService {
   }
 
   /**
+   * Update student marks (ADMIN001 only)
+   */
+  static async updateStudentMarks(regNo, reviewsData, userId) {
+    const student = await Student.findOne({ regNo });
+
+    if (!student) {
+      throw new Error("Student not found.");
+    }
+
+    // Update reviews Map
+    if (reviewsData) {
+      Object.entries(reviewsData).forEach(([reviewName, reviewData]) => {
+        student.reviews.set(reviewName, reviewData);
+      });
+    }
+
+    await student.save();
+
+    logger.info("student_marks_updated", {
+      regNo,
+      updatedReviews: Object.keys(reviewsData || {}),
+      updatedBy: userId,
+    });
+
+    return this.processStudentData(student.toObject());
+  }
+
+  /**
    * Process student data (convert Maps to Objects)
    * @param {Object} student - Student document
    * @param {Map} reviewTypes - Map of reviewName -> facultyType

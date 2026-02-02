@@ -417,6 +417,16 @@ export const deleteStudent = async (regNo) => {
   return response.data;
 };
 
+/**
+ * Update student marks (ADMIN001 only)
+ * @param {string} regNo - The student registration number
+ * @param {Object} reviews - Updated reviews data with marks
+ */
+export const updateStudentMarks = async (regNo, reviews) => {
+  const response = await api.put(`/admin/student/${regNo}/marks`, { reviews });
+  return response.data;
+};
+
 // ==================== Faculty APIs ====================
 
 /**

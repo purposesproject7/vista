@@ -104,6 +104,7 @@ const StudentViewTab = () => {
             onClose={() => setIsModalOpen(false)}
             student={selectedStudent}
             onNavigateToStudent={handleNavigateToStudent}
+            onRefresh={loadStudents}
           />
         </>
       )}

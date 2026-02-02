@@ -1195,6 +1195,30 @@ export async function updateStudent(req, res) {
 }
 
 /**
+ * Update student marks (ADMIN001 only)
+ */
+export async function updateStudentMarks(req, res) {
+  try {
+    const student = await StudentService.updateStudentMarks(
+      req.params.regNo,
+      req.body.reviews,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Student marks updated successfully",
+      data: student,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
  * Delete student (admin)
  */
 export async function deleteStudent(req, res) {

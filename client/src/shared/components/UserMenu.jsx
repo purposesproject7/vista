@@ -6,7 +6,8 @@ import {
   ChevronDownIcon,
   ArrowRightOnRectangleIcon,
   AcademicCapIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  LockClosedIcon
 } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 
@@ -54,6 +55,16 @@ const UserMenu = ({ user, onChangePassword, onLogout }) => {
           >
             <KeyIcon className="w-4 h-4 text-gray-500" />
             Change Password
+          </button>
+          <button
+            onClick={() => {
+              setIsOpen(false);
+              navigate("/forgot-password");
+            }}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            <LockClosedIcon className="w-4 h-4 text-gray-500" />
+            Forgot Password
           </button>
           <button
             onClick={() => {
