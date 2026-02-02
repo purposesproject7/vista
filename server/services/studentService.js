@@ -3,6 +3,7 @@ import Project from "../models/projectSchema.js";
 import Request from "../models/requestSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import Faculty from "../models/facultySchema.js";
+import Marks from "../models/marksSchema.js";
 import { logger } from "../utils/logger.js";
 
 export class StudentService {
@@ -10,14 +11,43 @@ export class StudentService {
    * Get student by registration number
    */
   static async getStudentByRegNo(regNo) {
-    const student = await Student.findOne({ regNo }).lean();
+    const student = await Student.findOne({ regNo })
+      .populate({
+        path: 'guideMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .populate({
+        path: 'panelMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .lean();
 
     if (!student) {
       return null;
     }
 
+    // Fetch schema map for accurate review processing
+    let reviewTypes = null;
+    let schemaReviews = [];
+    try {
+      const schema = await MarkingSchema.findOne({
+        school: student.school,
+        program: student.program,
+        academicYear: student.academicYear
+      });
+      if (schema && schema.reviews) {
+        schemaReviews = schema.reviews;
+        reviewTypes = new Map();
+        schema.reviews.forEach(r => {
+          reviewTypes.set(r.reviewName, r.facultyType);
+        });
+      }
+    } catch (err) {
+      logger.error("Error fetching schema for student details marks calculation", err);
+    }
+
     // Process Maps to Objects
-    const processedStudent = this.processStudentData(student);
+    const processedStudent = this.processStudentData(student, reviewTypes, schemaReviews);
 
     // Find active project for this student
     const project = await Project.findOne({
@@ -28,12 +58,29 @@ export class StudentService {
       .populate("panel", "panelName")
       .lean();
 
-    // Add guide and panel details
+    // Add guide and panel details AND project info
+    // Also attach teammates for the details modal
+    let teammates = [];
+    if (project && project.students) {
+      // Need to fetch teammate names
+      // We can just rely on the project.students if populated, but they are just IDs here?
+      // Let's quickly fetch them or if we don't want an extra query, maybe we skip names?
+      // The details modal expects teammates array with {name, id}.
+      // Let's fetch the teammate docs to get names.
+      const teammateDocs = await Student.find({
+        _id: { $in: project.students },
+        regNo: { $ne: regNo } // Exclude self
+      }).select('name _id').lean();
+
+      teammates = teammateDocs.map(t => ({ id: t._id, name: t.name }));
+    }
+
     return {
       ...processedStudent,
       guide: project?.guideFaculty?.name || "N/A",
       panelMember: project?.panel?.panelName || "N/A",
-      projectTitle: project?.name || null
+      projectTitle: project?.name || null,
+      teammates: teammates
     };
   }
 
@@ -250,27 +297,75 @@ export class StudentService {
    * Update student marks (ADMIN001 only)
    */
   static async updateStudentMarks(regNo, reviewsData, userId) {
-    const student = await Student.findOne({ regNo });
+    const student = await Student.findOne({ regNo })
+      .populate({
+        path: 'guideMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .populate({
+        path: 'panelMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      });
 
     if (!student) {
       throw new Error("Student not found.");
     }
 
-    // Update reviews Map
-    if (reviewsData) {
-      Object.entries(reviewsData).forEach(([reviewName, reviewData]) => {
-        student.reviews.set(reviewName, reviewData);
-      });
-    }
+    // Collect all existing marks documents
+    const allMarks = [
+      ...(student.guideMarks || []),
+      ...(student.panelMarks || [])
+    ];
 
-    await student.save();
+    const updatedReviews = [];
+
+    // Update Marks documents
+    if (reviewsData) {
+      for (const [reviewName, reviewData] of Object.entries(reviewsData)) {
+        // Find matching marks doc
+        const marksDoc = allMarks.find(m => m.reviewType === reviewName);
+
+        if (marksDoc) {
+          let hasChanges = false;
+          let newTotal = 0;
+
+          // Update components
+          if (reviewData.marks && marksDoc.componentMarks) {
+            marksDoc.componentMarks.forEach(comp => {
+              if (reviewData.marks[comp.componentName] !== undefined) {
+                const newVal = Number(reviewData.marks[comp.componentName]);
+                if (!isNaN(newVal)) {
+                  comp.marks = newVal;
+                  comp.componentTotal = newVal; // Assuming componentTotal equals marks for simple components
+                  hasChanges = true;
+                }
+              }
+              newTotal += (comp.componentTotal || comp.marks || 0);
+            });
+
+            // If there's a discrepancy in total vs components loop, check if client sent a total?
+            // Usually we assume components sum up to total.
+            marksDoc.totalMarks = newTotal;
+            marksDoc.isSubmitted = true; // Mark as submitted if edited by admin
+          }
+
+          if (hasChanges) {
+            await marksDoc.save();
+            updatedReviews.push(reviewName);
+          }
+        } else {
+          logger.warn(`Skipping marks update for ${reviewName}: Marks document not found for student ${regNo}`);
+        }
+      }
+    }
 
     logger.info("student_marks_updated", {
       regNo,
-      updatedReviews: Object.keys(reviewsData || {}),
+      updatedReviews,
       updatedBy: userId,
     });
 
+    // Return fresh data mainly for UI update
     return this.processStudentData(student.toObject());
   }
 
@@ -278,28 +373,9 @@ export class StudentService {
    * Process student data (convert Maps to Objects)
    * @param {Object} student - Student document
    * @param {Map} reviewTypes - Map of reviewName -> facultyType
+   * @param {Array} schemaReviews - Array of reviews from schema
    */
-  static processStudentData(student, reviewTypes = null) {
-    // Process reviews Map
-    let processedReviews = {};
-    if (student.reviews) {
-      if (student.reviews instanceof Map) {
-        processedReviews = Object.fromEntries(student.reviews);
-      } else if (typeof student.reviews === "object") {
-        processedReviews = { ...student.reviews };
-      }
-    }
-
-    // Process deadline Map
-    let processedDeadlines = {};
-    if (student.deadline) {
-      if (student.deadline instanceof Map) {
-        processedDeadlines = Object.fromEntries(student.deadline);
-      } else if (typeof student.deadline === "object") {
-        processedDeadlines = { ...student.deadline };
-      }
-    }
-
+  static processStudentData(student, reviewTypes = null, schemaReviews = []) {
     // Process approvals Map
     let processedApprovals = {};
     if (student.approvals) {
@@ -310,60 +386,124 @@ export class StudentService {
       }
     }
 
-    // Calculate Marks Breakdown
+    // Construct reviews object from guideMarks and panelMarks
+    let processedReviews = {};
     let totalMarks = 0;
     let guideMarks = 0;
     let panelMarks = 0;
     let reviewStatuses = [];
 
-    Object.entries(processedReviews).forEach(([key, review]) => {
-      // Calculate marks for this review
-      let reviewTotal = 0;
-      if (review.marks) {
-        Object.values(review.marks).forEach((mark) => {
-          reviewTotal += Number(mark) || 0;
-        });
-      }
-      totalMarks += reviewTotal;
+    // Collect all marks documents
+    const allMarks = [
+      ...(student.guideMarks || []),
+      ...(student.panelMarks || [])
+    ];
 
-      // Add to specific bucket if reviewTypes map is provided
-      if (reviewTypes && reviewTypes.has(key)) {
-        const type = reviewTypes.get(key);
-        if (type === 'guide') {
-          guideMarks += reviewTotal;
-        } else if (type === 'panel') {
-          panelMarks += reviewTotal;
-        } else if (type === 'both') {
-          // If 'both', usually separate components, but without component-level mapping
-          // we can't split easily. For now, maybe 50-50? 
-          // Or just add to total and leave breakdown ambiguous?
-          // Let's assume 'both' counts towards total but maybe not specifically guide/panel buckets?
-          // OR, assume it's shared.
-          // For simplicity in this fix, we won't add to guide/panel buckets to avoid double counting
-          // or we could split it. Let's start with strict mapping.
+    // Iterate through schema reviews to ensure all configured reviews are represented
+    if (schemaReviews && schemaReviews.length > 0) {
+      schemaReviews.forEach(schemaReview => {
+        const reviewName = schemaReview.reviewName;
+        const facultyType = schemaReview.facultyType;
+
+        // Find matching marks doc
+        const marksDoc = allMarks.find(m => m.reviewType === reviewName);
+
+        // Initialize review data
+        const reviewData = {
+          marks: {},
+          total: 0,
+          locked: false // Will check from approvals later if needed
+        };
+
+        if (marksDoc) {
+          reviewData.total = marksDoc.totalMarks || 0;
+
+          if (marksDoc.componentMarks) {
+            marksDoc.componentMarks.forEach(comp => {
+              reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+            });
+          }
+
+          // Add to totals
+          totalMarks += reviewData.total;
+          if (facultyType === 'guide') guideMarks += reviewData.total;
+          if (facultyType === 'panel') panelMarks += reviewData.total;
         }
-      } else {
-        // Fallback or legacy logic if needed
-        // Without schema, we can't know.
-      }
 
-      // Review Status
-      let status = "pending";
-      const hasMarks = review.marks && Object.values(review.marks).some(m => m > 0);
+        // Determine status
+        let status = "pending";
 
-      if (review.locked) {
-        status = "approved";
-      } else if (hasMarks) {
-        status = "submitted";
-      } else {
-        status = "pending";
-      }
+        // Check submission status from Marks doc
+        if (marksDoc && marksDoc.isSubmitted) {
+          status = "submitted";
+        }
 
-      reviewStatuses.push({
-        name: key,
-        status: status
+        // Check explicit approval from student.approvals map
+        if (processedApprovals) {
+          const approvalKey = Object.keys(processedApprovals).find(
+            k => k.toLowerCase() === reviewName.toLowerCase()
+          );
+
+          if (approvalKey && processedApprovals[approvalKey]?.approved) {
+            status = "approved";
+            reviewData.locked = true;
+          }
+        }
+
+        reviewStatuses.push({
+          name: reviewName,
+          status: status,
+          marks: reviewData.marks, // Include marks for frontend calculations
+          type: facultyType
+        });
+
+        processedReviews[reviewName] = reviewData;
       });
-    });
+    } else {
+      // Fallback if no schema (or legacy data): iterate available marks
+      allMarks.forEach(mark => {
+        const reviewData = {
+          marks: {},
+          total: mark.totalMarks || 0
+        };
+
+        if (mark.componentMarks) {
+          mark.componentMarks.forEach(comp => {
+            reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+          });
+        }
+
+        totalMarks += reviewData.total;
+        if (mark.facultyType === 'guide') guideMarks += reviewData.total;
+        if (mark.facultyType === 'panel') panelMarks += reviewData.total;
+
+        processedReviews[mark.reviewType] = reviewData;
+
+        let status = mark.isSubmitted ? "submitted" : "pending";
+        // Check explicit approval from student.approvals map
+        if (processedApprovals) {
+          const approvalKey = Object.keys(processedApprovals).find(
+            k => k.toLowerCase() === mark.reviewType.toLowerCase()
+          );
+
+          if (approvalKey && processedApprovals[approvalKey]?.approved) {
+            status = "approved";
+            reviewData.locked = true;
+          }
+        }
+
+        reviewStatuses.push({
+          name: mark.reviewType,
+          status: status,
+          marks: reviewData.marks,
+          type: mark.facultyType
+        });
+      });
+    }
+
+    // Check PPT status specifically if needed for the badge
+    // The "PPT Approval" badge logic in frontend checks reviewStatuses.
+    // If we have a review named 'PPT' or similar, it will show up.
 
     return {
       _id: student._id,
@@ -374,12 +514,9 @@ export class StudentService {
       school: student.school,
       program: student.program,
       academicYear: student.academicYear,
-      reviews: processedReviews,
-      deadline: processedDeadlines,
+      reviews: processedReviews, // Now constructed from Marks docs
       approvals: processedApprovals,
       PAT: student.PAT || false,
-      requiresContribution: student.requiresContribution || false,
-      contributionType: student.contributionType || "none",
       isActive: student.isActive,
       createdAt: student.createdAt,
       updatedAt: student.updatedAt,
