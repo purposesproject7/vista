@@ -589,6 +589,7 @@ export class StudentService {
       created: 0,
       updated: 0,
       errors: 0,
+      duplicates: [],
       details: [],
     };
 
@@ -606,8 +607,9 @@ export class StudentService {
     }
 
     for (let i = 0; i < studentsData.length; i++) {
+      const studentData = studentsData[i];
+      let currentGuide = null;
       try {
-        const studentData = studentsData[i];
 
         if (!studentData.regNo || !studentData.name || !studentData.emailId) {
           results.errors++;
@@ -676,6 +678,7 @@ export class StudentService {
             const faculty = await Faculty.findOne({ employeeId: studentData.guideEmpId });
 
             if (faculty) {
+              currentGuide = faculty;
               // Check if project already exists for this student
               const existingProject = await Project.findOne({
                 students: existing ? existing._id : student._id,
@@ -713,13 +716,25 @@ export class StudentService {
           }
         }
       } catch (err) {
-        results.errors++;
-        results.details.push({
-          row: i + 1,
-          regNo: studentsData[i].regNo || "N/A",
-          error: err.message,
-        });
-        logger.error("error_processing_student_row", { row: i + 1, error: err.message });
+        if (err.code === 11000 || err.message.includes('E11000')) {
+          results.duplicates.push({
+            regNo: studentData.regNo,
+            name: studentData.name,
+            guideEmail: currentGuide?.emailId || "N/A",
+            guideName: currentGuide?.name || "N/A",
+            projectName: `Project - ${studentData.regNo}`,
+            error: "Duplicate Project/Student Entry"
+          });
+          logger.warn("duplicate_entry_upload", { regNo: studentData.regNo, error: err.message });
+        } else {
+          results.errors++;
+          results.details.push({
+            row: i + 1,
+            regNo: studentsData[i].regNo || "N/A",
+            error: err.message,
+          });
+          logger.error("error_processing_student_row", { row: i + 1, error: err.message });
+        }
       }
     }
 

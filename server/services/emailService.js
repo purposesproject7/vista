@@ -391,4 +391,52 @@ export class EmailService {
       // Don't throw to prevent blocking the HTTP response
     }
   }
+  /**
+   * Send duplicate project notification to guide
+   */
+  static async sendDuplicateProjectNotification(guideEmail, guideName, duplicates) {
+    if (!guideEmail || duplicates.length === 0) return;
+
+    try {
+      const transporter = this.createTransporter();
+
+      const projectListHtml = duplicates
+        .map(d => `<li><strong>${d.regNo}</strong> - ${d.studentName} (Project: ${d.projectName})</li>`)
+        .join('');
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+          <div style="background-color: #f4f4f4; padding: 20px;">
+            <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #d32f2f; margin-top: 0;">Action Required: Duplicate Project Definitions</h2>
+              <p>Dear ${guideName},</p>
+              <p>The following student projects attempted to be uploaded have resulted in a duplicate entry error (likely due to conflicting Project Names or Student ID).</p>
+              <p><strong>This prevents mark entry and further processing for these students.</strong></p>
+              <p>Please review and update the project details (Title/Team) to resolve conflicts.</p>
+              <ul style="background-color: #fff3e0; padding: 15px 30px; border-radius: 4px;">
+                ${projectListHtml}
+              </ul>
+              <p style="margin-top: 30px; font-size: 14px; color: #666;">Regards,<br>VIT Faculty Portal Team</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await transporter.sendMail({
+        from: `VIT Faculty Portal <${process.env.EMAIL_USER}>`,
+        to: guideEmail,
+        subject: "Urgent: Duplicate Project Conflicts Detected",
+        html: htmlContent,
+      });
+
+      logger.info("duplicate_project_notification_sent", { guideEmail, count: duplicates.length });
+      return true;
+    } catch (error) {
+      logger.error("send_duplicate_notification_error", { guideEmail, error: error.message });
+      return false;
+    }
+  }
 }

@@ -238,6 +238,12 @@ router.post(
   adminController.bulkUploadStudents
 );
 
+router.post(
+  "/student/notify-duplicate-guides",
+  validateRequired(["duplicates"]),
+  adminController.notifyDuplicateProjectGuides
+);
+
 router.put("/student/:regNo", adminController.updateStudent);
 
 // Update student marks (ADMIN001 only)

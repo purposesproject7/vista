@@ -16,6 +16,7 @@ import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
 import { BroadcastService } from "../services/broadcastService.js";
+import { EmailService } from "../services/emailService.js";
 import { RequestService } from "../services/requestService.js";
 import { AccessRequestService } from "../services/accessRequestService.js";
 
@@ -1164,6 +1165,59 @@ export async function bulkUploadStudents(req, res) {
     });
   } catch (error) {
     res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Notify guides about duplicate projects
+ */
+export async function notifyDuplicateProjectGuides(req, res) {
+  try {
+    const { duplicates } = req.body;
+
+    if (!Array.isArray(duplicates) || duplicates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No duplicates provided.",
+      });
+    }
+
+    // Group duplicates by guide email
+    const guideMap = {};
+    duplicates.forEach((d) => {
+      if (d.guideEmail && d.guideEmail !== "N/A") {
+        if (!guideMap[d.guideEmail]) {
+          guideMap[d.guideEmail] = {
+            name: d.guideName,
+            projects: [],
+          };
+        }
+        guideMap[d.guideEmail].projects.push(d);
+      }
+    });
+
+    const results = { sent: 0, failed: 0 };
+
+    for (const [email, data] of Object.entries(guideMap)) {
+      const sent = await EmailService.sendDuplicateProjectNotification(
+        email,
+        data.name,
+        data.projects
+      );
+      if (sent) results.sent++;
+      else results.failed++;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Notifications sent to ${results.sent} guides. Failed: ${results.failed}`,
+      data: results,
+    });
+  } catch (error) {
+    res.status(500).json({
       success: false,
       message: error.message,
     });

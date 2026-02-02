@@ -399,6 +399,14 @@ export const bulkUploadStudents = async (students, school, programme) => {
 };
 
 /**
+ * Notify guides about duplicate projects
+ */
+export const notifyDuplicateProjectGuides = async (duplicates) => {
+  const response = await api.post("/admin/student/notify-duplicate-guides", { duplicates });
+  return response.data;
+};
+
+/**
  * Update student information
  * @param {string} regNo - The student registration number
  * @param {Object} data - Updated student data
