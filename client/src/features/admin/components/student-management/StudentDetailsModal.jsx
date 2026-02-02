@@ -14,31 +14,7 @@ const StudentDetailsModal = ({ isOpen, onClose, student, onNavigateToStudent, on
 
   if (!student) return null;
 
-  const calculateMarks = () => {
-    if (!student.reviewStatuses) return { total: 0, guide: 0, panel: 0 };
-
-    let guideTotal = 0;
-    let panelTotal = 0;
-
-    student.reviewStatuses.forEach(review => {
-      if (review.marks && review.status === 'approved') {
-        const reviewTotal = (review.marks.actionTaken || 0) +
-          (review.marks.moduleProgress || 0) +
-          (review.marks.quality || 0) +
-          (review.marks.documentation || 0);
-
-        if (review.type === 'guide') {
-          guideTotal += reviewTotal;
-        } else if (review.type === 'panel') {
-          panelTotal += reviewTotal;
-        }
-      }
-    });
-
-    return { total: guideTotal + panelTotal, guide: guideTotal, panel: panelTotal };
-  };
-
-  const marks = calculateMarks();
+  const marks = student.marks || { total: 0, guide: 0, panel: 0 };
 
   return (
     <>
