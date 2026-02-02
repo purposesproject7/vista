@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AcademicFilterSelector from './AcademicFilterSelector';
 import StudentList from './StudentList';
 import StudentDetailsModal from './StudentDetailsModal';
+import StudentEditModal from './StudentEditModal';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { fetchStudents, fetchStudentDetails } from '../../services/adminApi';
 
@@ -11,6 +12,7 @@ const StudentViewTab = () => {
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -80,9 +82,37 @@ const StudentViewTab = () => {
     }
   };
 
+  const handleEdit = async (studentOrPartial) => {
+    try {
+      let student = studentOrPartial;
+
+      // If we only have an ID, find it in the list
+      if (!student.regNo && student.id) {
+        const found = students.find(s => s._id === student.id);
+        if (found) {
+          student = found;
+        } else {
+          console.warn("Student not found in current list");
+          return;
+        }
+      }
+
+      setSelectedStudent(student);
+      setIsEditModalOpen(true);
+
+    } catch (error) {
+      console.error('Error opening edit modal:', error);
+      showToast('Failed to open edit modal', 'error');
+    }
+  };
+
   const handleNavigateToStudent = async (student) => {
     // Close current modal and open details for the selected teammate
     await handleViewDetails(student);
+  };
+
+  const handleEditSuccess = () => {
+    loadStudents();
   };
 
   return (
@@ -97,6 +127,7 @@ const StudentViewTab = () => {
             students={students}
             loading={loading}
             onViewDetails={handleViewDetails}
+            onEdit={handleEdit}
           />
 
           <StudentDetailsModal
@@ -105,6 +136,13 @@ const StudentViewTab = () => {
             student={selectedStudent}
             onNavigateToStudent={handleNavigateToStudent}
             onRefresh={loadStudents}
+          />
+
+          <StudentEditModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            student={selectedStudent}
+            onSuccess={handleEditSuccess}
           />
         </>
       )}

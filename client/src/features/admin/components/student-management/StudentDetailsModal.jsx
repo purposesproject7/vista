@@ -1,20 +1,16 @@
 // src/features/admin/components/student-management/StudentDetailsModal.jsx
 import React, { useState } from 'react';
 import Modal from '../../../../shared/components/Modal';
-import Button from '../../../../shared/components/Button';
 import MarksDetailModal from './MarksDetailModal';
-import StudentEditModal from './StudentEditModal';
 import StudentHeader from './StudentHeader';
 import ProjectFacultyCard from './ProjectFacultyCard';
 import ContactCard from './ContactCard';
 import MarksCard from './MarksCard';
 import ReviewStatusCard from './ReviewStatusCard';
 import TeamMembersCard from './TeamMembersCard';
-import { PencilIcon } from '@heroicons/react/24/outline';
 
 const StudentDetailsModal = ({ isOpen, onClose, student, onNavigateToStudent, onRefresh }) => {
   const [isMarksModalOpen, setIsMarksModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   if (!student) return null;
 
@@ -44,12 +40,6 @@ const StudentDetailsModal = ({ isOpen, onClose, student, onNavigateToStudent, on
 
   const marks = calculateMarks();
 
-  const handleEditSuccess = () => {
-    if (onRefresh) {
-      onRefresh();
-    }
-  };
-
   return (
     <>
       <Modal
@@ -57,17 +47,6 @@ const StudentDetailsModal = ({ isOpen, onClose, student, onNavigateToStudent, on
         onClose={onClose}
         title="Student Details"
         size="lg"
-        actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setIsEditModalOpen(true)}
-            className="gap-2"
-          >
-            <PencilIcon className="w-4 h-4" />
-            Edit
-          </Button>
-        }
       >
         <div className="space-y-4">
           <StudentHeader student={student} />
@@ -91,13 +70,6 @@ const StudentDetailsModal = ({ isOpen, onClose, student, onNavigateToStudent, on
         isOpen={isMarksModalOpen}
         onClose={() => setIsMarksModalOpen(false)}
         student={student}
-      />
-
-      <StudentEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        student={student}
-        onSuccess={handleEditSuccess}
       />
     </>
   );
