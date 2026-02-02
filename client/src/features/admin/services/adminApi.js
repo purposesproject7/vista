@@ -737,6 +737,19 @@ export const bulkCreateProjects = async (projectsList) => {
 };
 
 /**
+ * Update project
+ */
+export const updateProject = async (id, projectData) => {
+  try {
+    const response = await api.put(`/admin/projects/${id}`, projectData);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating project:", error);
+    throw error;
+  }
+};
+
+/**
  * Get all guides with their projects
  */
 export const fetchGuidesWithProjects = async (filters = {}) => {

@@ -283,6 +283,10 @@ router.post(
   adminController.bulkCreateProjects
 );
 
+
+
+router.put("/projects/:id", adminController.updateProject);
+
 router.get("/projects/panels", adminController.getAllPanelsWithProjects);
 
 router.patch("/projects/:id/best-project", adminController.markAsBestProject);

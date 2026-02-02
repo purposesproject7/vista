@@ -1291,6 +1291,42 @@ export async function deleteStudent(req, res) {
   }
 }
 
+/**
+ * Update project details
+ */
+export async function updateProject(req, res) {
+  try {
+    const { id } = req.params;
+    const projectUpdates = req.body;
+
+    // Validate ID
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID is required",
+      });
+    }
+
+    const project = await ProjectService.updateProjectDetails(
+      id,
+      projectUpdates,
+      null,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Project updated successfully",
+      data: project,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ===== PROJECT COORDINATOR MANAGEMENT =====
 // (Add these based on your ProjectCoordinator schema requirements)
 

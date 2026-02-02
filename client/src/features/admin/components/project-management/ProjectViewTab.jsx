@@ -5,7 +5,8 @@ import Card from "../../../../shared/components/Card";
 import EmptyState from "../../../../shared/components/EmptyState";
 import LoadingSpinner from "../../../../shared/components/LoadingSpinner";
 import ProjectDetailsModal from "./ProjectDetailsModal";
-import { UserGroupIcon, AcademicCapIcon, MagnifyingGlassIcon, Squares2X2Icon, ListBulletIcon } from "@heroicons/react/24/outline";
+import ProjectEditModal from "./ProjectEditModal";
+import { UserGroupIcon, AcademicCapIcon, MagnifyingGlassIcon, Squares2X2Icon, ListBulletIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 import { fetchProjects } from "../../services/adminApi";
 import { useToast } from "../../../../shared/hooks/useToast";
 
@@ -15,6 +16,7 @@ const ProjectViewTab = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
   const { showToast } = useToast();
 
   const handleFilterComplete = useCallback((selectedFilters) => {
@@ -58,17 +60,17 @@ const ProjectViewTab = () => {
     loadProjects();
   }, [filters, showToast]);
 
+  const handleProjectUpdated = () => {
+    // Trigger reload
+    setFilters(prev => ({ ...prev }));
+  };
+
   const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
 
   const filteredProjects = projects.filter((project) => {
     const query = searchQuery.toLowerCase();
     const matchName = (project.name || "").toLowerCase().includes(query);
     const matchGuide = (project.guide?.name || "").toLowerCase().includes(query);
-    // Admin project panel object might differ, but assuming name property exists if populated.
-    // Based on previous code, panel mapping might be needed if not fully populated.
-    // Checking previous file content, it seems panel might be missing or different.
-    // The card doesn't show panel info in Admin view currently, but plan said "Panel Name".
-    // I'll include it if it exists.
     const matchPanel = (project.panel?.panelName || project.panel?.name || "").toLowerCase().includes(query);
     const matchMembers = (project.teamMembers || []).some(m =>
       (m.name || "").toLowerCase().includes(query) ||
@@ -141,10 +143,10 @@ const ProjectViewTab = () => {
                 return (
                   <Card
                     key={project._id}
-                    className="cursor-pointer hover:shadow-lg transition-all border-l-4 border-l-blue-500"
+                    className="cursor-pointer hover:shadow-lg transition-all border-l-4 border-l-blue-500 relative"
                     onClick={() => setSelectedProject(project)}
                   >
-                    <div className="space-y-3">
+                    <div className="space-y-3 pr-8">
                       <div>
                         <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
                           {project.name}
@@ -176,6 +178,17 @@ const ProjectViewTab = () => {
                         </div>
                       )}
                     </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingProject(project);
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300 z-10"
+                      title="Edit Project"
+                    >
+                      <PencilSquareIcon className="w-4 h-4" />
+                    </button>
                   </Card>
                 );
               })}
@@ -233,8 +246,18 @@ const ProjectViewTab = () => {
                             {guideName}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-900 font-medium">
-                          View
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-3">
+                          <span className="text-blue-600 hover:text-blue-900">View</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProject(project);
+                            }}
+                            className="text-gray-500 hover:text-blue-600 flex items-center gap-1"
+                            title="Edit Project"
+                          >
+                            <PencilSquareIcon className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -249,6 +272,15 @@ const ProjectViewTab = () => {
               isOpen={!!selectedProject}
               onClose={() => setSelectedProject(null)}
               project={selectedProject}
+            />
+          )}
+
+          {editingProject && (
+            <ProjectEditModal
+              isOpen={!!editingProject}
+              onClose={() => setEditingProject(null)}
+              project={editingProject}
+              onProjectUpdated={handleProjectUpdated}
             />
           )}
         </>
