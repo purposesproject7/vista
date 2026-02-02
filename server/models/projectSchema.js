@@ -114,7 +114,7 @@ const projectSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-projectSchema.index({ name: 1, academicYear: 1 }, { unique: true });
+projectSchema.index({ name: 1, academicYear: 1 });
 projectSchema.index({ school: 1, program: 1, academicYear: 1 });
 projectSchema.index({ guideFaculty: 1, academicYear: 1 });
 projectSchema.index({ panel: 1, academicYear: 1 });

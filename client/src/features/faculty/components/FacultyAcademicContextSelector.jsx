@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Select from "../../../shared/components/Select";
 import Card from "../../../shared/components/Card";
 import { AcademicCapIcon, CheckCircleIcon, LockClosedIcon } from "@heroicons/react/24/outline";
-import { getEvaluationMetadata, getAcademicYears } from "../services/facultyApi";
+import { getMasterData } from "../services/facultyApi";
 
 const FacultyAcademicContextSelector = ({ currentFilters, onFilterChange, className = "", lockedSchool = null }) => {
     const [loading, setLoading] = useState(false);
@@ -23,28 +23,30 @@ const FacultyAcademicContextSelector = ({ currentFilters, onFilterChange, classN
             try {
                 setLoading(true);
 
-                // Fetch academic years from the same source as coordinator
-                const [yearsResponse, metadataResponse] = await Promise.all([
-                    getAcademicYears(),
-                    getEvaluationMetadata()
-                ]);
+                const response = await getMasterData();
 
-                if (yearsResponse.success && metadataResponse.success) {
-                    const yearsData = yearsResponse.data || [];
-                    const metadata = metadataResponse.data;
+                if (response.success) {
+                    const data = response.data;
 
-                    // Sort years in descending order (newest first) like AcademicFilterSelector
-                    const sortedYears = [...yearsData].sort().reverse();
+                    // Extract and filter active items
+                    const activeSchools = (data.schools || []).filter(s => s.isActive);
+                    const activePrograms = (data.programs || []).filter(p => p.isActive);
+                    const activeYears = (data.academicYears || [])
+                        .filter(y => y.isActive)
+                        .map(y => y.year);
+
+                    // Sort years in descending order (newest first)
+                    const sortedYears = activeYears.sort().reverse();
 
                     setMasterData({
-                        schools: metadata.schools || [],
-                        programs: metadata.programs || [],
+                        schools: activeSchools,
+                        programs: activePrograms,
                         years: sortedYears,
                     });
 
                     setOptions(prev => ({
                         ...prev,
-                        schools: (metadata.schools || []).map(s => ({ value: s.code, label: s.name })),
+                        schools: activeSchools.map(s => ({ value: s.code, label: s.name })),
                         years: sortedYears.map(y => ({ value: y, label: y })),
                     }));
                 }

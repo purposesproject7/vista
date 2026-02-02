@@ -35,15 +35,12 @@ export const getComponentLibrary = async (params) => {
   return response.data;
 };
 
-export const getEvaluationMetadata = async () => {
-  const response = await api.get("/faculty/evaluation-metadata");
+export const getMasterData = async () => {
+  const response = await api.get("/faculty/master-data");
   return response.data;
 };
 
-export const getAcademicYears = async () => {
-  const response = await api.get("/faculty/academic-years");
-  return response.data;
-};
+
 
 export const submitMarks = async (payload) => {
   const response = await api.post("/faculty/marks", payload);
