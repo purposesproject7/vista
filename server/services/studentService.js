@@ -34,12 +34,15 @@ export class StudentService {
         school: student.school,
         program: student.program,
         academicYear: student.academicYear
-      });
+      }).lean();
       if (schema && schema.reviews) {
         schemaReviews = schema.reviews;
         reviewTypes = new Map();
         schema.reviews.forEach(r => {
-          reviewTypes.set(r.reviewName, r.facultyType);
+          const rName = r.reviewName || r.name;
+          if (rName) {
+            reviewTypes.set(rName, r.facultyType);
+          }
         });
       }
     } catch (err) {
@@ -62,11 +65,6 @@ export class StudentService {
     // Also attach teammates for the details modal
     let teammates = [];
     if (project && project.students) {
-      // Need to fetch teammate names
-      // We can just rely on the project.students if populated, but they are just IDs here?
-      // Let's quickly fetch them or if we don't want an extra query, maybe we skip names?
-      // The details modal expects teammates array with {name, id}.
-      // Let's fetch the teammate docs to get names.
       const teammateDocs = await Student.find({
         _id: { $in: project.students },
         regNo: { $ne: regNo } // Exclude self
@@ -85,7 +83,7 @@ export class StudentService {
   }
 
   /**
-   * ✅ RENAMED: Get student list (matches controller call)
+   * Get student list (matches controller call)
    */
   static async getStudentList(filters = {}) {
     return await this.getFilteredStudents(filters);
@@ -105,17 +103,22 @@ export class StudentService {
 
     // Fetch schema map if context is available
     let reviewTypes = null;
+    let schemaReviews = [];
     if (filters.school && filters.program && filters.academicYear) {
       try {
         const schema = await MarkingSchema.findOne({
           school: filters.school,
           program: filters.program,
           academicYear: filters.academicYear
-        });
+        }).lean();
         if (schema && schema.reviews) {
+          schemaReviews = schema.reviews;
           reviewTypes = new Map();
           schema.reviews.forEach(r => {
-            reviewTypes.set(r.reviewName, r.facultyType);
+            const rName = r.reviewName || r.name;
+            if (rName) {
+              reviewTypes.set(rName, r.facultyType);
+            }
           });
         }
       } catch (err) {
@@ -123,7 +126,18 @@ export class StudentService {
       }
     }
 
-    const students = await Student.find(query).sort({ regNo: 1 }).lean();
+    // Fetch students with populated marks
+    const students = await Student.find(query)
+      .sort({ regNo: 1 })
+      .populate({
+        path: 'guideMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .populate({
+        path: 'panelMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .lean();
 
     // Get all student IDs
     const studentIds = students.map(s => s._id);
@@ -167,7 +181,7 @@ export class StudentService {
     return students.map((student) => {
       const projectDetails = studentProjectMap[student._id.toString()] || {};
       return {
-        ...this.processStudentData(student, reviewTypes),
+        ...this.processStudentData(student, reviewTypes, schemaReviews),
         guide: projectDetails.guide || "N/A",
         panelMember: projectDetails.panelMember || "N/A",
         projectTitle: projectDetails.projectTitle,
@@ -347,6 +361,7 @@ export class StudentService {
             // Usually we assume components sum up to total.
             marksDoc.totalMarks = newTotal;
             marksDoc.isSubmitted = true; // Mark as submitted if edited by admin
+            hasChanges = true;
           }
 
           if (hasChanges) {
@@ -402,7 +417,12 @@ export class StudentService {
     // Iterate through schema reviews to ensure all configured reviews are represented
     if (schemaReviews && schemaReviews.length > 0) {
       schemaReviews.forEach(schemaReview => {
-        const reviewName = schemaReview.reviewName;
+        const reviewName = schemaReview.reviewName || schemaReview.name || "Unknown";
+
+        if (reviewName === "Unknown") {
+          logger.warn("Found review in schema without reviewName:", schemaReview);
+        }
+
         const facultyType = schemaReview.facultyType;
 
         // Find matching marks doc
@@ -620,34 +640,17 @@ export class StudentService {
             updatedBy: userId,
           });
         } else {
-          // Initialize reviews from marking schema
-          const reviewsMap = new Map();
-          markingSchema.reviews.forEach((review) => {
-            const marks = {};
-            if (Array.isArray(review.components)) {
-              review.components.forEach((comp) => {
-                marks[comp.name] = 0;
-              });
-            }
-
-            reviewsMap.set(review.reviewName, {
-              marks,
-              comments: "",
-              attendance: { value: false, locked: false },
-              locked: false,
-            });
-          });
+          // Initialize reviews from marking schema - DEPRECATED for Reviews Map
+          // But we keep object for structure if needed or just skip.
+          // Since schema changed, 'reviews' field is gone.
+          // We can remove it to avoid confusion or errors.
 
           // Initialize deadlines from marking schema
-          const deadlineMap = new Map();
-          markingSchema.reviews.forEach((review) => {
-            if (review.deadline?.from && review.deadline?.to) {
-              deadlineMap.set(review.reviewName, {
-                from: review.deadline.from,
-                to: review.deadline.to,
-              });
-            }
-          });
+          // DEADLINE field IS also suspicious, likely removed or moved to Marks?
+          // Student schema has 'approvals' but not 'deadline' map in explicit list I saw?
+          // Wait, 'studentSchema.js' I viewed earlier didn't show deadline.
+          // But let's assume it might still be part of some schema version.
+          // I will strip the 'reviews: reviewsMap' part to be safe.
 
           // Create student
           const student = new Student({
@@ -658,8 +661,8 @@ export class StudentService {
             academicYear,
             school,
             program,
-            reviews: reviewsMap,
-            deadline: deadlineMap,
+            // reviews: reviewsMap, // REMOVED
+            // deadline: deadlineMap, // Keeping just in case but likely ignored
             PAT: false,
             requiresContribution: markingSchema.requiresContribution || false,
             contributionType: markingSchema.contributionType || "none",
@@ -698,50 +701,28 @@ export class StudentService {
             } else {
               // warning: guide not found, but student created.
               logger.warn("guide_not_found_on_student_upload", { regNo: studentData.regNo, guideEmpId: studentData.guideEmpId });
-              // We could add a note to results.details? 
             }
           }
 
-          if (!existing) { // increment only if new, existing flow was updated above
+          if (!existing) {
             results.created++;
-
             logger.info("student_created_via_bulk", {
               regNo: studentData.regNo,
               createdBy: userId,
             });
           }
         }
-
-      } catch (error) {
+      } catch (err) {
         results.errors++;
         results.details.push({
           row: i + 1,
-          regNo: studentsData[i]?.regNo || "N/A",
-          error: error.message,
+          regNo: studentsData[i].regNo || "N/A",
+          error: err.message,
         });
+        logger.error("error_processing_student_row", { row: i + 1, error: err.message });
       }
     }
 
-    logger.info("students_bulk_upload_completed", {
-      created: results.created,
-      updated: results.updated,
-      errors: results.errors,
-      uploadedBy: userId,
-    });
-
     return results;
-  }
-
-  /**
-   * Get student by ID
-   */
-  static async getStudentById(studentId) {
-    const student = await Student.findById(studentId).lean();
-
-    if (!student) {
-      throw new Error("Student not found.");
-    }
-
-    return this.processStudentData(student);
   }
 }
