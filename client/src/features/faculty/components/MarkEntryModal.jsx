@@ -32,6 +32,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
   // --- INITIALIZATION ---
   useEffect(() => {
     if (!isOpen || !team) return;
+    console.log('[MarkEntryModal] Initializing with team:', team);
     const initMarks = {};
     const initMeta = {};
 
@@ -204,17 +205,129 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
         const totalObtained = componentMarks.reduce((sum, c) => sum + c.componentTotal, 0);
         const maxTotal = componentMarks.reduce((sum, c) => sum + c.componentMaxTotal, 0);
 
-        return api.post('/faculty/marks', {
-          student: sid,
-          project: team.id || team.project_id || team.team_id,
+        // Check if marks exist for this student to determine Action (POST vs PUT)
+        const payloadProject = team.id || team.project_id || team.team_id;
+
+        // ROBUSTNESS: Determine if this is an update.
+        // If we have a markId, definitely update.
+        // If we have existingMarks populated in the UI, it SHOULD be an update, but we need an ID.
+        // If markId is missing but existingMarks present, use Backend Upsert (POST) which now handles it.
+        // BUT, user requested explicit PUT if possible.
+        // Let's rely on markId. If missing, we fallback to POST (which now upserts).
+
+        const isUpdate = !!student.markId;
+
+        console.log('[MarkEntry] Submission Payload Data:', {
+          studentId: sid,
+          markId: student.markId,
+          hasMarkId: !!student.markId,
+          project: payloadProject,
           reviewType: review.id || review.reviewName,
-          facultyType: review.type || 'guide',
-          componentMarks,
-          totalMarks: totalObtained,
-          maxTotalMarks: maxTotal,
-          remarks: remarks,
-          isSubmitted: true
+          isUpdate: isUpdate
         });
+
+        // DEBUG: Dump keys to see if markId is misnamed or missing
+        // console.log('[MarkEntry] Student Keys:', Object.keys(student));
+
+        if (student.markId) {
+          // --- UPDATE (PUT) ---
+          console.log(`[MarkEntry] Updating existing marks for student ${sid} (Mark ID: ${student.markId})`);
+          return api.put(`/faculty/marks/${student.markId}`, {
+            student: sid, // Required for validation/logging
+            project: team.id || team.project_id || team.team_id,
+            reviewType: review.id || review.reviewName,
+            facultyType: review.type || 'guide',
+            componentMarks,
+            totalMarks: totalObtained,
+            maxTotalMarks: maxTotal,
+            remarks: remarks,
+            isSubmitted: true
+          });
+        } else {
+          // --- JIT FETCH & PUT  (FAILSAFE FOR PROD) ---
+          // If we are here, frontend *thinks* it's a POST.
+          // But if the User gets "Already Submitted", it means Backend HAS marks.
+          // Let's TRY to find the mark ID one last time before POSTing.
+
+          // This async check inside the map needs careful handling.
+          // We return the PROMISE of the check + action.
+
+          return (async () => {
+            try {
+              // 1. Broadest JIT Check: Fetch ALL marks for this faculty (no filters)
+              // This avoids backend query parsing issues (e.g. ObjectId casting)
+              console.log(`[MarkEntry] Broad JIT Check: Fetching ALL marks for faculty to find match for ${sid}...`);
+
+              const checkRes = await api.get('/faculty/marks'); // NO PARAMS
+
+              // Normalize current review ID for comparison
+              const currentReviewId = (review.id || review.reviewName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const reviewNum = (currentReviewId.match(/\d+/) || [])[0];
+
+              const candidates = checkRes.data?.data || checkRes.data || [];
+
+              // Find matching mark from the list
+              const existingRemote = candidates.find(m => {
+                // 1. Match Student (String comparison to handle ObjectId differences)
+                const mSid = String(m.student?._id || m.student || '').trim();
+                if (mSid !== String(sid).trim()) return false;
+
+                const mType = (m.reviewType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const mNum = (mType.match(/\d+/) || [])[0];
+
+                // Match 2: Review Type
+                if (mType === currentReviewId) return true;
+                if (mType.includes(currentReviewId) || currentReviewId.includes(mType)) return true;
+                if (reviewNum && mNum && reviewNum === mNum) return true;
+
+                return false;
+              });
+
+              if (existingRemote && existingRemote._id) {
+                console.log(`[MarkEntry] JIT FOUND Mark ID: ${existingRemote._id} (via fuzzy match on ${existingRemote.reviewType}). Switching to PUT.`);
+                return api.put(`/faculty/marks/${existingRemote._id}`, {
+                  student: sid,
+                  project: team.id || team.project_id || team.team_id,
+                  reviewType: review.id || review.reviewName,
+                  facultyType: review.type || 'guide',
+                  componentMarks,
+                  totalMarks: totalObtained,
+                  maxTotalMarks: maxTotal,
+                  remarks: remarks,
+                  isSubmitted: true
+                });
+              } else {
+                // 2. Really New? POST.
+                console.log(`[MarkEntry] No matching marks found even after broad search. Proceeding with POST.`);
+                return api.post('/faculty/marks', {
+                  student: sid,
+                  project: team.id || team.project_id || team.team_id,
+                  reviewType: review.id || review.reviewName,
+                  facultyType: review.type || 'guide',
+                  componentMarks,
+                  totalMarks: totalObtained,
+                  maxTotalMarks: maxTotal,
+                  remarks: remarks,
+                  isSubmitted: true
+                });
+              }
+            } catch (e) {
+              // Fallback to POST on error
+              console.warn('[MarkEntry] JIT Check Failed (Broad), falling back to POST', e);
+              return api.post('/faculty/marks', {
+                student: sid,
+                project: team.id || team.project_id || team.team_id,
+                reviewType: review.id || review.reviewName,
+                facultyType: review.type || 'guide',
+                componentMarks,
+                totalMarks: totalObtained,
+                maxTotalMarks: maxTotal,
+                remarks: remarks,
+                isSubmitted: true
+              });
+            }
+          })();
+        }
       });
 
       await Promise.all(submissions);

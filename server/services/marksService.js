@@ -1,6 +1,7 @@
 import Marks from "../models/marksSchema.js";
 import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
+import Project from "../models/projectSchema.js";
 import {
   getFacultyTypeForProject,
   extractPrimaryContext,
@@ -36,10 +37,17 @@ export class MarksService {
       faculty: facultyId,
     });
 
-    if (existingMarks && existingMarks.isSubmitted) {
-      throw new Error(
-        "Marks already submitted for this review. Use update endpoint."
-      );
+    if (existingMarks) {
+      if (existingMarks.isSubmitted) {
+        // UPSERT LOGIC: If already submitted, treat this as an Update request
+        // This handles cases where frontend loses track of markId (robustness fix)
+        logger.info("marks_submission_redirect_to_update", {
+          existingMarkId: existingMarks._id,
+          student,
+          reviewType
+        });
+        return this.updateMarks(existingMarks._id, facultyId, data);
+      }
     }
 
     // Get student and faculty context

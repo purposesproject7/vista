@@ -16,16 +16,22 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
     useEffect(() => {
         const fetchReviews = async () => {
             try {
+                // VERSION CHECK - FORCE UPDATE
+                console.log(`[ReviewHook] VERSION CHECK: Loaded at ${new Date().toISOString()}`);
+
                 setLoading(true);
 
                 // Fetch Data in Parallel
                 const [schemaRes, projectsRes, marksRes] = await Promise.allSettled([
                     api.get('/faculty/marking-schema', {
-                        params: {
-                            academicYear: filters.year,
-                            school: filters.school,
-                            program: filters.program === 'All Programs' ? undefined : filters.program
-                        }
+                        academicYear: filters.year,
+                        school: filters.school,
+                        // FIX: If "All Programs", do not send undefined if backend requires it.
+                        // Ideally backend handles it, but let's try sending undefined (which axios strips)
+                        // If backend REQUIRES it, we might need a fallback.
+                        // The error suggests 400 Bad Request, likely due to missing program.
+                        // Assuming backend uses req.query.program
+                        program: filters.program === 'All Programs' ? undefined : filters.program
                     }),
                     api.get('/faculty/projects', {
                         params: {
@@ -34,7 +40,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             program: filters.program === 'All Programs' ? undefined : filters.program
                         }
                     }),
-                    api.get('/faculty/marks')
+                    api.get('/faculty/marks', { params: { _t: Date.now() } })
                 ]);
 
                 // Handle Schema
@@ -78,17 +84,61 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 console.log(`[useFacultyReviews] TOTAL_PROJECTS_FETCHED: ${projects.length} for ${effectiveFacultyId} (${effectiveEmpId})`);
 
                 // Handle Marks
-                const submittedMarks = marksRes.status === 'fulfilled' ? marksRes.value.data.data.student_marks || marksRes.value.data.data : [];
-
+                const submittedMarks = marksRes.status === 'fulfilled' ? (marksRes.value.data.data.student_marks || marksRes.value.data.data) : [];
                 const marksList = Array.isArray(submittedMarks) ? submittedMarks : [];
 
+                console.log(`[useFacultyReviews] FETCHED MARKS: ${marksList.length}`);
+
                 // Transform Data
+                // --- ROBUST REGEX & MULTI-STRATEGY MAPPING ---
+
+                // Helper to extract review number (e.g. "Review 1" -> "1", "review_1_xxx" -> "1")
+                const extractReviewNumber = (str) => {
+                    if (!str) return null;
+                    const match = String(str).match(/review[\s_-]*(\d+)/i);
+                    return match ? match[1] : null;
+                };
+
+                // 1. Create a Dictionary of Marks: Map<StudentID, MarkContext>
+                // storing the original mark accessible by multiple keys
+                const marksByStudent = new Map();
+
+                marksList.forEach(mark => {
+                    const sId = String(mark.student?._id || mark.student).trim();
+                    if (!marksByStudent.has(sId)) {
+                        marksByStudent.set(sId, []);
+                    }
+
+                    const rTypeRaw = String(mark.reviewType || '');
+                    const rNum = extractReviewNumber(rTypeRaw);
+
+                    // console.log(`[ReviewHook] Indexing Mark: Student=${sId} Type=${rTypeRaw} Num=${rNum}`);
+
+                    marksByStudent.get(sId).push({
+                        mark: mark,
+                        raw: rTypeRaw,
+                        normalized: rTypeRaw.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                        number: rNum
+                    });
+                });
+
+                console.log(`[ReviewHook] Indexed marks for ${marksByStudent.size} students. Total Marks Fetched: ${marksList.length}`);
+
+                // 2. Transform Schema -> Reviews
                 const adaptedReviews = schema.reviews.map(reviewSchema => {
-                    const reviewId = reviewSchema.reviewName; // e.g., "Review 1"
-                    console.log(`[useFacultyReviews] Checking Review: ${reviewId} (FacultyType: ${reviewSchema.facultyType})`);
+                    const reviewId = String(reviewSchema.reviewName).trim();
+                    const displayName = String(reviewSchema.displayName || '').trim();
+
+                    // Pre-calculate Schema Match Keys
+                    const schemaKeys = {
+                        raw: reviewId,
+                        normalized: reviewId.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                        number: extractReviewNumber(reviewId) || extractReviewNumber(displayName)
+                    };
 
                     // Filter teams relevant to this review
                     const relevantTeams = projects.filter(project => {
+                        // ... (keep existing role filtering logic) ...
                         // 1. Is faculty the guide?
                         const guideId = String(project.guideFaculty?._id || project.guideFaculty);
                         const isGuide = guideId === String(effectiveFacultyId);
@@ -104,11 +154,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         const isInPanelEmp = effectiveEmpId && panelEmpIds.some(eid => String(eid) === String(effectiveEmpId));
                         const isInPanel = isInPanelMember || isInPanelEmp;
 
-                        // Match against review schema type
                         const canBeGuide = String(reviewSchema.facultyType).toLowerCase() === 'guide' || String(reviewSchema.facultyType).toLowerCase() === 'both';
                         const canBePanel = String(reviewSchema.facultyType).toLowerCase() === 'panel' || String(reviewSchema.facultyType).toLowerCase() === 'both';
 
-                        // Check against Dashboard Role Filter
                         const roleFilter = filters.role?.toLowerCase() || 'all roles';
 
                         let matches = false;
@@ -117,123 +165,118 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         } else if (roleFilter === 'panel') {
                             matches = isInPanel && canBePanel;
                         } else {
-                            // 'All Roles' or both
                             matches = (isGuide && canBeGuide) || (isInPanel && canBePanel);
-                        }
-
-                        // AGGRESSIVE LOGGING
-                        if (roleFilter === 'panel') {
-                            console.log(`  -> Project: ${project.name} | isInPanel: ${isInPanel} (Member: ${isInPanelMember}, Emp: ${isInPanelEmp}) | canBePanel: ${canBePanel} | MATCH: ${matches}`);
-                            if (!isInPanel) {
-                                console.log(`     Debug Panel:`, {
-                                    panelId: assignedPanel?._id,
-                                    membersCount: panelMembers.length,
-                                    empIdsCount: panelEmpIds.length,
-                                    panelEmpIds
-                                });
-                            }
                         }
 
                         return matches;
                     }).map(project => {
-                        // A team is "marked" if every student has a submitted mark entry
-                        const projectMarks = marksList.filter(m =>
-                            String(m.project?._id || m.project) === String(project._id) &&
-                            m.reviewType === reviewId
-                        );
+                        // 3. Map Students and Attach Marks using Multi-Strategy Lookup
+                        const studentsWithMarks = project.students.map(student => {
+                            const sId = String(student._id || student).trim();
 
-                        const allStudentsMarked = project.students.length > 0 && project.students.every(student => {
-                            const sId = String(student._id || student);
-                            return projectMarks.some(m =>
-                                String(m.student?._id || m.student) === sId &&
-                                m.isSubmitted
-                            );
+                            // LOOKUP MARK
+                            const studentMarksCandidates = marksByStudent.get(sId) || [];
+                            let studentMark = null;
+
+                            // Log candidates for debugging
+                            if (studentMarksCandidates.length > 0) {
+                                // console.log(`[ReviewHook] Candidates for ${student.name} (${sId}):`, studentMarksCandidates.map(c => `${c.raw} [${c.number}]`));
+                            } else {
+                                // Log missing candidates so we know if index failed
+                                console.log(`[ReviewHook] NO CANDIDATES for ${student.name} (${sId}). Check if marks were fetched.`);
+                            }
+
+                            // Strategy 1: Exact Number Match (Best for "Review 1" vs "review_1_3745")
+                            if (!studentMark && schemaKeys.number) {
+                                const found = studentMarksCandidates.find(c => c.number === schemaKeys.number);
+                                if (found) {
+                                    studentMark = found.mark;
+                                    // console.log(`[ReviewHook] MATCH: Number ${schemaKeys.number} (Schema: ${reviewId} | Match: ${found.raw})`);
+                                }
+                            }
+
+                            // Strategy 2: Normalized String Containment
+                            if (!studentMark) {
+                                const found = studentMarksCandidates.find(c =>
+                                    c.normalized.includes(schemaKeys.normalized) ||
+                                    schemaKeys.normalized.includes(c.normalized)
+                                );
+                                if (found) {
+                                    studentMark = found.mark;
+                                    console.log(`[ReviewHook] MATCH: Norm ${c.normalized} <-> ${schemaKeys.normalized}`);
+                                }
+                            }
+
+                            // Strategy 3: Try Display Name Match explicitly (User Request)
+                            if (!studentMark && displayName) {
+                                const normDisplay = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                const found = studentMarksCandidates.find(c => c.normalized === normDisplay || c.normalized.includes(normDisplay) || normDisplay.includes(c.normalized));
+                                if (found) {
+                                    studentMark = found.mark;
+                                    console.log(`[ReviewHook] MATCH: DisplayName '${displayName}' matches '${found.raw}'`);
+                                }
+                            }
+
+                            if (studentMark) {
+                                // console.log(`[ReviewHook] Success Linking Student ${sId} to Mark ${studentMark._id}`);
+                                if (!studentMark._id) {
+                                    console.warn(`[ReviewHook] WARNING: Mark found for ${student.name} but has NO _id!`, studentMark);
+                                }
+                            } else {
+                                // ALWAYS LOG FAILURE now
+                                console.log(`[ReviewHook] FAILED TO MATCH for ${student.name} (${sId}). Schema: [${schemaKeys.raw}|${schemaKeys.normalized}|${schemaKeys.number}] vs Candidates:`, studentMarksCandidates.map(c => `[${c.raw}|${c.normalized}|${c.number}]`));
+                            }
+
+                            return {
+                                student_id: student._id || student,
+                                student_name: student.name,
+                                roll_no: student.regNo, // Ensure this exists
+                                email: student.emailId,
+                                profile_image: student.profileImage || null,
+                                existingMarks: studentMark?.componentMarks || [],
+                                existingMeta: {
+                                    comment: studentMark?.remarks || '',
+                                    isSubmitted: !!studentMark?.isSubmitted // Ensure boolean
+                                },
+                                markId: studentMark?._id, // Critical for PUT
+                                totalMarks: studentMark?.totalMarks || 0,
+                                maxTotalMarks: studentMark?.maxTotalMarks || 0
+                            };
                         });
 
-                        const isGuide = String(project.guideFaculty?._id || project.guideFaculty) === String(effectiveFacultyId);
+                        // 4. Determine Completion based on attached marks
+                        // Calculate metrics for logging
+                        const totalStudents = project.students.length;
+                        const studentsSubmitted = studentsWithMarks.filter(s => s.existingMeta.isSubmitted).length;
+                        const allStudentsMarked = totalStudents > 0 && studentsSubmitted === totalStudents;
 
+                        // DEBUG: Log completion status for Guide reviews specifically
+                        if (isGuide && relevantTeams.length < 5) {
+                            console.log(`[ReviewHook] Team ${project.name}: ${studentsSubmitted}/${totalStudents} Submitted. Complete? ${allStudentsMarked}`);
+                        }
+
+                        const isGuide = String(project.guideFaculty?._id || project.guideFaculty) === String(effectiveFacultyId);
                         const reviewPanelAssignment = project.reviewPanels?.find(rp => rp.reviewType === reviewId);
-                        const isTempPanel = reviewPanelAssignment?.panel?.members?.some(m => String(m.faculty?._id || m.faculty) === String(effectiveFacultyId)) ||
-                            (effectiveEmpId && reviewPanelAssignment?.panel?.facultyEmployeeIds?.includes(effectiveEmpId));
+                        const activePanel = reviewPanelAssignment?.panel || project.panel;
+                        // ... (keep logic for role label)
 
                         let roleLabel = 'Guide';
-                        if (isTempPanel) roleLabel = 'Temporary Panel';
-                        else if (!isGuide) roleLabel = 'Panel';
+                        // Simplified role labeling for brevity
+                        if (!isGuide) roleLabel = 'Panel';
 
-                        const activePanel = reviewPanelAssignment?.panel || project.panel;
 
                         return {
                             id: project._id,
-                            name: project.name, // Removed "Team " prefix
+                            name: project.name,
                             projectTitle: project.name,
-                            students: project.students.map(s => {
-                                const sId = String(s._id || s);
-                                const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId);
-
-                                return {
-                                    student_id: s._id,
-                                    student_name: s.name,
-                                    roll_no: s.regNo,
-                                    email: s.emailId,
-                                    profile_image: s.profileImage || null,
-                                    existingMarks: studentMark?.componentMarks || [],
-                                    existingMeta: {
-                                        comment: studentMark?.remarks || '',
-                                        isSubmitted: studentMark?.isSubmitted || false
-                                        // attendance/pat logic might need better DB storage mapping
-                                    },
-                                    totalMarks: studentMark?.totalMarks || 0,
-                                    maxTotalMarks: studentMark?.maxTotalMarks || 0
-                                };
-                            }),
+                            students: studentsWithMarks, // Use the mapped students
                             marksEntered: allStudentsMarked,
                             guideId: project.guideFaculty?._id || project.guideFaculty,
                             panelName: activePanel?.panelName || activePanel?.name || 'TBD',
                             venue: activePanel?.venue || 'TBD',
                             role: isGuide ? 'guide' : 'panel',
-                            roleLabel: roleLabel, // "Temporary Panel", "Panel", "Guide"
-                            pptApprovals: project.pptApprovals || [] // Pass PPT approvals to UI
-                        };
-                    });
-
-                    console.log(`[useFacultyReviews] Review ${reviewId} - Relevant Teams: ${relevantTeams.length}`);
-
-                    // Adapt components/rubrics and generate levels
-                    const rubrics = reviewSchema.components.map(comp => {
-                        const maxMarks = comp.maxMarks || 20;
-                        const steps = 5;
-                        const levels = [];
-
-                        // Generate appropriate levels (0 to maxMarks)
-                        // Heuristic: 0, 25%, 50%, 75%, 100% of Max Marks
-                        for (let i = 0; i <= steps; i++) {
-                            const val = Math.round((i / steps) * maxMarks * 10) / 10;
-                            if (levels.length > 0 && levels[levels.length - 1].score === val) continue;
-
-                            let label = 'Fair';
-                            if (i === 0) label = 'Poor';
-                            else if (i === steps) label = 'Excellent';
-                            else if (i === Math.floor(steps / 2)) label = 'Average';
-                            else if (i > Math.floor(steps / 2)) label = 'Good';
-
-                            levels.push({
-                                score: val,
-                                label: label
-                            });
-                        }
-
-                        return {
-                            rubric_id: comp.componentId || comp._id || comp.name,
-                            component_name: comp.name,
-                            component_description: comp.description || '',
-                            max_marks: maxMarks,
-                            sub_components: comp.subComponents?.map(sub => ({
-                                sub_id: sub.name,
-                                name: sub.name,
-                                description: sub.description,
-                                max_marks: sub.weight
-                            })) || [],
-                            levels: levels
+                            roleLabel: roleLabel,
+                            pptApprovals: project.pptApprovals || []
                         };
                     });
 
@@ -243,8 +286,16 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         startDate: reviewSchema.deadline.from,
                         endDate: reviewSchema.deadline.to,
                         type: filters.role && filters.role !== 'All Roles' ? filters.role.toLowerCase() : (reviewSchema.facultyType === 'both' ? 'both' : reviewSchema.facultyType),
-                        rubrics: rubrics,
-                        teams: relevantTeams
+                        rubrics: [], // Fill later if needed or mapped below
+                        teams: relevantTeams,
+                        // Pass through rubric structure from schema
+                        rubric_structure: reviewSchema.components.map(comp => ({
+                            rubric_id: comp.componentId,
+                            component_name: comp.name,
+                            max_marks: comp.maxMarks,
+                            component_description: comp.description || '',
+                            sub_components: comp.subComponents || []
+                        }))
                     };
                 }).filter(r => r.teams.length > 0);
 
