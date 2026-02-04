@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "../.env") });
-
+// MIA
 // const rawData = `20MIA1102	52285 Dr. Sandosh S & 54527 Dr. Rajkumar R
 // 20MIA1173	
 // 21MIA1006	
@@ -89,6 +89,7 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 // 21MIA1164	
 // 21MIA1165`;
 
+// MIS
 const rawData = `17MIS1087	51669 Dr. A Swaminathan & 53391 Dr. Selvam D
 19MIS1146	
 19MIS1188	
