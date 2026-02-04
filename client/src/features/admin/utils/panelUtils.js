@@ -358,8 +358,9 @@ export const formatPanelName = (panel) => {
     return panel.faculty.map(f => f.name).join(' & ');
   }
 
-  // Fallback: Use Panel with ID/number
-  return `Panel ${panel.panelNumber || panel.id || 'Unknown'}`;
+  // Fallback: Use Panel with ID suffix (last 4 chars) to avoid "Unknown"
+  const suffix = panel.id ? panel.id.substr(-4) : (panel._id ? panel._id.substr(-4) : '');
+  return `Panel ${panel.panelNumber || suffix || '?'}`;
 };
 
 /**
@@ -385,5 +386,5 @@ export const getMarkingStatusLabel = (status) => {
     none: 'Not Marked',
     unmarked: 'Unmarked'
   };
-  return statusLabels[status] || 'Unknown';
+  return statusLabels[status] || 'Unmarked';
 };

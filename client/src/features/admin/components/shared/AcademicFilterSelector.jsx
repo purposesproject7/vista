@@ -70,35 +70,43 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   // Update programs when school changes (either from context or user selection)
   useEffect(() => {
     if (academicContext.school && masterData) {
-      const programsList = masterData.programs || masterData.departments;
-      // robustness: check both code and name
+      // Robust logic from student-management selector
       const schoolObj = masterData.schools?.find(s => s.code === academicContext.school);
-      const schoolName = schoolObj?.name;
-      const schoolCode = schoolObj?.code;
+      // const schoolName = schoolObj?.name; // Not strictly needed if we rely on code matching which is safer if data is consistent
 
-      const programs =
-        programsList
-          ?.filter((d) => {
-            return (
-              d.isActive !== false &&
-              (d.school === schoolCode || d.school === schoolName)
-            );
-          })
+      const deptPrograms =
+        masterData.departments
+          ?.filter((d) => d.isActive !== false && d.school === academicContext.school)
           ?.map((d) => ({
             value: d.name,
             label: d.name,
             code: d.code,
           })) || [];
 
+      const progPrograms =
+        masterData.programs
+          ?.filter((p) => p.isActive !== false && p.school === academicContext.school)
+          ?.map((p) => ({
+            value: p.name,
+            label: p.name,
+            code: p.code,
+          })) || [];
+
+      // Merge and deduplicate by value (program name)
+      const allPrograms = [...deptPrograms, ...progPrograms];
+      const uniquePrograms = Array.from(
+        new Map(allPrograms.map((item) => [item.value, item])).values()
+      );
+
       setOptions((prev) => ({
         ...prev,
-        programs,
+        programs: uniquePrograms,
       }));
 
       // If program in context is not valid for this school, clear it
       if (
         academicContext.program &&
-        !programs.some((p) => p.value === academicContext.program)
+        !uniquePrograms.some((p) => p.value === academicContext.program)
       ) {
         updateAcademicContext({ program: "" });
       }

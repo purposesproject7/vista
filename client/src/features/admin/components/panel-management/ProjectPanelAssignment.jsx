@@ -29,7 +29,7 @@ const ProjectPanelAssignment = () => {
   const [projects, setProjects] = useState([]);
   const [panels, setPanels] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProjects, setSelectedProjects] = useState([]);
   const [selectedPanel, setSelectedPanel] = useState(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isAutoAssigning, setIsAutoAssigning] = useState(false);
@@ -38,7 +38,7 @@ const ProjectPanelAssignment = () => {
 
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);
-    setSelectedProject(null);
+    setSelectedProjects([]);
     setSelectedPanel(null);
     loadData(selectedFilters);
   }, []);
@@ -73,28 +73,48 @@ const ProjectPanelAssignment = () => {
     }
   };
 
+  const toggleProjectSelection = (project) => {
+    setSelectedProjects((prev) => {
+      const isSelected = prev.some((p) => p._id === project._id);
+      if (isSelected) {
+        return prev.filter((p) => p._id !== project._id);
+      } else {
+        return [...prev, project];
+      }
+    });
+  };
+
   const handleManualAssignment = async () => {
-    if (!selectedProject || !selectedPanel) {
-      showToast("Please select both a project and a panel", "error");
+    if (selectedProjects.length === 0 || !selectedPanel) {
+      showToast("Please select at least one project and a panel", "error");
       return;
     }
 
     try {
       setIsAssigning(true);
 
-      const response = await assignPanelToProject({
-        projectId: selectedProject._id,
-        panelId: selectedPanel._id,
-        ignoreSpecialization,
-      });
+      const assignPromises = selectedProjects.map((project) =>
+        assignPanelToProject({
+          projectId: project._id,
+          panelId: selectedPanel._id,
+          ignoreSpecialization,
+        })
+      );
 
-      if (response.success) {
-        showToast("Panel assigned to project successfully", "success");
-        setSelectedProject(null);
+      const results = await Promise.all(assignPromises);
+      const failures = results.filter((r) => !r.success);
+
+      if (failures.length === 0) {
+        showToast(`Successfully assigned ${selectedProjects.length} projects`, "success");
+        setSelectedProjects([]);
         setSelectedPanel(null);
         loadData(filters);
       } else {
-        showToast(response.message || "Failed to assign panel", "error");
+        showToast(
+          `Assigned ${selectedProjects.length - failures.length} projects. ${failures.length} failed.`,
+          "warning"
+        );
+        loadData(filters);
       }
     } catch (error) {
       console.error("Error assigning panel:", error);
@@ -184,8 +204,8 @@ const ProjectPanelAssignment = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-blue-900">
-              {filters.school} - {filters.programme} - {filters.year}-
-              {parseInt(filters.year) + 1}, Semester {filters.semester}
+              {filters.school} - {filters.programme} {filters.year ? `- ${filters.year}-${parseInt(filters.year) + 1}` : ''}
+              {filters.semester ? `, Semester ${filters.semester}` : ''}
             </p>
             <p className="text-xs text-blue-700 mt-1">
               {unassignedProjects.length} unassigned • {assignedProjects.length}{" "}
@@ -297,10 +317,10 @@ const ProjectPanelAssignment = () => {
                 unassignedProjects.map((project) => (
                   <button
                     key={project._id}
-                    onClick={() => setSelectedProject(project)}
-                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${selectedProject?._id === project._id
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 bg-white hover:border-blue-300"
+                    onClick={() => toggleProjectSelection(project)}
+                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${selectedProjects.some(p => p._id === project._id)
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 bg-white hover:border-blue-300"
                       }`}
                   >
                     <p className="font-medium text-gray-900">{project.name}</p>
@@ -368,7 +388,7 @@ const ProjectPanelAssignment = () => {
 
         {/* Assignment Button */}
         <div className="mt-6 pt-6 border-t">
-          {selectedProject && selectedPanel && (
+          {selectedProjects.length > 0 && selectedPanel && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <div className="flex items-center gap-3">
                 <LinkIcon className="h-5 w-5 text-blue-600" />
@@ -376,12 +396,15 @@ const ProjectPanelAssignment = () => {
                   <p className="text-sm font-medium text-blue-900">
                     Assign{" "}
                     <span className="font-semibold">
-                      {selectedProject.name}
+                      {selectedProjects.length} Projects
                     </span>
                     {" → "}
                     <span className="font-semibold">
                       {getPanelName(selectedPanel)}
                     </span>
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    {selectedProjects.map(p => p.name).join(", ")}
                   </p>
                 </div>
               </div>
@@ -409,11 +432,11 @@ const ProjectPanelAssignment = () => {
             variant="primary"
             size="lg"
             loading={isAssigning}
-            disabled={!selectedProject || !selectedPanel || isAssigning}
+            disabled={selectedProjects.length === 0 || !selectedPanel || isAssigning}
             className="w-full"
           >
             <LinkIcon className="h-5 w-5 mr-2" />
-            Assign Selected Panel to Project
+            Assign {selectedProjects.length > 0 ? `${selectedProjects.length} ` : ''}Project{selectedProjects.length !== 1 ? 's' : ''} to Panel
           </Button>
         </div>
       </Card>
