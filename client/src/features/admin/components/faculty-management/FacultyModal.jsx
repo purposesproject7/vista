@@ -45,7 +45,7 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.emailId.trim() || !formData.employeeId.trim() || !formData.phoneNumber.trim()) {
       alert('Please fill in all required fields');
       return;
@@ -91,7 +91,7 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
         {/* Basic Information */}
         <div className="bg-gray-50 p-4 rounded-lg space-y-4">
           <h4 className="font-semibold text-gray-900 mb-3">Basic Information</h4>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Full Name <span className="text-red-500">*</span>
@@ -169,7 +169,7 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
         {/* Academic Information */}
         <div className="bg-gray-50 p-4 rounded-lg space-y-4">
           <h4 className="font-semibold text-gray-900 mb-3">Academic Information</h4>
-          
+
           {/* Display School and Department from filters as read-only */}
           {filters && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -183,11 +183,13 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
                 <label className="block text-xs font-medium text-blue-700 mb-1">
                   Department (from filter)
                 </label>
-                <p className="text-sm font-semibold text-blue-900">{filters.department}</p>
+                <p className="text-sm font-semibold text-blue-900">
+                  {Array.isArray(filters.department) ? filters.department.join(', ') : filters.department}
+                </p>
               </div>
             </div>
           )}
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

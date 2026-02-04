@@ -16,7 +16,7 @@ const facultySchema = new mongoose.Schema(
     },
 
     school: { type: String, required: true },
-    program: { type: String }, // Now optional
+    program: { type: [String], default: [] }, // Now array of strings
     specialization: { type: String },
 
     // Project coordinator flag

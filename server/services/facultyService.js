@@ -26,9 +26,10 @@ export class FacultyService {
       }
     }
 
-    if (!data.school || typeof data.school !== "string") {
+    if (data.school && typeof data.school !== "string") {
       errors.push("School must be a string.");
     }
+
 
     if (
       data.role === "faculty" &&
@@ -99,8 +100,8 @@ export class FacultyService {
       employeeId: data.employeeId.trim().toUpperCase(),
       phoneNumber: data.phoneNumber?.toString().trim(),
       role: data.role || "faculty",
-      school: data.school.trim(),
-      program: data.program ? data.program.trim() : undefined,
+      school: data.school ? data.school.trim() : "",
+      program: Array.isArray(data.program) ? data.program : (data.program ? [data.program.trim()] : []),
       specialization: data.specialization ? data.specialization.trim() : "",
     });
 
@@ -233,7 +234,7 @@ export class FacultyService {
     if (updates.phoneNumber) faculty.phoneNumber = updates.phoneNumber;
     if (updates.role) faculty.role = updates.role;
     if (updates.school) faculty.school = updates.school;
-    if (updates.program) faculty.program = updates.program;
+    if (updates.program) faculty.program = Array.isArray(updates.program) ? updates.program : [updates.program];
     if (updates.specialization) faculty.specialization = updates.specialization;
     if (updates.imageUrl !== undefined) faculty.imageUrl = updates.imageUrl;
 

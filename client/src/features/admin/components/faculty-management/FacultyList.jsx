@@ -50,7 +50,9 @@ const FacultyList = ({ faculty, onEdit, onDelete, onViewDetails }) => {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">Department</p>
-                      <p className="text-sm font-semibold text-gray-900 mt-1">{member.department}</p>
+                      <p className="text-sm font-semibold text-gray-900 mt-1">
+                        {Array.isArray(member.department) ? member.department.join(', ') : member.department}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase">Role</p>
