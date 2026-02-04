@@ -143,27 +143,41 @@ export const validatePanelSize = async (req, res, next) => {
       .select("minPanelSize maxPanelSize")
       .lean();
 
-    if (!config) {
-      return res.status(404).json({
-        success: false,
-        message: "Program configuration not found.",
+    let panelSizeConfig = {
+      min: 1,
+      max: 5, // Default max
+    };
+
+    if (config) {
+      panelSizeConfig = {
+        min: config.minPanelSize,
+        max: config.maxPanelSize,
+      };
+    } else {
+      // Optional: Log that we are using defaults
+      logger.warn("program_config_not_found_using_defaults", {
+        academicYear,
+        school,
+        program,
+        defaultMin: panelSizeConfig.min,
+        defaultMax: panelSizeConfig.max,
       });
     }
 
     const panelSize = (members || req.body.memberEmployeeIds)?.length || 0;
 
-    if (panelSize < config.minPanelSize || panelSize > config.maxPanelSize) {
+    if (panelSize < panelSizeConfig.min || panelSize > panelSizeConfig.max) {
       return res.status(400).json({
         success: false,
-        message: `Panel size must be between ${config.minPanelSize} and ${config.maxPanelSize}.`,
-        minPanelSize: config.minPanelSize,
-        maxPanelSize: config.maxPanelSize,
+        message: `Panel size must be between ${panelSizeConfig.min} and ${panelSizeConfig.max}.`,
+        minPanelSize: panelSizeConfig.min,
+        maxPanelSize: panelSizeConfig.max,
       });
     }
 
     req.panelSizeConfig = {
-      min: config.minPanelSize,
-      max: config.maxPanelSize,
+      min: panelSizeConfig.min,
+      max: panelSizeConfig.max,
     };
 
     next();
