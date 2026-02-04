@@ -165,66 +165,33 @@ const executeAssignments = async () => {
 
         if (!project) {
             console.error(`❌ Project NOT FOUND: "${projectName}"`);
-            // Attempt partial match or fuzzy log could act here, but for now strict regex
             failureCount++;
             continue;
         }
 
-        // 2. Find or Create Panel
-        // Check if a panel exists with EXACTLY these faculty IDs (order irrelevant usually, but let's sort for consistency if we were storing sorted, but here just query)
-        // panelSchema stores facultyEmployeeIds as an array of strings.
-
+        // 2. Find Panel
+        // Check if a panel exists with EXACTLY these faculty IDs
         let panel = await Panel.findOne({
             facultyEmployeeIds: { $all: facultyIDs, $size: facultyIDs.length },
             academicYear: project.academicYear,
-            // Maybe check school too? project.school
         });
 
         if (!panel) {
-            console.log(`⚠️ Panel not found for [${facultyIDs.join(', ')}]. Creating new one...`);
-
-            // Need to fetch faculty _ids to populate legacy `members` field
-            const facultyMembers = await Faculty.find({
-                employeeId: { $in: facultyIDs }
-            });
-
-            if (facultyMembers.length !== facultyIDs.length) {
-                console.error(`❌ Could not find all faculty members for IDs: ${facultyIDs.join(', ')}`);
-                failureCount++;
-                continue;
-            }
-
-            const membersPayload = facultyMembers.map(f => ({
-                faculty: f._id,
-                facultyEmployeeId: f.employeeId
-            }));
-
-            // Create new Panel
-            panel = await Panel.create({
-                panelName: `Panel ${facultyIDs.join('_')}`,
-                facultyEmployeeIds: facultyIDs,
-                members: membersPayload,
-                academicYear: project.academicYear,
-                school: project.school,
-                program: project.program,
-                specializations: [project.specialization], // Initial specialization
-                type: "regular",
-                isActive: true
-            });
-            console.log(`✅ Created Panel: ${panel.panelName}`);
-        } else {
-            // Update panel specializations if needed?
-            if (!panel.specializations.includes(project.specialization)) {
-                panel.specializations.push(project.specialization);
-                await panel.save();
-            }
+            console.error(`❌ Panel NOT FOUND for faculty IDs: [${facultyIDs.join(', ')}] (Project: "${projectName}")`);
+            failureCount++;
+            continue;
         }
 
         // 3. Assign Panel to Project
-        project.panel = panel._id;
-        await project.save();
-        console.log(`✅ Assigned "${projectName}" to Panel ${panel.panelName}`);
-        successCount++;
+        // Only assign if it's different to avoid redundant saves if run multiple times
+        if (project.panel && project.panel.toString() === panel._id.toString()) {
+            console.log(`ℹ️  "${projectName}" already assigned to Panel ${panel.panelName} (Skipping)`);
+        } else {
+            project.panel = panel._id;
+            await project.save();
+            console.log(`✅ Assigned "${projectName}" to Panel ${panel.panelName}`);
+            successCount++;
+        }
     }
 
     console.log(`\n\n=== SUMMARY ===`);
@@ -236,3 +203,4 @@ const executeAssignments = async () => {
 };
 
 executeAssignments();
+```
