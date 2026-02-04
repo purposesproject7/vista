@@ -7,86 +7,87 @@ import { fileURLToPath } from "url";
 import Project from "../models/projectSchema.js";
 import Panel from "../models/panelSchema.js";
 import Faculty from "../models/facultySchema.js";
+import Student from "../models/studentSchema.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
-const rawData = `Cancer data prediction 	52285 Dr. Sandosh S & 54527 Dr. Rajkumar R
-SEVERITY-BASED CLASSIFICATION AND OUTCOME PREDICTION FOR DIABETIC PATIENT HOSPITAL ADMISSI	
-MILD COGNITIVE IMPAIRMENT PREDICTION USING EEG SIGNALS	
-Personalized AI Tutor	
-TOMATO LEAF DISEASE DETECTION	
-AUTOMATED CYBER THREAT DETECTION SYSTEM USING HYBRID DEEP LEARNING MODELS	
-crop disease prediction 	52799 Dr. Benil T & 51662 Dr. X Anita
-4D GAUSSIAN SPLATTING	
-An Explainable ensemble learning approach  for LDR prediction with interpretable clinical summaries	
-OBJECT DETECTION FOR BRLIND PEOPLE	
-Nas100 Stoxk prediction	
-FEDERATED LEARNING 	
-DETECTION OF SCHIZOPHRENIA 	53164 Dr. Ahadit A B & 54146 Dr. Poornima S
-SMART CLASSIFICATION OF PLASTIC WASTE USING IMAGE RECOGNITION	
-DEEP LEARNING BASED	
-CBS - DASHBOARD	
-TENTATIVE TITLE	
-MERN TASK MANAGER	
-"ARC-CO: A Topology-Aware, Dynamic GPU Virtualization Scheduler for High-Efficiency LLM	54510 Dr. Sindhu Ravindran & 53626 Dr. Jai Vinita L
-Medical Imaging Using Transformers	
-ABCD	
-MANGO FRUIT DISEASE DETECTION 	
-An Integrated Predictive Analytics and Optimization Framework for Complex Decision Systems	
-Continuous AI‑driven pentesting with runtime‑behavior validation	
-SYNTHETIC TABULAR DATA GENERATION USING DIFFUSION MODELS	54183 Dr. Sankari M & 52245 Dr. Sahaya Beni Prathiba B
-LLM-POWERED DATA ANALYST	
-SHRIMP DISEASE DETECTION	
-AI MEDICAL REPORT SUMMARIZER 	
-AI AND PLAGIARISM DETECTION USING FEDERATED LEARNING AND BLOCKCHAIN 	
-Responsible and Explainable AI Agents with Consensus-Driven Reasoning	
-Temporal Graph analytics for Financial fraud detection 	54151 Dr. Aarthi B & 53696 Dr. Madura Meenakshi R
-RADIOMICS SIGNATURE OF NUCHAL TRANSLUCENCY AND NASAL BONE IN FIRST-TRIMESTER ULTRASOUND	
-SMART PLANT MONITORING	
-PORTABLE SMART ATTENDANCE SYSTEM IT EMPLOYEES CNN AND GNN-BASED FACE RECOGNITIONON RASPBER	
-Retention Efficiency of Filtration Grids for Microplastic Morphologies	
-Hallucination-Safe Medical LLM for Clinical Advice	
-ANALYSIS	54508 Dr. Suhail K & 53877 Dr. Umesh K
-SELF-HEALING SOFTWARE NETWORK ARCHITECTURE FOR NEXT-GEN IOT SYSTEMS	
-Weather Data Visualization and Insights Dashboard	
-ULTRASOUND BREAST CANCER PREDICTION USING DL 	
-FORGOTTEN APPLIANCE ALERT SYSTEM	
-Activity Recognition in Public Places Using Quantum Neural Networks	
- VISION 	51347 Dr. Bhuvaneswari A & 54147 Dr. Vigneshwari S
-FRUIT PICKING ASSITANT	
-VEHICLE DETECTION 	
-Fraud Detection using Anomaly Detection 	
-IOT WITH AI	
-Learning Discriminative Face Embedings via Self-Supervised Learning	
-POSTURE DETECTION USING PRE TRAINED MODELS	51663 Dr. P Subbulakshmi & 52859 Dr. Sobitha Ahila S
-HEALTHGPT: SYMPTOM-TO-DIAGNOSIS CHAT ASSISTANT USING EXPLAINABLE AI	
-ML Based Emotion and Stress Analytics Using Wearable Sensors	
-AI- BASED REAL TIME SIGN LANGUAGE TRANSLATOR USING COMPUTER VISION	
-Autonomous Trash Collector Bot with WasteClassification	
-SMART PARKING ANALYTICS: AN IOT AND MACHINE LEARNING-BASED PREDICTIVE SYSTEM FOR URBAN PAR	
-CRICKET PITCH CLASSIFIER	52833 Dr. Ilavendhan A & 53900 Dr. Sivaranjani N 
-Text Classification Using Advanced NLP Techniques 	
-SPIKING NEURAL NETWORK	
-Adaptive Code Optimizer: AI-Powered Refactoring Assistant	
-IOT BASED PROJECT	
-GENERATIVE ARTIFICIAL INTELLIGENCE	
-ML ANALYSIS CAPSTONE PROJECT	53695 Dr. Gayathri Devi S & 52264 Dr. Krithiga R
-RECOMMENDING RELEVANT ADS TO YOUTUBE USERS WITH AN ATTEND-FUSION TRANSFORMER	
-AI and ML	
-Behavioral Signals to Business Outcomes: A Predictive Analytics Framework for Employee Engagement 	
-Yet to Decide 	
-An Enhanced AI—Based Network Intrusion Detection System Using Generative Adversarial Networks (GANs)	
-ML	
-SECURING RETRIEVAL-AUGMENTED GENERATION (RAG) SYSTEMS IN ENTERPRISE LLM DEPLOYMENTS	52288 Dr. Renjith P N & 52281 Dr. Sivakumar P
-HeartGuard	
-ML AND DL	
-Explainable Conversational NL→SQL with Uncertainty-Aware Semantic Parsing for Reliable Decisions	
-AI-Powered Analytics Chatbot for Insight Interpretation and Decision Making	
-IoT-Based Intelligent Gas Safety System with Real-Time Analytics and Mobile Notification	
-Design and Development of an Open-Source Intelligent Robotic Arm Using Learning-Based Control Framew`;
+const rawData = `20MIA1102	52285 Dr. Sandosh S & 54527 Dr. Rajkumar R
+20MIA1173	
+21MIA1006	
+21MIA1008	
+21MIA1009	
+21MIA1014	
+21MIA1018	52799 Dr. Benil T & 51662 Dr. X Anita
+21MIA1025	
+21MIA1027	
+21MIA1028	
+21MIA1029	
+21MIA1030	
+21MIA1033	53164 Dr. Ahadit A B & 54146 Dr. Poornima S
+21MIA1037	
+21MIA1039	
+21MIA1042	
+21MIA1043	
+21MIA1044	
+21MIA1050	54510 Dr. Sindhu Ravindran & 53626 Dr. Jai Vinita L
+21MIA1055	
+21MIA1056	
+21MIA1060	
+21MIA1061	
+21MIA1064	
+21MIA1068	54183 Dr. Sankari M & 52245 Dr. Sahaya Beni Prathiba B
+21MIA1072	
+21MIA1073	
+21MIA1074	
+21MIA1075	
+21MIA1077	
+21MIA1078	54151 Dr. Aarthi B & 53696 Dr. Madura Meenakshi R
+21MIA1079	
+21MIA1080	
+21MIA1081	
+21MIA1083	
+21MIA1086	
+21MIA1089	54508 Dr. Suhail K & 53877 Dr. Umesh K
+21MIA1090	
+21MIA1093	
+21MIA1094	
+21MIA1097	
+21MIA1098	
+21MIA1100	51347 Dr. Bhuvaneswari A & 54147 Dr. Vigneshwari S
+21MIA1101	
+21MIA1104	
+21MIA1106	
+21MIA1108	
+21MIA1111	
+21MIA1112	51663 Dr. P Subbulakshmi & 52859 Dr. Sobitha Ahila S
+21MIA1116	
+21MIA1117	
+21MIA1120	
+21MIA1121	
+21MIA1126	
+21MIA1129	52833 Dr. Ilavendhan A & 53900 Dr. Sivaranjani N 
+21MIA1130	
+21MIA1131	
+21MIA1132	
+21MIA1133	
+21MIA1134	
+21MIA1135	53695 Dr. Gayathri Devi S & 52264 Dr. Krithiga R
+21MIA1136	
+21MIA1137	
+21MIA1138	
+21MIA1144	
+21MIA1145	
+21MIA1147	
+21MIA1150	52288 Dr. Renjith P N & 52281 Dr. Sivakumar P
+21MIA1156	
+21MIA1160	
+21MIA1162	
+21MIA1163	
+21MIA1164	
+21MIA1165`;
 
 const connectDB = async () => {
     try {
@@ -100,7 +101,6 @@ const connectDB = async () => {
 
 const processedAssignments = [];
 let currentPanelFacultyIDs = [];
-let lastPanelFacultyIDs = [];
 
 const parseAndAssign = async () => {
     const lines = rawData.split('\n');
@@ -109,33 +109,33 @@ const parseAndAssign = async () => {
         line = line.trim();
         if (!line) continue;
 
-        let projectName = line;
-        let facultyIDs = [];
+        let regNoMatch = line.match(/(\d{2}[A-Z]{3}\d{4})/);
+        if (!regNoMatch) {
+            regNoMatch = line.match(/(\d{2}[A-Z]{3}\d{4})/);
+        }
 
-        // Check for 5-digit regex pattern to identify faculty IDs
+        if (!regNoMatch) continue;
+        const regNo = regNoMatch[1];
+
+        // Parse Faculty IDs
         const idMatches = line.match(/(\d{5})/g);
+        let facultyIDs = [];
 
         if (idMatches && idMatches.length > 0) {
             facultyIDs = idMatches;
-            // Project name is everything before the first ID
-            const firstIdIndex = line.indexOf(idMatches[0]);
-            projectName = line.substring(0, firstIdIndex).trim();
-            lastPanelFacultyIDs = facultyIDs;
+            currentPanelFacultyIDs = facultyIDs;
         } else {
-            // No panel info, use the last seen panel
-            facultyIDs = lastPanelFacultyIDs;
+            // Use last seen
+            facultyIDs = currentPanelFacultyIDs;
         }
 
         if (facultyIDs.length === 0) {
-            console.warn(`WARNING: No panel found for project "${projectName}" (skipping)`);
+            console.warn(`⚠️  No panel context for student ${regNo} (Skipping)`);
             continue;
         }
 
-        // Clean up project name (remove quotes if any)
-        projectName = projectName.replace(/^"|"$/g, '').trim();
-
         processedAssignments.push({
-            projectName,
+            regNo,
             facultyIDs
         });
     }
@@ -150,46 +150,66 @@ const executeAssignments = async () => {
     let successCount = 0;
     let failureCount = 0;
 
+    // Cache for Panels to avoid repeated DB Lookups
+    const panelCache = {}; // key: "id1_id2", value: panelDoc
+
     for (const assignment of processedAssignments) {
-        const { projectName, facultyIDs } = assignment;
+        const { regNo, facultyIDs } = assignment;
 
-        console.log(`Processing: "${projectName}" -> Panel: ${facultyIDs.join(', ')}`);
-
-        // 1. Find Project
-        // Using regex for flexible matching (case insensitive, trim)
-        // Escaping special characters in project name just in case
-        const escapedName = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const project = await Project.findOne({
-            name: { $regex: new RegExp(`^${escapedName}$`, 'i') }
-        });
-
-        if (!project) {
-            console.error(`❌ Project NOT FOUND: "${projectName}"`);
+        // 1. Find Student
+        const student = await Student.findOne({ regNo });
+        if (!student) {
+            console.error(`❌ Student NOT FOUND: ${regNo}`);
             failureCount++;
             continue;
         }
 
-        // 2. Find Panel
-        // Check if a panel exists with EXACTLY these faculty IDs
-        let panel = await Panel.findOne({
-            facultyEmployeeIds: { $all: facultyIDs, $size: facultyIDs.length },
-            academicYear: project.academicYear,
-        });
+        // 2. Find Project for this Student
+        const project = await Project.findOne({ students: student._id });
+        if (!project) {
+            console.error(`❌ Project NOT FOUND for student: ${regNo}`);
+            failureCount++;
+            continue;
+        }
+
+        // 3. Find Panel
+        const cacheKey = facultyIDs.sort().join('_');
+        let panel = panelCache[cacheKey];
 
         if (!panel) {
-            console.error(`❌ Panel NOT FOUND for faculty IDs: [${facultyIDs.join(', ')}] (Project: "${projectName}")`);
+            // Resolve Faculty IDs to ObjectIds
+            const faculties = await Faculty.find({ employeeId: { $in: facultyIDs } });
+            if (faculties.length !== facultyIDs.length) {
+                console.error(`❌ Could not find all faculty members for IDs: [${facultyIDs.join(', ')}]`);
+                failureCount++;
+                continue;
+            }
+            const facultyIds = faculties.map(f => f._id);
+
+            // Find panel that has exactly these members
+            panel = await Panel.findOne({
+                "members.faculty": { $all: facultyIds },
+                $expr: { $eq: [{ $size: "$members" }, facultyIds.length] }
+            });
+
+            if (panel) {
+                panelCache[cacheKey] = panel;
+            }
+        }
+
+        if (!panel) {
+            console.error(`❌ Panel NOT FOUND for faculty IDs: [${facultyIDs.join(', ')}] (Project: "${project.name}")`);
             failureCount++;
             continue;
         }
 
-        // 3. Assign Panel to Project
-        // Only assign if it's different to avoid redundant saves if run multiple times
+        // 4. Assign
         if (project.panel && project.panel.toString() === panel._id.toString()) {
-            console.log(`ℹ️  "${projectName}" already assigned to Panel ${panel.panelName} (Skipping)`);
+            successCount++;
         } else {
             project.panel = panel._id;
             await project.save();
-            console.log(`✅ Assigned "${projectName}" to Panel ${panel.panelName}`);
+            console.log(`✅ Assigned "${project.name}" (${regNo}) to Panel ${panel.panelName}`);
             successCount++;
         }
     }
@@ -203,4 +223,3 @@ const executeAssignments = async () => {
 };
 
 executeAssignments();
-
