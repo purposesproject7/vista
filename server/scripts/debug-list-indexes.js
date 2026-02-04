@@ -13,6 +13,12 @@ const listIndexes = async () => {
         console.log("Indexes on 'projects' collection:");
         console.dir(indexes, { depth: null });
 
+        // Check Faculty indexes too
+        const Faculty = (await import("../models/facultySchema.js")).default;
+        const facultyIndexes = await Faculty.collection.indexes();
+        console.log("Indexes on 'faculties' collection:");
+        console.dir(facultyIndexes, { depth: null });
+
         await mongoose.disconnect();
     } catch (error) {
         console.error("Error listing indexes:", error);

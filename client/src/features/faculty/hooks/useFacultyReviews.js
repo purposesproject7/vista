@@ -250,12 +250,13 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         const studentsSubmitted = studentsWithMarks.filter(s => s.existingMeta.isSubmitted).length;
                         const allStudentsMarked = totalStudents > 0 && studentsSubmitted === totalStudents;
 
+                        const isGuide = String(project.guideFaculty?._id || project.guideFaculty) === String(effectiveFacultyId);
+
                         // DEBUG: Log completion status for Guide reviews specifically
-                        if (isGuide && relevantTeams.length < 5) {
+                        if (isGuide) {
                             console.log(`[ReviewHook] Team ${project.name}: ${studentsSubmitted}/${totalStudents} Submitted. Complete? ${allStudentsMarked}`);
                         }
 
-                        const isGuide = String(project.guideFaculty?._id || project.guideFaculty) === String(effectiveFacultyId);
                         const reviewPanelAssignment = project.reviewPanels?.find(rp => rp.reviewType === reviewId);
                         const activePanel = reviewPanelAssignment?.panel || project.panel;
                         // ... (keep logic for role label)
