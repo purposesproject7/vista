@@ -19,6 +19,14 @@ const StudentHeader = ({ student }) => {
             <span className="text-xs text-gray-600">{student.programme || 'N/A'}</span>
             <span className="text-xs text-gray-400">•</span>
             <span className="text-xs text-gray-600">{student.year || 'N/A'}</span>
+            {student.PAT !== undefined && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                <span className={`text-xs font-semibold ${student.PAT ? 'text-purple-600' : 'text-gray-500'}`}>
+                  {student.PAT ? 'PAT' : 'NO PAT'}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>

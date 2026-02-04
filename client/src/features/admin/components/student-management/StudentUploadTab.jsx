@@ -22,7 +22,7 @@ const StudentUploadTab = () => {
     name: '',
     emailId: '',
     phoneNumber: '',
-    guideEmpId: '',
+    phoneNumber: '',
     PAT: false
   });
   const [duplicateData, setDuplicateData] = useState([]);
@@ -277,13 +277,7 @@ const StudentUploadTab = () => {
                       placeholder="e.g., 9876543210"
                     />
 
-                    <Input
-                      label="Guide Employee ID (Optional)"
-                      name="guideEmpId"
-                      value={formData.guideEmpId}
-                      onChange={handleInputChange}
-                      placeholder="e.g., 10023"
-                    />
+
                   </div>
 
                   <div className="flex items-center">
@@ -310,7 +304,6 @@ const StudentUploadTab = () => {
                         name: '',
                         emailId: '',
                         phoneNumber: '',
-                        guideEmpId: '',
                         PAT: false
                       })}
                     >

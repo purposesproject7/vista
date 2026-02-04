@@ -56,7 +56,27 @@ const StudentViewTab = () => {
       if (!student.regNo && student.id) {
         const found = students.find(s => s._id === student.id);
         if (found) {
-          student = found;
+          // Even if found in list, we fetch fresh details to ensure we have marks and latest info
+          try {
+            // We need regNo. If found has it, good.
+            if (found.regNo) {
+              setLoading(true);
+              const detailsResponse = await fetchStudentDetails(found.regNo);
+              if (detailsResponse.success && detailsResponse.student) {
+                student = detailsResponse.student;
+              } else {
+                // Fallback to list item if fetch fails or returns empty
+                student = found;
+              }
+              setLoading(false);
+            } else {
+              student = found;
+            }
+          } catch (err) {
+            console.error("Failed to fetch fresh details, using list data", err);
+            student = found;
+            setLoading(false);
+          }
         } else {
           // If not in current list (filtered out?), fallback to fetch
           const response = await fetchStudentDetails(student.id); // Note: API expects regNo usually, but let's check if we can get regNo or use another endpoint? 
