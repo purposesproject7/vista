@@ -1,7 +1,7 @@
 import ActivityLog from "../models/activityLogSchema.js";
 import Faculty from "../models/facultySchema.js";
 
-export class ActivityLogService {
+export default class ActivityLogService {
     /**
      * Log an activity
      * @param {string} facultyId - ID of the faculty performing action

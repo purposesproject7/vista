@@ -5,7 +5,7 @@ import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
 import { ReportService } from "../services/reportService.js";
-import { ActivityLogService } from "../services/activityLogService.js";
+import ActivityLogService from "../services/activityLogService.js";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
@@ -406,22 +406,53 @@ export async function handleRequest(req, res) {
       });
     }
 
-    request.status = status;
-    request.remarks = remarks;
-    request.processedBy = req.user._id;
-    request.processedAt = new Date();
+    // --- CASCADING UPDATE START ---
+    // If we are approving/rejecting a mark_edit request, apply to ALL pending requests
+    // for this Project + ReviewType. This satisfies the "One Project One Request" mental model.
+    let updatedCount = 0;
 
-    await request.save();
+    // Define query for "sibling" requests (same project, review, type, and currently pending)
+    // We include the original request ID in this update as well for simplicity
+    const siblingQuery = {
+      project: request.project,
+      reviewType: request.reviewType,
+      requestType: request.requestType,
+      status: "pending",
+      // Ensure we stay within authorized context
+      school: req.coordinator.school,
+      program: req.coordinator.program
+    };
 
-    logger.info("request_handled", {
-      requestId: request._id,
+    const updatePayload = {
+      status: status,
+      remarks: remarks,
+      processedBy: req.user._id,
+      processedAt: new Date()
+    };
+
+    const updateResult = await Request.updateMany(siblingQuery, { $set: updatePayload });
+    updatedCount = updateResult.modifiedCount;
+
+    // If for some reason the original request wasn't pending (e.g. race condition), ensure strict update on it
+    if (request.status !== 'pending') {
+      request.status = status;
+      request.remarks = remarks;
+      request.processedBy = req.user._id;
+      request.processedAt = new Date();
+      await request.save();
+    }
+    // --- CASCADING UPDATE END ---
+
+    logger.info("request_handled_cascaded", {
+      originalRequestId: request._id,
       status,
       processedBy: req.user._id,
+      affectedCount: updatedCount
     });
 
     res.status(200).json({
       success: true,
-      message: `Request ${status} successfully.`,
+      message: `Request ${status} successfully. (${updatedCount} requests updated)`,
       data: request,
     });
 
@@ -436,7 +467,7 @@ export async function handleRequest(req, res) {
       {
         targetId: request._id,
         targetModel: "Request",
-        description: `Request ${status}: ${request.requestType} for ${request.student?.regNo || "student"}`,
+        description: `Request ${status}: ${request.requestType} for Team (Cascaded to ${updatedCount} students)`,
       },
       req
     );

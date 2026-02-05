@@ -93,6 +93,8 @@ router.post(
   facultyController.createRequest,
 );
 
+router.get("/requests", broadcastBlockMiddleware, facultyController.getRequests);
+
 router.get(
   "/panels",
   broadcastBlockMiddleware,

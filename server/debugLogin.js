@@ -13,14 +13,28 @@ async function debugLogin() {
         await mongoose.connect(MONGO_URI);
         console.log("Connected.");
 
+        // LIST ALL USERS
+        const allUsers = await Faculty.find({});
+        console.log(`Total users found: ${allUsers.length}`);
+
+        if (allUsers.length === 0) {
+            console.log("Database is empty!");
+        } else {
+            console.log("Listing first 5 users:");
+            allUsers.slice(0, 5).forEach(u => {
+                console.log(`- Email: "${u.emailId}", Role: ${u.role}, ID: ${u._id}`);
+            });
+        }
+
+        // Original check
         const email = "guide_ppt@test.com"; // The user reporting issues
         const users = await Faculty.find({ emailId: email }).select("+password");
 
         if (users.length === 0) {
-            console.error(`User ${email} NOT FOUND in DB.`);
+            console.error(`\nUser ${email} NOT FOUND in DB.`);
         } else {
             const user = users[0];
-            console.log(`User Found: ${user.name} (${user.role})`);
+            console.log(`\nUser Found: ${user.name} (${user.role})`);
             console.log(`Stored Hash: ${user.password}`);
             const isMatch = await bcrypt.compare("password123", user.password);
             console.log(`bcrypt.compare("password123", hash) result: ${isMatch}`);

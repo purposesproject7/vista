@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Faculty from "./models/facultySchema.js";
 import ProjectCoordinator from "./models/projectCoordinatorSchema.js";
-import { ActivityLogService } from "./services/activityLogService.js";
+import ActivityLogService from "./services/activityLogService.js";
 import bcrypt from "bcryptjs";
 
 dotenv.config();

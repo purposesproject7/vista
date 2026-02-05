@@ -19,7 +19,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 setLoading(true);
 
                 // Fetch Data in Parallel
-                const [schemaRes, projectsRes, marksRes] = await Promise.allSettled([
+                const [schemaRes, projectsRes, marksRes, requestsRes] = await Promise.allSettled([
                     api.get('/faculty/marking-schema', {
                         params: {
                             academicYear: filters.year,
@@ -34,7 +34,8 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             program: filters.program === 'All Programs' ? undefined : filters.program
                         }
                     }),
-                    api.get('/faculty/marks')
+                    api.get('/faculty/marks'),
+                    api.get('/faculty/requests') // Fetch requests made by this faculty
                 ]);
 
                 // Handle Schema
@@ -46,6 +47,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 }
                 const schema = schemaRes.value.data.data;
                 console.log(`[useFacultyReviews] Marking Schema reviews found: ${schema.reviews?.length || 0}`);
+
+                // Handle Requests
+                const myRequests = requestsRes.status === 'fulfilled' ? requestsRes.value.data.data : [];
 
                 // Handle Projects
                 let projects = [];
@@ -113,27 +117,11 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                         let matches = false;
                         if (roleFilter === 'guide') {
-                            // Fix: Guides must see ALL reviews involving their teams to perform actions (like PPT Approval)
-                            // even if they cannot grade (e.g., Panel reviews).
                             matches = isGuide;
                         } else if (roleFilter === 'panel') {
                             matches = isInPanel && canBePanel;
                         } else {
-                            // 'All Roles' or both
                             matches = (isGuide && canBeGuide) || (isInPanel && canBePanel);
-                        }
-
-                        // AGGRESSIVE LOGGING
-                        if (roleFilter === 'panel') {
-                            console.log(`  -> Project: ${project.name} | isInPanel: ${isInPanel} (Member: ${isInPanelMember}, Emp: ${isInPanelEmp}) | canBePanel: ${canBePanel} | MATCH: ${matches}`);
-                            if (!isInPanel) {
-                                console.log(`     Debug Panel:`, {
-                                    panelId: assignedPanel?._id,
-                                    membersCount: panelMembers.length,
-                                    empIdsCount: panelEmpIds.length,
-                                    panelEmpIds
-                                });
-                            }
                         }
 
                         return matches;
@@ -164,6 +152,18 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                         const activePanel = reviewPanelAssignment?.panel || project.panel;
 
+                        // Find Request Status
+                        // We need to see if ANY student in this team has a pending request for this review?
+                        // Or since we now do team-based requests (cascading), checking just one is enough but filtering by project/review is safer.
+                        const activeRequest = myRequests.find(r =>
+                            String(r.project?._id || r.project) === String(project._id) &&
+                            r.reviewType === reviewId &&
+                            r.requestType === 'mark_edit' // Only care about edit requests
+                        );
+
+                        // If multiple exist (legacy), take the latest. Backend sort is descending createdAt, so find() gets latest.
+                        const requestStatus = activeRequest ? activeRequest.status : null;
+
                         return {
                             id: project._id,
                             name: project.name, // Removed "Team " prefix
@@ -178,12 +178,16 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                                     roll_no: s.regNo,
                                     email: s.emailId,
                                     profile_image: s.profileImage || null,
+                                    profile_image: s.profileImage || null,
                                     existingMarks: studentMark?.componentMarks || [],
                                     existingMeta: {
                                         comment: studentMark?.remarks || '',
-                                        isSubmitted: studentMark?.isSubmitted || false
+                                        isSubmitted: studentMark?.isSubmitted || false,
                                         // attendance/pat logic might need better DB storage mapping
+                                        attendance: studentMark?.attendance || 'present', // Assuming new fields exist or defaulting
+                                        pat: studentMark?.pat || false // Assuming new fields exist or defaulting
                                     },
+                                    marksId: studentMark?._id, // EXPOSE THE MARKS ID FOR UPDATES
                                     totalMarks: studentMark?.totalMarks || 0,
                                     maxTotalMarks: studentMark?.maxTotalMarks || 0
                                 };
@@ -194,7 +198,10 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             venue: activePanel?.venue || 'TBD',
                             role: isGuide ? 'guide' : 'panel',
                             roleLabel: roleLabel, // "Temporary Panel", "Panel", "Guide"
-                            pptApprovals: project.pptApprovals || [] // Pass PPT approvals to UI
+                            pptApprovals: project.pptApprovals || [], // Pass PPT approvals to UI
+                            requestStatus: requestStatus, // 'pending', 'approved', 'rejected' or null
+                            activeRequest: activeRequest,
+                            isUnlocked: requestStatus === 'approved' // Unlock if request is approved
                         };
                     });
 
@@ -295,9 +302,33 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
         isDeadlinePassed(r.endDate) && !isAllTeamsMarked(r)
     );
 
+    // Completed Reviews Logic:
+    // A review appears in "Completed" if:
+    // 1. Logic A: The review deadline has passed (regardless of marking status? usually yes).
+    // 2. Logic B: A specific team has been fully marked (submitted).
+
+    // We want to show a structure: Review -> [Completed Teams]
+    // So 'past' should be a list of reviews, but inside each review, we might ideally showing ONLY the completed teams?
+    // Or if the plan is "Moved to Past Section", usually it means the *Review* is done.
+
+    // Current requirement: "completed is showing teams but shd show review and then teams"
+    // So we return the reviews, but perhaps we want to include ANY review that has AT LEAST ONE completed team?
+    // Or adhering to the "Review is Completed" definition?
+    // Let's stick to "Review is Completed" or "Deadline Passed" for the SECTION, 
+    // but ensure the structure is preserved.
+
+    // Actually, "Completed Reviews" section usually implies the *Faculty's* work is done or time is up.
+    // Let's rely on standard logic but ensure we return Review Objects.
+
     const past = reviews.filter(r =>
-        isAllTeamsMarked(r) || (isDeadlinePassed(r.endDate) && isAllTeamsMarked(r))
-    );
+        isAllTeamsMarked(r) || (isDeadlinePassed(r.endDate))
+    ).map(r => {
+        // Optional: Filter strict teams?
+        // If deadline passed, show ALL teams (even pending ones, which are locked).
+        // If deadline NOT passed but all marked, show ALL teams (all are marked).
+        // So simply returning the review is correct.
+        return r;
+    });
 
     return {
         reviews,

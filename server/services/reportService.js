@@ -4,7 +4,7 @@ import Project from "../models/projectSchema.js";
 import Marks from "../models/marksSchema.js";
 import Panel from "../models/panelSchema.js";
 import mongoose from "mongoose";
-import { ActivityLogService } from "./activityLogService.js";
+import ActivityLogService from "./activityLogService.js";
 
 export class ReportService {
     /**

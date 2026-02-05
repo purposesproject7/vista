@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
 import crypto from "crypto";
-import { ActivityLogService } from "../services/activityLogService.js";
+import ActivityLogService from "../services/activityLogService.js";
 
 /**
  * Generate JWT token

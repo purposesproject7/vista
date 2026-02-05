@@ -64,6 +64,8 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
               const isPPTApproved = pptApproval && pptApproval.isApproved;
               const isBlockedByPPT = isPanelRole && !isPPTApproved;
 
+              const effectivelyLocked = isLocked || team.marksEntered || (team.existingMeta && team.existingMeta.isSubmitted);
+
               return (
                 <div
                   key={team.id}
@@ -105,9 +107,14 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                             {team.roleLabel || team.role}
                           </span>
                         )}
-                        {team.isUnlocked && isExpired && (
+                        {team.isUnlocked && (
                           <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide rounded border border-green-200 flex items-center gap-1">
                             <LockOpenIcon className="w-3 h-3" /> Unlocked
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase tracking-wide rounded border border-yellow-200 flex items-center gap-1">
+                            <ClockIcon className="w-3 h-3" /> Request Pending
                           </span>
                         )}
                         {isBlockedByPPT && (
@@ -155,25 +162,25 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                     variant={
                       isPending ? 'secondary' :
                         isBlockedByPPT ? 'secondary' :
-                          isLocked ? 'secondary' :
+                          effectivelyLocked ? 'secondary' :
                             (team.marksEntered ? 'secondary' : 'primary')
                     }
                     className={
                       isPending ? 'text-yellow-700 border-yellow-200 bg-yellow-50 opacity-100 cursor-not-allowed' :
                         isBlockedByPPT ? 'text-orange-700 border-orange-200 bg-orange-50 opacity-100 cursor-not-allowed' :
-                          isLocked ? 'text-orange-600 border-orange-200 hover:bg-orange-50' : ''
+                          effectivelyLocked ? 'text-orange-600 border-orange-200 hover:bg-orange-50' : ''
                     }
                     disabled={isPending || isBlockedByPPT}
                     title={isBlockedByPPT ? 'Guide must approve PPT first' : ''}
                     onClick={() => {
                       if (!isPending && !isBlockedByPPT) {
-                        isLocked ? setRequestTeam(team) : onEnterMarks(team);
+                        effectivelyLocked ? setRequestTeam(team) : onEnterMarks(team);
                       }
                     }}
                   >
                     {isPending ? 'Request Pending' :
                       isBlockedByPPT ? 'PPT Pending' :
-                        (isLocked ? 'Request Edit' : (team.marksEntered ? 'Edit Marks' : 'Enter Marks'))}
+                        (effectivelyLocked ? 'Request Edit' : (team.marksEntered ? 'Edit Marks' : 'Enter Marks'))}
                   </Button>
                 </div>
               );
@@ -187,7 +194,41 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
           isOpen={true}
           onClose={() => setRequestTeam(null)}
           teamName={requestTeam.name}
-          onConfirm={handleRequestConfirm}
+          onConfirm={async (reason) => {
+            try {
+              if (!requestTeam.students || requestTeam.students.length === 0) {
+                setToast({ type: 'error', message: 'No students in team to request edit for.' });
+                return;
+              }
+
+              // Import API here or assume it's available in scope. 
+              // Since 'api' is not imported in original snippet, we need to ensure it is available.
+              // We will use dynamic import or ensure it is imported at top.
+              const api = (await import('../../../services/api')).default;
+
+              // Iterate and send request for EACH student
+              const promises = requestTeam.students.map(student => {
+                return api.post('/faculty/requests', {
+                  student: student.student_id,
+                  project: requestTeam.id,
+                  reviewType: review.id,
+                  requestType: 'mark_edit',
+                  reason: reason
+                });
+              });
+
+              await Promise.all(promises);
+
+              setToast({ type: 'success', message: `Request sent for ${requestTeam.name}` });
+
+              // Optimistically update
+              requestTeam.requestStatus = 'pending';
+              setRequestTeam(null);
+            } catch (err) {
+              console.error("Failed to send requests", err);
+              setToast({ type: 'error', message: 'Failed to send request. ' + (err.response?.data?.message || err.message) });
+            }
+          }}
         />
       )}
 

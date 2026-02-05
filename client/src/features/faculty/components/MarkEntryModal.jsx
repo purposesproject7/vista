@@ -204,7 +204,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
         const totalObtained = componentMarks.reduce((sum, c) => sum + c.componentTotal, 0);
         const maxTotal = componentMarks.reduce((sum, c) => sum + c.componentMaxTotal, 0);
 
-        return api.post('/faculty/marks', {
+        const payload = {
           student: sid,
           project: team.id || team.project_id || team.team_id,
           reviewType: review.id || review.reviewName,
@@ -214,7 +214,15 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
           maxTotalMarks: maxTotal,
           remarks: remarks,
           isSubmitted: true
-        });
+        };
+
+        // If we have a marksId (from existing marks), use PUT to update
+        if (student.marksId) {
+          return api.put(`/faculty/marks/${student.marksId}`, payload);
+        } else {
+          // Otherwise use POST to create
+          return api.post('/faculty/marks', payload);
+        }
       });
 
       await Promise.all(submissions);
