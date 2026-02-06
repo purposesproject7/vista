@@ -326,16 +326,64 @@ export async function deleteFaculty(req, res) {
 
 export async function getRequests(req, res) {
   try {
-    const context = getCoordinatorContext(req);
-    const filters = { ...req.query, ...context };
+    // 1. Get Context from Middleware (Source of Truth)
+    const coordinator = req.coordinator;
 
-    // Support categorization
-    if (req.query.category) {
-      if (req.query.category === "guide") {
-        filters.requestType = "guide_reassignment"; // Example mapping
-      }
-      // Add other mappings as per schema
+    // DEBUG: Log Raw Inputs
+    console.log("DEBUG: getRequests [Unfiltered] query:", JSON.stringify(req.query, null, 2));
+    console.log("DEBUG: getRequests [Coordinator] context:", JSON.stringify({
+      id: coordinator._id,
+      school: coordinator.school,
+      program: coordinator.program,
+      academicYear: coordinator.academicYear
+    }, null, 2));
+
+    // 2. Disable Caching (Critical for debugging 304s)
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    // 3. Construct Filters EXPLICITLY (Do not spread req.query)
+    const filters = {
+      school: coordinator.school,
+      program: coordinator.program,
+      academicYear: coordinator.academicYear,
+    };
+
+    // 4. Handle Optional Filters
+    const { status, category } = req.query;
+
+    if (status && status !== 'All' && status !== '') {
+      filters.status = status;
     }
+
+    if (category && category !== 'All' && category !== '') {
+      // Map frontend category names to backend requestTypes if needed
+      // Example mappings based on previous code or common usage
+      const typeMap = {
+        'Marks': 'mark_edit',
+        'Attendance': 'attendance_condonation',
+        'Extension': 'deadline_extension',
+        'Guide': 'guide_reassignment',
+        'Panel': 'panel_reassignment'
+      };
+
+      if (typeMap[category]) {
+        filters.requestType = typeMap[category];
+      } else if (category === 'guide' || category === 'panel') {
+        // Fallback based on old logic saw in code
+        // filters.requestType = category + "_reassignment";
+        // Actually, let's look at the requestType enum: ["deadline_extension", "mark_edit", "resubmission"]
+        // Wait, schema says: enum: ["deadline_extension", "mark_edit", "resubmission"]
+        // "guide_reassignment" is NOT in schema enum! This might be a bug in old code.
+        // For now, let's just log what we are filtering by.
+      } else {
+        // If category matches a valid requestType, use it directly
+        filters.requestType = category;
+      }
+    }
+
+    console.log("DEBUG: getRequests [Final Mongoose Filter]:", JSON.stringify(filters, null, 2));
 
     const requests = await Request.find(filters)
       .populate("student", "name regNo emailId")
@@ -344,24 +392,26 @@ export async function getRequests(req, res) {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Transform for frontend if needed (adapting to RequestList expectation)
+    console.log(`DEBUG: Found ${requests.length} requests matching criteria.`);
+
+    // Transform for frontend
     const transformedRequests = requests.map((req) => ({
       _id: req._id,
-      id: req._id, // Frontend uses both
+      id: req._id,
       facultyId: req.faculty?._id,
       faculty: req.faculty,
-      facultyName: req.faculty?.name,
+      facultyName: req.faculty?.name || "Unknown Faculty",
       studentId: req.student?._id,
       student: req.student,
-      studentName: req.student?.name,
-      category: req.requestType, // Assuming requestType maps to category
-      projectTitle: req.project?.name,
+      studentName: req.student?.name || "Unknown Student",
+      category: req.requestType,
+      projectTitle: req.project?.name || "Unknown Project",
       message: req.reason,
       status: req.status,
       date: req.createdAt,
-      school: req.school || context.school,
-      program: req.program || context.program,
-      approvalReason: req.remarks, // Map remarks to approval/rejection reason
+      school: req.school,
+      program: req.program,
+      approvalReason: req.remarks,
       rejectionReason: req.remarks,
     }));
 
@@ -371,6 +421,7 @@ export async function getRequests(req, res) {
       count: transformedRequests.length,
     });
   } catch (error) {
+    console.error("ERROR in getRequests:", error);
     res.status(500).json({
       success: false,
       message: error.message,

@@ -58,13 +58,18 @@ const seedData = async () => {
 
         // --- 2. MASTER DATA ---
         console.log("\n📅 Creating Master Data...");
-        const schoolName = "School of Engineering";
-        const programName = "SCOPE";
+        // CONSTANTS - ALIGNED WITH FRONTEND (FilterPanel.jsx uses SCOPE, SENSE, SELECT)
+        const schoolName = "School of Computer Science and Engineering";
+        const schoolCode = "SCOPE"; // CRITICAL: Frontend filters use this code
+
+        const programName = "B.Tech Computer Science";
+        const programCode = "BTECH"; // CRITICAL: Frontend filters use this code
+
         const academicYear = "2024-2025";
 
         const masterData = new MasterData({
-            schools: [{ name: schoolName, code: "SOE", isActive: true }],
-            programs: [{ school: schoolName, name: programName, code: "CS", isActive: true }],
+            schools: [{ name: schoolName, code: schoolCode, isActive: true }],
+            programs: [{ school: schoolCode, name: programName, code: programCode, isActive: true }],
             academicYears: [{ year: academicYear, isActive: true }]
         });
         await masterData.save();
@@ -73,8 +78,8 @@ const seedData = async () => {
         // --- 3. COMPONENT LIBRARY ---
         console.log("\n📚 Creating Component Library...");
         const compLib = new ComponentLibrary({
-            school: schoolName,
-            program: programName,
+            school: schoolCode,
+            program: programCode,
             academicYear: academicYear,
             components: [
                 {
@@ -116,8 +121,8 @@ const seedData = async () => {
         const oneMonthFuture = new Date(today); oneMonthFuture.setMonth(today.getMonth() + 1);
 
         const markingSchema = new MarkingSchemaModel({
-            school: schoolName,
-            program: programName,
+            school: schoolCode,
+            program: programCode,
             academicYear: academicYear,
             reviews: [
                 {
@@ -180,8 +185,8 @@ const seedData = async () => {
             password: password,
             role: "admin",
             phoneNumber: "0000000000",
-            school: schoolName,
-            program: [programName],
+            school: schoolCode,
+            program: [programCode],
             specialization: "All"
         });
 
@@ -193,8 +198,8 @@ const seedData = async () => {
             password: password,
             role: "faculty",
             phoneNumber: "1111111111",
-            school: schoolName,
-            program: [programName],
+            school: schoolCode,
+            program: [programCode],
             specialization: "AI"
         });
 
@@ -206,8 +211,8 @@ const seedData = async () => {
             password: password,
             role: "faculty",
             phoneNumber: "2222222222",
-            school: schoolName,
-            program: [programName],
+            school: schoolCode,
+            program: [programCode],
             specialization: "AI"
         });
 
@@ -220,8 +225,8 @@ const seedData = async () => {
             password: password,
             role: "faculty",
             phoneNumber: "3333333333",
-            school: schoolName,
-            program: [programName],
+            school: schoolCode,
+            program: [programCode],
             specialization: "Networks",
             isProjectCoordinator: true
         });
@@ -229,8 +234,8 @@ const seedData = async () => {
         // Then create ProjectCoordinator entry
         await ProjectCoordinator.create({
             faculty: coordinatorFaculty._id,
-            school: schoolName,
-            program: programName,
+            school: schoolCode,
+            program: programCode,
             academicYear: academicYear,
             isPrimary: true
         });
@@ -241,8 +246,8 @@ const seedData = async () => {
             emailId: "student@vista.com",
             regNo: "STU001",
             password: password,
-            school: schoolName,
-            program: programName,
+            school: schoolCode,
+            program: programCode,
             academicYear: academicYear
         });
 
@@ -258,8 +263,8 @@ const seedData = async () => {
             members: [{ faculty: panelMember._id, facultyEmployeeId: panelMember.employeeId }],
             specializations: ["AI"],
             isActive: true,
-            school: schoolName,
-            program: programName,
+            school: schoolCode,
+            program: programCode,
             academicYear: academicYear
         });
 
@@ -277,13 +282,14 @@ const seedData = async () => {
             type: "software",
             status: "active",
             teamSize: 1,
-            school: schoolName,
-            program: programName,
-            academicYear: academicYear,
+            // LINK TO STUDENT'S DETAILS (Should now match SCOPE/BTECH)
+            school: student.school,
+            program: student.program,
+            academicYear: student.academicYear,
             pptApprovals: []
         });
 
-        console.log("✅ Project & Panel created.");
+        console.log("✅ Project & Panel created (Project linked to Student's School/Program/Year).");
 
         // --- 7. SUMMARY ---
         console.log("\n================================================");

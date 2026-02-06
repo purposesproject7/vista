@@ -167,7 +167,7 @@ const FacultyDashboard = () => {
                     {/* NEW: PPT Approval Section */}
                     {filters.role === 'guide' && (
                         <PPTApprovalSection
-                            reviews={active}
+                            reviews={[...active, ...deadlinePassed]}
                             onRefresh={refreshReviews}
                         />
                     )}

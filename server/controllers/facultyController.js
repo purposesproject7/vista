@@ -396,6 +396,11 @@ export async function getSubmittedMarks(req, res) {
 export async function approvePPT(req, res) {
   try {
     const { studentId, reviewType } = req.body;
+
+    // DEBUG LOGGING
+    logger.info("DEBUG: approvePPT received", { body: req.body });
+    console.log("DEBUG: approvePPT body:", req.body);
+
     await ApprovalService.approvePPT(req.user._id, studentId, reviewType);
 
     res.status(200).json({
@@ -464,6 +469,11 @@ export async function approveDraft(req, res) {
 export async function createRequest(req, res) {
   try {
     const { student, project, reviewType, requestType, reason } = req.body;
+
+    // DEBUG LOGGING
+    logger.info("DEBUG: createRequest received", { body: req.body });
+    console.log("DEBUG: createRequest body:", req.body);
+
     const facultyId = req.user._id;
 
     const { facultyType } = await getFacultyTypeForProject(
@@ -488,7 +498,7 @@ export async function createRequest(req, res) {
       project,
       academicYear: studentDoc.academicYear,
       school: studentDoc.school,
-      program: studentDoc.program,
+      program: studentDoc.program, // Explicitly ensure this comes from student
       reviewType,
       requestType,
       reason,
@@ -630,10 +640,69 @@ export async function getFacultyReviews(req, res) {
     const guideProjects = data.guideProjects || [];
     const panelProjects = data.panelProjects || [];
 
-    const reviews = [
-      ...guideProjects.map((p) => ({ ...p, role: "guide" })),
-      ...panelProjects.map((p) => ({ ...p, role: "panel" })),
-    ];
+    // --- FIX: Fetch Approved Requests to determine "Unlocked" status ---
+    const approvedRequests = await Request.find({
+      faculty: req.user._id,
+      status: "approved",
+      requestType: "mark_edit"
+    }).lean();
+
+    // Helper to check if unlocked
+    const isUnlocked = (projectId, reviewType) => {
+      return approvedRequests.some(r =>
+        r.project.toString() === projectId.toString() &&
+        r.reviewType === reviewType
+      );
+    };
+
+    // Attach isUnlocked to guide projects
+    const guideReviews = guideProjects.map((p) => {
+      const pObj = { ...p, role: "guide" };
+      // For guide, we might need to know if specific review is unlocked? 
+      // Usually guide can always edit unless strictly locked by deadlines, 
+      // but if "locked" by default, they need request? 
+      // Current logic usually implies Guide needs request if deadline passed.
+      // We will attach a helper or check per review type if possible.
+      // But here we return a list of projects. The frontend likely checks 
+      // `isUnlocked` on the project object for the *current* review context? 
+      // Actually `getFacultyReviews` returns a list of projects. 
+      // The frontend `TeamsModal` likely iterates over `review.teams`?
+      // Wait, `getFacultyReviews` returns `reviews` which are PROJECTS.
+      // The Frontend `Requests` page or `PastReviews` might use this.
+
+      // If the frontend expects `isUnlocked` on the project root for a specific review logic, 
+      // it's tricky because this returns *All* projects.
+
+      // However, looking at `TeamsModal.jsx`, it uses `team.isUnlocked`.
+      // `team` usually corresponds to a Project in this context (One Team = One Project).
+      // So we should attach `approvedRequests` info to the project so frontend can map it.
+
+      pObj.approvedRequests = approvedRequests
+        .filter(r => r.project.toString() === p._id.toString())
+        .map(r => ({ reviewType: r.reviewType, requestType: r.requestType }));
+
+      // FIX: Explicitly set isUnlocked if there is ANY approved mark_edit request
+      // Note: This unlocks the project generally. If review-specific locking is needed, 
+      // the frontend must check pObj.approvedRequests against current review.
+      // But for "Request Edit" button which usually unlocks the whole row, this is a good start.
+      // Better: Check if any approved request matches.
+      pObj.isUnlocked = pObj.approvedRequests.some(r => r.requestType === 'mark_edit');
+
+      return pObj;
+    });
+
+    const panelReviews = panelProjects.map((p) => {
+      const pObj = { ...p, role: "panel" };
+      pObj.approvedRequests = approvedRequests
+        .filter(r => r.project.toString() === p._id.toString())
+        .map(r => ({ reviewType: r.reviewType, requestType: r.requestType }));
+
+      pObj.isUnlocked = pObj.approvedRequests.some(r => r.requestType === 'mark_edit');
+
+      return pObj;
+    });
+
+    const reviews = [...guideReviews, ...panelReviews];
 
     res.status(200).json({
       success: true,
