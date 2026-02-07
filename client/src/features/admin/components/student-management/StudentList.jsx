@@ -101,7 +101,14 @@ const StudentList = ({ students = [], loading = false, onViewDetails, onEdit }) 
                   {/* Basic Info */}
                   <div>
                     <h3 className="font-semibold text-gray-900 text-base mb-1">{student.name}</h3>
-                    <p className="text-sm text-gray-600 font-mono">{student.regNo}</p>
+                    <p className="text-sm text-gray-600 font-mono mb-1">{student.regNo}</p>
+                    <div>
+                      {student.PAT ? (
+                        <Badge variant="purple">PAT</Badge>
+                      ) : (
+                        <Badge variant="default">NO PAT</Badge>
+                      )}
+                    </div>
                   </div>
 
                   {/* Contact */}

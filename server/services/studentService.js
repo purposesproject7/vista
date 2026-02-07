@@ -58,7 +58,14 @@ export class StudentService {
       status: "active"
     })
       .populate("guideFaculty", "name")
-      .populate("panel", "panelName")
+      .populate({
+        path: "panel",
+        select: "panelName members",
+        populate: {
+          path: "members.faculty",
+          select: "name"
+        }
+      })
       .lean();
 
     // Add guide and panel details AND project info
@@ -73,11 +80,22 @@ export class StudentService {
       teammates = teammateDocs.map(t => ({ id: t._id, name: t.name }));
     }
 
+    let panelMembers = "N/A";
+    if (project?.panel?.members && project.panel.members.length > 0) {
+      panelMembers = project.panel.members
+        .map(m => m.faculty?.name)
+        .filter(Boolean)
+        .join(", ");
+    } else if (project?.panel?.panelName) {
+      panelMembers = project.panel.panelName;
+    }
+
     return {
       ...processedStudent,
       guide: project?.guideFaculty?.name || "N/A",
-      panelMember: project?.panel?.panelName || "N/A",
+      panelMember: panelMembers,
       projectTitle: project?.name || null,
+      projectId: project?._id || null,
       teammates: teammates
     };
   }
@@ -148,7 +166,15 @@ export class StudentService {
       status: "active"
     })
       .populate("guideFaculty", "name")
-      .populate("panel", "panelName") // Populating panel name
+      .populate("guideFaculty", "name")
+      .populate({
+        path: "panel",
+        select: "panelName members",
+        populate: {
+          path: "members.faculty",
+          select: "name"
+        }
+      })
       .lean();
 
     // Create a map of studentId -> project details
@@ -168,10 +194,21 @@ export class StudentService {
             })
             .filter(Boolean);
 
+          let panelMembers = "N/A";
+          if (project.panel?.members && project.panel.members.length > 0) {
+            panelMembers = project.panel.members
+              .map(m => m.faculty?.name)
+              .filter(Boolean)
+              .join(", ");
+          } else if (project.panel?.panelName) {
+            panelMembers = project.panel.panelName;
+          }
+
           studentProjectMap[studentIdStr] = {
             guide: project.guideFaculty ? project.guideFaculty.name : "N/A",
-            panelMember: project.panel ? project.panel.panelName : "N/A",
+            panelMember: panelMembers,
             projectTitle: project.name || null,
+            projectId: project._id || null,
             teammates
           };
         });
@@ -185,7 +222,8 @@ export class StudentService {
         guide: projectDetails.guide || "N/A",
         panelMember: projectDetails.panelMember || "N/A",
         projectTitle: projectDetails.projectTitle,
-        teammates: projectDetails.teammates || []
+        teammates: projectDetails.teammates || [],
+        projectId: projectDetails.projectId || null
       };
     });
   }

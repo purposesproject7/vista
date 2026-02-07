@@ -6,7 +6,7 @@ import Input from '../../../../shared/components/Input';
 import Card from '../../../../shared/components/Card';
 import { useAuth } from '../../../../shared/hooks/useAuth';
 import { useToast } from '../../../../shared/hooks/useToast';
-import { updateStudent, updateStudentMarks } from '../../services/adminApi';
+import { updateStudent, updateStudentMarks, updateProject } from '../../services/adminApi';
 import {
     UserIcon,
     EnvelopeIcon,
@@ -26,6 +26,8 @@ const StudentEditModal = ({ isOpen, onClose, student, onSuccess }) => {
         name: '',
         emailId: '',
         phoneNumber: '',
+        projectTitle: '',
+        PAT: false
     });
 
     // Marks state (for ADMIN001 only)
@@ -37,6 +39,8 @@ const StudentEditModal = ({ isOpen, onClose, student, onSuccess }) => {
                 name: student.name || '',
                 emailId: student.emailId || '',
                 phoneNumber: student.phoneNumber || '',
+                projectTitle: student.projectTitle || '',
+                PAT: student.PAT || false
             });
 
             // Initialize marks data for all admins (view for regular, edit for ADMIN001)
@@ -47,8 +51,11 @@ const StudentEditModal = ({ isOpen, onClose, student, onSuccess }) => {
     }, [student]);
 
     const handleBasicInfoChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
     };
 
     const handleMarksChange = (reviewName, componentName, value) => {
@@ -67,18 +74,36 @@ const StudentEditModal = ({ isOpen, onClose, student, onSuccess }) => {
     const handleSaveBasicInfo = async () => {
         try {
             setLoading(true);
-            const response = await updateStudent(student.regNo, formData);
 
-            if (response.success) {
-                showToast('Student information updated successfully', 'success');
-                onSuccess();
-                onClose();
-            } else {
-                showToast(response.message || 'Failed to update student', 'error');
+            // 1. Update Student Info
+            const studentResponse = await updateStudent(student.regNo, {
+                name: formData.name,
+                emailId: formData.emailId,
+                phoneNumber: formData.phoneNumber,
+                PAT: formData.PAT
+            });
+
+            if (!studentResponse.success) {
+                showToast(studentResponse.message || 'Failed to update student', 'error');
+                setLoading(false);
+                return;
             }
+
+            // 2. Update Project Title if changed and project exists
+            if (student.projectId && formData.projectTitle !== student.projectTitle) {
+                const projectResponse = await updateProject(student.projectId, { name: formData.projectTitle });
+                if (!projectResponse.success) {
+                    showToast(projectResponse.message || 'Failed to update project title', 'error');
+                    // We continue even if project update fails, but warn user
+                }
+            }
+
+            showToast('Information updated successfully', 'success');
+            onSuccess();
+            onClose();
         } catch (error) {
-            console.error('Error updating student:', error);
-            showToast(error.response?.data?.message || 'Failed to update student', 'error');
+            console.error('Error updating information:', error);
+            showToast(error.response?.data?.message || 'Failed to update information', 'error');
         } finally {
             setLoading(false);
         }
@@ -173,6 +198,30 @@ const StudentEditModal = ({ isOpen, onClose, student, onSuccess }) => {
                                 placeholder="+91 1234567890"
                                 startIcon={<PhoneIcon className="w-5 h-5" />}
                             />
+
+                            {student.projectId && (
+                                <Input
+                                    label="Project Title"
+                                    name="projectTitle"
+                                    value={formData.projectTitle}
+                                    onChange={handleBasicInfoChange}
+                                    placeholder="Project Title"
+                                />
+                            )}
+
+                            <div className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    id="PAT"
+                                    name="PAT"
+                                    checked={formData.PAT}
+                                    onChange={handleBasicInfoChange}
+                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                />
+                                <label htmlFor="PAT" className="ml-2 text-sm text-gray-700">
+                                    PAT Student (Project Assistance Team)
+                                </label>
+                            </div>
 
                             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                                 <p className="text-xs text-gray-600">
