@@ -216,9 +216,6 @@ export class ReportService {
         const students = await Student.find(query).sort({ regNo: 1 }).lean();
         const results = [];
 
-        // Optimisation: Fetch all needed marks & projects in one go ideally, 
-        // but for simplicity loop or aggregation. Aggregation is better.
-
         for (const student of students) {
             // Find Project
             const project = await Project.findOne({
@@ -231,23 +228,92 @@ export class ReportService {
 
             if (!project) continue; // Skip if no active project
 
-            // Find Marks
+            // Find Marks for this student
             const marks = await Marks.find({ student: student._id }).lean();
 
-            const guideMark = marks.find(m => m.facultyType === 'guide');
-            const panelMark = marks.find(m => m.facultyType === 'panel');
-
-            results.push({
-                regNo: student.regNo,
-                name: student.name,
-                projectTitle: project.name,
-                guideName: project.guideFaculty?.name,
-                panelName: project.panel?.panelName,
-                guideMarks: guideMark ? guideMark.totalMarks : "Pending",
-                panelMarks: panelMark ? panelMark.totalMarks : "Pending",
-                total: (guideMark?.totalMarks || 0) + (panelMark?.totalMarks || 0)
-                // Note: Logic for total depends on weightage, assuming simple sum for now or just listing components
+            // Group marks by reviewType
+            const marksByReview = {};
+            marks.forEach(m => {
+                if (!marksByReview[m.reviewType]) {
+                    marksByReview[m.reviewType] = {
+                        guideMark: null,
+                        panelMarks: []
+                    };
+                }
+                if (m.facultyType === 'guide') {
+                    marksByReview[m.reviewType].guideMark = m;
+                } else if (m.facultyType === 'panel') {
+                    marksByReview[m.reviewType].panelMarks.push(m);
+                }
             });
+
+            // Process each review type found
+            // If no marks found at all, we might want to still show the student row?
+            // The original logic seemed to flatten per student, but didn't clearly separate reviews.
+            // If we want a flattened list per review per student, we loop reviews.
+            // If we want one row per student with accumulated reviews, we loop marksByReview.
+            // Assuming the requirement "add the marks for each review... avg them and show them in the script"
+            // implies we likely want list of report rows where each row might be a review or columns are reviews.
+            // Given the existing structure was ONE row per student with 'guideMarks' and 'panelMarks' (implying maybe only one main review or sum),
+            // let's try to maintain one row per student but accumulate total averages across all reviews, OR return detailed per-review data?
+            // "Show them in the script" -> likely means the frontend script/table.
+            // To support multiple reviews (Review 1, Review 2 etc), let's construct a detail object.
+
+            // HOWEVER, the original code had:
+            // guideMarks: guideMark ? guideMark.totalMarks : "Pending",
+            // panelMarks: panelMark ? panelMark.totalMarks : "Pending",
+            // total: (guideMark?.totalMarks || 0) + (panelMark?.totalMarks || 0)
+
+            // This suggests it MIGHT have been built for a single review scenario or flawed logic picking *any* mark.
+            // To support distinct reviews properly, let's output an array of reviews for the student
+            // OR if the table expects one row per student, we might sum up everything?
+            // "Avg them and show them": context implies averaging PANEL marks for A SINGLE REVIEW.
+
+            // Let's iterate found review types and create a row for EACH Review Type for clarity, 
+            // OR keep student-centric and nest review details.
+            // Standard report tables often want flat data. Let's produce one row PER REVIEW per Student.
+
+            if (Object.keys(marksByReview).length === 0) {
+                // No marks yet
+                results.push({
+                    regNo: student.regNo,
+                    name: student.name,
+                    projectTitle: project.name,
+                    guideName: project.guideFaculty?.name,
+                    panelName: project.panel?.panelName,
+                    reviewType: "N/A",
+                    guideMarks: "Pending",
+                    panelMarks: "Pending",
+                    total: 0
+                });
+            } else {
+                for (const reviewType of Object.keys(marksByReview)) {
+                    const reviewData = marksByReview[reviewType];
+                    const guideMarkVal = reviewData.guideMark ? reviewData.guideMark.totalMarks : 0;
+                    const guideStatus = reviewData.guideMark ? "Submitted" : "Pending";
+
+                    // Calculate Panel Average
+                    let panelAvg = 0;
+                    let panelStatus = "Pending";
+                    if (reviewData.panelMarks.length > 0) {
+                        const sum = reviewData.panelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
+                        panelAvg = sum / reviewData.panelMarks.length;
+                        panelStatus = "Submitted"; // Partial or Full? Assuming submitted if any exist
+                    }
+
+                    results.push({
+                        regNo: student.regNo,
+                        name: student.name,
+                        projectTitle: project.name,
+                        guideName: project.guideFaculty?.name,
+                        panelName: project.panel?.panelName,
+                        reviewType: reviewType,
+                        guideMarks: guideStatus === "Submitted" ? guideMarkVal : "Pending",
+                        panelMarks: panelStatus === "Submitted" ? panelAvg.toFixed(2) : "Pending", // send as string or number? fixed 2 decimal for float
+                        total: (guideStatus === "Submitted" ? guideMarkVal : 0) + (panelStatus === "Submitted" ? panelAvg : 0)
+                    });
+                }
+            }
         }
 
         return results;

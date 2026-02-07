@@ -1850,30 +1850,82 @@ export async function getMarksReport(req, res) {
       .sort({ student: 1, reviewType: 1 })
       .lean();
 
-    // Group by student
-    const byStudent = {};
+    // Group by student and Review Type
+    const byStudentReview = {};
+
     marks.forEach((mark) => {
       const studentId = mark.student._id.toString();
-      if (!byStudent[studentId]) {
-        byStudent[studentId] = {
+      const reviewType = mark.reviewType;
+      const key = `${studentId}-${reviewType}`;
+
+      if (!byStudentReview[key]) {
+        byStudentReview[key] = {
           student: mark.student,
           project: mark.project,
-          marks: [],
+          reviewType: reviewType,
+          guideExposed: null,
+          panelMarksList: [],
         };
       }
-      byStudent[studentId].marks.push({
-        reviewType: mark.reviewType,
-        facultyType: mark.facultyType,
-        faculty: mark.faculty,
-        totalMarks: mark.totalMarks,
-        maxTotalMarks: mark.maxTotalMarks,
-        isSubmitted: mark.isSubmitted,
-      });
+
+      if (mark.facultyType === 'guide') {
+        byStudentReview[key].guideExposed = {
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted
+        };
+      } else if (mark.facultyType === 'panel') {
+        byStudentReview[key].panelMarksList.push({
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted
+        });
+      }
+    });
+
+    const results = Object.values(byStudentReview).map(group => {
+      // Calculate Panel Average
+      let panelAvg = 0;
+      let panelMax = 0; // Assuming uniform max marks
+
+      if (group.panelMarksList.length > 0) {
+        const sum = group.panelMarksList.reduce((acc, curr) => acc + curr.totalMarks, 0);
+        panelAvg = sum / group.panelMarksList.length;
+        panelMax = group.panelMarksList[0].maxTotalMarks; // Take first member max
+      }
+
+      return {
+        student: group.student,
+        project: group.project,
+        reviewType: group.reviewType,
+        marks: [
+          // Construct normalized mark objects
+          ...(group.guideExposed ? [{
+            reviewType: group.reviewType,
+            facultyType: 'guide',
+            faculty: group.guideExposed.faculty,
+            totalMarks: group.guideExposed.totalMarks,
+            maxTotalMarks: group.guideExposed.maxTotalMarks,
+            isSubmitted: group.guideExposed.isSubmitted
+          }] : []),
+          ...(group.panelMarksList.length > 0 ? [{
+            reviewType: group.reviewType,
+            facultyType: 'panel', // Aggregate Object
+            faculty: { name: "Panel Average" }, // Pseudo faculty
+            totalMarks: parseFloat(panelAvg.toFixed(2)),
+            maxTotalMarks: panelMax,
+            isSubmitted: true,
+            details: group.panelMarksList // Optional: keep details if frontend needs hover
+          }] : [])
+        ]
+      };
     });
 
     res.status(200).json({
       success: true,
-      data: Object.values(byStudent),
+      data: results,
     });
   } catch (error) {
     res.status(500).json({
