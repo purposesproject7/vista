@@ -4,7 +4,7 @@ const fetch = global.fetch || (async (...args) => {
     return fetch(...args);
 });
 
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL = 'http://localhost:3000/api';
 
 const colors = {
     reset: "\x1b[0m",
