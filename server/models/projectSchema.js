@@ -11,6 +11,7 @@ const projectHistorySchema = new mongoose.Schema(
         "review_panel_assigned",
         "team_merged",
         "deactivated",
+        "archived", // Add archived just in case
       ],
       required: true,
     },

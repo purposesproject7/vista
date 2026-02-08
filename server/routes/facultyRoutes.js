@@ -21,6 +21,14 @@ router.get(
   broadcastBlockMiddleware,
   facultyController.getAssignedProjects,
 );
+
+router.post(
+  "/projects/merge",
+  broadcastBlockMiddleware,
+  validateRequired(["projectIds", "newName"]),
+  facultyController.mergeProjects
+);
+
 router.get(
   "/reviews",
   broadcastBlockMiddleware,

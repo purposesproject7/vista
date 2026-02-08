@@ -133,14 +133,22 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                       </div>
 
                       {/* Display marks if entered */}
-                      {team.marksEntered && team.students && (
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                      {/* Display students list (Always show members) */}
+                      {team.students && (
+                        <div className="mt-3 grid grid-cols-1 gap-1 bg-slate-50 p-2 rounded-lg border border-slate-100">
                           {team.students.map(s => (
-                            <div key={s.student_id} className="text-[10px] flex items-center gap-1.5 font-bold">
-                              <span className="text-slate-400">{s.student_name}:</span>
-                              <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100">
-                                {s.totalMarks} / {s.maxTotalMarks}
+                            <div key={s.student_id} className="flex items-center justify-between text-xs">
+                              <span className="font-medium text-slate-600 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                                {s.student_name}
                               </span>
+                              {team.marksEntered ? (
+                                <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100 font-bold">
+                                  {s.totalMarks} / {s.maxTotalMarks}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic text-[10px]">No marks</span>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -177,8 +185,8 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
               );
             })}
           </div>
-        </div>
-      </Modal>
+        </div >
+      </Modal >
 
       {requestTeam && (
         <RequestEditModal

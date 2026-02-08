@@ -23,16 +23,17 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                 // Fetch Data in Parallel
                 const [schemaRes, projectsRes, marksRes] = await Promise.allSettled([
-                    api.get('/faculty/marking-schema', {
-                        academicYear: filters.year,
-                        school: filters.school,
-                        // FIX: If "All Programs", do not send undefined if backend requires it.
-                        // Ideally backend handles it, but let's try sending undefined (which axios strips)
-                        // If backend REQUIRES it, we might need a fallback.
-                        // The error suggests 400 Bad Request, likely due to missing program.
-                        // Assuming backend uses req.query.program
-                        program: filters.program === 'All Programs' ? undefined : filters.program
-                    }),
+                    // Only fetch schema if a valid program is selected
+                    (filters.program && filters.program !== 'All Programs')
+                        ? api.get('/faculty/marking-schema', {
+                            params: {
+                                academicYear: filters.year,
+                                school: filters.school,
+                                program: filters.program
+                            }
+                        })
+                        : Promise.resolve({ data: { success: true, data: null } }),
+
                     api.get('/faculty/projects', {
                         params: {
                             academicYear: filters.year,
@@ -40,6 +41,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             program: filters.program === 'All Programs' ? undefined : filters.program
                         }
                     }),
+
                     api.get('/faculty/marks', { params: { _t: Date.now() } })
                 ]);
 
@@ -74,9 +76,12 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         const allProjects = [...guideProjects, ...panelProjects];
                         const uniqueIds = new Set();
                         projects = allProjects.filter(p => {
+                            // Deduplicate
                             const pid = String(p._id);
                             if (uniqueIds.has(pid)) return false;
                             uniqueIds.add(pid);
+                            // Safety filter: ensure active status (though backend should handle it)
+                            if (p.status && p.status !== 'active') return false;
                             return true;
                         });
                     }

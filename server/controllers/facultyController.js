@@ -629,31 +629,89 @@ export async function getFacultyReviews(req, res) {
  */
 export async function getEvaluationMetadata(req, res) {
   try {
-    // We can get these from MarkingSchema (potential reviews)
-    // or from Marks (already submitted).
-    // Let's get them from MarkingSchema as it defines what SHOULD be there.
-    const contexts = await MarkingSchema.find().select("school program academicYear").lean();
+    const masterData = await MasterData.findOne();
 
-    const schools = [...new Set(contexts.map(c => c.school))].sort();
-    const years = [...new Set(contexts.map(c => c.academicYear))].sort().reverse();
+    if (!masterData) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          schools: [],
+          programs: [],
+          years: [],
+        },
+      });
+    }
 
-    // For programs, we can group them by school or just send unique ones
-    const programs = contexts.map(c => ({
-      name: c.program,
-      school: c.school,
-      code: c.program
-    }));
+    const schools = masterData.schools
+      .filter((s) => s.isActive)
+      .map((s) => ({
+        name: s.name,
+        code: s.code,
+      }));
+
+    const programs = masterData.programs
+      .filter((p) => p.isActive)
+      .map((p) => ({
+        name: p.name,
+        code: p.code,
+        school: p.school,
+      }));
+
+    const years = masterData.academicYears
+      .filter((y) => y.isActive)
+      .map((y) => y.year);
 
     res.status(200).json({
       success: true,
       data: {
-        schools: schools.map(s => ({ name: s, code: s })),
+        schools,
+        programs,
         years,
-        programs: [...new Map(programs.map(p => [`${p.school}|${p.name}`, p])).values()]
-      }
+      },
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+/**
+ * Merge projects
+ */
+export async function mergeProjects(req, res) {
+  try {
+    const { projectIds, newName } = req.body;
+
+    const newProject = await ProjectService.mergeProjects(
+      projectIds,
+      newName,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Projects merged successfully.",
+      data: newProject,
+    });
+
+    ActivityLogService.logActivity(
+      req.user._id,
+      "PROJECT_MERGE",
+      {
+        school: req.user.school,
+        program: req.user.program,
+        academicYear: "Unknown",
+      },
+      {
+        description: `Merged projects into ${newProject.name}`,
+        targetId: newProject._id,
+        targetModel: "Project"
+      },
+      req
+    );
+  } catch (error) {
+    res.status(400).json({
       success: false,
       message: error.message,
     });

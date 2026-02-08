@@ -1018,4 +1018,131 @@ export class ProjectService {
 
     return project;
   }
+
+  /**
+   * Merge multiple projects into one new project
+   */
+  static async mergeProjects(projectIds, newName, facultyId) {
+    // 1. Validate inputs
+    if (!projectIds || !Array.isArray(projectIds) || projectIds.length < 2) {
+      throw new Error("At least two projects are required to merge.");
+    }
+
+    if (!newName || typeof newName !== "string" || newName.trim().length === 0) {
+      throw new Error("New project name is required.");
+    }
+
+    // 2. Fetch all projects to be merged
+    const projects = await Project.find({
+      _id: { $in: projectIds },
+      status: "active",
+    });
+
+    if (projects.length !== projectIds.length) {
+      throw new Error("One or more projects not found or not active.");
+    }
+
+    // 3. Verify all projects belong to the same faculty and context (optional but recommended)
+    const firstProject = projects[0];
+    const commonContext = {
+      school: firstProject.school,
+      program: firstProject.program,
+      academicYear: firstProject.academicYear,
+      guide: firstProject.guideFaculty.toString(),
+    };
+
+    for (const p of projects) {
+      if (p.guideFaculty.toString() !== facultyId.toString()) {
+        throw new Error(`Project '${p.name}' does not belong to you.`);
+      }
+      if (
+        p.school !== commonContext.school ||
+        p.program !== commonContext.program ||
+        p.academicYear !== commonContext.academicYear
+      ) {
+        throw new Error(
+          `Projects must belong to the same School, Program, and Academic Year to be merged.`
+        );
+      }
+    }
+
+    // 4. Collect all students
+    let allStudents = [];
+    projects.forEach((p) => {
+      allStudents = [...allStudents, ...p.students];
+    });
+
+    // Deduplicate students (just in case)
+    const uniqueStudentIds = [
+      ...new Set(allStudents.map((id) => id.toString())),
+    ];
+
+    // 5. Create the new Merged Project
+    const newProject = new Project({
+      name: newName,
+      students: uniqueStudentIds,
+      guideFaculty: facultyId,
+      academicYear: commonContext.academicYear,
+      school: commonContext.school,
+      program: commonContext.program,
+      specialization: firstProject.specialization || 'General', // Fallback for legacy data
+      type: firstProject.type || 'software', // Inherit or default
+      teamSize: uniqueStudentIds.length,
+      status: "active",
+
+      // Inherit panel info from first project to minimize data loss
+      panel: firstProject.panel,
+      reviewPanels: firstProject.reviewPanels,
+
+      history: [
+        {
+          action: "created", // Standard creation action
+          performedBy: facultyId,
+          performedAt: new Date(),
+        },
+        {
+          action: "team_merged",
+          performedBy: facultyId,
+          performedAt: new Date(),
+          reason: `Merged from projects: ${projects.map(p => p.name).join(", ")}`
+        },
+      ],
+    });
+
+    await newProject.save();
+
+    // 6. Update Marks references
+    // Marks are linked to `project` and `student`.
+    // We need to update existing marks to point to the new project
+    const Marks = (await import("../models/marksSchema.js")).default;
+    const updateResult = await Marks.updateMany(
+      {
+        project: { $in: projectIds },
+        student: { $in: uniqueStudentIds },
+      },
+      {
+        $set: { project: newProject._id },
+      }
+    );
+
+    logger.info("marks_moved_on_merge", {
+      count: updateResult.modifiedCount,
+      newProjectId: newProject._id,
+    });
+
+    // 7. Deactivate old projects
+    // We use 'team_merged' action which exists in schema
+    for (const p of projects) {
+      p.status = "archived";
+      p.history.push({
+        action: "team_merged",
+        performedBy: facultyId,
+        reason: `Merged into ${newProject.name}`,
+        mergedWithProject: newProject._id
+      });
+      await p.save();
+    }
+
+    return newProject;
+  }
 }
