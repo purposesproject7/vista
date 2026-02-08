@@ -10,6 +10,7 @@ import Button from '../../../shared/components/Button';
 import { CalendarIcon, AcademicCapIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../../shared/hooks/useAuth';
 import PPTApprovalSection from '../components/PPTApprovalSection';
+import MergeTeamsModal from '../components/MergeTeamsModal';
 
 
 const FacultyDashboard = () => {
@@ -29,6 +30,7 @@ const FacultyDashboard = () => {
         deadlinePassed,
         past,
         panelAssignments,
+        guideAssignments,
         loading,
         error,
         refreshReviews
@@ -70,7 +72,7 @@ const FacultyDashboard = () => {
                     ...prev,
                     year: years.find(y => y === '2024-2025') || years[0] || '',
                     school: initialSchool,
-                    program: 'All Programs',
+                    program: initialPrograms[0]?.name || 'All Programs', // Default to first program
                     role: 'guide'
                 }));
             } catch (err) {
@@ -93,13 +95,15 @@ const FacultyDashboard = () => {
             }));
 
             // Reset program selection if current selection is invalid for new school
-            // But let's keep "All Programs" or reset to "All Programs" for simplicity
-            setFilters(prev => ({ ...prev, program: 'All Programs' }));
+            // Default to first program of the new school
+            const firstProgram = relevantPrograms[0]?.name || 'All Programs';
+            setFilters(prev => ({ ...prev, program: firstProgram }));
         }
     }, [filters.school, filterOptions.allPrograms]);
 
-    // Marking Workflow State
     const [isMarkingOpen, setIsMarkingOpen] = useState(false);
+    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+    const [isTeamsExpanded, setIsTeamsExpanded] = useState(false); // Default collapsed
     const [currentReview, setCurrentReview] = useState(null);
     const [currentTeam, setCurrentTeam] = useState(null);
 
@@ -170,6 +174,78 @@ const FacultyDashboard = () => {
                             reviews={[...active, ...deadlinePassed]}
                             onRefresh={refreshReviews}
                         />
+                    )}
+
+                    {/* NEW: My Guided Teams Section (Always visible for guides) */}
+                    {/* NEW: My Guided Teams Section (Always visible for guides) */}
+                    {filters.role === 'guide' && (
+                        <section className="animate-slideUp mb-10">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                    <div className="bg-blue-100 p-1.5 rounded-lg">
+                                        <UserGroupIcon className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    My Guided Teams
+                                </h2>
+                                <div className="flex items-center gap-3">
+                                    <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-wider rounded-full border border-blue-100">
+                                        {guideAssignments?.length || 0} teams
+                                    </span>
+                                    {/* Merge Button: Only show if specific program is selected */}
+                                    {filters.school && filters.program && filters.program !== 'All Programs' && (
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => setIsMergeModalOpen(true)}
+                                            className="!py-1.5 !px-3 !text-xs"
+                                        >
+                                            Merge Teams
+                                        </Button>
+                                    )}
+                                    <button
+                                        onClick={() => setIsTeamsExpanded(prev => !prev)}
+                                        className="text-xs text-slate-500 hover:text-slate-700 underline"
+                                    >
+                                        {isTeamsExpanded ? 'Hide' : 'Show'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {isTeamsExpanded && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    {guideAssignments?.map((project) => (
+                                        <div key={project._id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="bg-slate-50 p-2 rounded-xl group-hover:bg-blue-50 transition-colors">
+                                                    <UserGroupIcon className="w-5 h-5 text-slate-400 group-hover:text-blue-500" />
+                                                </div>
+                                                <span className="text-[10px] font-black uppercase tracking-tighter text-slate-300"># GUIDE</span>
+                                            </div>
+
+                                            <h3 className="text-base font-bold text-slate-800 mb-1 truncate">{project.name}</h3>
+                                            <p className="text-xs text-slate-500 line-clamp-2 mb-4 h-8">{project.description || 'No description available for this project.'}</p>
+
+                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                                <div className="bg-slate-50 p-2 rounded-lg border border-slate-50">
+                                                    <p className="text-[9px] uppercase font-bold text-slate-400 mb-0.5">Students</p>
+                                                    <p className="text-xs font-bold text-slate-700">{project.students?.length || 0} Members</p>
+                                                </div>
+                                                <div className="bg-slate-50 p-2 rounded-lg border border-slate-50">
+                                                    <p className="text-[9px] uppercase font-bold text-slate-400 mb-0.5">Batch</p>
+                                                    <p className="text-xs font-bold text-slate-700">{project.academicYear}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {(!guideAssignments || guideAssignments.length === 0) && (
+                                        <div className="col-span-full py-12 bg-white rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-center">
+                                            <UserGroupIcon className="w-12 h-12 text-slate-100 mb-3" />
+                                            <p className="text-slate-400 text-sm font-medium italic">No guided teams found.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </section>
                     )}
 
                     {/* Active Reviews (Always Open) */}
@@ -268,6 +344,18 @@ const FacultyDashboard = () => {
                     onSuccess={handleMarkingSuccess}
                 />
             )}
+
+            {/* MERGE TEAMS MODAL */}
+            <MergeTeamsModal
+                isOpen={isMergeModalOpen}
+                onClose={() => setIsMergeModalOpen(false)}
+                context={filters} // Pass current filters for context awareness
+                projects={guideAssignments} // Pass available projects
+                onSuccess={() => {
+                    refreshReviews();
+                    // Optional: Show success toast
+                }}
+            />
 
         </div>
     );

@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 // Use environment variable for API base URL, fallback to localhost for development
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
+=======
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+console.log('🔍 API_BASE_URL:', API_BASE_URL, '(from env:', import.meta.env.VITE_API_BASE_URL, ')');
+>>>>>>> 8c583eb (guide merge)
 
 export const ROLES = {
   FACULTY: 'faculty',
