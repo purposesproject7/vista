@@ -21,16 +21,13 @@ export class MarkingSchemaService {
       errors.push("Program is required");
     }
 
-    if (
-      !data.reviews ||
-      !Array.isArray(data.reviews) ||
-      data.reviews.length === 0
-    ) {
-      errors.push("At least one review is required");
+    // Allow empty reviews array (for deleting all reviews)
+    if (data.reviews && !Array.isArray(data.reviews)) {
+      errors.push("Reviews must be an array");
     }
 
-    // Validate reviews
-    if (data.reviews) {
+    // Validate reviews if they exist
+    if (data.reviews && data.reviews.length > 0) {
       data.reviews.forEach((review, index) => {
         const reviewNum = index + 1;
 

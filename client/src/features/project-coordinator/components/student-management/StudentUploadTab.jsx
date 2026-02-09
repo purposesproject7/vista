@@ -63,10 +63,21 @@ const StudentUploadTab = () => {
 
             // Coordinator API expects just the data, often wrapped or array
             // Based on previous analysis: bulkUploadStudents(students) -> post { students: [...] }
-            await coordinatorApi.bulkUploadStudents(enrichedData);
+            const result = await coordinatorApi.bulkUploadStudents(enrichedData);
 
-            setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} students` });
-            showToast('Students uploaded successfully', 'success');
+            // Parse the actual server response
+            const { created = 0, updated = 0, errors = 0 } = result.data || {};
+
+            // Build detailed success message
+            let message = `Bulk upload completed. `;
+            message += `Created: ${created}, Updated: ${updated}`;
+
+            if (errors > 0) {
+                message += `, Errors: ${errors}`;
+            }
+
+            setUploadStatus({ success: true, message });
+            showToast(message, 'success');
             setParsedData([]);
         } catch (error) {
             console.error('Upload error:', error);

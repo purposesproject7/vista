@@ -7,7 +7,7 @@ import StudentEditModal from './StudentEditModal';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { fetchStudents, fetchStudentDetails } from '../../services/adminApi';
 
-const StudentViewTab = () => {
+const StudentViewTab = ({ onStudentsLoaded }) => {
   const [filters, setFilters] = useState(null);
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -34,7 +34,13 @@ const StudentViewTab = () => {
       const response = await fetchStudents(filters);
 
       if (response.success) {
-        setStudents(response.students || []);
+        const studentList = response.students || [];
+        setStudents(studentList);
+
+        // Notify parent component of student count
+        if (onStudentsLoaded) {
+          onStudentsLoaded(studentList.length);
+        }
       } else {
         showToast(response.message || 'Failed to load students', 'error');
       }
