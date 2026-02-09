@@ -401,6 +401,14 @@ export const autoCreatePanels = async (data) => {
 };
 
 /**
+ * Delete panel
+ */
+export const deletePanel = async (panelId) => {
+  const response = await api.delete(`/coordinator/panels/${panelId}`);
+  return response.data;
+};
+
+/**
  * Assign panel to project
  */
 export const assignPanelToProject = async ({ projectId, panelId }) => {
@@ -581,6 +589,7 @@ export default {
   createPanel,
   bulkCreatePanels,
   autoCreatePanels,
+  deletePanel,
   assignPanelToProject,
   autoAssignPanels,
   fetchPanelSummary,

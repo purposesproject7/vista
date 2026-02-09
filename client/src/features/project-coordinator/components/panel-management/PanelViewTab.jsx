@@ -8,6 +8,7 @@ import {
   ChevronUpIcon,
   UserIcon,
   DocumentTextIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 import AcademicFilterSelector from "../shared/AcademicFilterSelector";
 import Card from "../../../../shared/components/Card";
@@ -16,7 +17,7 @@ import EmptyState from "../../../../shared/components/EmptyState";
 import LoadingSpinner from "../../../../shared/components/LoadingSpinner";
 import { useToast } from "../../../../shared/hooks/useToast";
 import { useAuth } from "../../../../shared/hooks/useAuth";
-import { fetchPanels as apiFetchPanels, fetchProjects } from "../../services/coordinatorApi";
+import { fetchPanels as apiFetchPanels, fetchProjects, deletePanel } from "../../services/coordinatorApi";
 import {
   formatPanelName,
   getMarkingStatusColor,
@@ -142,6 +143,23 @@ const PanelViewTab = ({ isPrimary = false }) => {
     });
   }, [panelProjects, fetchPanelProjects]);
 
+  const handleDeletePanel = async (e, panelId) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this panel?")) {
+      try {
+        await deletePanel(panelId);
+        showToast("Panel deleted successfully", "success");
+        fetchPanelsData(); // Refresh list
+      } catch (error) {
+        console.error("Error deleting panel:", error);
+        showToast(
+          error.response?.data?.message || "Failed to delete panel",
+          "error"
+        );
+      }
+    }
+  };
+
   // Filter panels
   const filteredPanels = panels.filter((panel) => {
     const searchLower = searchQuery.toLowerCase();
@@ -254,6 +272,15 @@ const PanelViewTab = ({ isPrimary = false }) => {
                         >
                           {getMarkingStatusLabel(panel.markingStatus)}
                         </Badge>
+                        {isPrimary && (
+                          <button
+                            onClick={(e) => handleDeletePanel(e, panel.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                            title="Delete Panel"
+                          >
+                            <TrashIcon className="w-5 h-5" />
+                          </button>
+                        )}
                         {expandedPanel === panel.id ? (
                           <ChevronUpIcon className="w-5 h-5 text-gray-400" />
                         ) : (
