@@ -19,17 +19,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 setLoading(true);
 
                 // Fetch Data in Parallel
-<<<<<<< HEAD
                 const [schemaRes, projectsRes, marksRes, requestsRes] = await Promise.allSettled([
-                    api.get('/faculty/marking-schema', {
-                        params: {
-                            academicYear: filters.year,
-                            school: filters.school,
-                            program: filters.program === 'All Programs' ? undefined : filters.program
-                        }
-                    }),
-=======
-                const [schemaRes, projectsRes, marksRes] = await Promise.allSettled([
                     // Only fetch schema if a valid program is selected
                     (filters.program && filters.program !== 'All Programs')
                         ? api.get('/faculty/marking-schema', {
@@ -41,7 +31,6 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         })
                         : Promise.resolve({ data: { success: true, data: null } }),
 
->>>>>>> 8c583eb (guide merge)
                     api.get('/faculty/projects', {
                         params: {
                             academicYear: filters.year,
@@ -49,13 +38,10 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             program: filters.program === 'All Programs' ? undefined : filters.program
                         }
                     }),
-<<<<<<< HEAD
-                    api.get('/faculty/marks'),
-                    api.get('/faculty/requests') // Fetch requests made by this faculty
-=======
 
-                    api.get('/faculty/marks', { params: { _t: Date.now() } })
->>>>>>> 8c583eb (guide merge)
+                    api.get('/faculty/marks', { params: { _t: Date.now() } }),
+
+                    api.get('/faculty/requests', { params: { _t: Date.now() } })
                 ]);
 
                 // Handle Schema
