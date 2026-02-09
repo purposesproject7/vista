@@ -393,9 +393,16 @@ export class ProjectService {
         results.projects.push(project);
       } catch (error) {
         results.failed++;
+        // Collect detailed error information for email notifications
         results.errors.push({
           index,
           name: projectData.name,
+          guideFacultyEmpId: projectData.guideFacultyEmpId,
+          teamMembers: Array.isArray(projectData.teamMembers)
+            ? projectData.teamMembers
+            : (Array.isArray(projectData.students)
+              ? projectData.students.map(s => typeof s === 'string' ? s : s.regNo)
+              : []),
           error: error.message,
         });
       }

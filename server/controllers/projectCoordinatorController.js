@@ -5,6 +5,7 @@ import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
 import { ReportService } from "../services/reportService.js";
+import { EmailService } from "../services/emailService.js";
 import ActivityLogService from "../services/activityLogService.js";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
@@ -939,10 +940,73 @@ export async function createProjectsBulk(req, res) {
 
     const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id);
 
+    // Send email notifications to guides for failed projects
+    const emailResults = { sent: 0, failed: 0 };
+
+    if (result.errors && result.errors.length > 0) {
+      // Group errors by guide faculty employee ID
+      const errorsByGuide = {};
+
+      for (const error of result.errors) {
+        const guideEmpId = error.guideFacultyEmpId;
+        if (guideEmpId) {
+          if (!errorsByGuide[guideEmpId]) {
+            errorsByGuide[guideEmpId] = [];
+          }
+          errorsByGuide[guideEmpId].push(error);
+        }
+      }
+
+      // Send email to each guide
+      for (const [guideEmpId, errors] of Object.entries(errorsByGuide)) {
+        try {
+          // Fetch guide faculty details
+          const guide = await Faculty.findOne({ employeeId: guideEmpId });
+
+          if (guide && guide.emailId) {
+            // Get upload context
+            const uploadContext = {
+              school: context.school,
+              program: context.program,
+              year: context.academicYear,
+            };
+
+            const emailSent = await EmailService.sendProjectUploadErrorNotification(
+              guide.emailId,
+              guide.name,
+              req.user.emailId,
+              req.user.name,
+              errors,
+              uploadContext
+            );
+
+            if (emailSent) {
+              emailResults.sent++;
+            } else {
+              emailResults.failed++;
+            }
+          }
+        } catch (emailError) {
+          logger.error("bulk_upload_email_notification_error", {
+            guideEmpId,
+            error: emailError.message,
+          });
+          emailResults.failed++;
+        }
+      }
+
+      logger.info("bulk_upload_email_notifications_sent", {
+        totalErrors: result.errors.length,
+        emailsSent: emailResults.sent,
+        emailsFailed: emailResults.failed,
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: `Bulk creation complete: ${result.created} created, ${result.failed} errors.`,
       data: result,
+      emailNotifications: emailResults,
     });
   } catch (error) {
     res.status(500).json({

@@ -439,4 +439,147 @@ export class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send project upload error notification to guide faculty
+   */
+  static async sendProjectUploadErrorNotification(
+    guideEmail,
+    guideName,
+    uploaderEmail,
+    uploaderName,
+    errors,
+    uploadContext
+  ) {
+    if (!guideEmail || !errors || errors.length === 0) return false;
+
+    try {
+      const transporter = this.createTransporter();
+
+      // Build error list HTML
+      const errorListHtml = errors
+        .map(
+          (err) => `
+          <li style="margin-bottom: 15px; padding: 10px; background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+            <strong style="color: #e65100;">Project: ${err.name || 'N/A'}</strong><br>
+            <span style="font-size: 14px; color: #666;">Team Members: ${err.teamMembers ? err.teamMembers.join(', ') : 'N/A'}</span><br>
+            <span style="font-size: 14px; color: #d32f2f; font-weight: 500;">Error: ${err.error}</span>
+          </li>
+        `
+        )
+        .join('');
+
+      const contextInfo = uploadContext
+        ? `<p style="color: #666666; font-size: 14px; margin: 10px 0;">
+             <strong>Upload Context:</strong> ${uploadContext.schoolName || uploadContext.school || 'N/A'} - 
+             ${uploadContext.programmeName || uploadContext.program || 'N/A'} - 
+             ${uploadContext.year || 'N/A'}
+           </p>`
+        : '';
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Project Upload Errors</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+            <tr>
+              <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+
+                  <!-- Header -->
+                  <tr>
+                    <td style="background-color: #d32f2f; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">⚠️ Action Required: Project Upload Errors</h1>
+                    </td>
+                  </tr>
+
+                  <!-- Content -->
+                  <tr>
+                    <td style="padding: 40px 30px;">
+                      <p style="color: #666666; font-size: 16px; line-height: 1.5; margin: 0 0 20px 0;">
+                        Dear <strong>${guideName}</strong>,
+                      </p>
+                      <p style="color: #666666; font-size: 16px; line-height: 1.5; margin: 0 0 20px 0;">
+                        A bulk project upload was attempted by <strong>${uploaderName || uploaderEmail}</strong>, but some projects under your guidance could not be created due to the following errors:
+                      </p>
+
+                      ${contextInfo}
+
+                      <!-- Error List -->
+                      <div style="margin: 30px 0;">
+                        <h3 style="color: #333333; margin: 0 0 15px 0; font-size: 18px;">Failed Projects (${errors.length}):</h3>
+                        <ul style="list-style: none; padding: 0; margin: 0;">
+                          ${errorListHtml}
+                        </ul>
+                      </div>
+
+                      <!-- Instructions -->
+                      <div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; border-left: 4px solid #2196f3; margin: 30px 0;">
+                        <h4 style="color: #1565c0; margin: 0 0 10px 0; font-size: 16px;">📋 Next Steps:</h4>
+                        <ol style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; padding-left: 20px;">
+                          <li>Review the error messages above</li>
+                          <li>Fix the issues in your project data (e.g., resolve duplicate names, reassign students)</li>
+                          <li>Contact ${uploaderName || 'the administrator'} with the corrected project details</li>
+                          <li>Re-upload the corrected projects</li>
+                        </ol>
+                      </div>
+
+                      <p style="color: #666666; font-size: 14px; line-height: 1.5; margin: 30px 0 0 0;">
+                        If you have any questions, please reply to this email to contact ${uploaderName || 'the administrator'} directly.
+                      </p>
+
+                      <p style="color: #666666; font-size: 14px; line-height: 1.5; margin: 10px 0 0 0;">
+                        Best regards,<br>
+                        <strong>VIT Faculty Portal Team</strong>
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-radius: 0 0 8px 8px;">
+                      <p style="color: #999999; font-size: 12px; margin: 0;">
+                        © ${new Date().getFullYear()} VIT Faculty Portal. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const mailOptions = {
+        from: `VIT Faculty Portal <${process.env.EMAIL_USER}>`,
+        to: guideEmail,
+        replyTo: uploaderEmail, // Set reply-to as uploader's email
+        subject: "Action Required: Project Upload Errors",
+        html: htmlContent,
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      logger.info("project_upload_error_notification_sent", {
+        guideEmail,
+        uploaderEmail,
+        errorCount: errors.length,
+      });
+
+      return true;
+    } catch (error) {
+      logger.error("send_project_upload_error_notification_error", {
+        guideEmail,
+        error: error.message,
+      });
+      return false;
+    }
+  }
 }

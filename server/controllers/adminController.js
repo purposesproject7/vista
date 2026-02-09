@@ -1018,10 +1018,75 @@ export async function bulkCreateProjects(req, res) {
       req.user._id
     );
 
+    // Send email notifications to guides for failed projects
+    const emailResults = { sent: 0, failed: 0 };
+
+    if (result.errors && result.errors.length > 0) {
+      // Group errors by guide faculty employee ID
+      const errorsByGuide = {};
+
+      for (const error of result.errors) {
+        const guideEmpId = error.guideFacultyEmpId;
+        if (guideEmpId) {
+          if (!errorsByGuide[guideEmpId]) {
+            errorsByGuide[guideEmpId] = [];
+          }
+          errorsByGuide[guideEmpId].push(error);
+        }
+      }
+
+      // Send email to each guide
+      for (const [guideEmpId, errors] of Object.entries(errorsByGuide)) {
+        try {
+          // Fetch guide faculty details
+          const guide = await Faculty.findOne({ employeeId: guideEmpId });
+
+          if (guide && guide.emailId) {
+            // Get upload context from first project
+            const uploadContext = projects[0] ? {
+              school: projects[0].school,
+              program: projects[0].program,
+              year: projects[0].academicYear,
+              schoolName: projects[0].schoolName,
+              programmeName: projects[0].programmeName,
+            } : null;
+
+            const emailSent = await EmailService.sendProjectUploadErrorNotification(
+              guide.emailId,
+              guide.name,
+              req.user.emailId,
+              req.user.name,
+              errors,
+              uploadContext
+            );
+
+            if (emailSent) {
+              emailResults.sent++;
+            } else {
+              emailResults.failed++;
+            }
+          }
+        } catch (emailError) {
+          logger.error("bulk_upload_email_notification_error", {
+            guideEmpId,
+            error: emailError.message,
+          });
+          emailResults.failed++;
+        }
+      }
+
+      logger.info("bulk_upload_email_notifications_sent", {
+        totalErrors: result.errors.length,
+        emailsSent: emailResults.sent,
+        emailsFailed: emailResults.failed,
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: `Bulk creation completed. Created: ${result.created}, Errors: ${result.errors.length}`,
       data: result,
+      emailNotifications: emailResults,
     });
   } catch (error) {
     res.status(400).json({
