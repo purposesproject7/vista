@@ -1130,17 +1130,14 @@ export class ProjectService {
       newProjectId: newProject._id,
     });
 
-    // 7. Deactivate old projects
-    // We use 'team_merged' action which exists in schema
+    // 7. Delete old projects (Hard Delete as per requirement)
+    // Students and Marks have already been moved to the new project.
     for (const p of projects) {
-      p.status = "archived";
-      p.history.push({
-        action: "team_merged",
-        performedBy: facultyId,
-        reason: `Merged into ${newProject.name}`,
-        mergedWithProject: newProject._id
+      await Project.findByIdAndDelete(p._id);
+      logger.info("project_deleted_after_merge", {
+        projectId: p._id,
+        mergedInto: newProject._id,
       });
-      await p.save();
     }
 
     return newProject;
