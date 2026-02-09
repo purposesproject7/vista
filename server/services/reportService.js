@@ -220,13 +220,16 @@ export class ReportService {
             // Find Project
             const project = await Project.findOne({
                 students: student._id,
-                status: "active"
+                status: { $in: ["active", "completed"] }
             })
                 .populate("guideFaculty", "name")
                 .populate("panel", "panelName")
                 .lean();
 
-            if (!project) continue; // Skip if no active project
+            if (!project) {
+                //console.log(`DEBUG: Skipping student ${student.regNo} - No active/completed project found.`);
+                continue;
+            }
 
             // Find Marks for this student
             const marks = await Marks.find({ student: student._id }).lean();
