@@ -71,56 +71,79 @@ export class ReportService {
         const min = parseFloat(minMarks) || 0;
         const max = parseFloat(maxMarks) || 100;
 
-        const query = { ...queryFilters };
-        if (filters.school) query.school = filters.school;
-        if (filters.programme) query.program = filters.programme;
-        if (filters.year) query.academicYear = filters.year;
-        // Note: 'year' in frontend might map to specific query field? Assuming academicYear.
-        // Actually typically 'year' filter in frontend often means 'academicYear' in DB, but sometimes 'batch'.
-        // Given previous context, let's assume valid fields are passed.
+        const query = this._buildMatchQuery(queryFilters);
 
-        // Calculate total marks per student
-        // Since Marks are stored per reviewer, we typically need the finalized total or list all
-        // Let's get students and their total marks.
-
-        // Aggregation to sum marks for students
-        const marksData = await Marks.aggregate([
-            { $match: { ...this._buildMatchQuery(query) } },
-            {
-                $group: {
-                    _id: "$student",
-                    totalScore: { $sum: "$totalMarks" }, // Simple sum? Or average? 
-                    // Usually final marks are a specific calculation.
-                    // For "Range", let's assume we are looking at individual submission marks OR average.
-                    // Let's return the marks entries themselves that fall in range
-                }
-            }
-            // This is tricky without knowing exact grading logic (average of guide+panel?).
-            // Let's assume we filter students whose *average* or *any* mark falls in range?
-            // Simpler approach: Find marks documents within range.
-        ]);
-
-        // Better Approach: Fetch Marks documents directly where totalMarks is within range
-        const markQuery = {
-            totalMarks: { $gte: min, $lte: max },
-            ...this._buildMatchQuery(query)
-        };
-
-        const marksList = await Marks.find(markQuery)
+        // Fetch all marks matching the criteria
+        const marks = await Marks.find(query)
             .populate("student", "name regNo")
             .populate("faculty", "name")
             .populate("project", "name")
             .lean();
 
-        return marksList.map(m => ({
-            regNo: m.student?.regNo,
-            studentName: m.student?.name,
-            projectName: m.project?.name,
-            facultyName: m.faculty?.name,
-            facultyType: m.facultyType,
-            marks: m.totalMarks,
-            maxMarks: m.maxTotalMarks
-        }));
+        // 1. Group marks by student
+        const studentMarksMap = {};
+        marks.forEach(m => {
+            if (!m.student) return;
+            const sid = m.student._id.toString();
+            if (!studentMarksMap[sid]) {
+                studentMarksMap[sid] = {
+                    student: m.student,
+                    project: m.project,
+                    reviews: {}
+                };
+            }
+            if (!studentMarksMap[sid].reviews[m.reviewType]) {
+                studentMarksMap[sid].reviews[m.reviewType] = [];
+            }
+            studentMarksMap[sid].reviews[m.reviewType].push(m);
+        });
+
+        const results = [];
+
+        // 2. Calculate Effective Score for each student
+        Object.values(studentMarksMap).forEach(data => {
+            let totalObtained = 0;
+            // let totalMax = 0;
+
+            // Iterate reviews (e.g., Review 1, Review 2, PPT)
+            Object.values(data.reviews).forEach(reviewMarks => {
+                // reviewMarks is array of Mark docs for ONE review type
+                // Separate Guide vs Panel
+                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
+                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel');
+
+                let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
+                // let guideMax = guideMarkParam ? (guideMarkParam.maxTotalMarks || 100) : 100;
+
+                let panelScore = 0;
+                // let panelMax = 0;
+                if (panelMarksParam.length > 0) {
+                    const pSum = panelMarksParam.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
+                    panelScore = pSum / panelMarksParam.length; // Average
+                    // panelMax = panelMarksParam[0].maxTotalMarks || 100;
+                }
+
+                // Total for this review
+                totalObtained += (guideScore + panelScore);
+
+                // if(guideMarkParam) totalMax += guideMax;
+                // if(panelMarksParam.length > 0) totalMax += panelMax;
+            });
+
+            // 3. Filter by Range
+            if (totalObtained >= min && totalObtained <= max) {
+                results.push({
+                    regNo: data.student.regNo,
+                    studentName: data.student.name,
+                    projectName: data.project?.name,
+                    marks: parseFloat(totalObtained.toFixed(2)),
+                    facultyName: "Aggregated",
+                    facultyType: "Mixed"
+                });
+            }
+        });
+
+        return results;
     }
 
     /**
@@ -411,9 +434,20 @@ export class ReportService {
      */
     static async generateMarksDistributionReport(filters) {
         const query = this._buildMatchQuery(filters);
-        const marks = await Marks.find(query).select('totalMarks maxTotalMarks facultyType').lean();
+        // We need effective scores per student, not raw marks
+        const marks = await Marks.find(query).lean();
 
-        // Buckets for Percentages
+        // Group by student to get effective total score
+        const studentScores = {};
+        marks.forEach(m => {
+            const sid = m.student.toString();
+            if (!studentScores[sid]) studentScores[sid] = { reviews: {} };
+
+            if (!studentScores[sid].reviews[m.reviewType]) studentScores[sid].reviews[m.reviewType] = [];
+            studentScores[sid].reviews[m.reviewType].push(m);
+        });
+
+        let totalStudentsProcessed = 0;
         const distribution = {
             '0-40%': 0,
             '41-60%': 0,
@@ -422,25 +456,47 @@ export class ReportService {
             '91-100%': 0
         };
 
-        marks.forEach(m => {
-            const obtained = m.totalMarks || 0;
-            const max = m.maxTotalMarks || 100; // Default to 100 if missing, though schema enforces it
+        Object.values(studentScores).forEach(studentData => {
+            let totalObtained = 0;
+            let grandMax = 0;
 
-            // Calculate percentage
-            const percentage = (obtained / max) * 100;
+            Object.values(studentData.reviews).forEach(reviewMarks => {
+                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
+                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel');
 
-            if (percentage <= 40) distribution['0-40%']++;
-            else if (percentage <= 60) distribution['41-60%']++;
-            else if (percentage <= 80) distribution['61-80%']++;
-            else if (percentage <= 90) distribution['81-90%']++;
-            else distribution['91-100%']++;
+                let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
+                let guideMax = guideMarkParam ? (guideMarkParam.maxTotalMarks || 100) : 100;
+
+                let panelScore = 0;
+                let panelMax = 0;
+                if (panelMarksParam.length > 0) {
+                    const pSum = panelMarksParam.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
+                    panelScore = pSum / panelMarksParam.length;
+                    panelMax = panelMarksParam[0].maxTotalMarks || 100;
+                }
+
+                totalObtained += (guideScore + panelScore);
+                if (guideMarkParam) grandMax += guideMax;
+                if (panelMarksParam.length > 0) grandMax += panelMax;
+            });
+
+            if (grandMax > 0) {
+                totalStudentsProcessed++;
+                const percentage = (totalObtained / grandMax) * 100;
+
+                if (percentage <= 40) distribution['0-40%']++;
+                else if (percentage <= 60) distribution['41-60%']++;
+                else if (percentage <= 80) distribution['61-80%']++;
+                else if (percentage <= 90) distribution['81-90%']++;
+                else distribution['91-100%']++;
+            }
         });
 
         // Transform for table
         return Object.entries(distribution).map(([range, count]) => ({
             range,
             count,
-            percentageOfStudents: marks.length ? ((count / marks.length) * 100).toFixed(2) + '%' : '0%'
+            percentageOfStudents: totalStudentsProcessed ? ((count / totalStudentsProcessed) * 100).toFixed(2) + '%' : '0%'
         }));
     }
 

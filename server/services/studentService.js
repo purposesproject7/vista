@@ -452,6 +452,13 @@ export class StudentService {
       ...(student.panelMarks || [])
     ];
 
+    // Helper to calculate average of an array of numbers
+    const calculateAverage = (arr) => {
+      if (!arr || arr.length === 0) return 0;
+      const sum = arr.reduce((a, b) => a + b, 0);
+      return sum / arr.length;
+    };
+
     // Iterate through schema reviews to ensure all configured reviews are represented
     if (schemaReviews && schemaReviews.length > 0) {
       schemaReviews.forEach(schemaReview => {
@@ -463,37 +470,68 @@ export class StudentService {
 
         const facultyType = schemaReview.facultyType;
 
-        // Find matching marks doc
-        const marksDoc = allMarks.find(m => m.reviewType === reviewName);
+        // Find matching marks docs - CAN BE MULTIPLE FOR PANEL
+        const matchingMarks = allMarks.filter(m => m.reviewType === reviewName);
 
         // Initialize review data
         const reviewData = {
           marks: {},
           total: 0,
-          locked: false // Will check from approvals later if needed
+          locked: false
         };
 
-        if (marksDoc) {
-          reviewData.total = marksDoc.totalMarks || 0;
+        let status = "pending";
+        let issubmitted = false;
 
-          if (marksDoc.componentMarks) {
-            marksDoc.componentMarks.forEach(comp => {
-              reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+        if (matchingMarks.length > 0) {
+          issubmitted = matchingMarks.some(m => m.isSubmitted);
+
+          if (facultyType === 'panel' && matchingMarks.length > 1) {
+            // --- AVERAGING LOGIC FOR PANEL ---
+
+            // 1. Average Total Marks
+            const totalScores = matchingMarks.map(m => m.totalMarks || 0);
+            reviewData.total = calculateAverage(totalScores);
+
+            // 2. Average Component Marks
+            // First, collect all components from all submissions
+            const componentMap = {}; // { compName: [scores] }
+
+            matchingMarks.forEach(markDoc => {
+              if (markDoc.componentMarks) {
+                markDoc.componentMarks.forEach(comp => {
+                  if (!componentMap[comp.componentName]) {
+                    componentMap[comp.componentName] = [];
+                  }
+                  componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
+                });
+              }
             });
+
+            // Calculate average for each component
+            Object.keys(componentMap).forEach(compName => {
+              reviewData.marks[compName] = calculateAverage(componentMap[compName]);
+            });
+
+          } else {
+            // Single mark doc (Guide or Single Panel)
+            const marksDoc = matchingMarks[0];
+            reviewData.total = marksDoc.totalMarks || 0;
+
+            if (marksDoc.componentMarks) {
+              marksDoc.componentMarks.forEach(comp => {
+                reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+              });
+            }
           }
 
           // Add to totals
           totalMarks += reviewData.total;
           if (facultyType === 'guide') guideMarks += reviewData.total;
           if (facultyType === 'panel') panelMarks += reviewData.total;
-        }
 
-        // Determine status
-        let status = "pending";
+          if (issubmitted) status = "submitted";
 
-        // Check submission status from Marks doc
-        if (marksDoc && marksDoc.isSubmitted) {
-          status = "submitted";
         }
 
         // Check explicit approval from student.approvals map
@@ -519,29 +557,64 @@ export class StudentService {
       });
     } else {
       // Fallback if no schema (or legacy data): iterate available marks
-      allMarks.forEach(mark => {
+      // Note: This fallback path might still duplicate assignments if not grouped.
+      // Group by reviewType first
+      const marksByReview = {};
+      allMarks.forEach(m => {
+        if (!marksByReview[m.reviewType]) marksByReview[m.reviewType] = [];
+        marksByReview[m.reviewType].push(m);
+      });
+
+      Object.entries(marksByReview).forEach(([rName, docs]) => {
         const reviewData = {
           marks: {},
-          total: mark.totalMarks || 0
+          total: 0
         };
 
-        if (mark.componentMarks) {
-          mark.componentMarks.forEach(comp => {
-            reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+        const facultyType = docs[0].facultyType; // Assume consistent
+        const issubmitted = docs.some(m => m.isSubmitted);
+
+        if (facultyType === 'panel' && docs.length > 1) {
+          // Average Total
+          reviewData.total = calculateAverage(docs.map(d => d.totalMarks || 0));
+
+          // Average Components
+          const componentMap = {};
+          docs.forEach(markDoc => {
+            if (markDoc.componentMarks) {
+              markDoc.componentMarks.forEach(comp => {
+                if (!componentMap[comp.componentName]) {
+                  componentMap[comp.componentName] = [];
+                }
+                componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
+              });
+            }
           });
+          Object.keys(componentMap).forEach(compName => {
+            reviewData.marks[compName] = calculateAverage(componentMap[compName]);
+          });
+
+        } else {
+          const m = docs[0];
+          reviewData.total = m.totalMarks || 0;
+          if (m.componentMarks) {
+            m.componentMarks.forEach(comp => {
+              reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+            });
+          }
         }
 
         totalMarks += reviewData.total;
-        if (mark.facultyType === 'guide') guideMarks += reviewData.total;
-        if (mark.facultyType === 'panel') panelMarks += reviewData.total;
+        if (facultyType === 'guide') guideMarks += reviewData.total;
+        if (facultyType === 'panel') panelMarks += reviewData.total;
 
-        processedReviews[mark.reviewType] = reviewData;
+        processedReviews[rName] = reviewData;
 
-        let status = mark.isSubmitted ? "submitted" : "pending";
+        let status = issubmitted ? "submitted" : "pending";
         // Check explicit approval from student.approvals map
         if (processedApprovals) {
           const approvalKey = Object.keys(processedApprovals).find(
-            k => k.toLowerCase() === mark.reviewType.toLowerCase()
+            k => k.toLowerCase() === rName.toLowerCase()
           );
 
           if (approvalKey && processedApprovals[approvalKey]?.approved) {
@@ -551,11 +624,12 @@ export class StudentService {
         }
 
         reviewStatuses.push({
-          name: mark.reviewType,
+          name: rName,
           status: status,
           marks: reviewData.marks,
-          type: mark.facultyType
+          type: facultyType
         });
+
       });
     }
 
