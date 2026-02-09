@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = "http://localhost:5000/api";
 
 // You might need to login first to get a token if RBAC is active and we don't have a bypass
 // For now, assuming we can use a hardcoded token or the endpoint is accessible (or we simulate a login)
