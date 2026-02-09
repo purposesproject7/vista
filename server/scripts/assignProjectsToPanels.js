@@ -45,6 +45,7 @@ async function assignProjectsToPanels() {
         const data = XLSX.utils.sheet_to_json(worksheet);
 
         console.log(`Found ${data.length} rows in Excel file`);
+        console.log(`Columns: ${Object.keys(data[0] || {}).join(', ')}\n`);
 
         // Process each row
         let successCount = 0;
@@ -66,7 +67,7 @@ async function assignProjectsToPanels() {
                 continue;
             }
 
-            // Extract panel name
+            // Extract panel name (remove number prefix like "52350 ")
             const panelName = extractPanelName(panelString);
 
             if (!panelName) {
@@ -77,8 +78,20 @@ async function assignProjectsToPanels() {
             }
 
             try {
-                // Find project by name
-                const project = await Project.findOne({ name: projectName });
+                // Try to find project by name - try multiple variations
+                let project = await Project.findOne({ name: projectName });
+
+                // If not found, try without " (Multi)" suffix
+                if (!project && projectName.includes(' (Multi)')) {
+                    const nameWithoutSuffix = projectName.replace(' (Multi)', '');
+                    project = await Project.findOne({ name: nameWithoutSuffix });
+                }
+
+                // If still not found, try with " (Multi)" suffix if it doesn't have it
+                if (!project && !projectName.includes(' (Multi)')) {
+                    const nameWithSuffix = projectName + ' (Multi)';
+                    project = await Project.findOne({ name: nameWithSuffix });
+                }
 
                 if (!project) {
                     console.log(`Row ${i + 1}: Project "${projectName}" not found`);
@@ -87,13 +100,11 @@ async function assignProjectsToPanels() {
                     continue;
                 }
 
-                // Find panel by member name
-                const panel = await Panel.findOne({
-                    'members.name': panelName
-                });
+                // Find panel by panelName attribute (not by member name)
+                const panel = await Panel.findOne({ panelName: panelName });
 
                 if (!panel) {
-                    console.log(`Row ${i + 1}: Panel with member "${panelName}" not found`);
+                    console.log(`Row ${i + 1}: Panel "${panelName}" not found`);
                     errorCount++;
                     errors.push({ row: i + 1, projectName, panelName, error: 'Panel not found' });
                     continue;
@@ -103,7 +114,7 @@ async function assignProjectsToPanels() {
                 project.panelId = panel._id;
                 await project.save();
 
-                console.log(`✓ Row ${i + 1}: Assigned project "${projectName}" to panel "${panel.name}" (member: ${panelName})`);
+                console.log(`✓ Row ${i + 1}: Assigned project "${project.name}" to panel "${panel.panelName}"`);
                 successCount++;
 
             } catch (error) {
