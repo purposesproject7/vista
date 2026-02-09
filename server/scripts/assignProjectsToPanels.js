@@ -111,11 +111,20 @@ async function assignProjectsToPanels() {
                 }
 
                 // Assign panel to project
-                project.panelId = panel._id;
+                project.panel = panel._id;
                 await project.save();
 
-                console.log(`✓ Row ${i + 1}: Assigned project "${project.name}" to panel "${panel.panelName}"`);
-                successCount++;
+                // VERIFICATION: Re-fetch the project to ensure it was saved
+                const verifiedProject = await Project.findById(project._id);
+
+                if (verifiedProject.panel && verifiedProject.panel.toString() === panel._id.toString()) {
+                    console.log(`✓ Row ${i + 1}: Assigned & Verified project "${project.name}" to panel "${panel.panelName}"`);
+                    successCount++;
+                } else {
+                    console.error(`❌ Row ${i + 1}: FAILED TO VERIFY assignment for "${project.name}"`);
+                    errorCount++;
+                    errors.push({ row: i + 1, projectName, panelName, error: 'Verification failed - panel not set in DB' });
+                }
 
             } catch (error) {
                 console.error(`Row ${i + 1}: Error processing project "${projectName}":`, error.message);
@@ -129,7 +138,7 @@ async function assignProjectsToPanels() {
         console.log('ASSIGNMENT SUMMARY');
         console.log('='.repeat(60));
         console.log(`Total rows processed: ${data.length}`);
-        console.log(`Successfully assigned: ${successCount}`);
+        console.log(`Successfully Verified: ${successCount}`);
         console.log(`Errors: ${errorCount}`);
 
         if (errors.length > 0) {
@@ -137,6 +146,15 @@ async function assignProjectsToPanels() {
             errors.forEach(err => {
                 console.log(`  Row ${err.row}: ${err.projectName} -> ${err.panelName || err.panelString} - ${err.error}`);
             });
+        }
+
+        // Final Double Check
+        if (successCount > 0) {
+            console.log('\n' + '='.repeat(60));
+            console.log('FINAL DATABASE VERIFICATION');
+            console.log('='.repeat(60));
+            const assignedProjects = await Project.countDocuments({ panel: { $ne: null } });
+            console.log(`Total projects in DB with assigned panels: ${assignedProjects}`);
         }
 
         console.log('='.repeat(60));
