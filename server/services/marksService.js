@@ -153,7 +153,16 @@ export class MarksService {
    * Get marks submitted by faculty
    */
   static async getMarksByFaculty(facultyId, filters = {}) {
-    const query = { faculty: facultyId, ...filters };
+    const query = { faculty: facultyId };
+
+    // Sanitize filters
+    if (filters.student) query.student = filters.student;
+    if (filters.project) query.project = filters.project;
+    if (filters.reviewType) query.reviewType = filters.reviewType;
+    if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.school) query.school = filters.school;
+    if (filters.program) query.program = filters.program;
+    if (filters.isSubmitted !== undefined) query.isSubmitted = filters.isSubmitted;
 
     return await Marks.find(query)
       .populate("student", "name regNo emailId")
