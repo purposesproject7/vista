@@ -13,12 +13,19 @@ export class EmailService {
       throw new Error("Email credentials not configured");
     }
 
+    // Sanitize password by removing spaces (common issue with copy-paste)
+    const sanitizedPass = emailPass.replace(/\s+/g, "");
+
     return nodemailer.createTransport({
       service: "Gmail",
       auth: {
         user: emailUser,
-        pass: emailPass,
+        pass: sanitizedPass,
       },
+      // Add timeouts to prevent hanging
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     });
   }
 

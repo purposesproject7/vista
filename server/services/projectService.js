@@ -1029,81 +1029,98 @@ export class ProjectService {
   /**
    * Merge multiple projects into one new project
    */
-  static async mergeProjects(projectIds, newName, facultyId) {
+  static async mergeProjects(studentIds, newName, facultyId) {
     // 1. Validate inputs
-    if (!projectIds || !Array.isArray(projectIds) || projectIds.length < 2) {
-      throw new Error("At least two projects are required to merge.");
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length < 2) {
+      throw new Error("At least two students are required to form a new team.");
     }
 
     if (!newName || typeof newName !== "string" || newName.trim().length === 0) {
       throw new Error("New project name is required.");
     }
 
-    // 2. Fetch all projects to be merged
-    const projects = await Project.find({
-      _id: { $in: projectIds },
-      status: "active",
+    // 2. Fetch all students to be merged
+    const students = await Student.find({
+      _id: { $in: studentIds }
     });
 
-    if (projects.length !== projectIds.length) {
-      throw new Error("One or more projects not found or not active.");
+    if (students.length !== studentIds.length) {
+      throw new Error("One or more selected students not found.");
     }
 
-    // 3. Verify all projects belong to the same faculty and context (optional but recommended)
-    const firstProject = projects[0];
+    // 3. Find active projects these students belong to
+    // We need this to verify ownership and context, and to update them later
+    const sourceProjects = await Project.find({
+      students: { $in: studentIds },
+      status: "active"
+    }).populate('students');
+
+    // 4. Verify context (School, Program, Academic Year, Guide)
+    // Use the first project found as the context baseline, OR use the faculty's context
+    // Since we are creating a NEW project under this faculty, the context should match the Faculty's context/responsibility.
+    // However, existing students might be from different "compatible" contexts?
+    // User requirement: "guide side team merging feature". Implies Guide is doing it for their own students.
+
+    // Check if Guide owns all source projects (security check)
+    // Note: If a student is NOT in a project (free pool), they won't be in `sourceProjects`.
+    // But `mergeProjects` typically assumes merging existing teams?
+    // "when we add a student, the whole teams gets added... fix that only that student... should be added"
+    // So students MIGHT be in existing teams.
+
+    const faculty = await Faculty.findById(facultyId);
     const commonContext = {
-      school: firstProject.school,
-      program: firstProject.program,
-      academicYear: firstProject.academicYear,
-      guide: firstProject.guideFaculty.toString(),
+      school: faculty.school,
+      program: faculty.program, // This might be an array, handled below
+      // academicYear is usually derived or current. Best to pick from one of the source projects OR current active year.
+      // If students come from existing projects, use that year.
     };
 
-    for (const p of projects) {
-      if (p.guideFaculty.toString() !== facultyId.toString()) {
-        throw new Error(`Project '${p.name}' does not belong to you.`);
-      }
-      if (
-        p.school !== commonContext.school ||
-        p.program !== commonContext.program ||
-        p.academicYear !== commonContext.academicYear
-      ) {
-        throw new Error(
-          `Projects must belong to the same School, Program, and Academic Year to be merged.`
-        );
+    let referenceProject = sourceProjects[0];
+
+    // If no source project (e.g. all fresh students? Unlikely for "merge"), use defaults
+    if (!referenceProject) {
+      // Fallback if needed, but for "merge" we usually imply existing projects.
+      // If we allow creating new team from scratch here, we need academicYear.
+      // Let's assume consistent academicYear across selection.
+      const studentSample = students[0];
+      commonContext.academicYear = studentSample.academicYear;
+      commonContext.program = studentSample.program;
+    } else {
+      commonContext.academicYear = referenceProject.academicYear;
+      // Verify ownership
+      for (const p of sourceProjects) {
+        if (p.guideFaculty.toString() !== facultyId.toString()) {
+          throw new Error(`Project '${p.name}' is not under your guidance.`);
+        }
+        if (p.academicYear !== commonContext.academicYear) {
+          throw new Error("Cannot merge students from different academic years.");
+        }
       }
     }
 
-    // 4. Collect all students
-    let allStudents = [];
-    projects.forEach((p) => {
-      allStudents = [...allStudents, ...p.students];
-    });
-
-    // Deduplicate students (just in case)
-    const uniqueStudentIds = [
-      ...new Set(allStudents.map((id) => id.toString())),
-    ];
-
     // 5. Create the new Merged Project
+    // Use unique student IDs (input might have duplicates if UI bug, but Set handles it)
+    const uniqueStudentIds = [...new Set(studentIds.map(id => id.toString()))];
+
     const newProject = new Project({
       name: newName,
       students: uniqueStudentIds,
       guideFaculty: facultyId,
       academicYear: commonContext.academicYear,
       school: commonContext.school,
-      program: commonContext.program,
-      specialization: firstProject.specialization || 'General', // Fallback for legacy data
-      type: firstProject.type || 'software', // Inherit or default
+      program: (Array.isArray(commonContext.program)) ? commonContext.program[0] : commonContext.program, // Safe fallback
+      specialization: referenceProject?.specialization || 'General',
+      type: referenceProject?.type || 'software',
       teamSize: uniqueStudentIds.length,
       status: "active",
 
-      // Inherit panel info from first project to minimize data loss
-      panel: firstProject.panel,
-      reviewPanels: firstProject.reviewPanels,
+      // Inherit panel info from reference if available to minimize setup
+      panel: referenceProject?.panel || null,
+      reviewPanels: referenceProject?.reviewPanels || [],
 
       history: [
         {
-          action: "created", // Standard creation action
+          action: "created",
           performedBy: facultyId,
           performedAt: new Date(),
         },
@@ -1111,7 +1128,7 @@ export class ProjectService {
           action: "team_merged",
           performedBy: facultyId,
           performedAt: new Date(),
-          reason: `Merged from projects: ${projects.map(p => p.name).join(", ")}`
+          reason: `Formed by merging students: ${students.map(s => s.regNo).join(", ")}`
         },
       ],
     });
@@ -1119,32 +1136,51 @@ export class ProjectService {
     await newProject.save();
 
     // 6. Update Marks references
-    // Marks are linked to `project` and `student`.
-    // We need to update existing marks to point to the new project
     const Marks = (await import("../models/marksSchema.js")).default;
-    const updateResult = await Marks.updateMany(
+    await Marks.updateMany(
       {
-        project: { $in: projectIds },
         student: { $in: uniqueStudentIds },
+        project: { $in: sourceProjects.map(p => p._id) } // Only update marks linked to old projects
       },
       {
         $set: { project: newProject._id },
       }
     );
 
-    logger.info("marks_moved_on_merge", {
-      count: updateResult.modifiedCount,
-      newProjectId: newProject._id,
-    });
+    // 7. Update Source Projects
+    // "the project should only be deleted after creating a new project...
+    // when either there are not students in that project... or that project is selected completely"
 
-    // 7. Delete old projects (Hard Delete as per requirement)
-    // Students and Marks have already been moved to the new project.
-    for (const p of projects) {
-      await Project.findByIdAndDelete(p._id);
-      logger.info("project_deleted_after_merge", {
-        projectId: p._id,
-        mergedInto: newProject._id,
-      });
+    // We iterate over source projects and remove the moved students.
+    for (const p of sourceProjects) {
+      // Filter out students who are moving to the new project
+      const remainingStudents = p.students.filter(
+        s => !uniqueStudentIds.includes(s._id.toString())
+      );
+
+      if (remainingStudents.length === 0) {
+        // Project is empty -> Delete/Archive
+        await Project.findByIdAndDelete(p._id);
+        logger.info("project_deleted_after_exhaustion", {
+          projectId: p._id,
+          mergedInto: newProject._id,
+        });
+      } else {
+        // Project has leftover students -> Update and Keep
+        p.students = remainingStudents;
+        p.teamSize = remainingStudents.length;
+        p.history.push({
+          action: "team_merged", // or "member_removed"
+          performedBy: facultyId,
+          performedAt: new Date(),
+          reason: `Students moved to new project ${newProject.name}`
+        });
+        await p.save();
+        logger.info("project_updated_after_partial_merge", {
+          projectId: p._id,
+          remainingTeamSize: p.teamSize,
+        });
+      }
     }
 
     return newProject;

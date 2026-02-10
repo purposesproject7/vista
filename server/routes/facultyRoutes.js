@@ -23,7 +23,7 @@ router.get(
 router.post(
   "/projects/merge",
   broadcastBlockMiddleware,
-  validateRequired(["projectIds", "newName"]),
+  validateRequired(["studentIds", "newName"]),
   facultyController.mergeProjects
 );
 
