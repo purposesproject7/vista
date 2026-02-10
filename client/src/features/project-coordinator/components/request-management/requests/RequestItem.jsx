@@ -5,8 +5,8 @@ import Button from '../../../../../shared/components/Button';
 import { formatDate } from './requestUtils';
 
 const RequestItem = ({ request, onApprove, onReject }) => {
-  const getCategoryBadge = (category) => {
-    return category === 'guide' ? (
+  const getCategoryBadge = (facultyType) => {
+    return facultyType === 'guide' ? (
       <Badge variant="primary">Guide</Badge>
     ) : (
       <Badge variant="secondary">Panel</Badge>
@@ -27,7 +27,7 @@ const RequestItem = ({ request, onApprove, onReject }) => {
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-2">
-            {getCategoryBadge(request.category)}
+            {getCategoryBadge(request.facultyType)}
             {getStatusBadge(request.status)}
           </div>
 

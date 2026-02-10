@@ -359,27 +359,17 @@ export async function getRequests(req, res) {
     }
 
     if (category && category !== 'All' && category !== '') {
-      // Map frontend category names to backend requestTypes if needed
-      // Example mappings based on previous code or common usage
       const typeMap = {
         'Marks': 'mark_edit',
         'Attendance': 'attendance_condonation',
         'Extension': 'deadline_extension',
-        'Guide': 'guide_reassignment',
-        'Panel': 'panel_reassignment'
       };
 
       if (typeMap[category]) {
         filters.requestType = typeMap[category];
       } else if (category === 'guide' || category === 'panel') {
-        // Fallback based on old logic saw in code
-        // filters.requestType = category + "_reassignment";
-        // Actually, let's look at the requestType enum: ["deadline_extension", "mark_edit", "resubmission"]
-        // Wait, schema says: enum: ["deadline_extension", "mark_edit", "resubmission"]
-        // "guide_reassignment" is NOT in schema enum! This might be a bug in old code.
-        // For now, let's just log what we are filtering by.
+        filters.facultyType = category;
       } else {
-        // If category matches a valid requestType, use it directly
         filters.requestType = category;
       }
     }
@@ -406,6 +396,7 @@ export async function getRequests(req, res) {
       student: req.student,
       studentName: req.student?.name || "Unknown Student",
       category: req.requestType,
+      facultyType: req.facultyType, // EXPOSE FACULTY TYPE
       projectTitle: req.project?.name || "Unknown Project",
       message: req.reason,
       status: req.status,

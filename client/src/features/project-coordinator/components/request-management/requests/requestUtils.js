@@ -103,7 +103,16 @@ export const applyFilters = (requests, filters) => {
   return requests.filter((request) => {
     if (filters.school && request.school !== filters.school) return false;
     if (filters.program && request.program !== filters.program) return false;
-    if (filters.category && request.category !== filters.category) return false;
+
+    // Check category/type filter
+    if (filters.category) {
+      if (filters.category === 'guide' || filters.category === 'panel') {
+        if (request.facultyType !== filters.category) return false;
+      } else {
+        if (request.category !== filters.category) return false;
+      }
+    }
+
     if (filters.status && request.status !== filters.status) return false;
     return true;
   });

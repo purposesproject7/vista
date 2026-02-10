@@ -64,7 +64,7 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
               const isPPTApproved = pptApproval && pptApproval.isApproved;
               const isBlockedByPPT = isPanelRole && !isPPTApproved;
 
-              const effectivelyLocked = isLocked || team.marksEntered || (team.existingMeta && team.existingMeta.isSubmitted);
+              const effectivelyLocked = !team.isUnlocked && (isLocked || team.marksEntered || (team.existingMeta && team.existingMeta.isSubmitted));
 
               return (
                 <div
