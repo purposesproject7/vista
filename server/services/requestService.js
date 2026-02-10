@@ -32,36 +32,8 @@ export class RequestService {
     // Filter out null faculty (didn't match)
     const filteredRequests = requests.filter((req) => req.faculty !== null);
 
-    // Group by faculty
-    const grouped = {};
-    filteredRequests.forEach((req) => {
-      const facultyId = req.faculty._id.toString();
-
-      if (!grouped[facultyId]) {
-        grouped[facultyId] = {
-          _id: facultyId,
-          name: req.faculty.name,
-          employeeId: req.faculty.employeeId,
-          school: req.faculty.school,
-          program: req.faculty.program,
-          requests: [],
-        };
-      }
-
-      grouped[facultyId].requests.push({
-        _id: req._id,
-        student: req.student,
-        project: req.project,
-        reviewType: req.reviewType,
-        requestType: req.requestType,
-        facultyType: req.facultyType,
-        reason: req.reason,
-        status: req.status,
-        createdAt: req.createdAt,
-      });
-    });
-
-    return Object.values(grouped);
+    // Return flat list
+    return filteredRequests;
   }
 
   /**
