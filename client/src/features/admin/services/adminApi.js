@@ -1106,31 +1106,6 @@ export const updateProjectCoordinator = async (coordinatorId, data) => {
   return response.data;
 };
 
-/**
- * Update coordinator permissions
- */
-export const updateCoordinatorPermissions = async (
-  coordinatorId,
-  permissions
-) => {
-  const response = await api.patch(
-    `/admin/project-coordinators/${coordinatorId}/permissions`,
-    {
-      permissions,
-    }
-  );
-  return response.data;
-};
-
-/**
- * Remove project coordinator
- */
-export const removeProjectCoordinator = async (coordinatorId) => {
-  const response = await api.delete(
-    `/admin/project-coordinators/${coordinatorId}`
-  );
-  return response.data;
-};
 
 // ==================== Marking Schema APIs ====================
 
