@@ -5,7 +5,7 @@ import {
     TrashIcon,
     ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-import { fetchCoordinators, removeCoordinator, updateCoordinator } from "../../services/adminApi";
+import { fetchCoordinators, removeProjectCoordinator, updateCoordinator } from "../../services/adminApi";
 import CoordinatorPermissionModal from "./CoordinatorPermissionModal";
 
 const CoordinatorViewTab = () => {
@@ -52,7 +52,7 @@ const CoordinatorViewTab = () => {
         }
 
         try {
-            await removeCoordinator(id);
+            await removeProjectCoordinator(id);
             loadCoordinators();
         } catch (error) {
             console.error("Error removing coordinator:", error);
@@ -192,8 +192,8 @@ const CoordinatorViewTab = () => {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span
                                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${coordinator.isActive
-                                                    ? "bg-green-100 text-green-800"
-                                                    : "bg-red-100 text-red-800"
+                                                ? "bg-green-100 text-green-800"
+                                                : "bg-red-100 text-red-800"
                                                 }`}
                                         >
                                             {coordinator.isActive ? "Active" : "Inactive"}

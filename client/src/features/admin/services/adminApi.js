@@ -629,7 +629,7 @@ export const updateCoordinatorPermissions = async (id, permissions) => {
 /**
  * Remove coordinator (soft delete)
  */
-export const removeCoordinator = async (id) => {
+export const removeProjectCoordinator = async (id) => {
   const response = await api.delete(`/admin/project-coordinators/${id}`);
   return response.data;
 };
