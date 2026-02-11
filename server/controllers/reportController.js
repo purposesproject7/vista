@@ -20,6 +20,9 @@ export const getReportData = async (req, res) => {
             if (!filters.year) {
                 filters.year = req.coordinator.academicYear;
             }
+
+            // Log the applied coordinator context for debugging
+            console.log(`[COORDINATOR REPORT] User: ${req.user?.name}, School: ${filters.school}, Programme: ${filters.programme}, Year: ${filters.year}`);
         }
 
         const data = await ReportService.generateReport(type, filters);

@@ -515,6 +515,10 @@ export class ReportService {
         if (filters.school) query.school = filters.school;
         if (filters.programme) query.program = filters.programme;
         if (filters.year) query.academicYear = filters.year;
+
+        // Log the constructed query for debugging
+        console.log('[REPORT QUERY]', JSON.stringify(query));
+
         return query;
     }
 
