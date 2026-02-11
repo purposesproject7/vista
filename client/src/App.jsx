@@ -18,6 +18,8 @@ import AdminReports from "./features/admin/pages/AdminReports";
 import AdminSettings from "./features/admin/pages/AdminSettings";
 import RequestManagement from "./features/admin/pages/RequestManagement";
 import AdminBroadcasts from "./features/admin/pages/AdminBroadcasts";
+import CoordinatorManagement from "./features/admin/pages/CoordinatorManagement";
+
 
 // Project Coordinator Pages
 import CoordinatorStudentManagement from "./features/project-coordinator/pages/StudentManagement";
@@ -178,6 +180,14 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute allowedRoles={["admin"]}>
                       <AdminManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="coordinators"
+                  element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <CoordinatorManagement />
                     </ProtectedRoute>
                   }
                 />

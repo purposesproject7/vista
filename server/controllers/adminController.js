@@ -787,6 +787,253 @@ export async function updateAccessRequestStatus(req, res) {
   }
 }
 
+// ===== PROJECT COORDINATOR MANAGEMENT =====
+
+
+export async function getProjectCoordinators(req, res) {
+  try {
+    const { school, program, academicYear, facultyId } = req.query;
+
+    const filter = { isActive: true };
+    if (school) filter.school = school;
+    if (program) filter.program = program;
+    if (academicYear) filter.academicYear = academicYear;
+    if (facultyId) filter.faculty = facultyId;
+
+    const coordinators = await ProjectCoordinator.find(filter)
+      .populate("faculty", "name emailId employeeId phoneNumber")
+      .sort({ academicYear: -1, school: 1, program: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: coordinators.length,
+      data: coordinators,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function assignProjectCoordinator(req, res) {
+  try {
+    const { facultyId, academicYear, school, program, isPrimary, permissions } = req.body;
+
+    // Verify faculty exists and has isProjectCoordinator flag
+    const faculty = await Faculty.findById(facultyId);
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: "Faculty not found.",
+      });
+    }
+
+    if (!faculty.isProjectCoordinator) {
+      return res.status(400).json({
+        success: false,
+        message: "Faculty must have project coordinator status enabled.",
+      });
+    }
+
+    // Check for duplicate assignment
+    const existingAssignment = await ProjectCoordinator.findOne({
+      faculty: facultyId,
+      school,
+      program,
+      academicYear,
+      isActive: true,
+    });
+
+    if (existingAssignment) {
+      return res.status(400).json({
+        success: false,
+        message: "This faculty is already assigned as coordinator for this context.",
+      });
+    }
+
+    // If setting as primary, remove primary flag from others in same context
+    if (isPrimary) {
+      await ProjectCoordinator.updateMany(
+        { school, program, academicYear, isPrimary: true },
+        { $set: { isPrimary: false } }
+      );
+    }
+
+    // Create default permissions if not provided
+    const defaultPermissions = permissions || {
+      student_management: { enabled: true },
+      faculty_management: { enabled: true },
+      project_management: { enabled: true },
+      panel_management: { enabled: true },
+    };
+
+    const coordinator = await ProjectCoordinator.create({
+      faculty: facultyId,
+      school,
+      program,
+      academicYear,
+      isPrimary: isPrimary || false,
+      permissions: defaultPermissions,
+      isActive: true,
+    });
+
+    const populatedCoordinator = await ProjectCoordinator.findById(coordinator._id)
+      .populate("faculty", "name emailId employeeId phoneNumber");
+
+    logger.info("coordinator_assigned", {
+      coordinatorId: coordinator._id,
+      facultyId,
+      school,
+      program,
+      academicYear,
+      assignedBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Project coordinator assigned successfully.",
+      data: populatedCoordinator,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateProjectCoordinator(req, res) {
+  try {
+    const { id } = req.params;
+    const { isPrimary, isActive } = req.body;
+
+    const coordinator = await ProjectCoordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({
+        success: false,
+        message: "Coordinator not found.",
+      });
+    }
+
+    // If setting as primary, remove primary flag from others in same context
+    if (isPrimary && !coordinator.isPrimary) {
+      await ProjectCoordinator.updateMany(
+        {
+          school: coordinator.school,
+          program: coordinator.program,
+          academicYear: coordinator.academicYear,
+          isPrimary: true,
+        },
+        { $set: { isPrimary: false } }
+      );
+    }
+
+    if (isPrimary !== undefined) coordinator.isPrimary = isPrimary;
+    if (isActive !== undefined) coordinator.isActive = isActive;
+
+    await coordinator.save();
+
+    const populatedCoordinator = await ProjectCoordinator.findById(id)
+      .populate("faculty", "name emailId employeeId phoneNumber");
+
+    logger.info("coordinator_updated", {
+      coordinatorId: id,
+      updates: { isPrimary, isActive },
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Coordinator updated successfully.",
+      data: populatedCoordinator,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateCoordinatorPermissions(req, res) {
+  try {
+    const { id } = req.params;
+    const { permissions } = req.body;
+
+    const coordinator = await ProjectCoordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({
+        success: false,
+        message: "Coordinator not found.",
+      });
+    }
+
+    // Update permissions
+    coordinator.permissions = {
+      ...coordinator.permissions,
+      ...permissions,
+    };
+
+    coordinator.markModified("permissions");
+    await coordinator.save();
+
+    const populatedCoordinator = await ProjectCoordinator.findById(id)
+      .populate("faculty", "name emailId employeeId phoneNumber");
+
+    logger.info("coordinator_permissions_updated", {
+      coordinatorId: id,
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Coordinator permissions updated successfully.",
+      data: populatedCoordinator,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function removeProjectCoordinator(req, res) {
+  try {
+    const { id } = req.params;
+
+    const coordinator = await ProjectCoordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({
+        success: false,
+        message: "Coordinator not found.",
+      });
+    }
+
+    // Soft delete by setting isActive to false
+    coordinator.isActive = false;
+    await coordinator.save();
+
+    logger.info("coordinator_removed", {
+      coordinatorId: id,
+      facultyId: coordinator.faculty,
+      removedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Coordinator removed successfully.",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ===== BROADCASTS =====
 
 export async function getBroadcastMessages(req, res) {
@@ -1392,296 +1639,6 @@ export async function updateProject(req, res) {
   }
 }
 
-// ===== PROJECT COORDINATOR MANAGEMENT =====
-// (Add these based on your ProjectCoordinator schema requirements)
-
-export async function getProjectCoordinators(req, res) {
-  try {
-    const { academicYear, school, program } = req.query;
-
-    const coordinators = await ProjectCoordinator.find({
-      academicYear,
-      school,
-      program,
-      isActive: true,
-    })
-      .populate("faculty", "name employeeId emailId")
-      .lean();
-
-    res.status(200).json({
-      success: true,
-      data: coordinators,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-export async function assignProjectCoordinator(req, res) {
-  try {
-    const { facultyId, academicYear, school, program, isPrimary, permissions } =
-      req.body;
-
-    // Verify faculty exists
-    const faculty = await Faculty.findById(facultyId);
-    if (!faculty) {
-      return res.status(404).json({
-        success: false,
-        message: "Faculty not found",
-      });
-    }
-
-    // Check if already exists
-    const existing = await ProjectCoordinator.findOne({
-      faculty: facultyId,
-      academicYear,
-      school,
-      program,
-      isActive: true,
-    });
-
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "This faculty is already a project coordinator for this context.",
-      });
-    }
-
-    // Fetch global deadlines
-    const programConfig = await ProgramConfig.findOne({
-      academicYear,
-      school,
-      program,
-    });
-
-    if (!programConfig) {
-      return res.status(404).json({
-        success: false,
-        message: "Program configuration not found. Please create it first.",
-      });
-    }
-
-    // Build deadline mapping
-    const globalDeadlines = {};
-    if (programConfig.featureLocks) {
-      programConfig.featureLocks.forEach((lock) => {
-        globalDeadlines[lock.featureName] = lock.deadline;
-      });
-    }
-
-    // Default permissions with global deadlines
-    const defaultPermissions = {
-      student_management: {
-        enabled: true,
-        deadline: globalDeadlines.student_management,
-      },
-      faculty_management: {
-        enabled: true,
-        deadline: globalDeadlines.faculty_management,
-      },
-      project_management: {
-        enabled: true,
-        deadline: globalDeadlines.project_management,
-      },
-      panel_management: {
-        enabled: true,
-        deadline: globalDeadlines.panel_management,
-      },
-    };
-
-    // Override defaults with provided permissions if any
-    const finalPermissions = permissions
-      ? { ...defaultPermissions, ...permissions }
-      : defaultPermissions;
-
-    // If primary, unset others
-    if (isPrimary) {
-      await ProjectCoordinator.updateMany(
-        { academicYear, school, program, isPrimary: true },
-        { $set: { isPrimary: false } }
-      );
-    }
-
-    // Create coordinator assignment
-    const coordinator = new ProjectCoordinator({
-      faculty: facultyId,
-      academicYear,
-      school,
-      program,
-      isPrimary: isPrimary || false,
-      permissions: finalPermissions,
-      isActive: true,
-    });
-
-    await coordinator.save();
-
-    // Set flag on faculty
-    faculty.isProjectCoordinator = true;
-    await faculty.save();
-
-    // Populate response
-    await coordinator.populate("faculty", "name emailId employeeId");
-
-    logger.info("project_coordinator_assigned", {
-      coordinatorId: coordinator._id,
-      facultyId,
-      academicYear,
-      school,
-      program,
-      isPrimary,
-      assignedBy: req.user._id,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Project coordinator assigned successfully.",
-      data: coordinator,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-// Helper: Merge permissions
-function mergePermissions(defaultPerms, customPerms) {
-  const merged = { ...defaultPerms };
-
-  for (const [key, value] of Object.entries(customPerms)) {
-    if (merged[key]) {
-      merged[key] = {
-        enabled:
-          value.enabled !== undefined ? value.enabled : merged[key].enabled,
-        deadline:
-          value.deadline !== undefined ? value.deadline : merged[key].deadline,
-      };
-    }
-  }
-
-  return merged;
-}
-
-export async function updateProjectCoordinator(req, res) {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    const coordinator = await ProjectCoordinator.findById(id);
-    if (!coordinator) {
-      return res.status(404).json({
-        success: false,
-        message: "Project coordinator not found.",
-      });
-    }
-
-    // If changing to primary, unset others
-    if (updates.isPrimary === true && !coordinator.isPrimary) {
-      await ProjectCoordinator.updateMany(
-        {
-          academicYear: coordinator.academicYear,
-          school: coordinator.school,
-          program: coordinator.program,
-          isPrimary: true,
-          _id: { $ne: id },
-        },
-        { $set: { isPrimary: false } }
-      );
-    }
-
-    Object.assign(coordinator, updates);
-    await coordinator.save();
-
-    logger.info("project_coordinator_updated", {
-      coordinatorId: id,
-      updatedBy: req.user._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Project coordinator updated successfully.",
-      data: coordinator,
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-export async function updateCoordinatorPermissions(req, res) {
-  try {
-    const { id } = req.params;
-    const { permissions } = req.body;
-
-    const coordinator = await ProjectCoordinator.findById(id);
-    if (!coordinator) {
-      return res.status(404).json({
-        success: false,
-        message: "Project coordinator not found.",
-      });
-    }
-
-    coordinator.permissions = { ...coordinator.permissions, ...permissions };
-    await coordinator.save();
-
-    logger.info("coordinator_permissions_updated", {
-      coordinatorId: id,
-      updatedBy: req.user._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Permissions updated successfully.",
-      data: coordinator,
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-export async function removeProjectCoordinator(req, res) {
-  try {
-    const { id } = req.params;
-
-    const coordinator = await ProjectCoordinator.findByIdAndUpdate(
-      id,
-      { $set: { isActive: false } },
-      { new: true }
-    );
-
-    if (!coordinator) {
-      return res.status(404).json({
-        success: false,
-        message: "Project coordinator not found.",
-      });
-    }
-
-    logger.info("project_coordinator_removed", {
-      coordinatorId: id,
-      removedBy: req.user._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Project coordinator removed successfully.",
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
 
 // ===== COMPONENT LIBRARY ===== (Referenced in routes but not implemented)
 export async function getComponentLibrary(req, res) {

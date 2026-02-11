@@ -11,6 +11,7 @@ import {
   MegaphoneIcon,
   UsersIcon,
   ShieldCheckIcon,
+  UserPlusIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../../../../shared/hooks/useAuth";
 
@@ -33,6 +34,13 @@ const AdminTabs = () => {
       path: "/admin/faculty",
       icon: AcademicCapIcon,
       description: "Manage faculty members",
+    },
+    {
+      id: "coordinators",
+      label: "Coordinator Management",
+      path: "/admin/coordinators",
+      icon: UserPlusIcon,
+      description: "Manage project coordinators",
     },
     {
       id: "admins",

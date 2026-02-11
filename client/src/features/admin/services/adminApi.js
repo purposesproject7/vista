@@ -572,6 +572,68 @@ export const deleteAdmin = async (employeeId) => {
 };
 
 
+// ==================== Project Coordinator Management APIs ====================
+
+/**
+ * Fetch all project coordinators with optional filters
+ */
+export const fetchCoordinators = async (filters = {}) => {
+  const params = { ...filters };
+  if (params.department) {
+    params.program = params.department;
+    delete params.department;
+  }
+
+  const response = await api.get("/admin/project-coordinators", { params });
+  if (response.data.success) {
+    return {
+      success: true,
+      count: response.data.count,
+      coordinators: response.data.data,
+    };
+  }
+  return response.data;
+};
+
+/**
+ * Assign a new project coordinator
+ */
+export const assignCoordinator = async (coordinatorData) => {
+  const payload = {
+    ...coordinatorData,
+    program: coordinatorData.programme || coordinatorData.program,
+  };
+  const response = await api.post("/admin/project-coordinators", payload);
+  return response.data;
+};
+
+/**
+ * Update coordinator details (isPrimary, isActive)
+ */
+export const updateCoordinator = async (id, updates) => {
+  const response = await api.put(`/admin/project-coordinators/${id}`, updates);
+  return response.data;
+};
+
+/**
+ * Update coordinator permissions
+ */
+export const updateCoordinatorPermissions = async (id, permissions) => {
+  const response = await api.patch(
+    `/admin/project-coordinators/${id}/permissions`,
+    { permissions }
+  );
+  return response.data;
+};
+
+/**
+ * Remove coordinator (soft delete)
+ */
+export const removeCoordinator = async (id) => {
+  const response = await api.delete(`/admin/project-coordinators/${id}`);
+  return response.data;
+};
+
 // ==================== Panel APIs ====================
 
 /**
