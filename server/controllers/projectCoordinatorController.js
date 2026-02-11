@@ -2707,10 +2707,16 @@ export async function getReportData(req, res) {
     const { type } = req.query;
     const context = getCoordinatorContext(req);
 
-    // Merge query filters with context (context overrides to ensure security)
-    const filters = { ...req.query, ...context };
+    // Map 'program' to 'programme' for ReportService compatibility
+    // ReportService._buildMatchQuery expects 'programme', not 'program'
+    const filters = {
+      ...req.query,
+      school: context.school,
+      programme: context.program,  // Note: changing 'program' to 'programme'
+      year: context.academicYear
+    };
 
-    console.log(`Generating report ${type} for context:`, context);
+    console.log(`[COORDINATOR REPORT] Generating report ${type} for context:`, filters);
 
     const reportData = await ReportService.generateReport(type, filters);
 
