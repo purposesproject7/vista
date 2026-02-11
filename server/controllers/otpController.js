@@ -61,6 +61,7 @@ export async function sendOTP(req, res) {
     res.status(500).json({
       success: false,
       message: "Error sending OTP. Please try again.",
+      error: error.message, // Exposed for debugging
     });
   }
 }
@@ -140,6 +141,7 @@ export async function verifyOTPAndResetPassword(req, res) {
     res.status(500).json({
       success: false,
       message: "Error resetting password. Please try again.",
+      error: error.message, // Exposed for debugging
     });
   }
 }
@@ -165,6 +167,7 @@ export async function resendOTP(req, res) {
     res.status(500).json({
       success: false,
       message: "Error resending OTP. Please try again.",
+      error: error.message, // Exposed for debugging
     });
   }
 }
