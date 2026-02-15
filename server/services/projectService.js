@@ -618,6 +618,15 @@ export class ProjectService {
       delete projectUpdates.ignoreSpecialization; // Remove flag
       delete projectUpdates.assignmentScope;
       delete projectUpdates.reviewType;
+
+      // Remove empty strings for required fields to prevent validation errors
+      if (projectUpdates.specialization === "") delete projectUpdates.specialization;
+      if (projectUpdates.name === "") delete projectUpdates.name;
+      if (projectUpdates.type === "") delete projectUpdates.type;
+      if (projectUpdates.school === "") delete projectUpdates.school;
+      if (projectUpdates.program === "") delete projectUpdates.program;
+      if (projectUpdates.academicYear === "") delete projectUpdates.academicYear;
+      if (projectUpdates.teamSize === "") delete projectUpdates.teamSize;
     }
 
     // ---------- Update project scalar fields ----------
@@ -723,11 +732,10 @@ export class ProjectService {
       // Skip check if ignoreSpecialization is true
       if (
         !ignoreSpecialization &&
-        (newGuide.school !== project.school ||
-          newGuide.program !== project.program)
+        newGuide.school !== project.school
       ) {
         throw new Error(
-          "Guide must belong to the same school and program as the project."
+          "Guide must belong to the same school as the project."
         );
       }
 

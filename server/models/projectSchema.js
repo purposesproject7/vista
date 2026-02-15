@@ -6,6 +6,7 @@ const projectHistorySchema = new mongoose.Schema(
       type: String,
       enum: [
         "created",
+        "updated",
         "guide_reassigned",
         "panel_reassigned",
         "review_panel_assigned",
@@ -86,7 +87,7 @@ const projectSchema = new mongoose.Schema(
     academicYear: { type: String, required: true },
     school: { type: String, required: true },
     program: { type: String, required: true },
-    specialization: { type: String, required: true },
+    specialization: { type: String, required: false },
 
     type: {
       type: String,
@@ -111,6 +112,8 @@ const projectSchema = new mongoose.Schema(
       ref: "Project",
       default: null,
     },
+
+    description: { type: String },
   },
   { timestamps: true }
 );

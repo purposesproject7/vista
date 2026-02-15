@@ -1033,13 +1033,17 @@ export async function updateProject(req, res) {
       });
     }
 
-    Object.assign(project, req.body);
-    await project.save();
+    const updated = await ProjectService.updateProjectDetails(
+      id,
+      req.body,
+      null,
+      req.user._id
+    );
 
     res.status(200).json({
       success: true,
       message: "Project updated successfully.",
-      data: project,
+      data: updated.project,
     });
   } catch (error) {
     res.status(400).json({

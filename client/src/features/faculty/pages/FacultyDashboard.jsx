@@ -11,6 +11,8 @@ import { CalendarIcon, AcademicCapIcon, UserGroupIcon } from '@heroicons/react/2
 import { useAuth } from '../../../shared/hooks/useAuth';
 import PPTApprovalSection from '../components/PPTApprovalSection';
 import MergeTeamsModal from '../components/MergeTeamsModal';
+import EditProjectModal from '../components/EditProjectModal';
+import { PencilSquareIcon } from '@heroicons/react/24/outline'; // Add icon import
 
 
 const FacultyDashboard = () => {
@@ -106,6 +108,15 @@ const FacultyDashboard = () => {
     const [isTeamsExpanded, setIsTeamsExpanded] = useState(false); // Default collapsed
     const [currentReview, setCurrentReview] = useState(null);
     const [currentTeam, setCurrentTeam] = useState(null);
+
+    // Edit Project State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [projectToEdit, setProjectToEdit] = useState(null);
+
+    const handleEditProject = (project) => {
+        setProjectToEdit(project);
+        setIsEditModalOpen(true);
+    };
 
     const handleEnterMarks = (review, team) => {
         setCurrentReview(review);
@@ -221,7 +232,19 @@ const FacultyDashboard = () => {
                                                 <span className="text-[10px] font-black uppercase tracking-tighter text-slate-300"># GUIDE</span>
                                             </div>
 
-                                            <h3 className="text-base font-bold text-slate-800 mb-1 truncate">{project.name}</h3>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <h3 className="text-base font-bold text-slate-800 truncate flex-1" title={project.name}>{project.name}</h3>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEditProject(project);
+                                                    }}
+                                                    className="p-1 text-slate-400 hover:text-blue-600 rounded-full hover:bg-blue-50 transition-colors ml-2"
+                                                    title="Edit Project Name"
+                                                >
+                                                    <PencilSquareIcon className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                             <p className="text-xs text-slate-500 line-clamp-2 mb-4 h-8">{project.description || 'No description available for this project.'}</p>
 
                                             <div className="grid grid-cols-2 gap-2 mb-2">
@@ -356,6 +379,19 @@ const FacultyDashboard = () => {
                     // Optional: Show success toast
                 }}
             />
+
+            {/* EDIT PROJECT MODAL */}
+            {isEditModalOpen && (
+                <EditProjectModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    project={projectToEdit}
+                    onSuccess={() => {
+                        refreshReviews();
+                        // Optional: Show success toast
+                    }}
+                />
+            )}
 
         </div>
     );
