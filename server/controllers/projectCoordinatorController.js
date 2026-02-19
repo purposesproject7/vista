@@ -2657,11 +2657,114 @@ export async function getProjectMarks(req, res) {
     const marks = await Marks.find({ project: id })
       .populate("faculty", "name employeeId")
       .populate("student", "regNo name")
+      .sort({ student: 1, reviewType: 1 })
       .lean();
+
+    // Group by student and Review Type
+    const byStudentReview = {};
+
+    marks.forEach((mark) => {
+      if (!mark.student) return; // robustness check
+      const studentId = mark.student._id.toString();
+      const reviewType = mark.reviewType;
+      const key = `${studentId}-${reviewType}`;
+
+      if (!byStudentReview[key]) {
+        byStudentReview[key] = {
+          student: mark.student,
+          reviewType: reviewType,
+          guideExposed: null,
+          panelMarksList: [],
+        };
+      }
+
+      if (mark.facultyType === 'guide') {
+        byStudentReview[key].guideExposed = {
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks
+        };
+      } else if (mark.facultyType === 'panel') {
+        byStudentReview[key].panelMarksList.push({
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks
+        });
+      }
+    });
+
+    const results = [];
+    Object.values(byStudentReview).forEach(group => {
+      // Add Guide Marks
+      if (group.guideExposed) {
+        results.push({
+          student: group.student,
+          reviewType: group.reviewType,
+          facultyType: 'guide',
+          faculty: group.guideExposed.faculty,
+          totalMarks: group.guideExposed.totalMarks,
+          maxTotalMarks: group.guideExposed.maxTotalMarks,
+          isSubmitted: group.guideExposed.isSubmitted,
+          componentMarks: group.guideExposed.componentMarks
+        });
+      }
+
+      // Add Panel Marks (Aggregated)
+      if (group.panelMarksList.length > 0) {
+        const submittedPanelMarks = group.panelMarksList.filter(m => m.isSubmitted);
+        let panelAvg = 0;
+        let panelMax = group.panelMarksList[0].maxTotalMarks;
+        let isPanelSubmitted = false;
+        let averagedComponents = [];
+
+        if (submittedPanelMarks.length > 0) {
+          isPanelSubmitted = true;
+          const sum = submittedPanelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
+          panelAvg = sum / submittedPanelMarks.length;
+          panelMax = submittedPanelMarks[0].maxTotalMarks;
+
+          // Average Components
+          if (submittedPanelMarks[0].componentMarks && submittedPanelMarks[0].componentMarks.length > 0) {
+            averagedComponents = submittedPanelMarks[0].componentMarks.map(refComp => {
+              const compName = refComp.componentName;
+              let compSum = 0;
+              submittedPanelMarks.forEach(memberMark => {
+                const memberComp = memberMark.componentMarks?.find(c => c.componentName === compName);
+                if (memberComp) {
+                  compSum += (memberComp.componentTotal || 0);
+                }
+              });
+              const compAvg = compSum / submittedPanelMarks.length;
+              return {
+                ...refComp,
+                marks: parseFloat(compAvg.toFixed(2)),
+                componentTotal: parseFloat(compAvg.toFixed(2)),
+                subComponents: []
+              };
+            });
+          }
+        }
+
+        results.push({
+          student: group.student,
+          reviewType: group.reviewType,
+          facultyType: 'panel',
+          faculty: { name: "Panel Average" },
+          totalMarks: isPanelSubmitted ? parseFloat(panelAvg.toFixed(2)) : 0,
+          maxTotalMarks: isPanelSubmitted ? panelMax : (group.panelMarksList[0]?.maxTotalMarks || 100),
+          isSubmitted: isPanelSubmitted,
+          componentMarks: averagedComponents
+        });
+      }
+    });
 
     res.status(200).json({
       success: true,
-      data: marks,
+      data: results,
     });
   } catch (error) {
     res.status(500).json({

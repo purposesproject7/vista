@@ -145,6 +145,14 @@ const CoordinatorReports = () => {
             icon: UserGroupIcon,
             filters: [],
             color: 'pink'
+        },
+        {
+            id: 'team-details',
+            name: 'Team Details Report',
+            description: 'Detailed list of project teams, students, guides, and panels',
+            icon: UserGroupIcon,
+            filters: [],
+            color: 'indigo'
         }
     ];
 

@@ -32,6 +32,8 @@ export class ReportService {
                 return this.generateStudentCompleteReport(filters);
             case "faculty-time-sheet":
                 return this.generateTimeSheetReport(filters);
+            case "team-details":
+                return this.generateTeamDetailsReport(filters);
             default:
                 throw new Error("Invalid report type");
         }
@@ -110,7 +112,7 @@ export class ReportService {
                 // reviewMarks is array of Mark docs for ONE review type
                 // Separate Guide vs Panel
                 const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
-                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel');
+                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel' && r.isSubmitted);
 
                 let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
                 // let guideMax = guideMarkParam ? (guideMarkParam.maxTotalMarks || 100) : 100;
@@ -321,10 +323,13 @@ export class ReportService {
                     // Calculate Panel Average
                     let panelAvg = 0;
                     let panelStatus = "Pending";
-                    if (reviewData.panelMarks.length > 0) {
-                        const sum = reviewData.panelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
-                        panelAvg = sum / reviewData.panelMarks.length;
-                        panelStatus = "Submitted"; // Partial or Full? Assuming submitted if any exist
+                    // Filter for submitted/assigned panel marks only
+                    const validPanelMarks = reviewData.panelMarks.filter(m => m.isSubmitted);
+
+                    if (validPanelMarks.length > 0) {
+                        const sum = validPanelMarks.reduce((acc, curr) => acc + (curr.totalMarks || 0), 0);
+                        panelAvg = sum / validPanelMarks.length;
+                        panelStatus = "Submitted";
                     }
 
                     results.push({
@@ -399,8 +404,8 @@ export class ReportService {
             if (!project) continue;
 
             const marks = await Marks.find({ student: student._id }).lean();
-            const hasGuideMark = marks.some(m => m.facultyType === 'guide');
-            const hasPanelMark = marks.some(m => m.facultyType === 'panel');
+            const hasGuideMark = marks.some(m => m.facultyType === 'guide' && m.isSubmitted);
+            const hasPanelMark = marks.some(m => m.facultyType === 'panel' && m.isSubmitted);
 
             let status = '';
             if (!hasGuideMark && !hasPanelMark) status = 'Both Pending';
@@ -462,7 +467,7 @@ export class ReportService {
 
             Object.values(studentData.reviews).forEach(reviewMarks => {
                 const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
-                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel');
+                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel' && r.isSubmitted);
 
                 let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
                 let guideMax = guideMarkParam ? (guideMarkParam.maxTotalMarks || 100) : 100;
@@ -546,5 +551,65 @@ export class ReportService {
             summary,
             logs
         };
+    }
+
+    /**
+     * 11. Team Details Report
+     */
+    static async generateTeamDetailsReport(filters) {
+        const query = this._buildMatchQuery(filters);
+
+        // Fetch projects with all necessary populates
+        // We need students, guide, and panel members
+        const projects = await Project.find(query)
+            .populate('students', 'name regNo emailId phoneNumber')
+            .populate('guideFaculty', 'name email employeeId')
+            .populate({
+                path: 'panel',
+                select: 'panelName members',
+                populate: {
+                    path: 'members.faculty',
+                    select: 'name employeeId'
+                }
+            })
+            .lean();
+
+        // Sort by Project Name
+        projects.sort((a, b) => a.name.localeCompare(b.name));
+
+        const results = [];
+
+        for (const p of projects) {
+            // Format panel info
+            let panelMembersList = [];
+            if (p.panel?.members && p.panel.members.length > 0) {
+                panelMembersList = p.panel.members
+                    .map(m => m.faculty?.name)
+                    .filter(Boolean);
+            }
+            const panelMembersStr = panelMembersList.join(", ") || "Unassigned";
+
+            const panelName = p.panel?.panelName || (p.panel ? "Unnamed Panel" : "Unassigned");
+
+            // Format Students - Create a string list
+            // For Excel, newline works well in a cell if wrap text is on. Or comma.
+            const studentDetails = p.students.map(s => `${s.name} (${s.regNo})`).join(", ");
+            const studentCount = p.students.length;
+
+            results.push({
+                "Project Title": p.name,
+                "Status": p.status,
+                "Academic Year": p.academicYear,
+                "Program": p.program,
+                "Guide Name": p.guideFaculty?.name || "Unassigned",
+                "Guide EmpID": p.guideFaculty?.employeeId || "N/A",
+                "Panel Name": panelName,
+                "Panel Members": panelMembersStr,
+                "Student Count": studentCount,
+                "Students": studentDetails
+            });
+        }
+
+        return results;
     }
 }

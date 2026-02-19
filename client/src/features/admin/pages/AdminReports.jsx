@@ -175,6 +175,14 @@ const AdminReports = () => {
       icon: ChartBarIcon, // Debug: ClockIcon might be missing?
       filters: ['year', 'school', 'programme'], // Programme optional, but useful context
       color: 'cyan'
+    },
+    {
+      id: 'team-details',
+      name: 'Team Details Report',
+      description: 'Detailed list of project teams, students, guides, and panels',
+      icon: UserGroupIcon,
+      filters: ['school', 'programme', 'year'],
+      color: 'indigo'
     }
   ];
 

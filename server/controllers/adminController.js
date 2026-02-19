@@ -1895,14 +1895,16 @@ export async function getMarksReport(req, res) {
           faculty: mark.faculty,
           totalMarks: mark.totalMarks,
           maxTotalMarks: mark.maxTotalMarks,
-          isSubmitted: mark.isSubmitted
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks // Include component breakdown
         };
       } else if (mark.facultyType === 'panel') {
         byStudentReview[key].panelMarksList.push({
           faculty: mark.faculty,
           totalMarks: mark.totalMarks,
           maxTotalMarks: mark.maxTotalMarks,
-          isSubmitted: mark.isSubmitted
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks // Include component breakdown
         });
       }
     });
@@ -1911,11 +1913,50 @@ export async function getMarksReport(req, res) {
       // Calculate Panel Average
       let panelAvg = 0;
       let panelMax = 0; // Assuming uniform max marks
+      let averagedComponents = [];
+      let isPanelSubmitted = false;
 
-      if (group.panelMarksList.length > 0) {
-        const sum = group.panelMarksList.reduce((acc, curr) => acc + curr.totalMarks, 0);
-        panelAvg = sum / group.panelMarksList.length;
-        panelMax = group.panelMarksList[0].maxTotalMarks; // Take first member max
+      // Filter only submitted marks for aggregation
+      // If no marks are submitted, we can't calculate a meaningful average for "submitted" status.
+      // However, if we want to show "Pending" status, we can check if any exist.
+      const submittedPanelMarks = group.panelMarksList.filter(m => m.isSubmitted);
+
+      if (submittedPanelMarks.length > 0) {
+        isPanelSubmitted = true;
+        const sum = submittedPanelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
+        panelAvg = sum / submittedPanelMarks.length;
+        panelMax = submittedPanelMarks[0].maxTotalMarks; // Take first member max
+
+        // Calculate Average for Components
+        // We assume all panel members follow the same schema structure for the review
+        if (submittedPanelMarks[0].componentMarks && submittedPanelMarks[0].componentMarks.length > 0) {
+          averagedComponents = submittedPanelMarks[0].componentMarks.map(refComp => {
+            const compName = refComp.componentName;
+
+            let compSum = 0;
+            // Iterate over all submitted marks to find matching component
+            submittedPanelMarks.forEach(memberMark => {
+              const memberComp = memberMark.componentMarks?.find(c => c.componentName === compName);
+              if (memberComp) {
+                // Use componentTotal which is the aggregated score for the component
+                compSum += (memberComp.componentTotal || 0);
+              }
+            });
+
+            const compAvg = compSum / submittedPanelMarks.length;
+
+            // Return a new component object with averaged marks
+            return {
+              ...refComp, // Copy structure (name, IDs)
+              // Update score fields
+              marks: parseFloat(compAvg.toFixed(2)),
+              componentTotal: parseFloat(compAvg.toFixed(2)),
+              // subComponents are hard to average deep, preserving structure but marks might be misleading if deep drilled.
+              // For now, top-level component average is what matters for the report/modal.
+              subComponents: [] // Clear subcomponents to avoid confusion or need complex deep averaging
+            };
+          });
+        }
       }
 
       return {
@@ -1928,6 +1969,7 @@ export async function getMarksReport(req, res) {
             reviewType: group.reviewType,
             facultyType: 'guide',
             faculty: group.guideExposed.faculty,
+            componentMarks: group.guideExposed.componentMarks,
             totalMarks: group.guideExposed.totalMarks,
             maxTotalMarks: group.guideExposed.maxTotalMarks,
             isSubmitted: group.guideExposed.isSubmitted
@@ -1936,9 +1978,10 @@ export async function getMarksReport(req, res) {
             reviewType: group.reviewType,
             facultyType: 'panel', // Aggregate Object
             faculty: { name: "Panel Average" }, // Pseudo faculty
-            totalMarks: parseFloat(panelAvg.toFixed(2)),
-            maxTotalMarks: panelMax,
-            isSubmitted: true,
+            componentMarks: averagedComponents,
+            totalMarks: isPanelSubmitted ? parseFloat(panelAvg.toFixed(2)) : 0,
+            maxTotalMarks: isPanelSubmitted ? panelMax : (group.panelMarksList[0]?.maxTotalMarks || 100),
+            isSubmitted: isPanelSubmitted, // Only true if at least one submitted
             details: group.panelMarksList // Optional: keep details if frontend needs hover
           }] : [])
         ]

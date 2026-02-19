@@ -486,35 +486,35 @@ export class StudentService {
         if (matchingMarks.length > 0) {
           issubmitted = matchingMarks.some(m => m.isSubmitted);
 
-          if (facultyType === 'panel' && matchingMarks.length > 1) {
-            // --- AVERAGING LOGIC FOR PANEL ---
+          if (facultyType === 'panel') {
+            // Filter only submitted marks for Panel
+            const validPanelMarks = matchingMarks.filter(m => m.isSubmitted);
 
-            // 1. Average Total Marks
-            const totalScores = matchingMarks.map(m => m.totalMarks || 0);
-            reviewData.total = calculateAverage(totalScores);
+            if (validPanelMarks.length > 0) {
+              // 1. Average Total Marks
+              const totalScores = validPanelMarks.map(m => m.totalMarks || 0);
+              reviewData.total = calculateAverage(totalScores);
 
-            // 2. Average Component Marks
-            // First, collect all components from all submissions
-            const componentMap = {}; // { compName: [scores] }
+              // 2. Average Component Marks
+              const componentMap = {};
 
-            matchingMarks.forEach(markDoc => {
-              if (markDoc.componentMarks) {
-                markDoc.componentMarks.forEach(comp => {
-                  if (!componentMap[comp.componentName]) {
-                    componentMap[comp.componentName] = [];
-                  }
-                  componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
-                });
-              }
-            });
+              validPanelMarks.forEach(markDoc => {
+                if (markDoc.componentMarks) {
+                  markDoc.componentMarks.forEach(comp => {
+                    if (!componentMap[comp.componentName]) {
+                      componentMap[comp.componentName] = [];
+                    }
+                    componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
+                  });
+                }
+              });
 
-            // Calculate average for each component
-            Object.keys(componentMap).forEach(compName => {
-              reviewData.marks[compName] = calculateAverage(componentMap[compName]);
-            });
-
+              Object.keys(componentMap).forEach(compName => {
+                reviewData.marks[compName] = calculateAverage(componentMap[compName]);
+              });
+            }
           } else {
-            // Single mark doc (Guide or Single Panel)
+            // Guide or others
             const marksDoc = matchingMarks[0];
             reviewData.total = marksDoc.totalMarks || 0;
 
@@ -574,26 +574,30 @@ export class StudentService {
         const facultyType = docs[0].facultyType; // Assume consistent
         const issubmitted = docs.some(m => m.isSubmitted);
 
-        if (facultyType === 'panel' && docs.length > 1) {
-          // Average Total
-          reviewData.total = calculateAverage(docs.map(d => d.totalMarks || 0));
+        if (facultyType === 'panel') {
+          // Filter only submitted marks for Panel
+          const validPanelMarks = docs.filter(m => m.isSubmitted);
 
-          // Average Components
-          const componentMap = {};
-          docs.forEach(markDoc => {
-            if (markDoc.componentMarks) {
-              markDoc.componentMarks.forEach(comp => {
-                if (!componentMap[comp.componentName]) {
-                  componentMap[comp.componentName] = [];
-                }
-                componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
-              });
-            }
-          });
-          Object.keys(componentMap).forEach(compName => {
-            reviewData.marks[compName] = calculateAverage(componentMap[compName]);
-          });
+          if (validPanelMarks.length > 0) {
+            // Average Total
+            reviewData.total = calculateAverage(validPanelMarks.map(d => d.totalMarks || 0));
 
+            // Average Components
+            const componentMap = {};
+            validPanelMarks.forEach(markDoc => {
+              if (markDoc.componentMarks) {
+                markDoc.componentMarks.forEach(comp => {
+                  if (!componentMap[comp.componentName]) {
+                    componentMap[comp.componentName] = [];
+                  }
+                  componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
+                });
+              }
+            });
+            Object.keys(componentMap).forEach(compName => {
+              reviewData.marks[compName] = calculateAverage(componentMap[compName]);
+            });
+          }
         } else {
           const m = docs[0];
           reviewData.total = m.totalMarks || 0;
