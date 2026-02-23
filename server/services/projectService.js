@@ -790,6 +790,33 @@ export class ProjectService {
           !previousPanel ||
           previousPanel.toString() !== newPanel._id.toString()
         ) {
+          // Check capacity using the LIVE config (not the potentially stale panel.maxProjects)
+          const panelConfig = await ProgramConfig.findOne({
+            academicYear: project.academicYear,
+            school: project.school,
+            program: project.program,
+          });
+          const effectiveMax = panelConfig?.maxProjectsPerPanel ?? newPanel.maxProjects ?? 10;
+
+          if (newPanel.assignedProjectsCount >= effectiveMax) {
+            throw new Error(
+              `Panel has reached maximum capacity (${effectiveMax} projects). Please choose a different panel or increase the limit in Team Settings.`
+            );
+          }
+
+          // Decrement old panel count and increment new panel count
+          if (previousPanel) {
+            await Panel.findByIdAndUpdate(previousPanel, {
+              $inc: { assignedProjectsCount: -1 },
+            });
+          }
+          newPanel.assignedProjectsCount += 1;
+          // Sync maxProjects on the panel doc with live config
+          if (newPanel.maxProjects !== effectiveMax) {
+            newPanel.maxProjects = effectiveMax;
+          }
+          await newPanel.save();
+
           project.history.push({
             action: "panel_reassigned",
             previousPanel: previousPanel || null,

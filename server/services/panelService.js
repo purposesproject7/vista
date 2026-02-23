@@ -280,10 +280,24 @@ export class PanelService {
       );
     }
 
-    // Check capacity
-    if (panel.assignedProjectsCount >= panel.maxProjects) {
+    // Always fetch the LIVE config so that TeamSettings changes are reflected immediately.
+    // The panel.maxProjects stored at creation time can be stale if admin changed the config.
+    const liveConfig = await ProgramConfig.findOne({
+      academicYear: project.academicYear,
+      school: project.school,
+      program: project.program,
+    });
+    const effectiveMaxProjects = liveConfig?.maxProjectsPerPanel ?? panel.maxProjects ?? 10;
+
+    // Sync the panel's stored limit with the live config so future checks are also correct
+    if (panel.maxProjects !== effectiveMaxProjects) {
+      panel.maxProjects = effectiveMaxProjects;
+    }
+
+    // Check capacity against the live limit
+    if (panel.assignedProjectsCount >= effectiveMaxProjects) {
       throw new Error(
-        `Panel has reached maximum capacity (${panel.maxProjects} projects).`
+        `Panel has reached maximum capacity (${effectiveMaxProjects} projects).`
       );
     }
 
@@ -574,12 +588,20 @@ export class PanelService {
       };
     }
 
+    // Fetch the live config once for effective max projects per panel
+    const liveConfig = await ProgramConfig.findOne({
+      academicYear: safeYear,
+      school: { $regex: new RegExp(`^${safeSchool}$`, "i") },
+      program: { $regex: new RegExp(`^${safeProgram}$`, "i") },
+    });
+    const effectiveMaxProjectsPerPanel = liveConfig?.maxProjectsPerPanel ?? 10;
+
     for (const project of projects) {
       try {
         // Filter candidates from activePanels
-        // Must have capacity
+        // Must have capacity — use live config limit for correct validation
         const candidates = activePanels.filter(
-          (p) => p.assignedProjectsCount < p.maxProjects
+          (p) => p.assignedProjectsCount < effectiveMaxProjectsPerPanel
         );
 
         if (candidates.length === 0) {
@@ -711,9 +733,22 @@ export class PanelService {
       );
     }
 
-    // Check capacity
-    if (newPanel.assignedProjectsCount >= newPanel.maxProjects) {
-      throw new Error(`Target panel is full (Max: ${newPanel.maxProjects}).`);
+    // Always fetch the LIVE config so that TeamSettings changes are reflected immediately.
+    const liveConfig = await ProgramConfig.findOne({
+      academicYear: project.academicYear,
+      school: project.school,
+      program: project.program,
+    });
+    const effectiveMaxProjects = liveConfig?.maxProjectsPerPanel ?? newPanel.maxProjects ?? 10;
+
+    // Sync the panel's stored limit with the live config
+    if (newPanel.maxProjects !== effectiveMaxProjects) {
+      newPanel.maxProjects = effectiveMaxProjects;
+    }
+
+    // Check capacity against the live limit
+    if (newPanel.assignedProjectsCount >= effectiveMaxProjects) {
+      throw new Error(`Target panel is full (Max: ${effectiveMaxProjects}).`);
     }
 
     // Specialization check

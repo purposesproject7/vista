@@ -1226,6 +1226,22 @@ export async function reassignGuide(req, res) {
     }
     */
 
+    // Check max projects per guide using LIVE config (same as assignGuide)
+    const config = await ProgramConfig.findOne(getCoordinatorContext(req));
+    if (config?.maxProjectsPerGuide) {
+      const projectCount = await Project.countDocuments({
+        guideFaculty: newGuide._id,
+        status: "active",
+      });
+
+      if (projectCount >= config.maxProjectsPerGuide) {
+        return res.status(400).json({
+          success: false,
+          message: `Guide already has the maximum allowed projects (${config.maxProjectsPerGuide}). Please increase the limit in Team Settings or choose a different guide.`,
+        });
+      }
+    }
+
     const oldGuideFacultyId = project.guideFaculty;
 
     // Mark current project as inactive
