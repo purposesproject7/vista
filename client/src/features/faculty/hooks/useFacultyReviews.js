@@ -305,39 +305,20 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
         return review.teams?.length > 0 && review.teams.every(team => team.marksEntered);
     };
 
+    // Active: the review window is currently open AND not all teams have marks entered
     const active = reviews.filter(r => isReviewActive(r.startDate, r.endDate) && !isAllTeamsMarked(r));
 
+    // Deadline Passed: deadline has expired BUT at least one student is missing marks.
+    // These still need attention (admin unlock / late entry).
     const deadlinePassed = reviews.filter(r =>
         isDeadlinePassed(r.endDate) && !isAllTeamsMarked(r)
     );
 
-    // Completed Reviews Logic:
-    // A review appears in "Completed" if:
-    // 1. Logic A: The review deadline has passed (regardless of marking status? usually yes).
-    // 2. Logic B: A specific team has been fully marked (submitted).
-
-    // We want to show a structure: Review -> [Completed Teams]
-    // So 'past' should be a list of reviews, but inside each review, we might ideally showing ONLY the completed teams?
-    // Or if the plan is "Moved to Past Section", usually it means the *Review* is done.
-
-    // Current requirement: "completed is showing teams but shd show review and then teams"
-    // So we return the reviews, but perhaps we want to include ANY review that has AT LEAST ONE completed team?
-    // Or adhering to the "Review is Completed" definition?
-    // Let's stick to "Review is Completed" or "Deadline Passed" for the SECTION, 
-    // but ensure the structure is preserved.
-
-    // Actually, "Completed Reviews" section usually implies the *Faculty's* work is done or time is up.
-    // Let's rely on standard logic but ensure we return Review Objects.
-
+    // Completed: deadline has passed AND every student across all teams has marks submitted.
+    // Strictly distinct from "Deadline Passed" — both sections are mutually exclusive.
     const past = reviews.filter(r =>
-        isAllTeamsMarked(r) || (isDeadlinePassed(r.endDate))
-    ).map(r => {
-        // Optional: Filter strict teams?
-        // If deadline passed, show ALL teams (even pending ones, which are locked).
-        // If deadline NOT passed but all marked, show ALL teams (all are marked).
-        // So simply returning the review is correct.
-        return r;
-    });
+        isDeadlinePassed(r.endDate) && isAllTeamsMarked(r)
+    );
 
     return {
         reviews,
