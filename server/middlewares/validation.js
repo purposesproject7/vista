@@ -12,7 +12,9 @@ export const validateRequired = (requiredFields, source = "body") => {
 
     const missingFields = requiredFields.filter((field) => {
       const value = data[field];
-      return value === undefined || value === null || value === "";
+      if (value === undefined || value === null || value === "") return true;
+      if (Array.isArray(value) && value.length === 0) return true;
+      return false;
     });
 
     if (missingFields.length > 0) {

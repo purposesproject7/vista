@@ -62,6 +62,7 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                 const newIds = new Set([...prev, ...studentIds]);
                 return Array.from(newIds);
             });
+            setError(null); // Clear any stale error
         }
         setSelectedProjectToAdd(''); // Reset dropdown
     };
@@ -73,6 +74,7 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
         if (student) {
             setSelectedStudentIds(prev => {
                 if (!prev.includes(student._id)) {
+                    setError(null); // Clear any stale error
                     return [...prev, student._id];
                 }
                 return prev;
@@ -88,15 +90,9 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
     };
 
     const handleMerge = async () => {
-        if (selectedStudentIds.length < 1) { // Technically can make a project with 1 student, but usually merge implies > 1. Let's say >= 1 for flexibility or >= 2 per requirement? User said "merge", implies >= 2.
-            // Actually, if they just want to move 1 student to a new project (extract), that's valid too.
-            // But existing validation was < 2. Let's keep < 2 for now unless user asked otherwise.
-            // Wait, user wants to "fix that only that student form that team should be added".
-            // If I want to merge Student A and Student B, count is 2.
-            if (selectedStudentIds.length < 2) {
-                setError("Please select at least two students to form a new team.");
-                return;
-            }
+        if (selectedStudentIds.length < 2) {
+            setError("Please select at least two students to form a new team.");
+            return;
         }
 
         if (!newProjectName.trim()) {
@@ -303,7 +299,7 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                                 <input
                                     type="text"
                                     value={newProjectName}
-                                    onChange={(e) => setNewProjectName(e.target.value)}
+                                    onChange={(e) => { setNewProjectName(e.target.value); setError(null); }}
                                     placeholder="Enter new combined title..."
                                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
                                 />
