@@ -301,24 +301,39 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
         fetchReviews();
     }, [facultyId, filters, refreshTrigger]);
 
-    const isAllTeamsMarked = (review) => {
-        return review.teams?.length > 0 && review.teams.every(team => team.marksEntered);
-    };
+    // ---------------------------------------------------------------------------
+    // Section classification is done at TEAM level, not review level.
+    // A review with mixed completion will have its teams split across sections:
+    //   - Teams with all marks submitted  → Completed
+    //   - Teams missing marks (past deadline) → Deadline Passed
+    //   - Teams missing marks (within window) → Active
+    // ---------------------------------------------------------------------------
 
-    // Active: the review window is currently open AND not all teams have marks entered
-    const active = reviews.filter(r => isReviewActive(r.startDate, r.endDate) && !isAllTeamsMarked(r));
+    // Active: review window is currently open AND the team still has pending marks.
+    // Show all teams within active reviews so the faculty can track full progress.
+    const active = reviews
+        .filter(r => isReviewActive(r.startDate, r.endDate) && r.teams.some(t => !t.marksEntered))
+        .map(r => ({ ...r })); // keep all teams visible in active for progress tracking
 
-    // Deadline Passed: deadline has expired BUT at least one student is missing marks.
-    // These still need attention (admin unlock / late entry).
-    const deadlinePassed = reviews.filter(r =>
-        isDeadlinePassed(r.endDate) && !isAllTeamsMarked(r)
-    );
+    // Deadline Passed: deadline is over AND the team is still missing marks.
+    // Marked teams from the same review will appear in Completed instead.
+    const deadlinePassed = reviews
+        .filter(r => isDeadlinePassed(r.endDate) && r.teams.some(t => !t.marksEntered))
+        .map(r => ({
+            ...r,
+            teams: r.teams.filter(t => !t.marksEntered) // only show the pending teams
+        }));
 
-    // Completed: deadline has passed AND every student across all teams has marks submitted.
-    // Strictly distinct from "Deadline Passed" — both sections are mutually exclusive.
-    const past = reviews.filter(r =>
-        isDeadlinePassed(r.endDate) && isAllTeamsMarked(r)
-    );
+    // Completed: any team whose every student has a submitted mark.
+    // Includes:
+    //   - All-marked teams from past-deadline reviews (split out of Deadline Passed)
+    //   - All-marked teams from active reviews that finished early
+    const past = reviews
+        .filter(r => r.teams.some(t => t.marksEntered))
+        .map(r => ({
+            ...r,
+            teams: r.teams.filter(t => t.marksEntered) // only show the completed teams
+        }));
 
     return {
         reviews,
