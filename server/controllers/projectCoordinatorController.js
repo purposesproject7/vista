@@ -153,9 +153,26 @@ export async function createFacultyBulk(req, res) {
       details: [],
     };
 
+    const context = getCoordinatorContext(req);
+
     for (let i = 0; i < facultyList.length; i++) {
       try {
-        await FacultyService.createFaculty(facultyList[i], req.user._id);
+        const facultyData = {
+          ...facultyList[i],
+          // Enforce coordinator context
+          school: context.school,
+          program: context.program,
+          // Enforce role and prevent coordinator creation
+          role: "faculty",
+          isProjectCoordinator: false,
+        };
+        // Default password from employeeId if not provided
+        if (!facultyData.password) {
+          const empId = String(facultyData.employeeId || "").trim();
+          facultyData.password = `Vit${empId}@123`;
+        }
+
+        await FacultyService.createFaculty(facultyData, req.user._id);
         results.created++;
       } catch (error) {
         results.errors++;

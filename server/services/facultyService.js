@@ -53,7 +53,7 @@ export class FacultyService {
     const query = {
       $or: [
         { emailId: emailId?.trim().toLowerCase() },
-        { employeeId: employeeId?.trim().toUpperCase() },
+        { employeeId: employeeId != null ? String(employeeId).trim().toUpperCase() : undefined },
         { phoneNumber: phoneNumber?.toString().trim() },
       ],
     };
@@ -97,7 +97,7 @@ export class FacultyService {
       name: data.name.trim(),
       emailId: data.emailId.trim().toLowerCase(),
       password: hashedPassword,
-      employeeId: data.employeeId.trim().toUpperCase(),
+      employeeId: String(data.employeeId).trim().toUpperCase(),
       phoneNumber: data.phoneNumber?.toString().trim(),
       role: data.role || "faculty",
       school: data.school ? data.school.trim() : "",
