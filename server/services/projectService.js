@@ -1064,10 +1064,10 @@ export class ProjectService {
   /**
    * Merge multiple projects into one new project
    */
-  static async mergeProjects(studentIds, newName, facultyId) {
+  static async mergeProjects(studentIds, newName, facultyId, panelId = null) {
     // 1. Validate inputs
-    if (!studentIds || !Array.isArray(studentIds) || studentIds.length < 2) {
-      throw new Error("At least two students are required to form a new team.");
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length < 1) {
+      throw new Error("At least one student is required to form a new team.");
     }
 
     if (!newName || typeof newName !== "string" || newName.trim().length === 0) {
@@ -1137,6 +1137,18 @@ export class ProjectService {
     // Use unique student IDs (input might have duplicates if UI bug, but Set handles it)
     const uniqueStudentIds = [...new Set(studentIds.map(id => id.toString()))];
 
+    // Resolve panel: prefer explicitly chosen panelId, fallback to reference project's panel
+    let resolvedPanelId = null;
+    if (panelId) {
+      const chosenPanel = await Panel.findById(panelId);
+      if (!chosenPanel) {
+        throw new Error("Selected panel not found.");
+      }
+      resolvedPanelId = chosenPanel._id;
+    } else if (referenceProject?.panel) {
+      resolvedPanelId = referenceProject.panel;
+    }
+
     const newProject = new Project({
       name: newName,
       students: uniqueStudentIds,
@@ -1149,8 +1161,8 @@ export class ProjectService {
       teamSize: uniqueStudentIds.length,
       status: "active",
 
-      // Inherit panel info from reference if available to minimize setup
-      panel: referenceProject?.panel || null,
+      // Use chosen panel or inherited panel from reference project
+      panel: resolvedPanelId,
       reviewPanels: referenceProject?.reviewPanels || [],
 
       history: [

@@ -773,12 +773,13 @@ export async function getEvaluationMetadata(req, res) {
  */
 export async function mergeProjects(req, res) {
   try {
-    const { studentIds, newName } = req.body;
+    const { studentIds, newName, panelId } = req.body;
 
     const newProject = await ProjectService.mergeProjects(
       studentIds,
       newName,
-      req.user._id
+      req.user._id,
+      panelId || null
     );
 
     res.status(200).json({

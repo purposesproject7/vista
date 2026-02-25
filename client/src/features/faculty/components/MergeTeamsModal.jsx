@@ -7,6 +7,7 @@ import api from '../../../services/api';
 const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess }) => {
     const [selectedStudentIds, setSelectedStudentIds] = useState([]);
     const [newProjectName, setNewProjectName] = useState('');
+    const [selectedPanelId, setSelectedPanelId] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(null); // ID of project being deleted
@@ -20,6 +21,7 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
         if (isOpen) {
             setSelectedStudentIds([]);
             setNewProjectName('');
+            setSelectedPanelId('');
             setError(null);
             setSelectedProjectToAdd('');
             setSelectedStudentToAdd('');
@@ -44,13 +46,50 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                 p.students.forEach(s => {
                     // Enrich student object with their project ID for easy lookup
                     if (!students.find(existing => existing.regNo === s.regNo)) {
-                        students.push({ ...s, projectId: p._id, projectName: p.name });
+                        students.push({ ...s, projectId: p._id, projectName: p.name, panelId: p.panel?._id || p.panel || null, panelName: p.panel?.panelName || null });
                     }
                 });
             }
         });
         return students.sort((a, b) => a.regNo.localeCompare(b.regNo));
     }, [contextProjects]);
+
+    // Derived: Unique panels from projects that have selected students
+    const availablePanels = useMemo(() => {
+        const panelMap = new Map();
+        const selectedSourceProjectIds = new Set(
+            allStudents
+                .filter(s => selectedStudentIds.includes(s._id))
+                .map(s => s.projectId)
+        );
+
+        contextProjects.forEach(p => {
+            if (!selectedSourceProjectIds.has(p._id)) return;
+            const panel = p.panel;
+            if (!panel) return;
+            const panelId = panel._id || panel;
+            if (!panelId) return;
+            const panelIdStr = panelId.toString();
+            if (!panelMap.has(panelIdStr)) {
+                panelMap.set(panelIdStr, {
+                    _id: panelIdStr,
+                    panelName: panel.panelName || `Panel (${panelIdStr.slice(-6)})`,
+                });
+            }
+        });
+        return Array.from(panelMap.values());
+    }, [contextProjects, allStudents, selectedStudentIds]);
+
+    // Auto-select panel when available panels change (if only one option or deselect invalid)
+    useEffect(() => {
+        if (selectedPanelId && !availablePanels.find(p => p._id === selectedPanelId)) {
+            // Auto-deselect if the chosen panel is no longer in the list
+            setSelectedPanelId('');
+        }
+        if (availablePanels.length === 1 && !selectedPanelId) {
+            setSelectedPanelId(availablePanels[0]._id);
+        }
+    }, [availablePanels]);
 
     // Action: Add Project to Workspace (Adds ALL students from project)
     const handleAddProject = (projectId) => {
@@ -90,13 +129,13 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
     };
 
     const handleMerge = async () => {
-        if (selectedStudentIds.length < 2) {
-            setError("Please select at least two students to form a new team.");
+        if (selectedStudentIds.length < 1) {
+            setError("Please select at least one student to form a new team.");
             return;
         }
 
         if (!newProjectName.trim()) {
-            setError("Please enter a name for the new merged team.");
+            setError("Please enter a name for the new team.");
             return;
         }
 
@@ -106,13 +145,14 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
         try {
             await api.post('/faculty/projects/merge', {
                 studentIds: selectedStudentIds,
-                newName: newProjectName
+                newName: newProjectName,
+                ...(selectedPanelId ? { panelId: selectedPanelId } : {}),
             });
             onSuccess();
             onClose();
         } catch (err) {
             console.error("Merge failed:", err);
-            setError(err.response?.data?.message || "Failed to merge teams.");
+            setError(err.response?.data?.message || "Failed to create team.");
         } finally {
             setLoading(false);
         }
@@ -124,11 +164,6 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
             setDeleteLoading(projectId);
             try {
                 await api.delete(`/project/${projectId}`);
-                // Remove students of this project from selection if deleted?
-                // Logic: If project deleted, its students are "free" or removed? 
-                // Requirement says "project should only be deleted after creating... OR ... selected completely".
-                // This delete button is for manual deletion.
-                // We should probably remove them from workspace to avoid confusion.
                 const project = contextProjects.find(p => p._id === projectId);
                 if (project && project.students) {
                     const pStudentIds = project.students.map(s => s._id);
@@ -164,6 +199,8 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
         return groups;
     }, [workspaceStudents]);
 
+    const canCreate = selectedStudentIds.length >= 1 && newProjectName.trim().length > 0;
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Manage Project Teams" maxWidth="max-w-4xl">
             <div className="space-y-6">
@@ -171,7 +208,7 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                     <UserGroupIcon className="w-5 h-5 text-slate-500 mt-0.5 shrink-0" />
                     <div className="text-sm text-slate-600">
                         <p className="font-bold mb-1 text-slate-800">Team Construction Workspace</p>
-                        <p>Select individual students or whole teams to add to the workspace. Then create a new team with them.</p>
+                        <p>Select individual students or whole teams to add to the workspace. Then create a new team with them. You can create a team with even a single student.</p>
                     </div>
                 </div>
 
@@ -230,7 +267,7 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                     <div className="lg:col-span-2 flex flex-col h-[400px]">
                         <div className="flex justify-between items-center mb-2 px-1">
                             <label className="block text-sm font-bold text-slate-700">
-                                Workspace ({workspaceStudents.length} Students)
+                                Workspace ({workspaceStudents.length} {workspaceStudents.length === 1 ? 'Student' : 'Students'})
                             </label>
                             {workspaceStudents.length > 0 && (
                                 <button
@@ -300,9 +337,36 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                                     type="text"
                                     value={newProjectName}
                                     onChange={(e) => { setNewProjectName(e.target.value); setError(null); }}
-                                    placeholder="Enter new combined title..."
+                                    placeholder="Enter new team title..."
                                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
                                 />
+                            </div>
+
+                            {/* Panel Selector */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    Assign Panel <span className="text-slate-400 font-normal">(optional)</span>
+                                </label>
+                                {availablePanels.length === 0 ? (
+                                    <p className="text-xs text-slate-400 italic py-2">
+                                        {selectedStudentIds.length === 0
+                                            ? 'Add students to see their panels here.'
+                                            : 'No panels found for the selected students\' projects.'}
+                                    </p>
+                                ) : (
+                                    <select
+                                        value={selectedPanelId}
+                                        onChange={(e) => setSelectedPanelId(e.target.value)}
+                                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white hover:border-blue-300"
+                                    >
+                                        <option value="">No panel / choose later</option>
+                                        {availablePanels.map(panel => (
+                                            <option key={panel._id} value={panel._id}>
+                                                {panel.panelName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
 
                             <div className="text-xs text-slate-500 bg-white p-3 rounded-lg border border-slate-100">
@@ -310,8 +374,16 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                                     <span>Selected Students:</span>
                                     <span className="font-bold">{selectedStudentIds.length}</span>
                                 </div>
-                                <p className="italic text-[10px] text-slate-400">
-                                    {selectedStudentIds.length < 2 ? "Select at least 2 students to form a team." : "Ready to create team."}
+                                {selectedPanelId && (
+                                    <div className="flex justify-between mb-1">
+                                        <span>Panel:</span>
+                                        <span className="font-bold text-blue-600">
+                                            {availablePanels.find(p => p._id === selectedPanelId)?.panelName || 'Selected'}
+                                        </span>
+                                    </div>
+                                )}
+                                <p className="italic text-[10px] text-slate-400 mt-1">
+                                    {selectedStudentIds.length === 0 ? "Add students to the workspace first." : "Ready to create team."}
                                 </p>
                             </div>
 
@@ -319,7 +391,7 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
                                 variant="primary"
                                 onClick={handleMerge}
                                 className="w-full justify-center mt-2 font-bold shadow-lg shadow-blue-100"
-                                disabled={loading || selectedStudentIds.length < 2 || !newProjectName.trim()}
+                                disabled={loading || !canCreate}
                             >
                                 {loading ? 'Creating...' : 'Create Team'}
                             </Button>
