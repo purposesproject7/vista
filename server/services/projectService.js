@@ -152,10 +152,19 @@ export class ProjectService {
    */
   static async getFacultyProjects(facultyId, filters = {}) {
     // Base query for filters
+    // Use case-insensitive regex for program/school/academicYear to handle
+    // mismatches between stored values (e.g. "B.Tech") and query params (e.g. "B.TECH")
     const baseQuery = { status: "active" };
-    if (filters.academicYear) baseQuery.academicYear = filters.academicYear;
-    if (filters.school) baseQuery.school = filters.school;
-    if (filters.program) baseQuery.program = filters.program;
+    if (filters.academicYear) {
+      baseQuery.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+    }
+    if (filters.school) {
+      baseQuery.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+    }
+    if (filters.program && filters.program !== 'All Programs') {
+      // Match by either the full program name OR its code (case-insensitive)
+      baseQuery.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+    }
 
     // Guide projects
     const guideProjects = await Project.find({

@@ -74,7 +74,7 @@ const FacultyDashboard = () => {
                     ...prev,
                     year: years.find(y => y === '2024-2025') || years[0] || '',
                     school: initialSchool,
-                    program: initialPrograms[0]?.name || 'All Programs', // Default to first program
+                    program: initialPrograms[0]?.code || 'All Programs', // Default to first program (use code to match selector value)
                     role: 'guide'
                 }));
             } catch (err) {
@@ -98,7 +98,7 @@ const FacultyDashboard = () => {
 
             // Reset program selection if current selection is invalid for new school
             // Default to first program of the new school
-            const firstProgram = relevantPrograms[0]?.name || 'All Programs';
+            const firstProgram = relevantPrograms[0]?.code || 'All Programs';
             setFilters(prev => ({ ...prev, program: firstProgram }));
         }
     }, [filters.school, filterOptions.allPrograms]);
