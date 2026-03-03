@@ -33,6 +33,7 @@ export class MarksService {
     // Check for existing marks
     const existingMarks = await Marks.findOne({
       student,
+      project,
       reviewType,
       faculty: facultyId,
     });
