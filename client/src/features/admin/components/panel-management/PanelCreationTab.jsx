@@ -11,6 +11,7 @@ import {
   ArrowUpTrayIcon,
   InformationCircleIcon,
   XMarkIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 import AcademicFilterSelector from "../shared/AcademicFilterSelector";
 import Card from "../../../../shared/components/Card";
@@ -32,6 +33,7 @@ import {
   autoCreatePanels,
   bulkCreatePanels,
 } from "../../../../services/adminApi";
+import { fetchFaculty } from "../../services/adminApi";
 
 const SPECIALIZATION_OPTIONS = [
   { value: "Artificial Intelligence", label: "Artificial Intelligence (AI)" },
@@ -60,6 +62,7 @@ const PanelCreation = () => {
   const [facultyListError, setFacultyListError] = useState(null);
   const [facultyList, setFacultyList] = useState([]);
   const [loadingFacultyList, setLoadingFacultyList] = useState(false);
+  const [fetchingAllFaculties, setFetchingAllFaculties] = useState(false);
 
   // Manual mode state
   const [manualForm, setManualForm] = useState({
@@ -168,6 +171,32 @@ const PanelCreation = () => {
       setLoadingFacultyList(false);
     }
   }, [facultyListFile, showToast]);
+
+  const handleFetchAllFaculty = useCallback(async () => {
+    try {
+      setFetchingAllFaculties(true);
+      const response = await fetchFaculty({
+        school: filters.schoolCode || filters.school,
+        program: filters.programCode || filters.program,
+        academicYear: filters.academicYear,
+      });
+
+      if (response.success && response.faculty?.length > 0) {
+        setFacultyList(response.faculty);
+        setFacultyListError(null);
+        showToast(`Loaded ${response.faculty.length} faculty members`, "success");
+      } else {
+        setFacultyListError("No active faculty found for this academic context");
+        showToast("No active faculty found for this context", "warning");
+      }
+    } catch (error) {
+      console.error("Error fetching all faculty:", error);
+      setFacultyListError(error.message || "Failed to fetch faculty");
+      showToast("Failed to fetch all faculty", "error");
+    } finally {
+      setFetchingAllFaculties(false);
+    }
+  }, [filters, showToast]);
 
   // ==================== MANUAL MODE ====================
   const handleAddFacultyToSelection = (empId) => {
@@ -492,11 +521,27 @@ const PanelCreation = () => {
 
               <Button
                 onClick={handleFacultyListUpload}
-                disabled={!facultyListFile || loadingFacultyList}
+                disabled={!facultyListFile || loadingFacultyList || fetchingAllFaculties}
                 className="w-full"
               >
                 <CloudArrowUpIcon className="w-5 h-5 mr-2" />
-                {loadingFacultyList ? "Loading..." : "Load Faculty List"}
+                {loadingFacultyList ? "Loading..." : "Load Faculty List from File"}
+              </Button>
+
+              <div className="flex items-center my-4">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="mx-4 text-sm text-gray-500 font-medium">OR</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+              </div>
+
+              <Button
+                onClick={handleFetchAllFaculty}
+                disabled={loadingFacultyList || fetchingAllFaculties}
+                variant="secondary"
+                className="w-full"
+              >
+                <UsersIcon className="w-5 h-5 mr-2" />
+                {fetchingAllFaculties ? "Fetching..." : "Fetch Available Faculty from Database"}
               </Button>
             </div>
           ) : (
@@ -709,11 +754,27 @@ const PanelCreation = () => {
 
               <Button
                 onClick={handleFacultyListUpload}
-                disabled={!facultyListFile || loadingFacultyList}
+                disabled={!facultyListFile || loadingFacultyList || fetchingAllFaculties}
                 className="w-full"
               >
                 <CloudArrowUpIcon className="w-5 h-5 mr-2" />
-                {loadingFacultyList ? "Loading..." : "Load Faculty List"}
+                {loadingFacultyList ? "Loading..." : "Load Faculty List from File"}
+              </Button>
+
+              <div className="flex items-center my-4">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="mx-4 text-sm text-gray-500 font-medium">OR</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+              </div>
+
+              <Button
+                onClick={handleFetchAllFaculty}
+                disabled={loadingFacultyList || fetchingAllFaculties}
+                variant="secondary"
+                className="w-full"
+              >
+                <UsersIcon className="w-5 h-5 mr-2" />
+                {fetchingAllFaculties ? "Fetching..." : "Fetch Available Faculty from Database"}
               </Button>
             </div>
           ) : (

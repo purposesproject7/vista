@@ -9,6 +9,7 @@ import {
   UserIcon,
   DocumentTextIcon,
   TrashIcon,
+  PencilIcon,
 } from "@heroicons/react/24/outline";
 import AcademicFilterSelector from "../student-management/AcademicFilterSelector";
 import Card from "../../../../shared/components/Card";
@@ -22,6 +23,7 @@ import {
   getMarkingStatusColor,
   getMarkingStatusLabel,
 } from "../../utils/panelUtils";
+import EditPanelModal from "./EditPanelModal";
 
 const PanelViewTab = () => {
   const [filters, setFilters] = useState(null);
@@ -32,6 +34,7 @@ const PanelViewTab = () => {
   const [markingFilter, setMarkingFilter] = useState("all");
   const [panelProjects, setPanelProjects] = useState({});
   const [loadingProjects, setLoadingProjects] = useState({});
+  const [editingPanel, setEditingPanel] = useState(null);
   const { showToast } = useToast();
 
   // Fetch panels when filters change
@@ -271,6 +274,16 @@ const PanelViewTab = () => {
                           {getMarkingStatusLabel(panel.markingStatus)}
                         </Badge>
                         <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingPanel(panel);
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                          title="Edit Panel"
+                        >
+                          <PencilIcon className="w-5 h-5" />
+                        </button>
+                        <button
                           onClick={(e) => handleDeletePanel(e, panel.id)}
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                           title="Delete Panel"
@@ -432,6 +445,19 @@ const PanelViewTab = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* Edit Panel Modal */}
+      {editingPanel && (
+        <EditPanelModal
+          panel={editingPanel}
+          filters={filters}
+          onClose={() => setEditingPanel(null)}
+          onSuccess={() => {
+            setEditingPanel(null);
+            fetchPanelsData();
+          }}
+        />
       )}
     </div>
   );

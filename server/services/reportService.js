@@ -120,8 +120,10 @@ export class ReportService {
                 let panelScore = 0;
                 // let panelMax = 0;
                 if (panelMarksParam.length > 0) {
-                    const pSum = panelMarksParam.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
-                    panelScore = pSum / panelMarksParam.length; // Average
+                    const nonZeroMarks = panelMarksParam.filter(m => (m.totalMarks || 0) > 0);
+                    const validForAvg = nonZeroMarks.length > 0 ? nonZeroMarks : panelMarksParam;
+                    const pSum = validForAvg.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
+                    panelScore = pSum / validForAvg.length; // Average
                     // panelMax = panelMarksParam[0].maxTotalMarks || 100;
                 }
 
@@ -323,13 +325,18 @@ export class ReportService {
                     // Calculate Panel Average
                     let panelAvg = 0;
                     let panelStatus = "Pending";
+                    let evaluatedByCount = 0;
                     // Filter for submitted/assigned panel marks only
-                    const validPanelMarks = reviewData.panelMarks.filter(m => m.isSubmitted);
+                    const submittedPanelMarks = reviewData.panelMarks.filter(m => m.isSubmitted);
+                    
+                    const nonZeroMarks = submittedPanelMarks.filter(m => (m.totalMarks || 0) > 0);
+                    const validPanelMarks = nonZeroMarks.length > 0 ? nonZeroMarks : submittedPanelMarks;
 
                     if (validPanelMarks.length > 0) {
                         const sum = validPanelMarks.reduce((acc, curr) => acc + (curr.totalMarks || 0), 0);
                         panelAvg = sum / validPanelMarks.length;
                         panelStatus = "Submitted";
+                        evaluatedByCount = validPanelMarks.length;
                     }
 
                     results.push({
@@ -340,7 +347,8 @@ export class ReportService {
                         panelName: project.panel?.panelName,
                         reviewType: reviewType,
                         guideMarks: guideStatus === "Submitted" ? guideMarkVal : "Pending",
-                        panelMarks: panelStatus === "Submitted" ? panelAvg.toFixed(2) : "Pending", // send as string or number? fixed 2 decimal for float
+                        panelMarks: panelStatus === "Submitted" ? Number(panelAvg.toFixed(2)) : "Pending",
+                        'Evaluated By (Count)': evaluatedByCount > 0 ? evaluatedByCount : "N/A",
                         total: (guideStatus === "Submitted" ? guideMarkVal : 0) + (panelStatus === "Submitted" ? panelAvg : 0)
                     });
                 }
@@ -475,9 +483,11 @@ export class ReportService {
                 let panelScore = 0;
                 let panelMax = 0;
                 if (panelMarksParam.length > 0) {
-                    const pSum = panelMarksParam.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
-                    panelScore = pSum / panelMarksParam.length;
-                    panelMax = panelMarksParam[0].maxTotalMarks || 100;
+                    const nonZeroMarks = panelMarksParam.filter(m => (m.totalMarks || 0) > 0);
+                    const validForAvg = nonZeroMarks.length > 0 ? nonZeroMarks : panelMarksParam;
+                    const pSum = validForAvg.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
+                    panelScore = pSum / validForAvg.length;
+                    panelMax = validForAvg[0].maxTotalMarks || 100;
                 }
 
                 totalObtained += (guideScore + panelScore);

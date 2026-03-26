@@ -1920,22 +1920,28 @@ export async function getMarksReport(req, res) {
       // If no marks are submitted, we can't calculate a meaningful average for "submitted" status.
       // However, if we want to show "Pending" status, we can check if any exist.
       const submittedPanelMarks = group.panelMarksList.filter(m => m.isSubmitted);
+      
+      const nonZeroMarks = submittedPanelMarks.filter(m => (m.totalMarks || 0) > 0);
+      const validPanelMarks = nonZeroMarks.length > 0 ? nonZeroMarks : submittedPanelMarks;
 
-      if (submittedPanelMarks.length > 0) {
+      let validEvaluatorsCount = 0;
+
+      if (validPanelMarks.length > 0) {
         isPanelSubmitted = true;
-        const sum = submittedPanelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
-        panelAvg = sum / submittedPanelMarks.length;
-        panelMax = submittedPanelMarks[0].maxTotalMarks; // Take first member max
+        validEvaluatorsCount = validPanelMarks.length;
+        const sum = validPanelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
+        panelAvg = sum / validPanelMarks.length;
+        panelMax = validPanelMarks[0].maxTotalMarks; // Take first member max
 
         // Calculate Average for Components
         // We assume all panel members follow the same schema structure for the review
-        if (submittedPanelMarks[0].componentMarks && submittedPanelMarks[0].componentMarks.length > 0) {
-          averagedComponents = submittedPanelMarks[0].componentMarks.map(refComp => {
+        if (validPanelMarks[0].componentMarks && validPanelMarks[0].componentMarks.length > 0) {
+          averagedComponents = validPanelMarks[0].componentMarks.map(refComp => {
             const compName = refComp.componentName;
 
             let compSum = 0;
             // Iterate over all submitted marks to find matching component
-            submittedPanelMarks.forEach(memberMark => {
+            validPanelMarks.forEach(memberMark => {
               const memberComp = memberMark.componentMarks?.find(c => c.componentName === compName);
               if (memberComp) {
                 // Use componentTotal which is the aggregated score for the component
@@ -1943,7 +1949,7 @@ export async function getMarksReport(req, res) {
               }
             });
 
-            const compAvg = compSum / submittedPanelMarks.length;
+            const compAvg = compSum / validPanelMarks.length;
 
             // Return a new component object with averaged marks
             return {
@@ -1982,6 +1988,7 @@ export async function getMarksReport(req, res) {
             totalMarks: isPanelSubmitted ? parseFloat(panelAvg.toFixed(2)) : 0,
             maxTotalMarks: isPanelSubmitted ? panelMax : (group.panelMarksList[0]?.maxTotalMarks || 100),
             isSubmitted: isPanelSubmitted, // Only true if at least one submitted
+            evaluatedBy: validEvaluatorsCount,
             details: group.panelMarksList // Optional: keep details if frontend needs hover
           }] : [])
         ]

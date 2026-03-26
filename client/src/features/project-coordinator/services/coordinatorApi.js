@@ -438,6 +438,14 @@ export const fetchPanelSummary = async (filters = {}) => {
 };
 
 /**
+ * Update panel members only
+ */
+export const updatePanelMembers = async (panelId, data) => {
+  const response = await api.put(`/coordinator/panels/${panelId}/members`, data);
+  return response.data;
+};
+
+/**
  * Fetch details for multiple faculty members
  */
 export const fetchFacultyDetailsBulk = async (employeeIds) => {
@@ -590,6 +598,7 @@ export default {
   bulkCreatePanels,
   autoCreatePanels,
   deletePanel,
+  updatePanelMembers,
   assignPanelToProject,
   autoAssignPanels,
   fetchPanelSummary,
