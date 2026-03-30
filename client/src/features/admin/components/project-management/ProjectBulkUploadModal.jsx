@@ -23,7 +23,7 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
     const enrichedData = data.map(project => {
       // Split teamMembers string into array
       const teamMembers = project.teamMembers
-        ? project.teamMembers.split(',').map(s => s.trim())
+        ? String(project.teamMembers).split(',').map(s => s.trim()).filter(Boolean)
         : [];
 
       return {

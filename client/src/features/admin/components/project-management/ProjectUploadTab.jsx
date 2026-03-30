@@ -47,9 +47,9 @@ const ProjectUploadTab = () => {
       setUploadStatus(null);
 
       const enrichedData = parsedData.map(project => {
-        const teamMembersArray = typeof project.teamMembers === 'string'
-          ? project.teamMembers.split(',').map(m => m.trim())
-          : project.teamMembers || [];
+        const teamMembersArray = project.teamMembers
+          ? String(project.teamMembers).split(',').map(m => m.trim()).filter(Boolean)
+          : [];
 
         return {
           name: project.name,
