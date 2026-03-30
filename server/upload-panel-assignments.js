@@ -14,7 +14,7 @@ dotenv.config();
 // CONFIGURATION
 // ============================================================================
 // Path to your Excel file containing the panel assignments
-const EXCEL_FILE_PATH = "./Project_Panel_Assignments.xlsx"; // Replace with your actual file path
+const EXCEL_FILE_PATH = "./Project_Panel_Assignments_updated.xlsx"; // Replace with your actual file path
 
 // IMPORTANT Context: Panels are strictly tied to specific academic programs
 const DEFAULT_ACADEMIC_YEAR = "2025-2026 WINTER";
