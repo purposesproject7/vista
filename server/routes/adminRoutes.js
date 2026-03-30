@@ -332,6 +332,12 @@ router.post(
 );
 
 router.post(
+  "/panels/bulk-assign",
+  validateRequired(["assignments"]),
+  adminController.bulkAssignPanels
+);
+
+router.post(
   "/panels/auto-assign",
   validateRequired(["academicYear", "school", "program"]),
   adminController.autoAssignPanelsToProjects

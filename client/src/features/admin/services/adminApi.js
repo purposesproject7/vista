@@ -707,6 +707,16 @@ export const assignPanelToProject = async ({ panelId, projectId, ignoreSpecializ
 };
 
 /**
+ * Bulk assign panels to projects
+ */
+export const bulkAssignPanelsToProjects = async (assignments) => {
+  const response = await api.post("/admin/panels/bulk-assign", {
+    assignments,
+  });
+  return response.data;
+};
+
+/**
  * Auto-assign panels to projects
  */
 export const autoAssignPanels = async ({
@@ -1281,6 +1291,7 @@ export default {
   updatePanel,
   deletePanel,
   assignPanelToProject,
+  bulkAssignPanelsToProjects,
   autoAssignPanels,
 
   // Projects

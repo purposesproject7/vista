@@ -198,6 +198,13 @@ router.post(
 );
 
 router.post(
+  "/panels/bulk-assign",
+  checkCoordinatorPermission("panel_management"),
+  validateRequired(["assignments"]),
+  coordinatorController.bulkAssignPanels,
+);
+
+router.post(
   "/projects/assign-review-panel",
   checkCoordinatorPermission("panel_management"),
   validateRequired(["projectId", "reviewType", "panelId"]),

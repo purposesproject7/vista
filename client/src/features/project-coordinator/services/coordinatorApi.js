@@ -420,6 +420,16 @@ export const assignPanelToProject = async ({ projectId, panelId }) => {
 };
 
 /**
+ * Bulk assign panels to projects
+ */
+export const bulkAssignPanelsToProjects = async (assignments) => {
+  const response = await api.post("/coordinator/panels/bulk-assign", {
+    assignments,
+  });
+  return response.data;
+};
+
+/**
  * Auto assign panels to projects
  */
 export const autoAssignPanels = async (filters) => {
@@ -600,6 +610,7 @@ export default {
   deletePanel,
   updatePanelMembers,
   assignPanelToProject,
+  bulkAssignPanelsToProjects,
   autoAssignPanels,
   fetchPanelSummary,
   fetchFacultyDetailsBulk,

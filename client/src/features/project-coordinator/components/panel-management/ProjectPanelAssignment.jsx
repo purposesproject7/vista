@@ -23,6 +23,7 @@ import {
   assignPanelToProject,
   autoAssignPanels
 } from '../../services/coordinatorApi';
+import AssignPanelBulkUploadModal from './AssignPanelBulkUploadModal';
 
 const ProjectPanelAssignment = () => {
   const [filters, setFilters] = useState(null);
@@ -34,6 +35,7 @@ const ProjectPanelAssignment = () => {
   const [selectedPanel, setSelectedPanel] = useState(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isAutoAssigning, setIsAutoAssigning] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
   const { showToast } = useToast();
   const { user } = useAuth();
 
@@ -195,6 +197,13 @@ const ProjectPanelAssignment = () => {
             >
               <SparklesIcon className="h-4 w-4 mr-2" />
               Auto-Assign All
+            </Button>
+            <Button
+              onClick={() => setIsBulkUploadModalOpen(true)}
+              variant="primary"
+              size="sm"
+            >
+              Bulk Excel Upload
             </Button>
             <Button
               onClick={() => setFilters(null)}
@@ -420,6 +429,17 @@ const ProjectPanelAssignment = () => {
           description="No projects match your search criteria."
         />
       )}
+
+      {/* Bulk Upload Modal */}
+      <AssignPanelBulkUploadModal
+        isOpen={isBulkUploadModalOpen}
+        onClose={() => setIsBulkUploadModalOpen(false)}
+        onSuccess={() => {
+          setIsBulkUploadModalOpen(false);
+          loadData(filters);
+        }}
+        filters={filters}
+      />
     </div>
   );
 };

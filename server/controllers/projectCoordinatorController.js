@@ -1777,6 +1777,28 @@ export async function assignPanel(req, res) {
   }
 }
 
+export async function bulkAssignPanels(req, res) {
+  try {
+    const { assignments } = req.body;
+    if (!Array.isArray(assignments) || assignments.length === 0) {
+      return res.status(400).json({ success: false, message: "No assignments provided." });
+    }
+
+    const result = await PanelService.bulkAssignPanelsToProjects(assignments, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk assignment completed. ${result.assignedCount} assigned, ${result.errors} failed.`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to bulk assign panels."
+    });
+  }
+}
+
 export async function assignReviewPanel(req, res) {
   try {
     const { projectId, reviewType, panelId, memberEmployeeIds } = req.body;

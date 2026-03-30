@@ -2,8 +2,8 @@ import Panel from "../models/panelSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
+import Student from "../models/studentSchema.js";
 import { logger } from "../utils/logger.js";
-
 export class PanelService {
   /**
    * Validate panel members
@@ -794,5 +794,74 @@ export class PanelService {
     await project.save();
 
     return { project, oldPanelId, newPanelId };
+  }
+
+  /**
+   * Bulk assign panels to projects based on Excel upload data
+   */
+  static async bulkAssignPanelsToProjects(assignments, assignedBy = null) {
+    const results = {
+      assignedCount: 0,
+      errors: 0,
+      details: [],
+    };
+
+    for (const [index, row] of assignments.entries()) {
+      try {
+        const projectName = row.ProjectTitle || row.projectName || row["Project Title"];
+        const studentRegNo = row.StudentRegNo || row.studentRegNo || row["Student RegNo"] || row.RegNo;
+        const panelName = row.PanelName || row.panelName || row["Panel Name"];
+
+        if (!panelName) {
+          throw new Error("Missing Panel Name");
+        }
+
+        if (!projectName && !studentRegNo) {
+          throw new Error("Missing Project Title or Student RegNo");
+        }
+
+        // Find Project
+        let project = null;
+        if (studentRegNo) {
+          const student = await Student.findOne({ regNo: { $regex: new RegExp(`^${studentRegNo}$`, "i") } });
+          if (!student) throw new Error(`Student ${studentRegNo} not found`);
+          project = await Project.findOne({ students: student._id, status: { $ne: "archived" } });
+        } else if (projectName) {
+          project = await Project.findOne({ 
+            name: { $regex: new RegExp(`^${projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+            status: { $ne: "archived" }
+          });
+        }
+
+        if (!project) {
+          throw new Error(`Project not found for ${projectName || studentRegNo}`);
+        }
+
+        // Find Panel
+        const panel = await Panel.findOne({ 
+          panelName: { $regex: new RegExp(`^${panelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } 
+        });
+        
+        if (!panel) {
+          throw new Error(`Panel '${panelName}' not found`);
+        }
+
+        // Call the regular assign method (skip validation for specialization if bulk assigning)
+        await this.assignPanelToProject(panel._id, project._id, assignedBy, true);
+        results.assignedCount++;
+        
+      } catch (error) {
+        // If error is "Project already assigned", we might want to skip or record
+        results.errors++;
+        results.details.push({
+          row: index + 1,
+          panelName: row.PanelName || row.panelName || "Unknown",
+          projectRef: row.ProjectTitle || row.StudentRegNo || "Unknown",
+          error: error.message
+        });
+      }
+    }
+
+    return results;
   }
 }
