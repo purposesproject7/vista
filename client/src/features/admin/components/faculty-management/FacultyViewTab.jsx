@@ -62,6 +62,14 @@ const FacultyViewTab = () => {
       if (member.name?.toLowerCase().includes(query)) return true;
       if (member.employeeId?.toLowerCase().includes(query)) return true;
       if (member.email?.toLowerCase().includes(query)) return true;
+      if (member.emailId?.toLowerCase().includes(query)) return true;
+      if (member.phoneNumber?.toLowerCase().includes(query)) return true;
+      if (member.department) {
+        const dept = Array.isArray(member.department)
+          ? member.department.join(' ')
+          : member.department;
+        if (dept.toLowerCase().includes(query)) return true;
+      }
       if (member.specialization) {
         if (Array.isArray(member.specialization)) {
           if (member.specialization.some(s => s.toLowerCase().includes(query))) return true;
@@ -146,7 +154,7 @@ const FacultyViewTab = () => {
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder="Search by name, employee ID, or projects..."
+                  placeholder="Search by name, employee ID, email, department, specialization, or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 w-full"

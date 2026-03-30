@@ -19,11 +19,22 @@ import {
 const StudentList = ({ students = [], loading = false, onViewDetails, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredStudents = students.filter(student =>
-    student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.regNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(student => {
+    const q = searchTerm.toLowerCase();
+    if (!q) return true;
+    if (student.name?.toLowerCase().includes(q)) return true;
+    if (student.regNo?.toLowerCase().includes(q)) return true;
+    if (student.email?.toLowerCase().includes(q)) return true;
+    if (student.emailId?.toLowerCase().includes(q)) return true;
+    if (student.phoneNumber?.toLowerCase().includes(q)) return true;
+    // guide can be string or object
+    const guideName = typeof student.guide === 'object' ? student.guide?.name : student.guide;
+    if (guideName?.toLowerCase().includes(q)) return true;
+    // panelMember can be string or object
+    const panelName = typeof student.panelMember === 'object' ? student.panelMember?.name : student.panelMember;
+    if (panelName?.toLowerCase().includes(q)) return true;
+    return false;
+  });
 
   const getPPTStatusBadge = (student) => {
     if (!student.reviewStatuses || student.reviewStatuses.length === 0) {
@@ -71,7 +82,7 @@ const StudentList = ({ students = [], loading = false, onViewDetails, onEdit }) 
           <UserGroupIcon className="w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name, registration number, or email..."
+            placeholder="Search by name, reg. no., email, guide, panel member, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"

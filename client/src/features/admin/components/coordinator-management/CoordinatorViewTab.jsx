@@ -1,9 +1,10 @@
 // src/features/admin/components/coordinator-management/CoordinatorViewTab.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
     PencilSquareIcon,
     TrashIcon,
     ShieldCheckIcon,
+    MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 import { fetchCoordinators, removeProjectCoordinator, updateCoordinator } from "../../services/adminApi";
 import CoordinatorPermissionModal from "./CoordinatorPermissionModal";
@@ -11,6 +12,7 @@ import CoordinatorPermissionModal from "./CoordinatorPermissionModal";
 const CoordinatorViewTab = () => {
     const [coordinators, setCoordinators] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState("");
     const [filters, setFilters] = useState({
         school: "",
         programme: "",
@@ -77,8 +79,45 @@ const CoordinatorViewTab = () => {
         setShowPermissionModal(true);
     };
 
+    // Client-side search filtering
+    const filteredCoordinators = useMemo(() => {
+        if (!searchQuery.trim()) return coordinators;
+        const q = searchQuery.toLowerCase();
+        return coordinators.filter((coordinator) => {
+            if (coordinator.faculty?.name?.toLowerCase().includes(q)) return true;
+            if (coordinator.faculty?.employeeId?.toLowerCase().includes(q)) return true;
+            if (coordinator.faculty?.email?.toLowerCase().includes(q)) return true;
+            if (coordinator.school?.toLowerCase().includes(q)) return true;
+            if (coordinator.program?.toLowerCase().includes(q)) return true;
+            if (coordinator.academicYear?.toLowerCase().includes(q)) return true;
+            if (q === "primary" && coordinator.isPrimary) return true;
+            if (q === "active" && coordinator.isActive) return true;
+            if (q === "inactive" && !coordinator.isActive) return true;
+            return false;
+        });
+    }, [coordinators, searchQuery]);
+
     return (
         <div className="bg-white rounded-lg shadow-sm p-6">
+            {/* Search Bar */}
+            <div className="mb-6">
+                <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by name, employee ID, email, school, program, or year..."
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                </div>
+                {searchQuery && (
+                    <p className="mt-1 text-xs text-gray-500">
+                        Showing {filteredCoordinators.length} of {coordinators.length} coordinators
+                    </p>
+                )}
+            </div>
+
             {/* Filters */}
             <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -128,9 +167,9 @@ const CoordinatorViewTab = () => {
                 <div className="text-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                 </div>
-            ) : coordinators.length === 0 ? (
+            ) : filteredCoordinators.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
-                    No coordinators found
+                    {searchQuery ? "No coordinators match your search" : "No coordinators found"}
                 </div>
             ) : (
                 <div className="overflow-x-auto">
@@ -158,7 +197,7 @@ const CoordinatorViewTab = () => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {coordinators.map((coordinator) => (
+                            {filteredCoordinators.map((coordinator) => (
                                 <tr key={coordinator._id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">

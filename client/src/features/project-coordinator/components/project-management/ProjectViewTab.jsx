@@ -22,15 +22,18 @@ const ProjectViewTab = ({ projects = [], isPrimary = false }) => {
 
   const filteredProjects = projects.filter((project) => {
     const query = searchQuery.toLowerCase();
+    if (!query) return true;
     const matchName = (project.name || project.title || "").toLowerCase().includes(query);
+    const matchType = (project.type || "").toLowerCase().includes(query);
+    const matchSpecialization = (project.specialization || "").toLowerCase().includes(query);
     const matchGuide = (project.guide?.name || "").toLowerCase().includes(query);
     const matchPanel = (project.panel?.name || "").toLowerCase().includes(query);
     const matchMembers = (project.teamMembers || []).some(m =>
       (m.name || "").toLowerCase().includes(query) ||
-      (m.rollNumber || "").toLowerCase().includes(query)
+      (m.rollNumber || m.regNo || "").toLowerCase().includes(query)
     );
 
-    return matchName || matchGuide || matchPanel || matchMembers;
+    return matchName || matchType || matchSpecialization || matchGuide || matchPanel || matchMembers;
   });
 
   if (projects.length === 0) {
@@ -52,7 +55,7 @@ const ProjectViewTab = ({ projects = [], isPrimary = false }) => {
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by project name, student, guide, or panel..."
+              placeholder="Search by project name, type, specialization, student, guide, or panel..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
