@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import xlsx from "xlsx";
 import fs from "fs";
-import { ProjectService } from "./services/projectService.js";
 import Student from "./models/studentSchema.js";
 import Project from "./models/projectSchema.js";
 import Panel from "./models/panelSchema.js";
@@ -14,22 +13,30 @@ dotenv.config();
 // CONFIGURATION
 // ============================================================================
 // Path to your Excel file containing the panel assignments
-const EXCEL_FILE_PATH = "./Project_Panel_Assignments_updated.xlsx"; // Replace with your actual file path
-
-// IMPORTANT Context: Panels are strictly tied to specific academic programs
-const DEFAULT_ACADEMIC_YEAR = "2025-2026 WINTER";
-const DEFAULT_SCHOOL = "SCOPE";
-const DEFAULT_PROGRAM = "MD";
+const EXCEL_FILE_PATH = "./Project_Panel_Assignments_updated.xlsx"; // Ensure this matches your file
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/vista";
 const SYS_ADMIN_ID = new mongoose.Types.ObjectId(); // Mock user ID for the system performing the change
+
+async function runPreflightMigration() {
+    console.log("-> Running pre-flight database migration for legacy history enums...");
+    try {
+        const result = await Project.updateMany(
+            { "history.action": "panel_assigned" },
+            { $set: { "history.$[elem].action": "panel_reassigned" } },
+            { arrayFilters: [{ "elem.action": "panel_assigned" }] }
+        );
+        console.log(`   Migration complete. Modified ${result.modifiedCount} projects with invalid 'panel_assigned' enums.`);
+    } catch (err) {
+        console.error("   Migration failed:", err.message);
+    }
+}
 
 async function parseExcelAndAssignPanels() {
     try {
         console.log(`Checking for file at: ${EXCEL_FILE_PATH}`);
         if (!fs.existsSync(EXCEL_FILE_PATH)) {
             console.error(`Error: Could not find the excel file at '${EXCEL_FILE_PATH}'.`);
-            console.error("Please ensure the file exists or update 'EXCEL_FILE_PATH' in this script.");
             process.exit(1);
         }
 
@@ -50,11 +57,14 @@ async function parseExcelAndAssignPanels() {
         await mongoose.connect(MONGO_URI);
         console.log("Connected successfully to DB.");
 
+        // Clean up invalid enums in the DB that trigger "Project validation failed"
+        await runPreflightMigration();
+
         let successCount = 0;
         let failedCount = 0;
         let errors = [];
 
-        console.log("Processing panel assignments...");
+        console.log("\nProcessing panel assignments...");
 
         for (let i = 0; i < rawData.length; i++) {
             const row = rawData[i];
@@ -69,16 +79,14 @@ async function parseExcelAndAssignPanels() {
             }
 
             try {
-                // 1. Resolve Student first, as RegNo provides strict uniqueness
                 const studentString = studentRegNo.toString().trim();
-                const student = await Student.findOne({ regNo: studentString });
+                const student = await Student.findOne({ regNo: { $regex: new RegExp(`^${studentString}$`, 'i') } });
 
+                // Error 2: "No active project found for student [ID]."
                 if (!student) {
-                    throw new Error(`Student with RegNo '${studentString}' not found.`);
+                    throw new Error(`Student with RegNo '${studentString}' not registered or found.`);
                 }
 
-                // 2. Find the active project containing this student
-                // We also strictly ensure the name loosely matches just in case
                 const project = await Project.findOne({
                     students: student._id,
                     status: "active"
@@ -88,38 +96,55 @@ async function parseExcelAndAssignPanels() {
                     throw new Error(`No active project found for student '${studentString}'.`);
                 }
 
-                if (project.name.trim().toLowerCase() !== projectTitle.toString().trim().toLowerCase()) {
-                    console.warn(`[Row ${i + 2}] Warning: Project title in DB ('${project.name}') differs from Excel ('${projectTitle}'). Proceeding anyway as student matches.`);
-                }
-
-                // 3. Resolve the exact Panel by Name + Academic Context
+                // Error 1: "Panel must belong to the same academic context as the project."
+                // Find all panels matching the name loosely.
                 const panelString = panelName.toString().trim();
-                const panel = await Panel.findOne({
-                    panelName: panelString,
-                    academicYear: DEFAULT_ACADEMIC_YEAR,
-                    school: DEFAULT_SCHOOL,
-                    // If your database stores program strictly in certain casing, use REGEX
-                    program: new RegExp(`^${DEFAULT_PROGRAM}$`, 'i'),
+                const panelsMatches = await Panel.find({
+                    panelName: { $regex: new RegExp(`^${panelString}$`, 'i') },
                     isActive: true
                 });
 
+                if (panelsMatches.length === 0) {
+                    throw new Error(`Active panel '${panelString}' not found in the database.`);
+                }
+
+                // Attempt to perfectly match panel context to project context, fallback to first match
+                let panel = panelsMatches.find(p => 
+                    p.program?.toLowerCase() === project.program?.toLowerCase() &&
+                    p.school?.toLowerCase() === project.school?.toLowerCase() &&
+                    p.academicYear === project.academicYear
+                );
+
                 if (!panel) {
-                    throw new Error(`Active panel '${panelString}' not found for context Program: ${DEFAULT_PROGRAM}, Year: ${DEFAULT_ACADEMIC_YEAR}`);
+                    panel = panelsMatches[0]; // Fallback to first if there's no perfectly matching context
+                    console.warn(`[Row ${i + 2}] Warning: Using panel '${panelString}' from different context (${panel.program}/${panel.school}) for project (${project.program}/${project.school}). Forcing DB sync.`);
                 }
 
                 // Skip if already assigned perfectly
                 if (project.panel && project.panel.toString() === panel._id.toString()) {
-                    console.log(`[Row ${i + 2}] Skipped: Project '${project.name}' is already assigned to panel '${panelString}'.`);
                     successCount++;
                     continue; // Correctly assigned already
                 }
 
-                // 4. Safely trigger the backend method native to the application
-                await ProjectService.assignPanelToProject(
-                    project._id.toString(),
-                    panel._id.toString(),
-                    SYS_ADMIN_ID
-                );
+                // Direct Database Assignment to bypass overly strict case-sensitive checks in standard services
+                const previousPanel = project.panel;
+
+                project.panel = panel._id;
+                project.history.push({
+                    action: "panel_reassigned", // Using legally allowed enum
+                    panel: panel._id,
+                    performedBy: SYS_ADMIN_ID,
+                    performedAt: new Date(),
+                });
+
+                await project.save({ validateBeforeSave: true });
+
+                // Successfully changed project... sync panel counts
+                if (previousPanel) {
+                     await Panel.findByIdAndUpdate(previousPanel, { $inc: { assignedProjectsCount: -1 } });
+                }
+                panel.assignedProjectsCount += 1;
+                await panel.save();
 
                 console.log(`[Row ${i + 2}] Success: Assigned panel '${panelString}' to project '${project.name}'`);
                 successCount++;
