@@ -395,23 +395,219 @@ export class ProjectService {
       projects: [],
     };
 
+    if (projectsToCreate.length === 0) return results;
+
+    // ── Batch prefetch ──────────────────────────────────────────────────────
+    // Collect all unique guide employee IDs
+    const uniqueGuideEmpIds = [
+      ...new Set(
+        projectsToCreate.map((p) => p.guideFacultyEmpId).filter(Boolean)
+      ),
+    ];
+
+    // Collect all unique student reg numbers across all projects
+    const allRegNos = [
+      ...new Set(
+        projectsToCreate.flatMap((p) => {
+          const members = p.students || p.teamMembers || [];
+          return members.map((s) =>
+            typeof s === "string" ? s : s.regNo
+          ).filter(Boolean);
+        })
+      ),
+    ];
+
+    // Use the first project's context to look up program config
+    // (all projects in a bulk upload share the same academic context)
+    const { academicYear, school, program } = projectsToCreate[0] || {};
+
+    // Run all prefetch queries in parallel
+    const [faculties, students, config, projectsWithStudents] =
+      await Promise.all([
+        Faculty.find({ employeeId: { $in: uniqueGuideEmpIds } }).lean(),
+        allRegNos.length
+          ? Student.find({ regNo: { $in: allRegNos } }).lean()
+          : Promise.resolve([]),
+        ProgramConfig.findOne({ academicYear, school, program }).lean(),
+        // Fetch all active projects that contain any of these students
+        allRegNos.length
+          ? Student.find({ regNo: { $in: allRegNos } })
+              .select("_id regNo")
+              .lean()
+              .then((foundStudents) => {
+                const ids = foundStudents.map((s) => s._id);
+                return ids.length
+                  ? Project.find({
+                      students: { $in: ids },
+                      status: "active",
+                    })
+                      .select("students name")
+                      .lean()
+                  : [];
+              })
+          : Promise.resolve([]),
+      ]);
+
+    // Build fast lookup Maps
+    const facultyByEmpId = new Map(
+      faculties.map((f) => [f.employeeId, f])
+    );
+    const studentByRegNo = new Map(
+      students.map((s) => [s.regNo, s])
+    );
+
+    // Build a set of student _ids already in an active project, mapped to project name
+    const studentIdToProjectName = new Map();
+    for (const proj of projectsWithStudents) {
+      for (const sid of proj.students) {
+        studentIdToProjectName.set(sid.toString(), proj.name);
+      }
+    }
+
+    // Track guide project counts for max-guide-projects validation
+    // (start with 0; increment as we successfully create projects this batch)
+    const guideProjectCountCache = new Map();
+    if (config?.maxProjectsPerGuide) {
+      const guideFacultyIds = faculties.map((f) => f._id);
+      const counts = await Project.aggregate([
+        {
+          $match: {
+            guideFaculty: { $in: guideFacultyIds },
+            status: "active",
+          },
+        },
+        { $group: { _id: "$guideFaculty", count: { $sum: 1 } } },
+      ]);
+      for (const { _id, count } of counts) {
+        guideProjectCountCache.set(_id.toString(), count);
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     for (const [index, projectData] of projectsToCreate.entries()) {
       try {
-        const project = await this.createProject(projectData, createdBy);
+        const {
+          name,
+          guideFacultyEmpId,
+          academicYear: pYear,
+          school: pSchool,
+          program: pProgram,
+          specialization,
+          type,
+        } = projectData;
+
+        const students_input = projectData.students || projectData.teamMembers || [];
+
+        // Resolve guide from cache
+        const guide = facultyByEmpId.get(guideFacultyEmpId);
+        if (!guide) {
+          throw new Error(
+            `Guide faculty with ID ${guideFacultyEmpId} not found.`
+          );
+        }
+
+        // Team size validation (use shared config; projects share one academic context)
+        if (config) {
+          if (students_input.length < config.minTeamSize) {
+            throw new Error(
+              `Team size (${students_input.length}) is below minimum (${config.minTeamSize}).`
+            );
+          }
+          if (students_input.length > config.maxTeamSize) {
+            throw new Error(
+              `Team size (${students_input.length}) exceeds maximum (${config.maxTeamSize}).`
+            );
+          }
+        }
+
+        // Max projects per guide validation (using cache)
+        if (config?.maxProjectsPerGuide) {
+          const currentCount =
+            guideProjectCountCache.get(guide._id.toString()) || 0;
+          if (currentCount >= config.maxProjectsPerGuide) {
+            throw new Error(
+              `Guide already has maximum ${config.maxProjectsPerGuide} projects assigned.`
+            );
+          }
+        }
+
+        // Resolve students from cache
+        const studentIds = [];
+        for (const studentData of students_input) {
+          const regNo =
+            typeof studentData === "string" ? studentData : studentData?.regNo;
+          if (!regNo) throw new Error("Invalid student data. Expected Reg No.");
+
+          const student = studentByRegNo.get(regNo);
+          if (!student) {
+            throw new Error(`Student with Reg No ${regNo} not found.`);
+          }
+
+          // Check if already in an active project
+          const conflictProjectName = studentIdToProjectName.get(
+            student._id.toString()
+          );
+          if (conflictProjectName) {
+            throw new Error(
+              `Student ${regNo} is already assigned to project '${conflictProjectName}'.`
+            );
+          }
+
+          studentIds.push(student._id);
+        }
+
+        // Persist the project
+        const project = new Project({
+          name,
+          students: studentIds,
+          guideFaculty: guide._id,
+          academicYear: pYear,
+          school: pSchool,
+          program: pProgram,
+          specialization,
+          type,
+          teamSize: students_input.length,
+          status: "active",
+          history: [
+            {
+              action: "created",
+              performedBy: createdBy,
+              performedAt: new Date(),
+            },
+          ],
+        });
+
+        await project.save();
+
+        // Update in-memory caches so subsequent projects in the same batch
+        // see this project's students/guide counts correctly
+        for (const sid of studentIds) {
+          studentIdToProjectName.set(sid.toString(), name);
+        }
+        const guideKey = guide._id.toString();
+        guideProjectCountCache.set(
+          guideKey,
+          (guideProjectCountCache.get(guideKey) || 0) + 1
+        );
+
+        logger.info("project_created", {
+          projectId: project._id,
+          guide: guide.employeeId,
+          studentsCount: students_input.length,
+        });
+
         results.created++;
         results.projects.push(project);
       } catch (error) {
         results.failed++;
-        // Collect detailed error information for email notifications
         results.errors.push({
           index,
           name: projectData.name,
           guideFacultyEmpId: projectData.guideFacultyEmpId,
-          teamMembers: Array.isArray(projectData.teamMembers)
-            ? projectData.teamMembers
-            : (Array.isArray(projectData.students)
-              ? projectData.students.map(s => typeof s === 'string' ? s : s.regNo)
-              : []),
+          teamMembers: (() => {
+            const m = projectData.students || projectData.teamMembers || [];
+            return m.map((s) => (typeof s === "string" ? s : s.regNo));
+          })(),
           error: error.message,
         });
       }
@@ -419,6 +615,7 @@ export class ProjectService {
 
     return results;
   }
+
 
   /**
    * Create single project

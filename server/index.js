@@ -200,6 +200,12 @@ const server = app.listen(PORT, HOST, () => {
   });
 });
 
+// Allow long-running bulk operations (5 minutes)
+server.timeout = 300000;
+server.keepAliveTimeout = 305000;
+server.headersTimeout = 310000;
+
+
 // Process error handlers
 process.on("unhandledRejection", (reason, promise) => {
   logger.error("unhandled_rejection", {
