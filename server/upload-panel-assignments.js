@@ -17,9 +17,9 @@ dotenv.config();
 const EXCEL_FILE_PATH = "./Project_Panel_Assignments.xlsx"; // Replace with your actual file path
 
 // IMPORTANT Context: Panels are strictly tied to specific academic programs
-const DEFAULT_ACADEMIC_YEAR = "2024-2025";
+const DEFAULT_ACADEMIC_YEAR = "2025-2026 WINTER";
 const DEFAULT_SCHOOL = "SCOPE";
-const DEFAULT_PROGRAM = "B.Tech Computer Science and Engineering";
+const DEFAULT_PROGRAM = "MD";
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/vista";
 const SYS_ADMIN_ID = new mongoose.Types.ObjectId(); // Mock user ID for the system performing the change
