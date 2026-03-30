@@ -230,7 +230,7 @@ export async function getProjectDetails(req, res) {
     const project = await Project.findById(id)
       .populate(
         "students",
-        "name regNo emailId guideMarks panelMarks approvals"
+        "name regNo emailId guideMarks panelMarks approvals PAT"
       )
       .populate("guideFaculty", "name employeeId emailId")
       .populate({

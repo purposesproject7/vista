@@ -141,7 +141,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             m.reviewType === reviewId
                         );
 
-                        const allStudentsMarked = project.students.length > 0 && project.students.every(student => {
+                        const activeStudents = project.students.filter(s => !s.PAT);
+                        
+                        const allStudentsMarked = activeStudents.length > 0 && activeStudents.every(student => {
                             const sId = String(student._id || student);
                             return projectMarks.some(m =>
                                 String(m.student?._id || m.student) === sId &&
@@ -177,7 +179,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             id: project._id,
                             name: project.name, // Removed "Team " prefix
                             projectTitle: project.name,
-                            students: project.students.map(s => {
+                            students: activeStudents.map(s => {
                                 const sId = String(s._id || s);
                                 const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId);
 

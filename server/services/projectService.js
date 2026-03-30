@@ -171,7 +171,7 @@ export class ProjectService {
       ...baseQuery,
       guideFaculty: facultyId,
     })
-      .populate("students", "name regNo emailId")
+      .populate("students", "name regNo emailId PAT")
       .populate("guideFaculty", "name employeeId emailId")
       .populate({
         path: "panel",
@@ -207,7 +207,7 @@ export class ProjectService {
         { "reviewPanels.panel": { $in: panelIds } }
       ]
     })
-      .populate("students", "name regNo emailId")
+      .populate("students", "name regNo emailId PAT")
       .populate("guideFaculty", "name employeeId emailId")
       .populate({
         path: "panel",

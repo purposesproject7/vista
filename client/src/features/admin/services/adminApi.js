@@ -123,6 +123,8 @@ const adaptPanel = (backendPanel) => {
   return {
     id: backendPanel._id,
     _id: backendPanel._id,
+    panelName: backendPanel.panelName,
+    panelNumber: backendPanel.panelNumber || (backendPanel.panelName ? backendPanel.panelName.replace(/\D/g, "") : ""),
     members:
       backendPanel.members?.map((m) => ({
         _id: m._id,
