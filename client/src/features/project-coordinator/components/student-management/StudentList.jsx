@@ -12,10 +12,11 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  EyeIcon
+  EyeIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
-const StudentList = ({ students = [], loading = false, onViewDetails }) => {
+const StudentList = ({ students = [], loading = false, onViewDetails, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredStudents = students.filter(student => {
@@ -158,7 +159,18 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                 </div>
 
                 {/* Action Button */}
-                <div className="shrink-0">
+                <div className="shrink-0 flex gap-2">
+                  {onDelete && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => onDelete(student)}
+                      className="gap-2"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                      Delete
+                    </Button>
+                  )}
                   <Button
                     variant="secondary"
                     size="sm"
