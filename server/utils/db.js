@@ -62,24 +62,35 @@ export default async function connectDB() {
     process.exit(1);
   }
 
-  try {
-    const connection = await mongoose.connect(uri);
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY_MS = 5000;
 
-    console.log(`✅ MongoDB Connected: ${connection.connection.host}`);
-    logger.info("database_connected", {
-      host: connection.connection.host,
-      database: connection.connection.name,
-    });
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const connection = await mongoose.connect(uri);
 
-    // Drop invalid broadcast indexes after connection
-    await dropInvalidBroadcastIndexes();
-  } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    logger.error("database_connection_failed", {
-      error: error.message,
-      stack: error.stack,
-    });
-    process.exit(1);
+      console.log(`✅ MongoDB Connected: ${connection.connection.host}`);
+      logger.info("database_connected", {
+        host: connection.connection.host,
+        database: connection.connection.name,
+      });
+
+      // Drop invalid broadcast indexes after connection
+      await dropInvalidBroadcastIndexes();
+      break; // Success — exit retry loop
+    } catch (error) {
+      console.error(`❌ MongoDB Connection Error (attempt ${attempt}/${MAX_RETRIES}): ${error.message}`);
+      logger.error("database_connection_failed", {
+        attempt,
+        error: error.message,
+      });
+
+      if (attempt === MAX_RETRIES) {
+        logger.error("database_connection_giving_up", { message: "All retries exhausted" });
+        process.exit(1);
+      }
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    }
   }
 
   // Handle connection events

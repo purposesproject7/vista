@@ -20,6 +20,8 @@ router.get(
   facultyController.getAssignedProjects,
 );
 
+// ⚠️ POST /projects/merge MUST be before GET /projects/:id
+// to prevent Express matching :id = "merge"
 router.post(
   "/projects/merge",
   broadcastBlockMiddleware,
@@ -28,14 +30,15 @@ router.post(
 );
 
 router.get(
-  "/reviews",
-  broadcastBlockMiddleware,
-  facultyController.getFacultyReviews,
-);
-router.get(
   "/projects/:id",
   broadcastBlockMiddleware,
   facultyController.getProjectDetails,
+);
+
+router.get(
+  "/reviews",
+  broadcastBlockMiddleware,
+  facultyController.getFacultyReviews,
 );
 
 router.get(

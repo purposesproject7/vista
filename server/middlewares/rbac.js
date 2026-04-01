@@ -89,10 +89,9 @@ export async function requireProjectCoordinator(req, res, next) {
       }
     }
 
-    // If single assignment, attach directly
-    if (coordinators.length === 1) {
-      req.coordinator = coordinators[0];
-    }
+    // Always set req.coordinator — fallback to first assignment
+    // validateCoordinatorContext can be used downstream for context-specific ops
+    req.coordinator = coordinators[0];
 
     next();
   } catch (error) {

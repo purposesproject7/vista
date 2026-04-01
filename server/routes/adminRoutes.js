@@ -264,6 +264,8 @@ router.get("/projects", adminController.getAllProjects);
 
 router.get("/projects/guides", adminController.getAllGuideWithProjects);
 
+router.get("/projects/panels", adminController.getAllPanelsWithProjects);
+
 router.post(
   "/projects",
   validateRequired([
@@ -283,11 +285,7 @@ router.post(
   adminController.bulkCreateProjects
 );
 
-
-
 router.put("/projects/:id", adminController.updateProject);
-
-router.get("/projects/panels", adminController.getAllPanelsWithProjects);
 
 router.patch("/projects/:id/best-project", adminController.markAsBestProject);
 
@@ -296,17 +294,11 @@ router.patch("/projects/:id/best-project", adminController.markAsBestProject);
  */
 router.get("/panels", adminController.getAllPanels);
 
+// ⚠️ All literal /panels/* routes MUST come before /panels/:id
 router.get(
   "/panels/summary",
   validateRequired(["academicYear", "school", "program"], "query"),
   adminController.getPanelSummary
-);
-
-router.post(
-  "/panels",
-  validateRequired(["memberEmployeeIds", "academicYear", "school", "program"]),
-  validatePanelSize,
-  adminController.createPanelManually
 );
 
 router.post(
@@ -320,10 +312,6 @@ router.post(
   validateRequired(["panels"]),
   adminController.bulkCreatePanels
 );
-
-router.put("/panels/:id", adminController.updatePanel);
-
-router.delete("/panels/:id", adminController.deletePanel);
 
 router.post(
   "/panels/assign",
@@ -342,6 +330,19 @@ router.post(
   validateRequired(["academicYear", "school", "program"]),
   adminController.autoAssignPanelsToProjects
 );
+
+// POST /panels after all literal sub-routes
+router.post(
+  "/panels",
+  validateRequired(["memberEmployeeIds", "academicYear", "school", "program"]),
+  validatePanelSize,
+  adminController.createPanelManually
+);
+
+// Parameterized /:id routes AFTER all literal /panels/* paths
+router.put("/panels/:id", adminController.updatePanel);
+
+router.delete("/panels/:id", adminController.deletePanel);
 
 /**
  * Faculty requests (unlock, extensions, etc.)

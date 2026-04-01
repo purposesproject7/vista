@@ -89,6 +89,8 @@ router.get("/student/:regNo", coordinatorController.getStudentByRegNo);
 
 /**
  * Project management
+ * ⚠️  All literal /projects/* routes MUST come before /projects/:id
+ *     to prevent Express matching :id = "bulk" | "assign-panel" | "assign-review-panel" | "reassign-panel"
  */
 router.get("/projects", coordinatorController.getProjectList);
 
@@ -97,6 +99,28 @@ router.post(
   checkCoordinatorPermission("project_management"),
   validateRequired(["projects"]),
   coordinatorController.createProjectsBulk,
+);
+
+// Panel assignment routes (POST/PUT with literal paths — must precede /:id)
+router.post(
+  "/projects/assign-panel",
+  checkCoordinatorPermission("panel_management"),
+  validateRequired(["projectId", "panelId"]),
+  coordinatorController.assignPanel,
+);
+
+router.post(
+  "/projects/assign-review-panel",
+  checkCoordinatorPermission("panel_management"),
+  validateRequired(["projectId", "reviewType", "panelId"]),
+  coordinatorController.assignReviewPanel,
+);
+
+router.put(
+  "/projects/reassign-panel",
+  checkCoordinatorPermission("panel_management"),
+  validateRequired(["projectId", "panelId", "reason"]),
+  coordinatorController.reassignPanel,
 );
 
 router.post(
@@ -112,6 +136,7 @@ router.post(
   coordinatorController.createProject,
 );
 
+// Parameterized /:id routes — registered AFTER all literal paths
 router.put(
   "/projects/:id",
   checkCoordinatorPermission("project_management"),
@@ -143,15 +168,9 @@ router.put(
 
 /**
  * Panel management
+ * ⚠️  All literal /panels/* routes MUST come before /panels/:id
  */
 router.get("/panels", coordinatorController.getPanelList);
-
-router.post(
-  "/panels",
-  checkCoordinatorPermission("panel_management"),
-  validateRequired(["memberEmployeeIds"]),
-  coordinatorController.createPanel,
-);
 
 router.post(
   "/panels/auto-create",
@@ -169,11 +188,33 @@ router.post(
 router.get("/panels/summary", coordinatorController.getPanelSummary);
 
 router.post(
+  "/panels/bulk-assign",
+  checkCoordinatorPermission("panel_management"),
+  validateRequired(["assignments"]),
+  coordinatorController.bulkAssignPanels,
+);
+
+router.post(
+  "/panels/auto-assign",
+  checkCoordinatorPermission("panel_management"),
+  coordinatorController.autoAssignPanels,
+);
+
+router.post(
   "/faculty/details-bulk",
   validateRequired(["employeeIds"]),
   coordinatorController.getFacultyDetailsBulk,
 );
 
+// POST /panels must come AFTER literal /panels/* sub-routes
+router.post(
+  "/panels",
+  checkCoordinatorPermission("panel_management"),
+  validateRequired(["memberEmployeeIds"]),
+  coordinatorController.createPanel,
+);
+
+// Parameterized /:id routes — registered AFTER all literal /panels/* paths
 router.put(
   "/panels/:id/members",
   checkCoordinatorPermission("panel_management"),
@@ -185,46 +226,6 @@ router.delete(
   "/panels/:id",
   checkCoordinatorPermission("panel_management"),
   coordinatorController.deletePanel,
-);
-
-/**
- * Panel assignment to projects
- */
-router.post(
-  "/projects/assign-panel",
-  checkCoordinatorPermission("panel_management"),
-  validateRequired(["projectId", "panelId"]),
-  coordinatorController.assignPanel,
-);
-
-router.post(
-  "/panels/bulk-assign",
-  checkCoordinatorPermission("panel_management"),
-  validateRequired(["assignments"]),
-  coordinatorController.bulkAssignPanels,
-);
-
-router.post(
-  "/projects/assign-review-panel",
-  checkCoordinatorPermission("panel_management"),
-  validateRequired(["projectId", "reviewType", "panelId"]),
-  coordinatorController.assignReviewPanel,
-);
-
-router.post(
-  "/panels/auto-assign",
-  checkCoordinatorPermission("panel_management"),
-  coordinatorController.autoAssignPanels,
-);
-
-/**
- * Panel reassignment (update members only)
- */
-router.put(
-  "/projects/reassign-panel",
-  checkCoordinatorPermission("panel_management"),
-  validateRequired(["projectId", "panelId", "reason"]),
-  coordinatorController.reassignPanel,
 );
 
 /**

@@ -106,6 +106,10 @@ export const validateAcademicContext = (req, res, next) => {
  */
 export const sanitizeInput = (req, res, next) => {
   const sanitize = (obj) => {
+    if (Array.isArray(obj)) {
+      // Handle array bodies (bulk upload endpoints)
+      return obj.map(sanitize);
+    }
     if (typeof obj !== "object" || obj === null) return obj;
 
     Object.keys(obj).forEach((key) => {

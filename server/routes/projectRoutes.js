@@ -8,11 +8,11 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
+// ⚠️ All literal routes MUST come before /:id to prevent Express
+// matching :id = "list" | "student" | "guide" | "panel" | "create" | "bulk"
+
 // Get all projects (with optional filters)
 router.get("/list", projectController.getProjectList);
-
-// Get single project by ID
-router.get("/:id", projectController.getProjectById);
 
 // Get projects by student Reg No
 router.get("/student/:regNo", projectController.getProjectsByStudent);
@@ -42,6 +42,10 @@ router.post(
   validateRequired(["school", "program", "projects", "guideFacultyEmpId"]),
   projectController.createProjectsBulk
 );
+
+// Parameterized /:id routes AFTER all literal paths
+// Get single project by ID
+router.get("/:id", projectController.getProjectById);
 
 // Update project details
 router.put(

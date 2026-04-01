@@ -213,10 +213,8 @@ process.on("unhandledRejection", (reason, promise) => {
     reason: reason?.message || reason,
     stack: reason?.stack,
   });
-
-  if (process.env.NODE_ENV === "production") {
-    gracefulShutdown("UNHANDLED_REJECTION");
-  }
+  // Do NOT shutdown the server — Express's error handler covers most cases.
+  // Shutting down here causes 502s for every stray Promise rejection.
 });
 
 process.on("uncaughtException", (error) => {
