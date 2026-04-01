@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import xlsx from "xlsx";
 import fs from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
+
+// Resolve __dirname for ES modules (works regardless of where `node` is invoked from)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import bcrypt from "bcryptjs";
 import Faculty from "../../models/facultySchema.js";
 import Student from "../../models/studentSchema.js";
@@ -16,10 +22,10 @@ dotenv.config();
 // ============================================================================
 
 const EXCEL_PATHS = {
-  faculty: "./Faculty_Template_Updated.xlsx",         // Columns: employeeId, name, emailId, phoneNumber, specialization, password, role
-  projects: "./Projects_Template(6).xlsx",   // Columns: name, guideFacultyEmpId, teamMembers, type, specialization
-  panels: "./panel_upload_filled_updated (1).xlsx",          // Columns: Panel Name, Faculty Employee ID 1, Faculty Employee ID 2, Faculty Employee ID 3, Specializations
-  panelAssignments: "./Project_Panel_Assignments_updated (3).xlsx", // Columns: ProjectTitle, StudentRegNo, PanelName
+  faculty:          path.join(__dirname, "Faculty_Template_Updated.xlsx"),          // Columns: employeeId, name, emailId, phoneNumber, specialization, password, role
+  projects:         path.join(__dirname, "Projects_Template(6).xlsx"),              // Columns: name, guideFacultyEmpId, teamMembers, type, specialization
+  panels:           path.join(__dirname, "panel_upload_filled_updated (1).xlsx"),   // Columns: Panel Name, Faculty Employee ID 1, Faculty Employee ID 2, Faculty Employee ID 3, Specializations
+  panelAssignments: path.join(__dirname, "Project_Panel_Assignments_updated (3).xlsx"), // Columns: ProjectTitle, StudentRegNo, PanelName
 };
 
 // Defaults applied to every project and panel row (change as needed)
