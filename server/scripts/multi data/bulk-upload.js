@@ -60,14 +60,16 @@ function printDivider(label) {
   console.log("=".repeat(60));
 }
 
-function printResults({ label, total, success, failed, errors }) {
-  console.log(`\n--- ${label} ---`);
-  console.log(`  Total:   ${total}`);
-  console.log(`  Success: ${success}`);
-  console.log(`  Failed:  ${failed}`);
+function printResults({ label, total, success, updated = 0, skipped, failed, errors }) {
+  console.log(`\n--- ${label} Summary ---`);
+  console.log(`  Total:    ${total}`);
+  console.log(`  Created:  ${success}`);
+  if (updated > 0) console.log(`  Updated:  ${updated}  (guide/panel updated on existing record)`);
+  console.log(`  Skipped:  ${skipped}  (already up-to-date in DB)`);
+  console.log(`  Failed:   ${failed}  (real errors)`);
   if (errors.length > 0) {
     console.log("  Errors:");
-    errors.forEach((e) => console.error(`    • ${e}`));
+    errors.forEach((e) => console.error(`    ✖ ${e}`));
   }
 }
 
@@ -88,7 +90,7 @@ async function uploadFaculty() {
     return;
   }
 
-  const results = { label: "Faculty", total: rows.length, success: 0, failed: 0, errors: [] };
+  const results = { label: "Faculty", total: rows.length, success: 0, skipped: 0, failed: 0, errors: [] };
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -118,8 +120,8 @@ async function uploadFaculty() {
       });
 
       if (existing) {
-        results.failed++;
-        results.errors.push(`Row ${rowNum}: Duplicate — faculty with employeeId '${employeeId}' or email '${emailId}' already exists. Skipping.`);
+        console.log(`  [Row ${rowNum}] ⚠ Already exists: faculty '${name}' (${employeeId}) — skipping.`);
+        results.skipped++;
         continue;
       }
 
@@ -168,7 +170,7 @@ async function uploadProjects() {
     return;
   }
 
-  const results = { label: "Projects", total: rows.length, success: 0, failed: 0, errors: [] };
+  const results = { label: "Projects", total: rows.length, success: 0, updated: 0, skipped: 0, failed: 0, errors: [] };
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -187,10 +189,10 @@ async function uploadProjects() {
     }
 
     try {
-      // Look up guide faculty
+      // Look up guide faculty by employeeId
       const guide = await Faculty.findOne({ employeeId: { $regex: new RegExp(`^${guideEmpId}$`, "i") } });
       if (!guide) {
-        throw new Error(`Guide faculty '${guideEmpId}' not found.`);
+        throw new Error(`Guide faculty with empId '${guideEmpId}' not found in DB.`);
       }
 
       // Parse team members (comma/space/semicolon separated reg numbers)
@@ -215,7 +217,7 @@ async function uploadProjects() {
       const studentIds = studentDocs.map((s) => s._id);
       const normalizedType = type.toLowerCase().trim();
 
-      // Check for duplicate project name in same academic year
+      // Check if project already exists for this academic year
       const existing = await Project.findOne({
         name: { $regex: new RegExp(`^${name.trim()}$`, "i") },
         academicYear: DEFAULTS.academicYear,
@@ -223,8 +225,25 @@ async function uploadProjects() {
       });
 
       if (existing) {
-        results.failed++;
-        results.errors.push(`Row ${rowNum}: Project '${name}' already exists for ${DEFAULTS.academicYear}. Skipping.`);
+        // If guide is already correct, skip
+        if (existing.guideFaculty?.toString() === guide._id.toString()) {
+          console.log(`  [Row ${rowNum}] ⚠ Already up-to-date: project "${name}" already has guide '${guideEmpId}' — skipping.`);
+          results.skipped++;
+        } else {
+          // Update guideFaculty using the empId from the Excel
+          const oldGuide = existing.guideFaculty;
+          existing.guideFaculty = guide._id;
+          existing.history.push({
+            action: "guide_reassigned",
+            previousGuideFaculty: oldGuide,
+            newGuideFaculty: guide._id,
+            performedBy: guide._id,
+            performedAt: new Date(),
+          });
+          await existing.save({ validateBeforeSave: false });
+          console.log(`  [Row ${rowNum}] ↻ Updated guide: project "${name}" → empId '${guideEmpId}' (${guide.name})`);
+          results.updated++;
+        }
         continue;
       }
 
@@ -249,7 +268,7 @@ async function uploadProjects() {
       });
 
       await project.save();
-      console.log(`  [Row ${rowNum}] ✓ Created project: "${name}" (Guide: ${guideEmpId}, Students: ${regNos.join(", ")})`);
+      console.log(`  [Row ${rowNum}] ✓ Created project: "${name}" (Guide empId: ${guideEmpId}, Students: ${regNos.join(", ")})`);
       results.success++;
     } catch (err) {
       results.failed++;
@@ -277,7 +296,7 @@ async function uploadPanels() {
     return;
   }
 
-  const results = { label: "Panels", total: rows.length, success: 0, failed: 0, errors: [] };
+  const results = { label: "Panels", total: rows.length, success: 0, skipped: 0, failed: 0, errors: [] };
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -320,8 +339,8 @@ async function uploadPanels() {
       });
 
       if (existing) {
-        results.failed++;
-        results.errors.push(`Row ${rowNum}: Panel '${panelName}' already exists. Skipping.`);
+        console.log(`  [Row ${rowNum}] ⚠ Already exists: panel "${panelName}" — skipping.`);
+        results.skipped++;
         continue;
       }
 
@@ -400,7 +419,7 @@ async function uploadPanelAssignments() {
     console.warn(`  [Pre-flight] Migration warning: ${err.message}`);
   }
 
-  const results = { label: "Panel Assignments", total: rows.length, success: 0, failed: 0, errors: [] };
+  const results = { label: "Panel Assignments", total: rows.length, success: 0, skipped: 0, failed: 0, errors: [] };
   const processedProjectIds = new Set(); // Avoid double-counting team members of same project
   const SYS_ADMIN_ID = new mongoose.Types.ObjectId();
 
@@ -437,6 +456,7 @@ async function uploadPanelAssignments() {
         });
         if (!student) {
           console.warn(`  [Row ${rowNum}] Student '${studentRegNo}' not found — skipping.`);
+          results.skipped++;
           continue;
         }
         project = await Project.findOne({ students: student._id, status: "active" });
@@ -450,9 +470,10 @@ async function uploadPanelAssignments() {
         );
       }
 
-      // Skip if project was already processed in this run
+      // Skip if project was already processed in this run (same team, different row)
       if (processedProjectIds.has(project._id.toString())) {
-        console.log(`  [Row ${rowNum}] Already processed project '${project.name}' — skipping duplicate row.`);
+        console.log(`  [Row ${rowNum}] ⚠ Duplicate row: project '${project.name}' already handled this run — skipping.`);
+        results.skipped++;
         continue;
       }
 
@@ -466,10 +487,11 @@ async function uploadPanelAssignments() {
         throw new Error(`Active panel '${panelName}' not found.`);
       }
 
-      // Skip if already correctly assigned
+      // Skip if already correctly assigned in the DB
       if (project.panel && project.panel.toString() === panel._id.toString()) {
-        console.log(`  [Row ${rowNum}] Project '${project.name}' already assigned to panel '${panelName}'. Skipping.`);
+        console.log(`  [Row ${rowNum}] ⚠ Already exists: project '${project.name}' is already assigned to panel '${panelName}' — skipping.`);
         processedProjectIds.add(project._id.toString());
+        results.skipped++;
         continue;
       }
 
