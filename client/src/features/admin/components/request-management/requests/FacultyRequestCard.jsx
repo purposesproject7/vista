@@ -63,15 +63,14 @@ const FacultyRequestCard = ({
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            {pendingCount > 0 && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => onApproveAll(faculty.id)}
-              >
-                Approve All ({pendingCount})
-              </Button>
-            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => onApproveAll(faculty.id)}
+              disabled={pendingCount === 0}
+            >
+              Approve All ({pendingCount})
+            </Button>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-2 hover:bg-gray-100 rounded-lg transition"
