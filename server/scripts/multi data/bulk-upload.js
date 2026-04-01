@@ -4,17 +4,20 @@ import xlsx from "xlsx";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
-import bcrypt from "bcryptjs";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import bcrypt from "bcryptjs";
 import Faculty from "../../models/facultySchema.js";
 import Student from "../../models/studentSchema.js";
 import Project from "../../models/projectSchema.js";
 import Panel from "../../models/panelSchema.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 dotenv.config();
+
+// ============================================================================
+// ⚙️  CONFIGURATION — Update these paths before running
+// ============================================================================
 
 const EXCEL_PATHS = {
   faculty: path.join(__dirname, "Faculty_Template_Updated_multi.xlsx"),
@@ -31,10 +34,14 @@ const DEFAULTS = {
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/vista";
 
-// ================= HELPERS =================
+// ============================================================================
+// HELPERS
+// ============================================================================
 
 function readSheet(filePath) {
-  if (!fs.existsSync(filePath)) throw new Error(`Excel file not found: '${filePath}'`);
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Excel file not found: '${filePath}'`);
+  }
   const workbook = xlsx.readFile(filePath);
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   return xlsx.utils.sheet_to_json(sheet);
@@ -44,189 +51,477 @@ function str(val) {
   return val != null ? String(val).trim() : "";
 }
 
-// ================= 1. FACULTY =================
+function printDivider(label) {
+  console.log(`\n${"=".repeat(60)}`);
+  console.log(`  ${label}`);
+  console.log("=".repeat(60));
+}
+
+function printResults({ label, total, success, updated = 0, skipped, failed, errors }) {
+  console.log(`\n--- ${label} Summary ---`);
+  console.log(`  Total:    ${total}`);
+  console.log(`  Created:  ${success}`);
+  if (updated > 0) console.log(`  Updated:  ${updated}  (guide/panel updated on existing record)`);
+  console.log(`  Skipped:  ${skipped}  (already up-to-date in DB)`);
+  console.log(`  Failed:   ${failed}  (real errors)`);
+  if (errors.length > 0) {
+    console.log("  Errors:");
+    errors.forEach((e) => console.error(`    ✖ ${e}`));
+  }
+}
+
+// ============================================================================
+// 1. FACULTY UPLOAD
+// ============================================================================
 
 async function uploadFaculty() {
-  const rows = readSheet(EXCEL_PATHS.faculty);
+  printDivider("1 / 4 — Faculty Upload");
+
+  let rows;
+  try {
+    rows = readSheet(EXCEL_PATHS.faculty);
+    console.log(`  Found ${rows.length} rows in faculty sheet.`);
+  } catch (err) {
+    console.warn(`  [SKIPPED] ${err.message}`);
+    return;
+  }
+
+  const results = { label: "Faculty", total: rows.length, success: 0, skipped: 0, failed: 0, errors: [] };
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    const rowNum = i + 2;
 
-    const employeeId = str(row["employeeId"]).toUpperCase();
-    const name = str(row["name"]);
-    const emailId = str(row["emailId"]).toLowerCase();
-    const phoneNumber = str(row["phoneNumber"]);
-    const password = str(row["password"]);
+    const employeeId = str(row["employeeId"] || row["EmployeeId"] || row["Employee ID"]);
+    const name = str(row["name"] || row["Name"]);
+    const emailId = str(row["emailId"] || row["Email"] || row["email"]);
+    const phoneNumber = str(row["phoneNumber"] || row["Phone"] || row["phone"]);
+    const specialization = str(row["specialization"] || row["Specialization"]);
+    const password = str(row["password"] || row["Password"]);
+    const role = str(row["role"] || row["Role"]) || "faculty";
 
-    if (!employeeId || !name || !emailId || !phoneNumber || !password) continue;
+    if (!employeeId || !name || !emailId || !phoneNumber || !password) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum}: Missing required field(s) — employeeId, name, emailId, phoneNumber, or password.`);
+      continue;
+    }
 
-    const existing = await Faculty.findOne({
-      $or: [{ employeeId }, { emailId }],
-    });
+    try {
+      const existing = await Faculty.findOne({
+        $or: [
+          { employeeId: employeeId.toUpperCase() },
+          { emailId: emailId.toLowerCase() },
+        ],
+      });
 
-    if (existing) continue;
+      if (existing) {
+        console.log(`  [Row ${rowNum}] ⚠ Already exists: faculty '${name}' (${employeeId}) — skipping.`);
+        results.skipped++;
+        continue;
+      }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
 
-    await Faculty.create({
-      name,
-      emailId,
-      employeeId,
-      phoneNumber,
-      password: hashedPassword,
-      role: "faculty",
-      school: DEFAULTS.school,
-      program: [DEFAULTS.program],
-      isActive: true,
-    });
+      const faculty = new Faculty({
+        name,
+        emailId: emailId.toLowerCase(),
+        employeeId: employeeId.toUpperCase(),
+        phoneNumber,
+        password: hashedPassword,
+        role: role.toLowerCase() === "admin" ? "admin" : "faculty",
+        school: DEFAULTS.school,
+        program: [DEFAULTS.program],
+        specialization,
+        isActive: true,
+      });
+
+      await faculty.save();
+      console.log(`  [Row ${rowNum}] ✓ Created faculty: ${name} (${employeeId})`);
+      results.success++;
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum} (${employeeId}): ${err.message}`);
+    }
   }
+
+  printResults(results);
 }
 
-// ================= 2. PROJECTS =================
+// ============================================================================
+// 2. PROJECT UPLOAD
+// ============================================================================
 
 async function uploadProjects() {
-  const rows = readSheet(EXCEL_PATHS.projects);
+  printDivider("2 / 4 — Project Upload");
 
-  for (let row of rows) {
-    const name = str(row["name"]);
-    const guideEmpId = str(row["guideFacultyEmpId"]).toUpperCase();
-    const teamMembersStr = str(row["teamMembers"]);
-
-    if (!name || !guideEmpId || !teamMembersStr) continue;
-
-    const guide = await Faculty.findOne({ employeeId: guideEmpId });
-    if (!guide) continue;
-
-    const regNos = teamMembersStr
-      .split(/[,\s;]+/)
-      .map((r) => r.trim().toUpperCase())
-      .filter(Boolean);
-
-    const students = await Student.find({
-      regNo: { $in: regNos },
-    });
-
-    if (!students.length) continue;
-
-    const existing = await Project.findOne({
-      name: name.trim(),
-      academicYear: DEFAULTS.academicYear,
-      status: { $ne: "archived" },
-    });
-
-    if (existing) continue;
-
-    await Project.create({
-      name: name.trim(),
-      guideFaculty: guide._id,
-      students: students.map((s) => s._id),
-      teamSize: students.length,
-      academicYear: DEFAULTS.academicYear,
-      school: DEFAULTS.school,
-      program: DEFAULTS.program,
-      status: "active",
-    });
+  let rows;
+  try {
+    rows = readSheet(EXCEL_PATHS.projects);
+    console.log(`  Found ${rows.length} rows in projects sheet.`);
+  } catch (err) {
+    console.warn(`  [SKIPPED] ${err.message}`);
+    return;
   }
+
+  const results = { label: "Projects", total: rows.length, success: 0, updated: 0, skipped: 0, failed: 0, errors: [] };
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2;
+
+    const name = str(row["name"] || row["Name"]);
+    const guideEmpId = str(row["guideFacultyEmpId"] || row["Guide Faculty Emp ID"] || row["GuideEmpId"]);
+    const teamMembersStr = str(row["teamMembers"] || row["Team Members"] || row["TeamMembers"]);
+    const type = str(row["type"] || row["Type"]) || "software";
+    const specialization = str(row["specialization"] || row["Specialization"]);
+
+    if (!name || !guideEmpId || !teamMembersStr) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum}: Missing required field(s) — name, guideFacultyEmpId, or teamMembers.`);
+      continue;
+    }
+
+    try {
+      const guide = await Faculty.findOne({ employeeId: guideEmpId });
+      if (!guide) {
+        throw new Error(`Guide faculty with empId '${guideEmpId}' not found in DB.`);
+      }
+
+      const regNos = teamMembersStr
+        .split(/[,\s;]+/)
+        .map((r) => r.trim())
+        .filter((r) => r.length > 0);
+
+      if (regNos.length === 0) {
+        throw new Error("No valid student reg numbers parsed from teamMembers.");
+      }
+
+      const studentDocs = await Student.find({ regNo: { $in: regNos } });
+
+      if (studentDocs.length === 0) {
+        throw new Error(`No students found for reg numbers: ${regNos.join(", ")}`);
+      }
+
+      const studentIds = studentDocs.map((s) => s._id);
+      const normalizedType = type.toLowerCase().trim();
+
+      const existing = await Project.findOne({
+        name: name.trim(),
+        academicYear: DEFAULTS.academicYear,
+        status: { $ne: "archived" },
+      });
+
+      if (existing) {
+        if (existing.guideFaculty?.toString() === guide._id.toString()) {
+          console.log(`  [Row ${rowNum}] ⚠ Already up-to-date: project "${name}" already has guide '${guideEmpId}' — skipping.`);
+          results.skipped++;
+        } else {
+          const oldGuide = existing.guideFaculty;
+          existing.guideFaculty = guide._id;
+          existing.history.push({
+            action: "guide_reassigned",
+            previousGuideFaculty: oldGuide,
+            newGuideFaculty: guide._id,
+            performedBy: guide._id,
+            performedAt: new Date(),
+          });
+          await existing.save({ validateBeforeSave: false });
+          console.log(`  [Row ${rowNum}] ↻ Updated guide: project "${name}" → empId '${guideEmpId}' (${guide.name})`);
+          results.updated++;
+        }
+        continue;
+      }
+
+      const project = new Project({
+        name: name.trim(),
+        guideFaculty: guide._id,
+        students: studentIds,
+        teamSize: studentIds.length,
+        academicYear: DEFAULTS.academicYear,
+        school: DEFAULTS.school,
+        program: DEFAULTS.program,
+        specialization,
+        type: ["hardware", "software"].includes(normalizedType) ? normalizedType : "software",
+        status: "active",
+        history: [
+          {
+            action: "created",
+            performedBy: guide._id,
+            performedAt: new Date(),
+          },
+        ],
+      });
+
+      await project.save();
+      console.log(`  [Row ${rowNum}] ✓ Created project: "${name}" (Guide empId: ${guideEmpId}, Students: ${regNos.join(", ")})`);
+      results.success++;
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum} (${name}): ${err.message}`);
+    }
+  }
+
+  printResults(results);
 }
 
-// ================= 3. PANELS =================
+// ============================================================================
+// 3. PANEL UPLOAD
+// ============================================================================
 
 async function uploadPanels() {
-  const rows = readSheet(EXCEL_PATHS.panels);
+  printDivider("3 / 4 — Panel Upload");
 
-  for (let row of rows) {
-    const panelName = str(row["Panel Name"]);
+  let rows;
+  try {
+    rows = readSheet(EXCEL_PATHS.panels);
+    console.log(`  Found ${rows.length} rows in panels sheet.`);
+  } catch (err) {
+    console.warn(`  [SKIPPED] ${err.message}`);
+    return;
+  }
+
+  const results = { label: "Panels", total: rows.length, success: 0, skipped: 0, failed: 0, errors: [] };
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2;
+
+    const panelName = str(row["Panel Name"] || row["panelName"] || row["PanelName"]);
 
     const facultyEmpIds = [
-      str(row["Faculty Employee ID 1"]).toUpperCase(),
-      str(row["Faculty Employee ID 2"]).toUpperCase(),
-      str(row["Faculty Employee ID 3"]).toUpperCase(),
-    ].filter(Boolean);
+      str(row["Faculty Employee ID 1"] || row["FacultyEmpId1"] || row["EmpId1"]),
+      str(row["Faculty Employee ID 2"] || row["FacultyEmpId2"] || row["EmpId2"]),
+      str(row["Faculty Employee ID 3"] || row["FacultyEmpId3"] || row["EmpId3"]),
+    ].filter((id) => id.length > 0);
 
-    if (!panelName || !facultyEmpIds.length) continue;
+    const combinedIds = str(row["Faculty Employee IDs"] || row["FacultyEmployeeIDs"]);
+    if (combinedIds) {
+      const parsed = combinedIds.split(/[,;]+/).map((s) => s.trim()).filter(Boolean);
+      facultyEmpIds.push(...parsed);
+    }
 
-    const existing = await Panel.findOne({
-      panelName: panelName.trim(),
-      academicYear: DEFAULTS.academicYear,
-    });
+    const specializations = str(row["Specializations"] || row["Specialization"] || row["specializations"])
+      .split(/[,;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-    if (existing) continue;
+    if (!panelName || facultyEmpIds.length === 0) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum}: Missing Panel Name or at least one Faculty Employee ID.`);
+      continue;
+    }
 
-    const faculties = await Faculty.find({
-      employeeId: { $in: facultyEmpIds },
-    });
+    try {
+      const existing = await Panel.findOne({
+        panelName: panelName.trim(),
+        academicYear: DEFAULTS.academicYear,
+        school: DEFAULTS.school,
+        program: DEFAULTS.program,
+      });
 
-    if (faculties.length !== facultyEmpIds.length) continue;
+      if (existing) {
+        console.log(`  [Row ${rowNum}] ⚠ Already exists: panel "${panelName}" — skipping.`);
+        results.skipped++;
+        continue;
+      }
 
-    await Panel.create({
-      panelName: panelName.trim(),
-      members: faculties.map((f) => ({
+      const faculties = await Faculty.find({ employeeId: { $in: facultyEmpIds } });
+
+      if (faculties.length !== facultyEmpIds.length) {
+        const found = faculties.map((f) => f.employeeId);
+        const missing = facultyEmpIds.filter((id) => !found.some((f) => f === id));
+        throw new Error(`Faculty not found: ${missing.join(", ")}`);
+      }
+
+      const members = faculties.map((f) => ({
         faculty: f._id,
         facultyEmployeeId: f.employeeId,
-      })),
-      facultyEmployeeIds: faculties.map((f) => f.employeeId),
-      academicYear: DEFAULTS.academicYear,
-      school: DEFAULTS.school,
-      program: DEFAULTS.program,
-      isActive: true,
-    });
+        addedAt: new Date(),
+      }));
+
+      const panel = new Panel({
+        panelName: panelName.trim(),
+        members,
+        facultyEmployeeIds: faculties.map((f) => f.employeeId),
+        academicYear: DEFAULTS.academicYear,
+        school: DEFAULTS.school,
+        program: DEFAULTS.program,
+        specializations,
+        type: "regular",
+        panelType: "regular",
+        maxProjects: 10,
+        assignedProjectsCount: 0,
+        isActive: true,
+      });
+
+      await panel.save();
+      console.log(`  [Row ${rowNum}] ✓ Created panel: "${panelName}" (Members: ${facultyEmpIds.join(", ")})`);
+      results.success++;
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum} (${panelName}): ${err.message}`);
+    }
   }
+
+  printResults(results);
 }
 
-// ================= 4. PANEL ASSIGNMENTS =================
+// ============================================================================
+// 4. PROJECT-PANEL ASSIGNMENT UPLOAD
+// ============================================================================
 
 async function uploadPanelAssignments() {
-  const rows = readSheet(EXCEL_PATHS.panelAssignments);
+  printDivider("4 / 4 — Project-Panel Assignment Upload");
 
-  for (let row of rows) {
-    const projectTitle = str(row["ProjectTitle"]);
-    const studentRegNo = str(row["StudentRegNo"]).toUpperCase();
-    const panelName = str(row["PanelName"]);
-
-    let project = null;
-
-    if (projectTitle) {
-      project = await Project.findOne({
-        name: projectTitle.trim(),
-        status: "active",
-      });
-    }
-
-    if (!project && studentRegNo) {
-      const student = await Student.findOne({ regNo: studentRegNo });
-      if (!student) continue;
-
-      project = await Project.findOne({
-        students: student._id,
-        status: "active",
-      });
-    }
-
-    if (!project) continue;
-
-    const panel = await Panel.findOne({
-      panelName: panelName.trim(),
-      isActive: true,
-    });
-
-    if (!panel) continue;
-
-    project.panel = panel._id;
-    await project.save();
+  let rows;
+  try {
+    rows = readSheet(EXCEL_PATHS.panelAssignments);
+    console.log(`  Found ${rows.length} rows in panel-assignments sheet.`);
+  } catch (err) {
+    console.warn(`  [SKIPPED] ${err.message}`);
+    return;
   }
+
+  try {
+    const fix = await Project.updateMany(
+      { "history.action": "panel_assigned" },
+      { $set: { "history.$[elem].action": "panel_reassigned" } },
+      { arrayFilters: [{ "elem.action": "panel_assigned" }] }
+    );
+    if (fix.modifiedCount > 0) {
+      console.log(`  [Pre-flight] Fixed ${fix.modifiedCount} legacy 'panel_assigned' history enums.`);
+    }
+  } catch (err) {
+    console.warn(`  [Pre-flight] Migration warning: ${err.message}`);
+  }
+
+  const results = { label: "Panel Assignments", total: rows.length, success: 0, skipped: 0, failed: 0, errors: [] };
+  const processedProjectIds = new Set();
+  const SYS_ADMIN_ID = new mongoose.Types.ObjectId();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2;
+
+    const projectTitle = str(row["ProjectTitle"] || row["Project Title"] || row["projectTitle"]);
+    const studentRegNo = str(row["StudentRegNo"] || row["Student Reg No"] || row["RegNo"]);
+    const panelName = str(row["PanelName"] || row["Panel Name"] || row["panelName"]);
+
+    if ((!projectTitle && !studentRegNo) || !panelName) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum}: Needs (ProjectTitle or StudentRegNo) and PanelName.`);
+      continue;
+    }
+
+    try {
+      let project = null;
+
+      if (projectTitle) {
+        project = await Project.findOne({
+          name: projectTitle.trim(),
+          status: "active",
+        });
+      }
+
+      if (!project && studentRegNo) {
+        const student = await Student.findOne({ regNo: studentRegNo });
+        if (!student) {
+          console.warn(`  [Row ${rowNum}] Student '${studentRegNo}' not found — skipping.`);
+          results.skipped++;
+          continue;
+        }
+        project = await Project.findOne({ students: student._id, status: "active" });
+      }
+
+      if (!project) {
+        throw new Error(
+          projectTitle
+            ? `No active project found with title '${projectTitle}'.`
+            : `No active project found for student '${studentRegNo}'.`
+        );
+      }
+
+      if (processedProjectIds.has(project._id.toString())) {
+        console.log(`  [Row ${rowNum}] ⚠ Duplicate row: project '${project.name}' already handled this run — skipping.`);
+        results.skipped++;
+        continue;
+      }
+
+      const panel = await Panel.findOne({
+        panelName: panelName.trim(),
+        isActive: true,
+      });
+
+      if (!panel) {
+        throw new Error(`Active panel '${panelName}' not found.`);
+      }
+
+      if (project.panel && project.panel.toString() === panel._id.toString()) {
+        console.log(`  [Row ${rowNum}] ⚠ Already exists: project '${project.name}' is already assigned to panel '${panelName}' — skipping.`);
+        processedProjectIds.add(project._id.toString());
+        results.skipped++;
+        continue;
+      }
+
+      if (project.panel) {
+        await Panel.findByIdAndUpdate(project.panel, { $inc: { assignedProjectsCount: -1 } });
+      }
+
+      project.panel = panel._id;
+      project.history.push({
+        action: "panel_reassigned",
+        panel: panel._id,
+        performedBy: SYS_ADMIN_ID,
+        performedAt: new Date(),
+      });
+
+      await project.save({ validateBeforeSave: false });
+
+      panel.assignedProjectsCount += 1;
+      await panel.save();
+
+      processedProjectIds.add(project._id.toString());
+      console.log(`  [Row ${rowNum}] ✓ Assigned panel '${panelName}' → project '${project.name}'`);
+      results.success++;
+    } catch (err) {
+      results.failed++;
+      results.errors.push(`Row ${rowNum}: ${err.message}`);
+    }
+  }
+
+  printResults(results);
 }
 
-// ================= MAIN =================
+// ============================================================================
+// MAIN
+// ============================================================================
 
 async function main() {
-  await mongoose.connect(MONGO_URI);
+  console.log("\n🚀 Vista Bulk Upload Script");
+  console.log(`   MongoDB: ${MONGO_URI.replace(/:\/\/.*@/, "://<credentials>@")}`);
+  console.log(`   Defaults: ${DEFAULTS.academicYear} | ${DEFAULTS.school} | ${DEFAULTS.program}`);
 
-  await uploadFaculty();
-  await uploadProjects();
-  await uploadPanels();
-  await uploadPanelAssignments();
+  try {
+    console.log("\nConnecting to MongoDB...");
+    await mongoose.connect(MONGO_URI);
+    console.log("✓ Connected to DB.");
 
-  await mongoose.disconnect();
+    await uploadFaculty();
+    await uploadProjects();
+    await uploadPanels();
+    await uploadPanelAssignments();
+
+    printDivider("✅ All uploads complete!");
+  } catch (err) {
+    console.error("\n❌ Fatal error:", err);
+  } finally {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      console.log("\nDisconnected from DB.");
+    }
+    process.exit(0);
+  }
 }
 
 main();
