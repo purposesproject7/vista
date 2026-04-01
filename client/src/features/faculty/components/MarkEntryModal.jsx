@@ -67,7 +67,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
         ...DEFAULT_META,
         comment: rawComment.replace(/^\[ABSENT\]\s*|^\[PAT\]\s*|\|\s*Team Feedback:.*|\|\s*PPT Approved/g, '').trim() || '',
         attendance: rawComment.includes('[ABSENT]') ? 'absent' : 'present',
-        pat: rawComment.includes('[PAT]') ? true : false
+        pat: s.PAT === true || rawComment.includes('[PAT]')
       };
     });
 
@@ -382,19 +382,29 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-6">
-                  <textarea
-                    value={teamMeta.teamComment}
-                    onChange={(e) => setTeamMeta(prev => ({ ...prev, teamComment: e.target.value }))}
-                    placeholder="Write your constructive feedback here..."
-                    className="flex-1 w-full p-4 text-base border-2 border-slate-100 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-50 transition-all resize-none min-h-[120px]"
-                  />
-                  <div className="w-full md:w-72 shrink-0 flex flex-col gap-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setTeamMeta(prev => ({ ...prev, pptApproved: !prev.pptApproved }))}>
-                      <label className="flex items-center gap-3 cursor-pointer pointer-events-none">
-                        <input type="checkbox" checked={teamMeta.pptApproved} onChange={() => { }} className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
-                        <span className="text-base font-bold text-slate-800">PPT Approved</span>
-                      </label>
+                  <div className="flex-1 w-full flex flex-col gap-2">
+                    <textarea
+                      value={teamMeta.teamComment}
+                      onChange={(e) => setTeamMeta(prev => ({ ...prev, teamComment: e.target.value }))}
+                      placeholder="Write your constructive feedback here..."
+                      className="w-full p-4 text-base border-2 border-slate-100 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-50 transition-all resize-none min-h-[120px]"
+                    />
+                    <div className="flex justify-between items-center px-1">
+                      <span className={`text-xs font-bold ${teamMeta.teamComment.trim().length >= 10 ? 'text-green-600' : 'text-slate-500'}`}>
+                        {teamMeta.teamComment.trim().length >= 10 ? '✓ Valid length' : 'Minimum 10 characters required'}
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium">{teamMeta.teamComment.trim().length} chars</span>
                     </div>
+                  </div>
+                  <div className="w-full md:w-72 shrink-0 flex flex-col gap-4">
+                    {review.pptRequired && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setTeamMeta(prev => ({ ...prev, pptApproved: !prev.pptApproved }))}>
+                        <label className="flex items-center gap-3 cursor-pointer pointer-events-none">
+                          <input type="checkbox" checked={teamMeta.pptApproved} onChange={() => { }} className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
+                          <span className="text-base font-bold text-slate-800">PPT Approved</span>
+                        </label>
+                      </div>
+                    )}
                     <Button variant="primary" onClick={handleSave} disabled={!allValid || saving} className="w-full py-4 text-lg bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-lg shadow-purple-200">
                       {saving ? 'Submitting...' : 'Submit All Marks'}
                     </Button>

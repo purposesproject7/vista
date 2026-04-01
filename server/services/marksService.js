@@ -97,10 +97,14 @@ export class MarksService {
 
     await marks.save();
 
-    // Update student marks references
+    // Update student marks references and check PAT
     const updateField = facultyType === "guide" ? "guideMarks" : "panelMarks";
+    
+    const hasPat = await Marks.exists({ student, remarks: { $regex: /\\[PAT\\]/i } });
+
     await Student.findByIdAndUpdate(student, {
       $push: { [updateField]: marks._id },
+      PAT: !!hasPat
     });
 
     logger.info("marks_submitted", {
@@ -141,6 +145,10 @@ export class MarksService {
     marks.submittedAt = new Date();
 
     await marks.save();
+
+    // Recheck PAT global status for this student
+    const hasPat = await Marks.exists({ student: marks.student, remarks: { $regex: /\\[PAT\\]/i } });
+    await Student.findByIdAndUpdate(marks.student, { PAT: !!hasPat });
 
     logger.info("marks_updated", {
       marksId: marks._id,

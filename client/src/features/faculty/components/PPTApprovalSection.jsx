@@ -15,6 +15,7 @@ const PPTApprovalSection = ({ reviews, onRefresh }) => {
         // STRICT REQUIREMENT: Only show PPT Approval for Panel reviews (and 'both' type which involves panel).
         // User explicitly stated: "it shd work for panel review only".
         // BUT Review 1 is "both", and requires PPT. So we must allow "both" too if it involves Panel logic.
+        if (!review.pptRequired) return [];
         if (review.facultyType !== 'panel' && review.facultyType !== 'both') return [];
 
         return (review.teams || [])

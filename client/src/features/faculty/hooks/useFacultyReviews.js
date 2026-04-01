@@ -264,6 +264,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         endDate: reviewSchema.deadline.to,
                         type: filters.role && filters.role !== 'All Roles' ? filters.role.toLowerCase() : (reviewSchema.facultyType === 'both' ? 'both' : reviewSchema.facultyType),
                         facultyType: reviewSchema.facultyType,
+                        pptRequired: reviewSchema.pptRequired || false,
                         rubrics: rubrics,
                         teams: relevantTeams
                     };
