@@ -109,18 +109,17 @@ async function uploadFaculty() {
     }
 
     try {
-      // Check duplicate
+      // Check duplicate (employeeId and email only — phone duplicates are allowed)
       const existing = await Faculty.findOne({
         $or: [
           { employeeId: employeeId.toUpperCase() },
           { emailId: emailId.toLowerCase() },
-          { phoneNumber },
         ],
       });
 
       if (existing) {
         results.failed++;
-        results.errors.push(`Row ${rowNum}: Duplicate — faculty with employeeId '${employeeId}', email '${emailId}', or phone '${phoneNumber}' already exists. Skipping.`);
+        results.errors.push(`Row ${rowNum}: Duplicate — faculty with employeeId '${employeeId}' or email '${emailId}' already exists. Skipping.`);
         continue;
       }
 
