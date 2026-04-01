@@ -48,7 +48,7 @@ export class ProjectService {
    */
   static async getGuideProjects(filters = {}) {
     const query = {};
-    if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.academicYear) delete filters.academicYear;
     if (filters.school) query.school = filters.school;
     if (filters.program && filters.program !== 'all') query.program = filters.program;
 
@@ -80,7 +80,7 @@ export class ProjectService {
    */
   static async getPanelProjects(filters = {}) {
     const query = {};
-    if (filters.academicYear) query.academicYear = filters.academicYear;
+    if (filters.academicYear) delete filters.academicYear;
     if (filters.school) query.school = filters.school;
     if (filters.program && filters.program !== 'all') query.program = filters.program;
 
@@ -156,7 +156,7 @@ export class ProjectService {
     // mismatches between stored values (e.g. "B.Tech") and query params (e.g. "B.TECH")
     const baseQuery = { status: "active" };
     if (filters.academicYear) {
-      baseQuery.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      delete filters.academicYear;
     }
     if (filters.school) {
       baseQuery.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
