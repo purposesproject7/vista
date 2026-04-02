@@ -76,10 +76,10 @@ const ActiveReviewsSection = ({ reviews, onEnterMarks }) => {
 
                                 <Button
                                     variant="primary"
-                                    className="w-full justify-center"
+                                    className="w-full justify-center shadow-md font-bold"
                                     onClick={() => handleViewTeams(review)}
                                 >
-                                    Enter Marks
+                                    Show Teams
                                 </Button>
                             </div>
                         );

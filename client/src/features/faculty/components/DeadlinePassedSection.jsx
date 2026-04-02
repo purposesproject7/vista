@@ -115,9 +115,10 @@ const DeadlinePassedSection = ({ reviews, onEnterMarks }) => {
                                         <Button
                                             size="sm"
                                             variant="primary"
+                                            className="font-bold shadow-sm"
                                             onClick={() => handleViewTeams(review)}
                                         >
-                                            View Teams
+                                            Show Teams
                                         </Button>
                                     </div>
                                 </div>
