@@ -357,7 +357,13 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                                   max={max}
                                   value={currentScore !== undefined ? currentScore : ''}
                                   onChange={(e) => handleScoreChange(sid, rubric.rubric_id, e.target.value)}
-                                  className="w-24 bg-white border border-slate-300 rounded-lg py-2 text-center text-xl font-black text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all placeholder-slate-200"
+                                  onWheel={(e) => e.target.blur()}
+                                  onKeyDown={(e) => {
+                                    if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+                                      e.preventDefault();
+                                    }
+                                  }}
+                                  className="w-24 bg-white border border-slate-300 rounded-lg py-2 text-center text-xl font-black text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all placeholder-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   placeholder="-"
                                 />
                               )}
