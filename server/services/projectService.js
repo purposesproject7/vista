@@ -1310,10 +1310,9 @@ export class ProjectService {
 
     const faculty = await Faculty.findById(facultyId);
     const commonContext = {
-      school: faculty.school,
-      program: faculty.program, // This might be an array, handled below
-      // academicYear is usually derived or current. Best to pick from one of the source projects OR current active year.
-      // If students come from existing projects, use that year.
+      school: null,
+      program: null,
+      academicYear: null,
     };
 
     let referenceProject = sourceProjects[0];
@@ -1326,8 +1325,11 @@ export class ProjectService {
       const studentSample = students[0];
       commonContext.academicYear = studentSample.academicYear;
       commonContext.program = studentSample.program;
+      commonContext.school = studentSample.school || faculty.school;
     } else {
       commonContext.academicYear = referenceProject.academicYear;
+      commonContext.program = referenceProject.program;
+      commonContext.school = referenceProject.school;
       // Verify ownership
       for (const p of sourceProjects) {
         if (p.guideFaculty.toString() !== facultyId.toString()) {
