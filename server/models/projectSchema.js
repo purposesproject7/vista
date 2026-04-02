@@ -93,12 +93,16 @@ const projectSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ["hardware", "software"],
+      lowercase: true,
+      trim: true,
     },
 
     status: {
       type: String,
       enum: ["active", "inactive", "completed", "archived"],
       default: "active",
+      lowercase: true,
+      trim: true,
     },
 
     bestProject: { type: Boolean, default: false },

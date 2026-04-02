@@ -13,6 +13,8 @@ const facultySchema = new mongoose.Schema(
       type: String,
       enum: ["admin", "faculty"],
       default: "faculty",
+      lowercase: true,
+      trim: true,
     },
 
     school: { type: String, required: true },

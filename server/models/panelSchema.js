@@ -36,12 +36,16 @@ const panelSchema = new mongoose.Schema(
       type: String,
       enum: ["regular", "temporary"],
       default: "regular",
+      lowercase: true,
+      trim: true,
     },
 
     panelType: {
       type: String,
       enum: ["regular", "temporary"],
       default: "regular",
+      lowercase: true,
+      trim: true,
     },
 
     maxProjects: { type: Number, default: 10 },
