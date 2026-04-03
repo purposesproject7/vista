@@ -305,6 +305,35 @@ export class StudentService {
   }
 
   /**
+   * Undo PAT for a student
+   */
+  static async undoStudentPAT(regNo, userId) {
+    const student = await Student.findOne({ regNo });
+    if (!student) throw new Error("Student not found.");
+
+    const marksDocs = await Marks.find({ student: student._id, remarks: /\[PAT\]/i });
+    for (const mark of marksDocs) {
+      if (typeof mark.remarks === 'string') {
+        mark.remarks = mark.remarks.replace(/\[PAT\]\s*/ig, '').trim();
+        await mark.save();
+      }
+    }
+
+    // Set Student PAT flag to false
+    student.PAT = false;
+    await student.save();
+
+    logger.info("student_pat_undone", {
+      regNo,
+      studentId: student._id,
+      updatedBy: userId,
+      marksUpdated: marksDocs.length
+    });
+
+    return this.processStudentData(student.toObject());
+  }
+
+  /**
    * Delete student
    */
   static async deleteStudent(regNo, userId) {

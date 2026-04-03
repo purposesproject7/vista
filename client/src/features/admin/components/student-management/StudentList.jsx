@@ -17,7 +17,7 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline';
 
-const StudentList = ({ students = [], loading = false, onViewDetails, onEdit, onDelete }) => {
+const StudentList = ({ students = [], loading = false, onViewDetails, onEdit, onDelete, onUndoPAT }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredStudents = students.filter(student => {
@@ -166,6 +166,21 @@ const StudentList = ({ students = [], loading = false, onViewDetails, onEdit, on
 
                 {/* Action Buttons */}
                 <div className="shrink-0 flex gap-2">
+                  {student.PAT && onUndoPAT && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to undo the PAT status for ${student.name} (${student.regNo})?\nThis will remove the [PAT] tag from all existing evaluations.`)) {
+                          onUndoPAT(student);
+                        }
+                      }}
+                      className="gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      <XCircleIcon className="w-4 h-4" />
+                      Undo PAT
+                    </Button>
+                  )}
                   {onDelete && (
                     <Button
                       variant="danger"

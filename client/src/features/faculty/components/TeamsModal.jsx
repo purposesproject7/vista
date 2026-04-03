@@ -156,7 +156,7 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                 {s.student_name}
                               </span>
-                              {s.existingMeta?.pat ? (
+                              {s.existingMeta?.pat || s.isGuidePAT ? (
                                 <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-100 font-bold text-[10px] uppercase">
                                   PAT
                                 </span>

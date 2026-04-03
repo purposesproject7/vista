@@ -246,6 +246,8 @@ router.post(
 
 router.put("/student/:regNo", adminController.updateStudent);
 
+router.patch("/student/:regNo/undo-pat", adminController.undoStudentPAT);
+
 // Update student marks (ADMIN001 only)
 router.put(
   "/student/:regNo/marks",

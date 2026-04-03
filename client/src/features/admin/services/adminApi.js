@@ -419,6 +419,15 @@ export const updateStudent = async (regNo, data) => {
 };
 
 /**
+ * Undo PAT status for a student
+ * @param {string} regNo - The student registration number
+ */
+export const undoStudentPAT = async (regNo) => {
+  const response = await api.patch(`/admin/student/${regNo}/undo-pat`);
+  return response.data;
+};
+
+/**
  * Delete student
  * @param {string} regNo - The student registration number
  */

@@ -1561,6 +1561,29 @@ export async function updateStudent(req, res) {
 }
 
 /**
+ * Undo PAT status for a student (admin)
+ */
+export async function undoStudentPAT(req, res) {
+  try {
+    const student = await StudentService.undoStudentPAT(
+      req.params.regNo,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "PAT status undone successfully",
+      data: student,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
  * Update student marks (ADMIN001 only)
  */
 export async function updateStudentMarks(req, res) {

@@ -5,7 +5,7 @@ import StudentList from './StudentList';
 import StudentDetailsModal from './StudentDetailsModal';
 import StudentEditModal from './StudentEditModal';
 import { useToast } from '../../../../shared/hooks/useToast';
-import { fetchStudents, fetchStudentDetails, deleteStudent } from '../../services/adminApi';
+import { fetchStudents, fetchStudentDetails, deleteStudent, undoStudentPAT } from '../../services/adminApi';
 
 const StudentViewTab = ({ onStudentsLoaded }) => {
   const [filters, setFilters] = useState(null);
@@ -161,6 +161,24 @@ const StudentViewTab = ({ onStudentsLoaded }) => {
     }
   };
 
+  const handleUndoPAT = async (student) => {
+    try {
+      setLoading(true);
+      const response = await undoStudentPAT(student.regNo);
+      if (response.success) {
+        showToast('Successfully removed PAT status', 'success');
+        loadStudents();
+      } else {
+        showToast(response.message || 'Failed to undo PAT', 'error');
+      }
+    } catch (error) {
+      console.error('Error undoing PAT:', error);
+      showToast(error.response?.data?.message || 'Failed to undo PAT', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Academic Filter Selector */}
@@ -175,6 +193,7 @@ const StudentViewTab = ({ onStudentsLoaded }) => {
             onViewDetails={handleViewDetails}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onUndoPAT={handleUndoPAT}
           />
 
           <StudentDetailsModal
