@@ -117,6 +117,8 @@ const projectSchema = new mongoose.Schema(
       default: null,
     },
 
+    sdgGoals: [{ type: String }],
+
     description: { type: String },
   },
   { timestamps: true }

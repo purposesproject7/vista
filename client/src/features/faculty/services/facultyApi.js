@@ -47,7 +47,7 @@ export const submitMarks = async (payload) => {
   return response.data;
 };
 
-export const approvePPT = async (studentId, reviewType) => {
-  const response = await api.post("/faculty/approvals/ppt", { studentId, reviewType });
+export const approvePPT = async (studentId, reviewType, sdgGoals) => {
+  const response = await api.post("/faculty/approvals/ppt", { studentId, reviewType, sdgGoals });
   return response.data;
 };

@@ -6,7 +6,7 @@ export class ApprovalService {
   /**
    * Approve PPT submission
    */
-  static async approvePPT(facultyId, studentId, reviewType) {
+  static async approvePPT(facultyId, studentId, reviewType, sdgGoals) {
     const student = await Student.findById(studentId);
 
     if (!student) {
@@ -36,6 +36,10 @@ export class ApprovalService {
         approvedBy: facultyId,
         approvedAt: new Date(),
       });
+    }
+
+    if (sdgGoals && Array.isArray(sdgGoals) && sdgGoals.length > 0) {
+      project.sdgGoals = sdgGoals;
     }
 
     await project.save();

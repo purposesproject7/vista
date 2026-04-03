@@ -176,8 +176,18 @@ const ProjectViewTab = () => {
                       )}
 
                       {project.specialization && (
-                        <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        <div className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded inline-block">
                           {project.specialization}
+                        </div>
+                      )}
+
+                      {project.sdgGoals && project.sdgGoals.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {project.sdgGoals.map((goal, idx) => (
+                            <span key={idx} className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-medium" title={goal}>
+                              {goal.length > 25 ? goal.substring(0, 25) + '...' : goal}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -214,6 +224,9 @@ const ProjectViewTab = () => {
                       Guide
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      SDG Goals
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -247,6 +260,19 @@ const ProjectViewTab = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
                             {guideName}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {project.sdgGoals && project.sdgGoals.length > 0 ? (
+                               project.sdgGoals.map((goal, idx) => (
+                                <span key={idx} className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-medium" title={goal}>
+                                  {goal.length > 20 ? goal.substring(0, 20) + '...' : goal}
+                                </span>
+                              ))
+                            ) : (
+                               <span className="text-xs text-gray-400">None</span>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-3">
