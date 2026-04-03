@@ -167,7 +167,9 @@ const StudentViewTab = ({ onStudentsLoaded }) => {
       const response = await undoStudentPAT(student.regNo);
       if (response.success) {
         showToast('Successfully removed PAT status', 'success');
-        loadStudents();
+        // Optimistic UI update to instantly flush out the button
+        setStudents(prev => prev.map(s => s.regNo === student.regNo ? { ...s, PAT: false } : s));
+        await loadStudents();
       } else {
         showToast(response.message || 'Failed to undo PAT', 'error');
       }
