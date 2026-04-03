@@ -145,9 +145,11 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         
                         const allStudentsMarked = activeStudents.length > 0 && activeStudents.every(student => {
                             const sId = String(student._id || student);
+                            const currentRole = filters.role === 'panel' ? 'panel' : 'guide';
                             return projectMarks.some(m =>
                                 String(m.student?._id || m.student) === sId &&
-                                m.isSubmitted
+                                m.isSubmitted &&
+                                m.facultyType === currentRole
                             );
                         });
 
@@ -181,7 +183,11 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             projectTitle: project.name,
                             students: activeStudents.map(s => {
                                 const sId = String(s._id || s);
-                                const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId);
+                                const currentRole = filters.role === 'panel' ? 'panel' : 'guide';
+                                const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === currentRole);
+                                const guideMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === 'guide');
+
+                                const isGuidePAT = guideMark?.pat || guideMark?.remarks?.includes('[PAT]') || false;
 
                                 return {
                                     student_id: s._id,
@@ -189,15 +195,14 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                                     roll_no: s.regNo,
                                     email: s.emailId,
                                     profile_image: s.profileImage || null,
-                                    profile_image: s.profileImage || null,
                                     existingMarks: studentMark?.componentMarks || [],
                                     existingMeta: {
                                         comment: studentMark?.remarks || '',
                                         isSubmitted: studentMark?.isSubmitted || false,
-                                        // attendance/pat logic might need better DB storage mapping
-                                        attendance: studentMark?.attendance || 'present', // Assuming new fields exist or defaulting
-                                        pat: studentMark?.pat || false // Assuming new fields exist or defaulting
+                                        attendance: studentMark?.attendance || (studentMark?.remarks?.includes('[ABSENT]') ? 'absent' : 'present'),
+                                        pat: studentMark?.pat || (studentMark?.remarks?.includes('[PAT]') ? true : false)
                                     },
+                                    isGuidePAT: isGuidePAT,
                                     marksId: studentMark?._id, // EXPOSE THE MARKS ID FOR UPDATES
                                     totalMarks: studentMark?.totalMarks || 0,
                                     maxTotalMarks: studentMark?.maxTotalMarks || 0

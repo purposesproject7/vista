@@ -65,9 +65,9 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
 
       initMeta[s.student_id] = {
         ...DEFAULT_META,
-        comment: rawComment.replace(/^\[ABSENT\]\s*|^\[PAT\]\s*|\|\s*Team Feedback:.*|\|\s*PPT Approved/g, '').trim() || '',
+        comment: rawComment.replace(/\[ABSENT\]\s*|\[PAT\]\s*|\|\s*Team Feedback:.*|\|\s*PPT Approved/g, '').trim() || '',
         attendance: rawComment.includes('[ABSENT]') ? 'absent' : 'present',
-        pat: rawComment.includes('[PAT]') ? true : false
+        pat: rawComment.includes('[PAT]') || s.isGuidePAT ? true : false
       };
     });
 
@@ -161,7 +161,8 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
     let patch = {};
     if (type === 'attendance') {
       const newVal = isActive ? 'absent' : 'present';
-      patch = { attendance: newVal, pat: newVal === 'absent' ? false : currentMeta.pat };
+      const isGuidePAT = team.students.find(st => st.student_id === sid)?.isGuidePAT;
+      patch = { attendance: newVal, pat: isGuidePAT ? true : (newVal === 'absent' ? false : currentMeta.pat) };
     } else if (type === 'pat') {
       patch = { pat: isActive, attendance: isActive ? 'present' : currentMeta.attendance };
     }
@@ -188,7 +189,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
         if (teamMeta.pptApproved) remarks += ` | PPT Approved`;
 
         const componentMarks = rubrics.map(rubric => {
-          const score = parseFloat(studentMarks[rubric.rubric_id] || 0);
+          const score = (studentMeta.pat || studentMeta.attendance === 'absent') ? 0 : parseFloat(studentMarks[rubric.rubric_id] || 0);
           const max = rubric.maxMarks || rubric.max_marks;
           return {
             componentId: rubric.rubricId || rubric.rubric_id,
@@ -332,16 +333,19 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                               >
                                 Absent
                               </button>
-                              <button
-                                onClick={() => initiateAttendanceChange(sid, 'pat')}
-                                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border
-                                                          ${m.pat
-                                    ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
-                                    : 'bg-white text-slate-400 border-slate-200 hover:text-orange-500'}
-                                                        `}
-                              >
-                                PAT
-                              </button>
+                              
+                              {!student.isGuidePAT && (
+                                <button
+                                  onClick={() => initiateAttendanceChange(sid, 'pat')}
+                                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border
+                                                            ${m.pat
+                                      ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                                      : 'bg-white text-slate-400 border-slate-200 hover:text-orange-500'}
+                                                          `}
+                                >
+                                  PAT
+                                </button>
+                              )}
                             </div>
 
                             {/* RIGHT: INPUT */}

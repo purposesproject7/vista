@@ -156,7 +156,15 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                 {s.student_name}
                               </span>
-                              {team.marksEntered ? (
+                              {s.existingMeta?.pat ? (
+                                <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-100 font-bold text-[10px] uppercase">
+                                  PAT
+                                </span>
+                              ) : s.existingMeta?.attendance === 'absent' ? (
+                                <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md border border-red-100 font-bold text-[10px] uppercase">
+                                  ABSENT
+                                </span>
+                              ) : team.marksEntered ? (
                                 <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100 font-bold">
                                   {s.totalMarks} / {s.maxTotalMarks}
                                 </span>
