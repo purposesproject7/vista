@@ -141,7 +141,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             m.reviewType === reviewId
                         );
 
-                        const activeStudents = project.students.filter(s => !s.PAT);
+                        const activeStudents = project.students;
                         
                         const allStudentsMarked = activeStudents.length > 0 && activeStudents.every(student => {
                             const sId = String(student._id || student);
@@ -187,7 +187,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                                 const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === currentRole);
                                 const guideMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === 'guide');
 
-                                const isGuidePAT = guideMark?.pat || guideMark?.remarks?.includes('[PAT]') || false;
+                                const isGuidePAT = s.PAT || guideMark?.pat || guideMark?.remarks?.includes('[PAT]') || false;
 
                                 return {
                                     student_id: s._id,
