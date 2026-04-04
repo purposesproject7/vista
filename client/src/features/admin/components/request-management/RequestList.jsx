@@ -239,17 +239,16 @@ const RequestList = () => {
                 {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}
               </span>
 
-              {requests.some(r => r.status === 'pending') && (
-                <Button
-                  variant="primary"
-                  className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
-                  onClick={handleApproveAll}
-                  disabled={submitting}
-                >
-                  <CheckCircleIcon className="h-4 w-4 mr-1 inline-block" />
-                  Approve Request All
-                </Button>
-              )}
+              <Button
+                variant="primary"
+                className={`whitespace-nowrap flex items-center gap-1 ${requests.some(r => r.status === 'pending') ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed text-gray-100 opacity-70 border-none'}`}
+                onClick={handleApproveAll}
+                disabled={submitting || !requests.some(r => r.status === 'pending')}
+                title={requests.some(r => r.status === 'pending') ? "Approve all pending requests" : "No pending requests to approve"}
+              >
+                <CheckCircleIcon className="h-4 w-4" />
+                Approve Request All
+              </Button>
             </div>
           </Card>
 
