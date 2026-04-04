@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fetchRequests, updateRequestStatus } from "../../services/adminApi";
+import { fetchRequests, updateRequestStatus, approveAllRequests } from "../../services/adminApi";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -99,6 +99,31 @@ const RequestList = () => {
         handleCloseModal();
       } else {
         alert(response.message || "Failed to update request.");
+      }
+    } catch (err) {
+      alert(err.message || "An error occurred.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApproveAll = async () => {
+    const pendingCount = requests.filter(r => r.status === 'pending').length;
+    if (pendingCount === 0) return;
+    
+    if (!window.confirm(`Are you sure you want to approve ALL ${pendingCount} pending request(s)?`)) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await approveAllRequests();
+      
+      if (response.success) {
+        alert(response.message || "All pending requests approved successfully.");
+        loadRequests();
+      } else {
+        alert(response.message || "Failed to approve all requests.");
       }
     } catch (err) {
       alert(err.message || "An error occurred.");
@@ -213,6 +238,18 @@ const RequestList = () => {
               <span className="flex items-center text-sm font-medium text-gray-600 px-3">
                 {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}
               </span>
+
+              {requests.some(r => r.status === 'pending') && (
+                <Button
+                  variant="primary"
+                  className="bg-green-600 hover:bg-green-700 whitespace-nowrap"
+                  onClick={handleApproveAll}
+                  disabled={submitting}
+                >
+                  <CheckCircleIcon className="h-4 w-4 mr-1 inline-block" />
+                  Approve Request All
+                </Button>
+              )}
             </div>
           </Card>
 

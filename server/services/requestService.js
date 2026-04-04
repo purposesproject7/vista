@@ -118,6 +118,34 @@ export class RequestService {
   }
 
   /**
+   * Approve all pending requests
+   */
+  static async approveAllRequests(resolvedBy) {
+    const pendingRequests = await Request.find({ status: "pending" });
+    const approvedRequests = [];
+    
+    for (const req of pendingRequests) {
+      try {
+        const approved = await this.updateRequestStatus(
+          req._id, 
+          "approved", 
+          resolvedBy, 
+          { remarks: "Bulk approved by Admin" }
+        );
+        approvedRequests.push(approved);
+      } catch (err) {
+        logger.error(`Error bulk approving request ${req._id}:`, err);
+      }
+    }
+    
+    return {
+      success: true,
+      count: approvedRequests.length,
+      total: pendingRequests.length
+    };
+  }
+
+  /**
    * Create request
    */
   static async createRequest(data, createdBy) {

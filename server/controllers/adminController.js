@@ -694,6 +694,23 @@ export async function updateRequestStatus(req, res) {
   }
 }
 
+export async function approveAllRequests(req, res) {
+  try {
+    const result = await RequestService.approveAllRequests(req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully approved ${result.count} out of ${result.total} pending requests.`,
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ===== ACCESS REQUESTS (Project Coordinators) =====
 
 export async function getAllAccessRequests(req, res) {

@@ -352,6 +352,11 @@ router.delete("/panels/:id", adminController.deletePanel);
 router.get("/requests", adminController.getAllRequests);
 
 router.put(
+  "/requests/approve-all",
+  adminController.approveAllRequests
+);
+
+router.put(
   "/requests/:id/status",
   validateRequired(["status"]),
   adminController.updateRequestStatus

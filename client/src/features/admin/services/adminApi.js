@@ -927,6 +927,14 @@ export const updateRequestStatus = async (
 };
 
 /**
+ * Approve all pending faculty requests
+ */
+export const approveAllRequests = async () => {
+  const response = await api.put("/admin/requests/approve-all");
+  return response.data;
+};
+
+/**
  * Fetch all access requests (Project Coordinators)
  */
 export const fetchAccessRequests = async (filters = {}) => {
@@ -1314,6 +1322,7 @@ export default {
   // Requests
   fetchRequests,
   updateRequestStatus,
+  approveAllRequests,
 
   // Broadcasts
   fetchBroadcasts,
