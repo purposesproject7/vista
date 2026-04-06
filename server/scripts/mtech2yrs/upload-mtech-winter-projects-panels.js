@@ -5,21 +5,18 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { ProjectService } from "../../services/projectService.js";
-import { PanelService } from "../../services/panelService.js";
 
 // Setup directory paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables from the root .env file
+// Load environment variables
 dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-// Paths to the individual Excel files containing the new projects and panels
 const PROJECTS_EXCEL_PATH = path.join(__dirname, "Projects_Template (7).xlsx");
-const PANELS_EXCEL_PATH = path.join(__dirname, "panel_upload_template (8).xlsx");
 
 const DEFAULT_ACADEMIC_YEAR = "2025-26 WINTER";
 const DEFAULT_SCHOOL = "SCOPE";
@@ -27,9 +24,12 @@ const DEFAULT_PROGRAM = "M.TECH(FIRST YEAR)";
 
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/vista";
 
+// ============================================================================
+// PROJECT UPLOAD FUNCTION
+// ============================================================================
 async function uploadProjects(SYS_ADMIN_ID) {
     if (!fs.existsSync(PROJECTS_EXCEL_PATH)) {
-        console.warn(`⚠️ Projects excel file not found at '${PROJECTS_EXCEL_PATH}'. Skipping projects upload.`);
+        console.warn(`⚠️ Projects excel file not found at '${PROJECTS_EXCEL_PATH}'.`);
         return;
     }
 
@@ -39,7 +39,7 @@ async function uploadProjects(SYS_ADMIN_ID) {
     const sheet = workbook.Sheets[sheetName];
 
     if (!sheet) {
-        console.warn("⚠️ No sheet found in the projects file. Skipping.");
+        console.warn("⚠️ No sheet found in the projects file.");
         return;
     }
 
@@ -54,7 +54,9 @@ async function uploadProjects(SYS_ADMIN_ID) {
         const specialization = row["specialization"];
 
         if (!name || !guideEmpId || !teamMembersStr) {
-            console.warn(`[Row ${index + 2}] Warning: Missing required columns (name, guideFacultyEmpId, or teamMembers). Skipping.`);
+            console.warn(
+                `[Row ${index + 2}] Missing required columns. Skipping.`
+            );
             return null;
         }
 
@@ -71,7 +73,7 @@ async function uploadProjects(SYS_ADMIN_ID) {
             school: DEFAULT_SCHOOL,
             program: DEFAULT_PROGRAM,
             specialization: specialization ? specialization.trim() : "",
-            type: type ? type.toString().toLowerCase().trim() : "software",
+            type: type ? type.toLowerCase().trim() : "software",
             guideFacultyEmpId: guideEmpId.toString().trim(),
             students: parsedMembers
         };
@@ -83,7 +85,10 @@ async function uploadProjects(SYS_ADMIN_ID) {
     }
 
     console.log(`Starting bulk upload of ${newProjectsData.length} projects...`);
-    const results = await ProjectService.bulkCreateProjects(newProjectsData, SYS_ADMIN_ID);
+    const results = await ProjectService.bulkCreateProjects(
+        newProjectsData,
+        SYS_ADMIN_ID
+    );
 
     console.log("\n=================== PROJECT UPLOAD RESULTS ===================");
     console.log(`Total Attempted: ${results.total}`);
@@ -91,99 +96,19 @@ async function uploadProjects(SYS_ADMIN_ID) {
     console.log(`Failed: ${results.failed}`);
 
     if (results.failed > 0) {
-        console.log("\nErrors occurred during project upload:");
+        console.log("\nErrors:");
         results.errors.forEach((err) => {
-            console.error(`- Project: '${err.name}' | Guide: ${err.guideFacultyEmpId}`);
-            console.error(`  Error: ${err.error}`);
+            console.error(`- ${err.name} (${err.guideFacultyEmpId})`);
+            console.error(`  ${err.error}`);
         });
     } else {
         console.log("\nAll projects uploaded successfully!");
     }
 }
 
-async function uploadPanels(SYS_ADMIN_ID) {
-    if (!fs.existsSync(PANELS_EXCEL_PATH)) {
-        console.warn(`⚠️ Panels excel file not found at '${PANELS_EXCEL_PATH}'. Skipping panels upload.`);
-        return;
-    }
-
-    console.log("Reading panels excel file...");
-    const workbook = xlsx.readFile(PANELS_EXCEL_PATH);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-
-    if (!sheet) {
-        console.warn("⚠️ No sheet found in the panels file. Skipping.");
-        return;
-    }
-
-    const rawData = xlsx.utils.sheet_to_json(sheet);
-    console.log(`\nFound ${rawData.length} rows in panels sheet.`);
-
-    let successCount = 0;
-    let failedCount = 0;
-    const errors = [];
-
-    for (let i = 0; i < rawData.length; i++) {
-        const row = rawData[i];
-        const panelName = row["Panel Name"];
-        const fac1 = row["Faculty Employee ID 1"];
-        const fac2 = row["Faculty Employee ID 2"];
-        const specsStr = row["Specializations"];
-
-        if (!panelName || !fac1) {
-            failedCount++;
-            errors.push(`Row ${i + 2}: Missing required 'Panel Name' or 'Faculty Employee ID 1'`);
-            continue;
-        }
-
-        const memberEmployeeIds = [fac1.toString().trim()];
-        if (fac2) {
-            memberEmployeeIds.push(fac2.toString().trim());
-        }
-
-        let specializations = [];
-        if (specsStr) {
-            specializations = specsStr
-                .toString()
-                .split(/[\s,]+/)
-                .map(s => s.trim())
-                .filter(s => s.length > 0);
-        }
-
-        try {
-            await PanelService.createPanel(
-                {
-                    panelName: panelName.toString().trim(),
-                    memberEmployeeIds,
-                    academicYear: DEFAULT_ACADEMIC_YEAR,
-                    school: DEFAULT_SCHOOL,
-                    program: DEFAULT_PROGRAM,
-                    specializations,
-                    venue: "TBD", // default value
-                },
-                SYS_ADMIN_ID
-            );
-            successCount++;
-        } catch (error) {
-            failedCount++;
-            errors.push(`Row ${i + 2} (${panelName}): ${error.message}`);
-        }
-    }
-
-    console.log("\n=================== PANEL UPLOAD RESULTS ===================");
-    console.log(`Total Attempted: ${rawData.length}`);
-    console.log(`Successfully Created: ${successCount}`);
-    console.log(`Failed: ${failedCount}`);
-
-    if (errors.length > 0) {
-        console.log("\nErrors occurred during panel upload:");
-        errors.forEach(err => console.error(`- ${err}`));
-    } else {
-        console.log("\nAll panels uploaded successfully!");
-    }
-}
-
+// ============================================================================
+// MAIN
+// ============================================================================
 async function startUpload() {
     try {
         console.log("Connecting to MongoDB...");
@@ -193,12 +118,10 @@ async function startUpload() {
         const SYS_ADMIN_ID = new mongoose.Types.ObjectId();
 
         await uploadProjects(SYS_ADMIN_ID);
-        await uploadPanels(SYS_ADMIN_ID);
 
         console.log("\nDone!");
-
     } catch (error) {
-        console.error("An unexpected error occurred executing the upload script:");
+        console.error("Unexpected error:");
         console.error(error);
     } finally {
         if (mongoose.connection.readyState !== 0) {
