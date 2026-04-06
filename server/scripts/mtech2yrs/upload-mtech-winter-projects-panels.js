@@ -2,18 +2,24 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import xlsx from "xlsx";
 import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { ProjectService } from "../../services/projectService.js";
 import { PanelService } from "../../services/panelService.js";
 
-// Load environment variables from .env file
-dotenv.config();
+// Setup directory paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from the root .env file
+dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 // Paths to the individual Excel files containing the new projects and panels
-const PROJECTS_EXCEL_PATH = "./Projects_Template (7).xlsx";
-const PANELS_EXCEL_PATH = "./panel_upload_template (8).xlsx";
+const PROJECTS_EXCEL_PATH = path.join(__dirname, "Projects_Template (7).xlsx");
+const PANELS_EXCEL_PATH = path.join(__dirname, "panel_upload_template (8).xlsx");
 
 const DEFAULT_ACADEMIC_YEAR = "2025-26 WINTER";
 const DEFAULT_SCHOOL = "SCOPE";
