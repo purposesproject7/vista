@@ -1,5 +1,5 @@
 // src/features/admin/components/project-management/ProjectUploadTab.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { ArrowUpTrayIcon, PlusCircleIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import AcademicFilterSelector from '../student-management/AcademicFilterSelector';
 import Button from '../../../../shared/components/Button';
@@ -24,6 +24,13 @@ const ProjectUploadTab = () => {
     specialization: ''
   });
   const { showToast } = useToast();
+  const abortControllerRef = useRef(null);
+
+useEffect(() => {
+  return () => {
+    abortControllerRef.current?.abort();
+  };
+}, []);
 
   const templateColumns = ['name', 'guideFacultyEmpId', 'teamMembers', 'type', 'specialization'];
 
@@ -37,47 +44,60 @@ const ProjectUploadTab = () => {
   };
 
   const handleBulkUpload = async () => {
-    if (parsedData.length === 0) {
-      setUploadStatus({ success: false, message: 'No data to upload' });
-      return;
+  if (parsedData.length === 0) {
+    setUploadStatus({ success: false, message: 'No data to upload' });
+    return;
+  }
+
+  // Cancel any previous in-flight request
+  abortControllerRef.current?.abort();
+  abortControllerRef.current = new AbortController();
+
+  try {
+    setIsUploading(true);
+    setUploadStatus(null);
+
+    const enrichedData = parsedData.map(project => {
+      const teamMembersArray = typeof project.teamMembers === 'string'
+        ? project.teamMembers.split(',').map(m => m.trim()).filter(Boolean)
+        : project.teamMembers || [];
+
+      return {
+        name: project.name,
+        guideFacultyEmpId: project.guideFacultyEmpId,
+        teamMembers: teamMembersArray,
+        type: project.type || 'Capstone Project',
+        specialization: project.specialization || '',
+        school: filters.school,
+        department: filters.department,
+        academicYear: filters.academicYear
+      };
+    });
+
+    // Pass signal here ↓
+    const response = await adminApi.bulkCreateProjects(enrichedData, abortControllerRef.current.signal);
+
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to upload projects');
     }
 
-    try {
-      setIsUploading(true);
-      setUploadStatus(null);
+    setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} projects` });
+    showToast('Projects uploaded successfully', 'success');
+    setParsedData([]);
 
-      const enrichedData = parsedData.map(project => {
-        const teamMembersArray = typeof project.teamMembers === 'string'
-          ? project.teamMembers.split(',').map(m => m.trim())
-          : project.teamMembers || [];
+  } catch (error) {
+    // Silently ignore intentional cancellations
+    if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return;
 
-        return {
-          name: project.name,
-          guideFacultyEmpId: project.guideFacultyEmpId,
-          teamMembers: teamMembersArray,
-          type: project.type || 'Capstone Project',
-          specialization: project.specialization || '',
-          school: filters.school,
-          department: filters.department,
-          academicYear: filters.academicYear
-        };
-      });
-
-      const response = await adminApi.bulkCreateProjects(enrichedData);
-
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to upload projects');
-      }
-      setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} projects` });
-      showToast('Projects uploaded successfully', 'success');
-      setParsedData([]);
-    } catch (error) {
-      console.error('Upload error:', error);
-      setUploadStatus({ success: false, message: error.response?.data?.message || 'Failed to upload projects' });
-    } finally {
-      setIsUploading(false);
-    }
-  };
+    console.error('Upload error:', error);
+    setUploadStatus({ 
+      success: false, 
+      message: error.response?.data?.message || error.message || 'Failed to upload projects' 
+    });
+  } finally {
+    setIsUploading(false);
+  }
+};
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({
