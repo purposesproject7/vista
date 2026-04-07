@@ -658,11 +658,7 @@ export const bulkCreateProjects = async (projectsList, signal) => {
       };
     });
 
-    const response = await api.post(
-      "/admin/projects/bulk",
-      { projects },
-      { signal } // ← allows modal close to cancel the request cleanly
-    );
+    const response = await api.post("/admin/projects/bulk", projects, { signal });
 
     return response.data;
 
