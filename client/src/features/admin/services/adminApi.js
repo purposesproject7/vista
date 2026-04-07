@@ -626,46 +626,55 @@ export const createProject = async (projectData) => {
 /**
  * Bulk create projects
  */
-export const bulkCreateProjects = async (projectsList) => {
+export const bulkCreateProjects = async (projectsList, signal) => {
   try {
-    // Transform each project's field names for backend
-    const projects = projectsList.map((project) => ({
-      name: project.name,
-      students: project.teamMembers || [],
-      guideFacultyEmpId: project.guideFacultyEmpId,
-      specialization: project.specialization || "",
-      type: project.type || "Capstone Project",
-      school: project.school,
-      program: project.programme || project.department, // Map programme to program for backend
-      department: project.programme || project.department,
-      academicYear: project.academicYear,
-      description: project.description,
-    }));
+    // Validate before even hitting the API
+    const invalid = projectsList.filter(p => !p.name || !p.guideFacultyEmpId);
+    if (invalid.length > 0) {
+      throw new Error(`${invalid.length} project(s) are missing required fields (name or guideFacultyEmpId)`);
+    }
 
-    const response = await api.post("/admin/projects/bulk", { projects });
+    const projects = projectsList.map((project) => {
+      // Safely ensure teamMembers is always an array
+      let students = [];
+      if (Array.isArray(project.teamMembers)) {
+        students = project.teamMembers;
+      } else if (typeof project.teamMembers === 'string') {
+        students = project.teamMembers.split(',').map(s => s.trim()).filter(Boolean);
+      }
+
+      return {
+        name: project.name.trim(),
+        students,
+        guideFacultyEmpId: project.guideFacultyEmpId.trim(),
+        specialization: project.specialization?.trim() || "",
+        type: project.type?.trim() || "Capstone Project",
+        school: project.school,
+        program: project.programme || project.department || "", // for backend
+        department: project.department || project.programme || "", // keep separate
+        academicYear: project.academicYear,
+        semester: project.semester,
+        description: project.description?.trim() || "",
+      };
+    });
+
+    const response = await api.post(
+      "/admin/projects/bulk",
+      { projects },
+      { signal } // ← allows modal close to cancel the request cleanly
+    );
+
     return response.data;
+
   } catch (error) {
+    // Don't log aborted requests as errors — they're intentional
+    if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+      throw error; // re-throw so the modal can handle it silently
+    }
     console.error("Error bulk creating projects:", error);
     throw error;
   }
 };
-
-/**
- * Get all guides with their projects
- */
-export const fetchGuidesWithProjects = async (filters = {}) => {
-  const response = await api.get("/admin/projects/guides", { params: filters });
-  return response.data;
-};
-
-/**
- * Get all panels with their projects
- */
-export const fetchPanelsWithProjects = async (filters = {}) => {
-  const response = await api.get("/admin/projects/panels", { params: filters });
-  return response.data;
-};
-
 /**
  * Mark project as best project
  */
