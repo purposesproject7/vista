@@ -17,28 +17,16 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
   const [parsedData, setParsedData] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const abortControllerRef = useRef(null);
+  const timeoutRef = useRef(null);
 
-  const handleDataParsed = (data) => {
-    // Transform and enrich data
-    const enrichedData = data.map(project => {
-      // Split teamMembers string into array
-      const teamMembers = project.teamMembers 
-        ? project.teamMembers.split(',').map(s => s.trim())
-        : [];
-
-      return {
-        ...project,
-        school: filters?.school,
-        department: filters?.programme,
-        academicYear: filters?.year,
-        semester: filters?.semester,
-        teamMembers
-      };
-    });
-    
-    setParsedData(enrichedData);
-    setUploadStatus({ type: 'info', message: `Parsed ${data.length} project records` });
-  };
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const handleUpload = async () => {
     if (!parsedData || parsedData.length === 0) {
@@ -46,21 +34,32 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
       return;
     }
 
+    // Cancel any previous request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+
     setUploading(true);
     setUploadStatus({ type: 'info', message: 'Uploading...' });
 
     try {
-      const result = await onUpload(parsedData);
+      // Pass signal to your onUpload function (see note below)
+      const result = await onUpload(parsedData, abortControllerRef.current.signal);
       
       setUploadStatus({ 
         type: 'success', 
         message: `Successfully uploaded ${parsedData.length} projects` 
       });
       
-      setTimeout(() => {
+      // Store timeout ref so we can clear it
+      timeoutRef.current = setTimeout(() => {
         handleClose();
       }, 2000);
+
     } catch (error) {
+      // Don't show error if it was intentionally aborted
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        return;
+      }
       setUploadStatus({ 
         type: 'error', 
         message: error.response?.data?.message || 'Failed to upload project data' 
@@ -71,6 +70,9 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
   };
 
   const handleClose = () => {
+    // Cancel in-flight request before closing
+    abortControllerRef.current?.abort();
+    clearTimeout(timeoutRef.current);
     setParsedData(null);
     setUploadStatus(null);
     onClose();
