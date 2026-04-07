@@ -324,7 +324,9 @@ export const bulkCreateProjects = async (projectsList) => {
     academicYear: project.academicYear,
   }));
 
-  const response = await api.post("/coordinator/projects/bulk", { projects });
+  const response = await api.post("/coordinator/projects/bulk", { projects }, {
+    timeout: 120000, // 120s — bulk ops can be slow for large datasets
+  });
   return response.data;
 };
 
