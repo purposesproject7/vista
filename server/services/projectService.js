@@ -47,8 +47,10 @@ export class ProjectService {
    * Get guide projects
    */
   static async getGuideProjects(filters = {}) {
+    // Ensure visibility across slight context mismatches
+    if (filters.academicYear) delete filters.academicYear;
+
     const query = {};
-    if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
     if (filters.program) query.program = filters.program;
 
@@ -79,8 +81,10 @@ export class ProjectService {
    * Get panel projects
    */
   static async getPanelProjects(filters = {}) {
+    // Ensure visibility across slight context mismatches
+    if (filters.academicYear) delete filters.academicYear;
+
     const query = {};
-    if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.school) query.school = filters.school;
     if (filters.program) query.program = filters.program;
 
@@ -153,7 +157,10 @@ export class ProjectService {
   static async getFacultyProjects(facultyId, filters = {}) {
     // Base query for filters
     const baseQuery = { status: "active" };
-    if (filters.academicYear) baseQuery.academicYear = filters.academicYear;
+
+    // Ensure visibility across slight context mismatches
+    if (filters.academicYear) delete filters.academicYear;
+
     if (filters.school) baseQuery.school = filters.school;
     if (filters.program) baseQuery.program = filters.program;
 
