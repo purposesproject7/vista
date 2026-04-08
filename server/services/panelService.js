@@ -32,7 +32,8 @@ export class PanelService {
 
     // Validate all faculties are from the same school and program
     const invalidMembers = faculties.filter(
-      (f) => f.school !== school || f.program !== program
+      (f) => f.school !== school || 
+             (Array.isArray(f.program) ? !f.program.includes(program) : f.program !== program)
     );
 
     if (invalidMembers.length > 0) {

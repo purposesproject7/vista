@@ -717,7 +717,9 @@ export class ProjectService {
       if (
         !ignoreSpecialization &&
         (newGuide.school !== project.school ||
-          newGuide.program !== project.program)
+          (Array.isArray(newGuide.program)
+            ? !newGuide.program.includes(project.program)
+            : newGuide.program !== project.program))
       ) {
         throw new Error(
           "Guide must belong to the same school and program as the project."

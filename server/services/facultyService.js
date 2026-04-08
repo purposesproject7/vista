@@ -100,7 +100,9 @@ export class FacultyService {
       phoneNumber: data.phoneNumber?.toString().trim(),
       role: data.role || "faculty",
       school: data.school.trim(),
-      program: data.program ? data.program.trim() : undefined,
+      program: Array.isArray(data.program)
+        ? data.program.map(p => p.trim())
+        : data.program ? [data.program.trim()] : [],
       specialization: data.specialization ? data.specialization.trim() : "",
     });
 
@@ -212,7 +214,11 @@ export class FacultyService {
     if (updates.phoneNumber) faculty.phoneNumber = updates.phoneNumber;
     if (updates.role) faculty.role = updates.role;
     if (updates.school) faculty.school = updates.school;
-    if (updates.program) faculty.program = updates.program;
+    if (updates.program) {
+      faculty.program = Array.isArray(updates.program)
+        ? updates.program.map((p) => p.trim())
+        : [updates.program.trim()];
+    }
     if (updates.specialization) faculty.specialization = updates.specialization;
     if (updates.imageUrl !== undefined) faculty.imageUrl = updates.imageUrl;
 
