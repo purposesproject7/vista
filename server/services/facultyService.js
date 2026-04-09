@@ -74,16 +74,44 @@ export class FacultyService {
       throw new Error(validationErrors.join(", "));
     }
 
+    const incomingPrograms = Array.isArray(data.program)
+      ? data.program.map(p => p.trim())
+      : data.program ? [data.program.trim()] : [];
+
     // Check duplicate
     const existing = await this.checkDuplicate(
       data.emailId,
       data.employeeId,
       data.phoneNumber
     );
+    
     if (existing) {
-      throw new Error(
-        "Faculty with this email, employee ID, or phone number already exists."
-      );
+      // If faculty already exists, append new programs instead of throwing error
+      let updated = false;
+      const existingPrograms = Array.isArray(existing.program) ? existing.program : [];
+      
+      for (const p of incomingPrograms) {
+        if (p && !existingPrograms.includes(p)) {
+          existingPrograms.push(p);
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        existing.program = existingPrograms;
+        await existing.save();
+        
+        if (createdBy) {
+          logger.info("faculty_programs_appended", {
+            facultyId: existing._id,
+            employeeId: existing.employeeId,
+            updatedPrograms: existing.program,
+            createdBy,
+          });
+        }
+      }
+      
+      return existing;
     }
 
     // Hash password
