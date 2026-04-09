@@ -110,13 +110,19 @@ const PPTApprovalSection = ({ reviews, onRefresh }) => {
                         <div className="absolute top-0 left-0 w-1 h-full bg-orange-400"></div>
 
                         <div className="flex justify-between items-start mb-3">
-                            <h3 className="font-bold text-gray-900">{team.name}</h3>
-                            <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                            <h3 className="font-bold text-gray-900 line-clamp-2 break-words mr-2 flex-1">{team.name}</h3>
+                            <span className="text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-600 px-2 py-1 rounded shrink-0">
                                 {team.reviewName}
                             </span>
                         </div>
 
-                        <p className="text-sm text-gray-500 mb-4 line-clamp-1">{team.projectTitle}</p>
+                        {team.projectTitle && 
+                         team.name.toLowerCase().replace(/\s+/g, '') !== team.projectTitle.toLowerCase().replace(/\s+/g, '') && 
+                         !team.name.toLowerCase().includes(team.projectTitle.toLowerCase().substring(0, 15)) ? (
+                            <p className="text-sm text-gray-500 mb-4 line-clamp-2 break-words">{team.projectTitle}</p>
+                        ) : (
+                            <div className="mb-4"></div>
+                        )}
 
                         <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
                             <span className="flex items-center gap-1">

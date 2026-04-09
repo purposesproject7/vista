@@ -98,7 +98,9 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <div className={`font-semibold ${isLocked && !isPending ? 'text-slate-500' : 'text-gray-900'}`}>{team.name}</div>
+                        <div className={`font-semibold ${isLocked && !isPending ? 'text-slate-500' : 'text-gray-900'} break-words line-clamp-2 min-w-full sm:min-w-0`}>
+                          {team.name}
+                        </div>
                         {(team.roleLabel || team.role) && (
                           <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded border ${team.role === 'guide'
                             ? 'bg-purple-100 text-purple-700 border-purple-200'
@@ -123,8 +125,10 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                           </span>
                         )}
                       </div>
-                      {team.projectTitle && (
-                        <div className="text-sm text-gray-500 truncate">{team.projectTitle}</div>
+                      {team.projectTitle && 
+                       team.name.toLowerCase().replace(/\s+/g, '') !== team.projectTitle.toLowerCase().replace(/\s+/g, '') && 
+                       !team.name.toLowerCase().includes(team.projectTitle.toLowerCase().substring(0, 15)) && (
+                        <div className="text-sm text-gray-500 line-clamp-2 break-words mt-1">{team.projectTitle}</div>
                       )}
 
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
