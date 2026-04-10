@@ -15,9 +15,9 @@
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "xlsx": "^0.18.5",
-    "type": "module"
+    "xlsx": "^0.18.5"
   },
+  "type": "module",
   "devDependencies": {
     "nodemon": "^3.1.11"
   },
