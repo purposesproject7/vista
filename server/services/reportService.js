@@ -241,17 +241,39 @@ export class ReportService {
         const query = this._buildMatchQuery(filters);
 
         const students = await Student.find(query).sort({ regNo: 1 }).lean();
-        const results = [];
+        const studentIds = students.map(s => s._id);
 
-        for (const student of students) {
-            // Find Project
-            const project = await Project.findOne({
-                students: student._id,
+        const [allProjects, allMarks] = await Promise.all([
+            Project.find({
+                students: { $in: studentIds },
                 status: { $in: ["active", "completed"] }
             })
                 .populate("guideFaculty", "name")
                 .populate("panel", "panelName")
-                .lean();
+                .lean(),
+            Marks.find({ student: { $in: studentIds } }).lean()
+        ]);
+
+        const projectsByStudentId = {};
+        for (const p of allProjects) {
+            for (const sId of p.students) {
+                projectsByStudentId[sId.toString()] = p;
+            }
+        }
+
+        const marksByStudentId = {};
+        for (const m of allMarks) {
+            const sId = m.student.toString();
+            if (!marksByStudentId[sId]) marksByStudentId[sId] = [];
+            marksByStudentId[sId].push(m);
+        }
+
+        const results = [];
+
+        for (const student of students) {
+            const studentStrId = student._id.toString();
+            // Find Project
+            const project = projectsByStudentId[studentStrId];
 
             if (!project) {
                 //console.log(`DEBUG: Skipping student ${student.regNo} - No active/completed project found.`);
@@ -259,7 +281,7 @@ export class ReportService {
             }
 
             // Find Marks for this student
-            const marks = await Marks.find({ student: student._id }).lean();
+            const marks = marksByStudentId[studentStrId] || [];
 
             // Group marks by reviewType
             const marksByReview = {};
@@ -405,15 +427,37 @@ export class ReportService {
         delete query.status; // Remove status from mongo query
 
         const students = await Student.find(query).lean();
+        const studentIds = students.map(s => s._id);
+
+        const [projects, marks] = await Promise.all([
+            Project.find({ students: { $in: studentIds } }).populate("guideFaculty").populate("panel").lean(),
+            Marks.find({ student: { $in: studentIds } }).lean()
+        ]);
+
+        const projectsByStudentId = {};
+        for (const p of projects) {
+            for (const sId of p.students) {
+                projectsByStudentId[sId.toString()] = p;
+            }
+        }
+
+        const marksByStudentId = {};
+        for (const m of marks) {
+            const sId = m.student.toString();
+            if (!marksByStudentId[sId]) marksByStudentId[sId] = [];
+            marksByStudentId[sId].push(m);
+        }
+
         const results = [];
 
         for (const student of students) {
-            const project = await Project.findOne({ students: student._id }).populate("guideFaculty").populate("panel").lean();
+            const studentStrId = student._id.toString();
+            const project = projectsByStudentId[studentStrId];
             if (!project) continue;
 
-            const marks = await Marks.find({ student: student._id }).lean();
-            const hasGuideMark = marks.some(m => m.facultyType === 'guide' && m.isSubmitted);
-            const hasPanelMark = marks.some(m => m.facultyType === 'panel' && m.isSubmitted);
+            const studentMarks = marksByStudentId[studentStrId] || [];
+            const hasGuideMark = studentMarks.some(m => m.facultyType === 'guide' && m.isSubmitted);
+            const hasPanelMark = studentMarks.some(m => m.facultyType === 'panel' && m.isSubmitted);
 
             let status = '';
             if (!hasGuideMark && !hasPanelMark) status = 'Both Pending';
