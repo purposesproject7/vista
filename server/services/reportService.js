@@ -52,15 +52,39 @@ export class ReportService {
             Student.find(baseQuery).lean(),
             Faculty.find({}).lean(), // Faculty guidelines usually span years, but can filter if needed
             Project.find(baseQuery).populate("guideFaculty").populate("panel").lean(),
-            Marks.find(baseQuery).lean(),
+            Marks.find(baseQuery)
+                .populate("student", "name regNo")
+                .populate("project", "name")
+                .lean(),
             Panel.find(baseQuery).populate("members.faculty").lean(),
         ]);
+
+        const formattedMarks = marks.map(m => {
+            const markObj = { ...m };
+            markObj.studentName = m.student?.name || "Unknown";
+            markObj.studentRegNo = m.student?.regNo || "Unknown";
+            markObj.projectName = m.project?.name || "Unknown";
+            markObj.studentId = m.student?._id || m.student;
+            markObj.projectId = m.project?._id || m.project;
+            
+            // Delete the populated objects to avoid [object Object] in Excel
+            delete markObj.student;
+            delete markObj.project;
+
+            // Handle componentMarks to be readable in Excel
+            if (markObj.componentMarks) {
+                markObj.componentsDetail = markObj.componentMarks.map(c => `${c.componentName}: ${c.marks}/${c.maxMarks}`).join(", ");
+                delete markObj.componentMarks;
+            }
+
+            return markObj;
+        });
 
         return {
             students,
             faculty,
             projects,
-            marks,
+            marks: formattedMarks,
             panels,
         };
     }

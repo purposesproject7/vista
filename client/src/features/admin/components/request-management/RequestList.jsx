@@ -172,26 +172,41 @@ const RequestList = () => {
   return (
     <div className="space-y-6">
       {/* Tabs */}
+      {/* Tabs */}
       <Card padding="sm">
-        <div className="flex gap-2">
-          <Button
-            variant={activeTab === "faculty" ? "primary" : "secondary"}
-            size="sm"
-            onClick={() => setActiveTab("faculty")}
-            className="gap-2"
-          >
-            <UserIcon className="h-4 w-4" />
-            Faculty Requests
-          </Button>
-          <Button
-            variant={activeTab === "access" ? "primary" : "secondary"}
-            size="sm"
-            onClick={() => setActiveTab("access")}
-            className="gap-2"
-          >
-            <ShieldCheckIcon className="h-4 w-4" />
-            Access Requests
-          </Button>
+        <div className="flex justify-between items-center w-full gap-4">
+          <div className="flex gap-2">
+            <Button
+              variant={activeTab === "faculty" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setActiveTab("faculty")}
+              className="gap-2 shrink-0"
+            >
+              <UserIcon className="h-4 w-4" />
+              Faculty Requests
+            </Button>
+            <Button
+              variant={activeTab === "access" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setActiveTab("access")}
+              className="gap-2 shrink-0"
+            >
+              <ShieldCheckIcon className="h-4 w-4" />
+              Access Requests
+            </Button>
+          </div>
+
+          {activeTab === "faculty" && (
+            <Button
+              variant="primary"
+              className="bg-green-600 hover:bg-green-700 whitespace-nowrap shrink-0 flex items-center gap-1"
+              onClick={handleApproveAll}
+              disabled={submitting}
+            >
+              <CheckCircleIcon className="h-4 w-4" />
+              Approve Request All
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -238,17 +253,6 @@ const RequestList = () => {
               <span className="flex items-center text-sm font-medium text-gray-600 px-3">
                 {filteredRequests.length} request{filteredRequests.length !== 1 ? 's' : ''}
               </span>
-
-              <Button
-                variant="primary"
-                className={`whitespace-nowrap flex items-center gap-1 ${requests.some(r => r.status === 'pending') ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed text-gray-100 opacity-70 border-none'}`}
-                onClick={handleApproveAll}
-                disabled={submitting || !requests.some(r => r.status === 'pending')}
-                title={requests.some(r => r.status === 'pending') ? "Approve all pending requests" : "No pending requests to approve"}
-              >
-                <CheckCircleIcon className="h-4 w-4" />
-                Approve Request All
-              </Button>
             </div>
           </Card>
 
