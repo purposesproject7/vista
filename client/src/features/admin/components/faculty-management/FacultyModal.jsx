@@ -13,7 +13,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
     phoneNumber: '',
     password: '',
     specialization: '',
-    role: 'faculty'
+    role: 'faculty',
+    isProjectCoordinator: false
   });
 
   useEffect(() => {
@@ -27,7 +28,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
           phoneNumber: faculty.phoneNumber || faculty.phone || '',
           password: '', // Don't show existing password
           specialization: faculty.specialization || '',
-          role: faculty.role || 'faculty'
+          role: faculty.role || 'faculty',
+          isProjectCoordinator: faculty.isProjectCoordinator || false
         });
       } else {
         setFormData({
@@ -37,7 +39,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
           phoneNumber: '',
           password: '',
           specialization: '',
-          role: 'faculty'
+          role: 'faculty',
+          isProjectCoordinator: false
         });
       }
     }
@@ -216,6 +219,23 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
                 required
               />
             </div>
+          </div>
+
+          {/* Project Coordinator Toggle */}
+          <div className="mt-4 flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Project Coordinator Status</p>
+              <p className="text-xs text-blue-600 mt-0.5">Enable to allow assigning this faculty as a project coordinator</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={formData.isProjectCoordinator}
+                onChange={(e) => handleChange('isProjectCoordinator', e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-400 rounded-full peer peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
           </div>
         </div>
 

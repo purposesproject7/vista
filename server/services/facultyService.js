@@ -264,6 +264,7 @@ export class FacultyService {
     if (updates.program) faculty.program = Array.isArray(updates.program) ? updates.program : [updates.program];
     if (updates.specialization) faculty.specialization = updates.specialization;
     if (updates.imageUrl !== undefined) faculty.imageUrl = updates.imageUrl;
+    if (updates.isProjectCoordinator !== undefined) faculty.isProjectCoordinator = updates.isProjectCoordinator;
 
     await faculty.save();
 
