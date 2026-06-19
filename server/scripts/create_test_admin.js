@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import Faculty from "../models/facultySchema.js";
 
-dotenv.config({ path: "../.env" });
+dotenv.config({ path: "./server/.env" });
 if (!process.env.MONGO_URI) dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;

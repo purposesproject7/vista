@@ -26,6 +26,14 @@ export default class ActivityLogService {
                 academicYear = academicYear || "Unknown"; // Caller should really provide this
             }
 
+            if (Array.isArray(program)) {
+                program = program.join(", ");
+            } else if (program) {
+                program = String(program);
+            } else {
+                program = "Unknown";
+            }
+
             const logEntry = new ActivityLog({
                 faculty: facultyId,
                 action,
