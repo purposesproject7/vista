@@ -321,6 +321,77 @@ export async function resetPassword(req, res) {
 }
 
 /**
+ * Setup Password - First-time password change after admin-assigned default password
+ * Only works if the faculty still has isDefaultPassword === true
+ */
+export async function setupPassword(req, res) {
+  try {
+    const { newPassword, confirmPassword } = req.body;
+
+    if (!newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New password and confirm password are required.",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match.",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long.",
+      });
+    }
+
+    const faculty = await Faculty.findById(req.user._id);
+
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: "Faculty not found.",
+      });
+    }
+
+    if (!faculty.isDefaultPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Password has already been set up. Use Change Password instead.",
+      });
+    }
+
+    faculty.password = await bcrypt.hash(newPassword, 10);
+    faculty.isDefaultPassword = false;
+    await faculty.save();
+
+    logger.info("password_setup_completed", {
+      facultyId: faculty._id,
+      employeeId: faculty.employeeId,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Password set up successfully. You can now access your dashboard.",
+    });
+  } catch (error) {
+    logger.error("setup_password_error", {
+      error: error.message,
+      stack: error.stack,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
  * Change Password - Change password when logged in
  */
 export async function changePassword(req, res) {

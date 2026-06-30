@@ -59,6 +59,14 @@ router.put(
   authController.changePassword,
 );
 
+// === First-time Password Setup (for faculty using admin-assigned default password) ===
+router.post(
+  "/setup-password",
+  authenticate,
+  validateRequired(["newPassword", "confirmPassword"]),
+  authController.setupPassword,
+);
+
 router.get("/verify-token", authenticate, authController.verifyToken);
 
 router.post("/logout", authenticate, authController.logout);

@@ -28,6 +28,9 @@ const facultySchema = new mongoose.Schema(
     },
 
     isActive: { type: Boolean, default: true },
+
+    // Forces password change on first login (when admin creates the account)
+    isDefaultPassword: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

@@ -34,6 +34,7 @@ import CoordinatorReports from "./features/project-coordinator/pages/Coordinator
 
 import Login from "./features/auth/pages/Login";
 import ForgotPassword from "./features/auth/pages/ForgotPassword";
+import SetupPassword from "./features/auth/pages/SetupPassword";
 import InstructionsPage from "./features/auth/pages/InstructionsPage";
 import BlockedPage from "./features/auth/pages/BlockedPage";
 
@@ -65,6 +66,22 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (!hasRole && !(isCoordinatorRoute && isFacultyCoordinator)) {
       return <Navigate to="/unauthorized" replace />;
     }
+  }
+
+  return children;
+};
+
+/**
+ * PasswordSetupGuard - Wraps protected routes to ensure faculty who still have
+ * the admin-assigned default password are redirected to /setup-password first.
+ * Admins are exempt (they manage the system).
+ */
+const PasswordSetupGuard = ({ children }) => {
+  const { user } = useAuth();
+
+  // Only enforce for non-admin faculty roles
+  if (user && user.role !== "admin" && user.isDefaultPassword === true) {
+    return <Navigate to="/setup-password" replace />;
   }
 
   return children;
@@ -124,12 +141,22 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/blocked" element={<BlockedPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        <Route
+          path="/setup-password"
+          element={
+            <ProtectedRoute>
+              <SetupPassword />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/faculty"
           element={
             <ProtectedRoute allowedRoles={["faculty"]}>
-              <FacultyDashboard />
+              <PasswordSetupGuard>
+                <FacultyDashboard />
+              </PasswordSetupGuard>
             </ProtectedRoute>
           }
         />
@@ -138,7 +165,9 @@ function AppRoutes() {
           path="/faculty/tutorial"
           element={
             <ProtectedRoute allowedRoles={["faculty"]}>
-              <FacultyTutorial />
+              <PasswordSetupGuard>
+                <FacultyTutorial />
+              </PasswordSetupGuard>
             </ProtectedRoute>
           }
         />
@@ -147,7 +176,9 @@ function AppRoutes() {
           path="/faculty/reviews"
           element={
             <ProtectedRoute allowedRoles={["faculty"]}>
-              <GuideReviews />
+              <PasswordSetupGuard>
+                <GuideReviews />
+              </PasswordSetupGuard>
             </ProtectedRoute>
           }
         />

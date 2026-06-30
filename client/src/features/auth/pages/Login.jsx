@@ -41,6 +41,25 @@ const Login = () => {
 
       showToast("Login successful!", "success");
 
+      // ── First-time password setup check ──────────────────────────────
+      // Faculty accounts created by admin have isDefaultPassword === true.
+      // Redirect them to setup-password before reaching any dashboard.
+      if (result.user.role !== "admin" && result.user.isDefaultPassword === true) {
+        // Determine where to send them after they set their password
+        const finalDest =
+          result.user.role === "faculty" && result.user.isProjectCoordinator
+            ? null // handled by role modal after setup
+            : result.user.role === "faculty"
+            ? "/faculty"
+            : "/";
+
+        navigate("/setup-password", {
+          state: { redirectTo: finalDest, loginResult: result },
+        });
+        setLoading(false);
+        return;
+      }
+
       // Check if user is both faculty and project coordinator
       if (result.user.role === "faculty" && result.user.isProjectCoordinator) {
         // Show role selection modal
