@@ -34,6 +34,10 @@ Thumbs.db
 .dockerignore
 docker-volumes/
 
+# Secrets (generated at deploy time)
+secrets/*.txt
+!secrets/.gitkeep
+
 # Testing
 coverage/
 
