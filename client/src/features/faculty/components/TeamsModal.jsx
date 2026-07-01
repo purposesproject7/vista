@@ -11,6 +11,19 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
   const [requestTeam, setRequestTeam] = useState(null);
   const [toast, setToast] = useState(null);
 
+  const formatReviewDateTime = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
   if (!isOpen || !review) return null;
 
   const completedTeams = review.teams?.filter(t => t.marksEntered).length || 0;
@@ -135,9 +148,14 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                         <div className="text-[11px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 font-medium">
                           Panel: {team.panelName}
                         </div>
-                        {team.venue && (
+                        {team.venue && team.role !== 'guide' && (
                           <div className="text-[11px] text-slate-500 flex items-center gap-1">
                             <MapPinIcon className="w-3 h-3" /> {team.venue}
+                          </div>
+                        )}
+                        {formatReviewDateTime(team.reviewDateTime) && (
+                          <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <ClockIcon className="w-3 h-3" /> {formatReviewDateTime(team.reviewDateTime)}
                           </div>
                         )}
                         <div className="text-[11px] text-gray-400">

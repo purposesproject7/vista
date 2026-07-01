@@ -24,6 +24,7 @@ const panelSchema = new mongoose.Schema(
     members: [panelMemberSchema],
 
     venue: { type: String, required: false },
+    dateTime: { type: Date, required: false },
 
     academicYear: { type: String, required: true },
     semester: { type: String },

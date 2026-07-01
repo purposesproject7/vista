@@ -31,10 +31,10 @@ export const downloadFacultyTemplate = () => {
  */
 export const downloadPanelTemplate = () => {
   const template = [
-    ['Panel Name', 'Faculty Employee ID 1', 'Faculty Employee ID 2', 'Faculty Employee ID 3', 'Specializations'], /*'Panel Type'*/
-    ['Panel A', 'EMP001', 'EMP002', 'EMP003', 'AI/ML, Web Dev'], /*Regular*/
-    ['Panel B', 'EMP004', 'EMP005', '', 'Cloud Computing'], /* Temperory */
-    ['Panel C', 'EMP006', '', '', 'Blockchain'],
+    ['Panel Name', 'Venue', 'Review Date & Time', 'Faculty Employee ID 1', 'Faculty Employee ID 2', 'Faculty Employee ID 3', 'Specializations'],
+    ['Panel A', 'Room 301', '2026-07-10 10:00 AM', 'EMP001', 'EMP002', 'EMP003', 'AI/ML, Web Dev'],
+    ['Panel B', 'Seminar Hall', '2026-07-10 02:00 PM', 'EMP004', 'EMP005', '', 'Cloud Computing'],
+    ['Panel C', 'Lab 2', '2026-07-11 09:30 AM', 'EMP006', '', '', 'Blockchain'],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(template);
@@ -44,11 +44,12 @@ export const downloadPanelTemplate = () => {
   // Set column widths
   ws['!cols'] = [
     { wch: 20 },
+    { wch: 18 },
+    { wch: 24 },
     { wch: 20 },
     { wch: 20 },
     { wch: 20 },
-    { wch: 25 },
-    { wch: 15 }
+    { wch: 25 }
   ];
 
   XLSX.writeFile(wb, 'panel_upload_template.xlsx');
@@ -118,6 +119,24 @@ export const validatePanelFile = (file) => {
     isValid: errors.length === 0,
     errors
   };
+};
+
+const parseReviewDateTime = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'number') {
+    const excelEpoch = new Date((value - 25569) * 86400 * 1000);
+    return Number.isNaN(excelEpoch.getTime()) ? null : excelEpoch.toISOString();
+  }
+
+  const parsed = new Date(String(value).trim());
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 };
 
 /**
@@ -248,10 +267,20 @@ export const parsePanelExcel = async (file) => {
           return;
         }
 
-        // Check for at least Panel Name and one Faculty Employee ID
+        // Check required columns
         const firstRow = jsonData[0] || {};
         if (!firstRow['Panel Name']) {
           reject(new Error('Missing required column: Panel Name'));
+          return;
+        }
+
+        if (!firstRow['Venue']) {
+          reject(new Error('Missing required column: Venue'));
+          return;
+        }
+
+        if (!firstRow['Review Date & Time']) {
+          reject(new Error('Missing required column: Review Date & Time'));
           return;
         }
 
@@ -269,6 +298,8 @@ export const parsePanelExcel = async (file) => {
 
           return {
             panelName: row['Panel Name'] || `Panel ${index + 1}`,
+            venue: row['Venue'] ? String(row['Venue']).replace(/<[^>]*>/g, '').trim() : '',
+            dateTime: parseReviewDateTime(row['Review Date & Time']),
             facultyEmployeeIds: facultyIds,
             specializations: row['Specializations']
               ? row['Specializations'].split(',').map(s => s.trim())
@@ -283,6 +314,14 @@ export const parsePanelExcel = async (file) => {
         if (invalidPanels.length > 0) {
           reject(new Error(
             `Panels must have at least one faculty member. Invalid rows: ${invalidPanels.map(p => p.rowNumber).join(', ')}`
+          ));
+          return;
+        }
+
+        const invalidScheduleRows = panels.filter((p) => !p.venue || !p.dateTime);
+        if (invalidScheduleRows.length > 0) {
+          reject(new Error(
+            `Panels must include Venue and Review Date & Time. Invalid rows: ${invalidScheduleRows.map((p) => p.rowNumber).join(', ')}`
           ));
           return;
         }

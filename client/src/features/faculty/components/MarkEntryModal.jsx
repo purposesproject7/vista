@@ -7,7 +7,8 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ExclamationCircleIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline';
 
 const DEFAULT_META = Object.freeze({
@@ -249,6 +250,12 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
             <div>
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Reviewing Team</h2>
               <h1 className="text-xl font-black text-slate-900 leading-tight">{team.team_name}</h1>
+              {team.venue && (
+                <div className="flex items-center gap-1.5 mt-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-lg inline-flex">
+                  <MapPinIcon className="w-4 h-4 text-amber-600" />
+                  {team.venue}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-slate-500 hidden md:block">All changes are local until submitted.</span>

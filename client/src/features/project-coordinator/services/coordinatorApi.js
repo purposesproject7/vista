@@ -122,6 +122,8 @@ const adaptPanel = (backendPanel) => {
     _id: backendPanel._id,
     panelName: backendPanel.panelName, // Added
     panelNumber: backendPanel.panelNumber || backendPanel.panelName.replace(/\D/g, ""), // try to extract number
+    venue: backendPanel.venue,
+    dateTime: backendPanel.dateTime,
     members:
       backendPanel.members?.map((m) => {
         // Member can be just an ID, or an object with faculty populated, or flat

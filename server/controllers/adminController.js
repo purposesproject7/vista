@@ -456,7 +456,7 @@ export async function bulkCreateAdmins(req, res) {
 
 export async function autoCreatePanels(req, res) {
   try {
-    const { programs, school, academicYear, panelSize, facultyList } = req.body;
+    const { programs, school, academicYear, panelSize, facultyList, venue } = req.body;
 
     const allResults = {
       created: 0,
@@ -472,7 +472,8 @@ export async function autoCreatePanels(req, res) {
         program,
         panelSize || 2,
         req.user._id,
-        facultyList
+        facultyList,
+        venue
       );
 
       allResults.created += result.panelsCreated || 0;

@@ -211,7 +211,8 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             marksEntered: allStudentsMarked,
                             guideId: project.guideFaculty?._id || project.guideFaculty,
                             panelName: activePanel?.panelName || activePanel?.name || 'TBD',
-                            venue: activePanel?.venue || 'TBD',
+                            venue: isGuide ? null : (activePanel?.venue || 'TBD'),
+                            reviewDateTime: activePanel?.dateTime || null,
                             role: isGuide ? 'guide' : 'panel',
                             roleLabel: roleLabel, // "Temporary Panel", "Panel", "Guide"
                             pptApprovals: project.pptApprovals || [], // Pass PPT approvals to UI

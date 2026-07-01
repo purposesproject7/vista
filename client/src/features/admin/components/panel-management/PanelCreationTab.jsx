@@ -69,6 +69,7 @@ const PanelCreation = () => {
     panelName: "",
     selectedFaculties: [],
     specializations: "",
+    venue: "",
   });
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
@@ -77,6 +78,7 @@ const PanelCreation = () => {
     panelSize: 3,
     specializations: "",
     panelType: "regular",
+    venue: "",
   });
   const [isCreatingAuto, setIsCreatingAuto] = useState(false);
 
@@ -96,11 +98,13 @@ const PanelCreation = () => {
     setManualForm({
       panelName: "",
       selectedFaculties: [],
+      venue: "",
     });
     setAutoForm({
       panelSize: 3,
       specializations: "",
       panelType: "regular",
+      venue: "",
     });
     setSelectedFile(null);
     setFileError(null);
@@ -235,6 +239,7 @@ const PanelCreation = () => {
         semester: filters.semester,
         panelType: manualForm.panelType || "regular",
         specializations: manualForm.specializations ? [manualForm.specializations] : [],
+        venue: manualForm.venue ? manualForm.venue.replace(/<[^>]*>/g, '').trim() : undefined,
       };
 
       const result = await createPanel(payload);
@@ -244,6 +249,7 @@ const PanelCreation = () => {
         panelName: "",
         selectedFaculties: [],
         specializations: "",
+        venue: "",
       });
 
       showToast("Panel created successfully", "success");
@@ -271,6 +277,7 @@ const PanelCreation = () => {
         academicYear: filters.academicYear,
         panelSize: autoForm.panelSize,
         facultyList: facultyList.map((f) => f.employeeId),
+        venue: autoForm.venue ? autoForm.venue.replace(/<[^>]*>/g, '').trim() : undefined,
       };
 
       const result = await autoCreatePanels(payload);
@@ -288,6 +295,7 @@ const PanelCreation = () => {
         panelSize: 3,
         specializations: "",
         panelType: "regular",
+        venue: "",
       });
 
       showToast(result.message || "Panels created successfully", "success");
@@ -593,6 +601,18 @@ const PanelCreation = () => {
                 }
               />
 
+              <Input
+                label="Venue"
+                placeholder="e.g., AB1 - 101, Room 301, Seminar Hall"
+                value={manualForm.venue}
+                onChange={(e) =>
+                  setManualForm((prev) => ({
+                    ...prev,
+                    venue: e.target.value,
+                  }))
+                }
+              />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Available Faculty Members
@@ -845,6 +865,18 @@ const PanelCreation = () => {
                 ]}
               />
 
+              <Input
+                label="Venue"
+                placeholder="e.g., AB1 - 101, Room 301, Seminar Hall"
+                value={autoForm.venue}
+                onChange={(e) =>
+                  setAutoForm((prev) => ({
+                    ...prev,
+                    venue: e.target.value,
+                  }))
+                }
+              />
+
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-900">
                   <span className="font-medium">Preview:</span>{" "}
@@ -879,9 +911,13 @@ const PanelCreation = () => {
                 <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside">
                   <li>Download the template Excel file below</li>
                   <li>
+                    The template includes Venue and Review Date & Time columns
+                  </li>
+                  <li>
                     Fill in faculty employee IDs for each panel (comma-separated
                     in one column)
                   </li>
+                  <li>Venue and review time should be filled for every panel</li>
                   <li>School and Department will be auto-filled</li>
                   <li>Upload the completed file</li>
                   <li>Maximum file size: 5MB</li>

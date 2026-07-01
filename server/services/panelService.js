@@ -112,10 +112,12 @@ export class PanelService {
           : facultyNames;
     }
 
+    const sanitizedVenue = venue ? venue.replace(/<[^>]*>/g, '').trim() : null;
+
     const panel = new Panel({
       panelName,
       members,
-      venue: venue || "TBD",
+      venue: sanitizedVenue || "TBD",
       dateTime: dateTime || null,
       academicYear,
       school,
@@ -218,7 +220,11 @@ export class PanelService {
     const validUpdates = {};
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
-        validUpdates[field] = updates[field];
+        if (field === "venue") {
+          validUpdates[field] = String(updates[field]).replace(/<[^>]*>/g, '').trim();
+        } else {
+          validUpdates[field] = updates[field];
+        }
       }
     }
 
@@ -381,7 +387,8 @@ export class PanelService {
     program,
     panelSize = null,
     createdBy = null,
-    facultyList = null
+    facultyList = null,
+    venue = null
   ) {
     const results = {
       panelsCreated: 0,
@@ -486,7 +493,7 @@ export class PanelService {
                 school,
                 program,
                 specializations: [specialization],
-                venue: `Panel Room ${results.panelsCreated + 1}`,
+                venue: venue || `Panel Room ${results.panelsCreated + 1}`,
               },
               createdBy
             );
