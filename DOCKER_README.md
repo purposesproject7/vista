@@ -1,406 +1,513 @@
-# Docker Deployment Guide for Vista Application
+# Docker Deployment Guide — Vista (CPMS)
 
-## 🚀 Quick Start
+## Quick Start
 
-### Prerequisites
-- Docker Engine 20.10+ installed
-- Docker Compose 2.0+ installed
-- At least 2GB free RAM
-- At least 5GB free disk space
+```bash
+# One command — everything is automated
+cd /path/to/vista
+chmod +x deploy.sh
+./deploy.sh
+```
 
-### One-Command Deployment
-
-1. **Clone the repository** (if not already done)
-   ```bash
-   cd vista
-   ```
-
-2. **Create environment file**
-   ```bash
-   # Copy the example and edit with your values
-   copy .env.docker.example .env.docker
-   ```
-   
-   **⚠️ IMPORTANT**: Edit `.env.docker` and set secure passwords and secrets!
-
-3. **Start all services**
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Check service status**
-   ```bash
-   docker-compose ps
-   ```
-
-5. **Access the application**
-   - **Frontend**: http://localhost
-   - **API**: http://localhost/api
-   - **API Direct**: http://localhost:5000
-   - **MongoDB**: localhost:27017
+Answer 6-7 prompts, wait 2-3 minutes, and the application is live at your domain/IP.
 
 ---
 
-## 📦 Architecture
+## Prerequisites
 
-### Services
+| Requirement | Minimum |
+|-------------|---------|
+| Docker Engine | 20.10+ |
+| Docker Compose plugin | 2.0+ |
+| RAM | 2 GB free |
+| Disk | 5 GB free |
+| OpenSSL | (for secret generation) |
 
-```
-┌─────────────────────────────────────────────────┐
-│               User Browser                      │
-└─────────────────┬───────────────────────────────┘
-                  │ http://localhost
-                  ▼
-┌─────────────────────────────────────────────────┐
-│          Nginx Reverse Proxy (Port 80)          │
-│  • Routes /api/* → Backend Server               │
-│  • Routes /* → Frontend Client                  │
-└────────┬─────────────────────┬──────────────────┘
-         │                     │
-         │ /api/*             │ /*
-         ▼                     ▼
-┌────────────────────┐  ┌──────────────────────┐
-│  Backend Server    │  │  Frontend Client     │
-│  (Node.js/Express) │  │  (React/Vite)        │
-│  Port: 5000        │  │  Port: 3000          │
-└────────┬───────────┘  └──────────────────────┘
-         │
-         │ MongoDB Connection
-         ▼
-┌──────────────────────────────────────────────────┐
-│           MongoDB Database (Port 27017)          │
-│  • Persistent data volume                        │
-│  • Automatic initialization                      │
-└──────────────────────────────────────────────────┘
-```
-
-### Port Mappings
-
-| Service  | Internal Port | External Port | Description                    |
-|----------|---------------|---------------|--------------------------------|
-| Nginx    | 80            | 80            | Main entry point               |
-| Server   | 5000          | 5000          | API (direct access)            |
-| Client   | 80            | 3000          | Frontend (direct access)       |
-| MongoDB  | 27017         | 27017         | Database                       |
-
----
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-The `.env.docker` file contains all configuration. **Key variables to set:**
-
-#### MongoDB
-- `MONGO_ROOT_USER`: MongoDB admin username (default: admin)
-- `MONGO_ROOT_PASSWORD`: **⚠️ CHANGE THIS** - MongoDB admin password
-
-#### Security
-- `JWT_SECRET`: **⚠️ CHANGE THIS** - Secret for JWT token signing
-  - Generate: `openssl rand -base64 32`
-
-#### Email (for notifications)
-- `EMAIL_USER`: Your email address
-- `EMAIL_PASS`: Your email app password
-- `EMAIL_FROM`: Display name and email for sent emails
-
-#### Admin Account
-- `ADMIN_EMAIL`: Initial admin email
-- `ADMIN_PASSWORD`: **⚠️ CHANGE THIS** - Initial admin password
-- `ADMIN_NAME`: Admin display name
-- `ADMIN_EMPLOYEE_ID`: Admin employee ID
-- `ADMIN_SCHOOL`: School/department
-- `ADMIN_DEPARTMENT`: Department
-
-#### CORS
-- `ALLOWED_ORIGINS`: Comma-separated allowed origins
-  - Default: `http://localhost,http://localhost:80,http://localhost:3000`
-
----
-
-## 🛠️ Common Commands
-
-### Starting Services
+Check:
 ```bash
-# Start all services in background
-docker-compose up -d
-
-# Start with logs visible
-docker-compose up
-
-# Start specific service
-docker-compose up -d server
-```
-
-### Stopping Services
-```bash
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (⚠️ DELETES DATA)
-docker-compose down -v
-```
-
-### Viewing Logs
-```bash
-# View all logs
-docker-compose logs
-
-# Follow logs (real-time)
-docker-compose logs -f
-
-# View specific service logs
-docker-compose logs -f server
-docker-compose logs -f mongodb
-docker-compose logs -f nginx
-```
-
-### Rebuilding After Code Changes
-```bash
-# Rebuild and restart services
-docker-compose up -d --build
-
-# Rebuild specific service
-docker-compose build server
-docker-compose up -d server
-```
-
-### Database Management
-```bash
-# Access MongoDB shell
-docker-compose exec mongodb mongosh -u admin -p your-password
-
-# Backup database
-docker-compose exec mongodb mongodump -u admin -p your-password --out /data/backup
-
-# View MongoDB logs
-docker-compose logs mongodb
-```
-
-### Health Checks
-```bash
-# Check server health
-curl http://localhost:5000/health
-
-# Check via nginx proxy
-curl http://localhost/health
-
-# View container health status
-docker-compose ps
+docker --version && docker compose version && openssl version
 ```
 
 ---
 
-## 🔍 Troubleshooting
+## Deployment
 
-### Services Won't Start
+### Interactive (recommended)
 
-**Check logs:**
 ```bash
-docker-compose logs
+cd /path/to/vista
+chmod +x deploy.sh && ./deploy.sh
 ```
 
-**Common issues:**
-1. **Port already in use**
-   - Solution: Stop other services using ports 80, 3000, 5000, or 27017
-   - Check: `netstat -ano | findstr :80`
+The script will prompt for:
 
-2. **MongoDB authentication failed**
-   - Solution: Verify `MONGO_ROOT_USER` and `MONGO_ROOT_PASSWORD` in `.env.docker`
+1. **Server domain or IP** — e.g. `vista.vit.ac.in` or `172.16.92.64` (auto-detected if available)
+2. **Enable HTTPS?** — requires SSL certificate file paths
+3. **SSL cert path** — e.g. `/etc/nginx/ssl/star_vit_ac_in.crt`
+4. **SSL key path** — e.g. `/etc/nginx/ssl/star_vit_ac_in.key`
+5. **Multi-service?** — enables separate backend + MongoDB for `/multi/` routing
+6. **Configuration values** — MongoDB user, JWT expiry, CORS origins, admin account, email (optional)
 
-3. **Server can't connect to MongoDB**
-   - Wait for MongoDB to fully initialize (30-40 seconds on first run)
-   - Check: `docker-compose logs mongodb`
+After answering, it:
+- Generates cryptographic secrets → `./secrets/*.txt`
+- Creates `.env` with your configuration
+- Generates nginx configs with your domain and settings
+- **Builds and starts everything** with `docker compose up -d --build`
 
-### Application Errors
+### Quick / Non-interactive
 
-**Check server logs:**
 ```bash
-docker-compose logs -f server
+./deploy.sh --quick
 ```
 
-**Common issues:**
-1. **JWT_SECRET not set**
-   - Solution: Set `JWT_SECRET` in `.env.docker`
+Auto-detects domain, checks for existing SSL certs at standard paths, skips all prompts. Useful for re-deployment after the first interactive run.
 
-2. **CORS errors**
-   - Solution: Add your domain to `ALLOWED_ORIGINS` in `.env.docker`
+---
 
-3. **Email sending fails**
-   - Solution: Verify `EMAIL_USER` and `EMAIL_PASS` are correct
+## Architecture
 
-### Data Persistence Issues
+```
+User
+  │
+  ├── HTTP  :80 ──┐
+  └── HTTPS :443 ──┤  (if SSL enabled)
+                   ▼
+        ┌──────────────────┐
+        │  WAF Edge Proxy  │  ModSecurity + OWASP CRS 4.x
+        │  (owasp/modsecurity-crs:nginx-alpine)
+        └───────┬──────────┘
+                │
+        ┌───────▼──────────┐
+        │  Internal Nginx   │  Reverse proxy (vista-nginx)
+        └───┬──────────┬───┘
+            │          │
+    ┌───────▼──┐ ┌─────▼──────┐
+    │ Frontend  │ │  Backend   │
+    │ (React)   │ │ (Express)  │
+    │ :80       │ │ :5000      │
+    └───────────┘ └─────┬──────┘
+                        │
+                 ┌──────▼──────┐
+                 │   MongoDB   │
+                 │   :27017    │
+                 └─────────────┘
 
-**View volumes:**
-```bash
-docker volume ls
+    /multi/ (optional)
+    ┌───────▼──────────┐
+    │  Internal Nginx   │  Additional location block
+    └───┬────────────────┘
+        │
+    ┌───▼──────────┐   ┌──────────────┐
+    │ Multi Server  │   │ Multi MongoDB│
+    │ (Express)     │   │ (separate DB)│
+    │ :5001         │   │ :27017       │
+    └───────────────┘   └──────────────┘
 ```
 
-**Inspect volume:**
+### Container Map
+
+| Container | Role | Internal port |
+|-----------|------|---------------|
+| `vista-waf` | ModSecurity WAF (edge) | 80 / 443 (SSL) |
+| `vista-nginx` | Reverse proxy | 80 |
+| `vista-client` | React/Vite SPA | 80 |
+| `vista-server` | Node.js/Express API | 5000 |
+| `vista-mongodb` | Main database | 27017 |
+| `vista-multi-server` | Multi-service API | 5001 |
+| `vista-multi-mongodb` | Multi-service DB | 27017 |
+| `vista-prometheus` | Metrics collection | 9090 |
+| `vista-cadvisor` | Container metrics | 8080 |
+| `vista-node-exporter` | Host metrics | 9100 |
+| `vista-grafana` | Monitoring dashboards | 3000 |
+
+---
+
+## Configuration
+
+### What gets generated
+
+| File | Contents | Auto-generated? |
+|------|----------|----------------|
+| `secrets/jwt_secret.txt` | JWT signing key (64-byte base64) | Yes |
+| `secrets/signing_secret.txt` | HMAC signing secret (64-byte hex) | Yes |
+| `secrets/mongo_root_password.txt` | MongoDB root password (32-byte base64) | Yes |
+| `secrets/admin_password.txt` | Initial admin password | Yes |
+| `.env` | Domain, ports, admin info, email config | Yes |
+| `nginx/nginx.conf` | Internal reverse proxy config | Yes (by deploy.sh) |
+| `waf/nginx.conf` | WAF edge proxy config | Yes (by deploy.sh) |
+| `docker-compose.ssl.yml` | SSL cert bind mounts | Yes (if HTTPS) |
+
+All secrets use Docker Compose `secrets:` — they are mounted as files at `/run/secrets/` inside containers, never passed as environment variables.
+
+### Environment variables (.env)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DOMAIN` | *(auto)* | Nginx server_name |
+| `MONGO_ROOT_USER` | `admin` | MongoDB admin username |
+| `JWT_EXPIRE` | `1h` | JWT token expiry |
+| `ALLOWED_ORIGINS` | `http://DOMAIN` | CORS allowed origins |
+| `ADMIN_EMAIL` | `admin@vit.ac.in` | Initial admin login |
+| `ADMIN_NAME` | `System Administrator` | Admin display name |
+| `ADMIN_EMPLOYEE_ID` | `ADMIN001` | Admin employee ID |
+| `ADMIN_SCHOOL` | `SCOPE` | Admin school code |
+| `ADMIN_DEPARTMENT` | `CSE` | Admin department |
+| `EMAIL_USER` | *(optional)* | SMTP username |
+| `EMAIL_PASS` | *(optional)* | SMTP password |
+| `EMAIL_FROM` | *(optional)* | SMTP from address |
+
+---
+
+## Access
+
+### Application
+
+| Protocol | URL | When |
+|----------|-----|------|
+| HTTP | `http://your-domain` | Always |
+| HTTPS | `https://your-domain` | Only if SSL enabled |
+| API | `http://your-domain/api` | Always |
+| Health | `http://your-domain/health` | Always |
+| Multi | `http://your-domain/multi/` | Only if multi enabled |
+
+### Admin login
+
+Check the generated password:
 ```bash
-docker volume inspect vista_mongodb_data
+cat secrets/admin_password.txt
 ```
 
-**Backup data:**
+Login at `http://your-domain` with email `admin@vit.ac.in` (or whatever you set).
+
+### Monitoring (optional — start separately)
+
 ```bash
-docker run --rm -v vista_mongodb_data:/data -v ${PWD}:/backup ubuntu tar czf /backup/mongo-backup.tar.gz /data
+docker compose --profile monitoring up -d
+```
+
+| Service | URL |
+|---------|-----|
+| Prometheus | `http://host-ip:9090` |
+| Grafana | `http://host-ip:3001` (admin/admin) |
+| cAdvisor | `http://host-ip:8080` |
+| Node Exporter | `http://host-ip:9100` |
+
+---
+
+## HTTPS / SSL
+
+### New deployment with SSL
+
+```bash
+./deploy.sh
+# Answer: Enable HTTPS? y
+# Enter: /etc/nginx/ssl/star_vit_ac_in.crt
+# Enter: /etc/nginx/ssl/star_vit_ac_in.key
+```
+
+The script:
+1. Validates the cert files exist
+2. Generates `waf/nginx.conf` with SSL termination + HTTP→HTTPS redirect
+3. Generates `docker-compose.ssl.yml` to bind-mount certs into the WAF container
+4. WAF listens on 443 with TLSv1.2/TLSv1.3, HSTS, and secure ciphers
+
+### Existing cert at standard path
+
+If you have certs at `/etc/nginx/ssl/`, the `--quick` mode auto-detects them:
+```bash
+./deploy.sh --quick
+```
+
+### Using Let's Encrypt
+
+```bash
+# Stop any process on port 80
+# Get certs (standalone mode)
+certbot certonly --standalone -d vista.vit.ac.in
+
+# Deploy
+./deploy.sh
+# Enter cert path: /etc/letsencrypt/live/vista.vit.ac.in/fullchain.pem
+# Enter key path:  /etc/letsencrypt/live/vista.vit.ac.in/privkey.pem
+```
+
+Add a cron job for renewal:
+```bash
+echo "0 3 * * * certbot renew --quiet && docker compose -f /path/to/vista/docker-compose.yml -f /path/to/vista/docker-compose.ssl.yml restart waf" | crontab -
 ```
 
 ---
 
-## 🔐 Security Best Practices
+## Multi-Service (/multi/)
 
-### For Production Deployment
+The `/multi/` route runs a **separate instance of the same backend** with its own MongoDB database. Useful for running the same application for a different purpose (e.g., separate academic year).
 
-1. **Change all default passwords**
-   - MongoDB root password
-   - Admin password
-   - JWT secret
-
-2. **Use environment-specific configurations**
-   - Create separate `.env.docker.production`
-   - Never commit actual `.env.docker` to git
-
-3. **Enable HTTPS**
-   - Configure nginx with SSL certificates
-   - Use Let's Encrypt for free certificates
-
-4. **Restrict network access**
-   - Don't expose MongoDB port externally
-   - Use firewall rules
-
-5. **Regular backups**
-   - Set up automated MongoDB backups
-   - Store backups securely off-site
-
-6. **Update regularly**
-   - Keep Docker images updated
-   - Update dependencies regularly
-
----
-
-## 📊 Monitoring
-
-### Container Stats
-```bash
-# Real-time resource usage
-docker stats
-
-# Specific container
-docker stats vista-server
+Enable it during `deploy.sh`:
+```
+Deploy multi-service? (separate DB for /multi/ routing) [y/N]: y
 ```
 
-### Disk Usage
+Or manually:
 ```bash
-# View Docker disk usage
-docker system df
-
-# Detailed volume usage
-docker system df -v
+docker compose --profile multi up -d
 ```
 
-### Application Logs
-All server logs are persisted in `./server/logs/` directory.
+Multi-service details:
+- Container: `vista-multi-server` (port 5001, uses same image as main)
+- Database: `vista-multi-mongodb` (separate data volumes)
+- Data: `multi_mongodb_data`, `multi_mongodb_config`
+- Routing: `/multi/` → nginx strips the prefix → `multi-server:5001/`
 
 ---
 
-## 🚀 Production Deployment
+## Security Features
 
-### Recommended Changes for Production
+### WAF (Web Application Firewall)
 
-1. **Use external MongoDB** (MongoDB Atlas, AWS DocumentDB, etc.)
-   - Set `MONGO_URI` in `.env.docker`
-   - Remove MongoDB service from `docker-compose.yml`
+The WAF runs ModSecurity 3 with OWASP Core Rule Set 4.x, enabled for all traffic:
 
-2. **Configure nginx for HTTPS**
-   - Add SSL certificates
-   - Update nginx configuration
-   - Redirect HTTP to HTTPS
+- SQL injection (rules 942xxx)
+- Cross-site scripting (rules 941xxx)
+- Remote/Local file inclusion (rules 931xxx, 930xxx)
+- Remote code execution (rules 932xxx)
+- Protocol enforcement (rules 920xxx)
+- Scanner detection (rules 913xxx)
+- DOS protection (rules 912xxx)
+- IP reputation (rules 910xxx)
 
-3. **Set resource limits**
-   - Add memory and CPU limits to docker-compose.yml
-   - Example:
-     ```yaml
-     services:
-       server:
-         deploy:
-           resources:
-             limits:
-               cpus: '1'
-               memory: 1G
-     ```
+### Rate Limiting
 
-4. **Use Docker secrets** for sensitive data
-   - Instead of environment variables
-   - More secure for production
+| Endpoint | Rate | Burst |
+|----------|------|-------|
+| Login/auth endpoints | 5 req/min | 5 |
+| General API | 100 req/min | 20 |
+| Static/frontend | 500 req/min | 100 |
 
-5. **Set up monitoring**
-   - Use Prometheus + Grafana
-   - Application Performance Monitoring (APM)
-   - Log aggregation (ELK stack, Datadog, etc.)
+### Docker Security
 
-6. **Configure auto-restart policies**
-   - Already set to `restart: unless-stopped`
-   - Consider using a orchestrator (Kubernetes, Docker Swarm)
+- `read_only: true` — containers have read-only root filesystem
+- `cap_drop: ALL` — all Linux capabilities removed
+- `cap_add: [minimal]` — only the capabilities actually needed
+- `no-new-privileges:true` — prevents privilege escalation
+- `tmpfs` mounts — writable runtime data in memory only
+- Resource limits — CPU and memory bounds on every service
+- Secrets as files — never in environment variables
+- MongoDB bound to 127.0.0.1 — not exposed externally
+
+### Blocked Paths
+
+The WAF blocks access to:
+- `.git`, `.env`, `.svn`, `.htaccess` files
+- `node_modules/`, `vendor/`, `bin/`, `scripts/` directories
+- Common attack patterns (cmd, shell, exec, eval, system, etc.)
 
 ---
 
-## 📝 File Structure
+## Commands
+
+### Deployment
+
+```bash
+./deploy.sh                    # Interactive (recommended)
+./deploy.sh --quick            # Auto-detect, skip prompts
+./deploy.sh --help             # Show help
+
+# Start monitoring stack (after deployment)
+docker compose --profile monitoring up -d
+
+# Start multi-service (after deployment)
+docker compose --profile multi up -d
+
+# Start everything at once
+docker compose --profile multi --profile monitoring up -d
+
+# Rebuild and restart after code changes
+./deploy.sh                    # Re-runs config generation + build
+# Or manually:
+docker compose up -d --build
+```
+
+### Logs
+
+```bash
+docker compose logs -f                      # All services
+docker compose logs -f waf                  # WAF only
+docker compose logs -f server               # Backend only
+docker compose logs -f nginx                # Internal nginx only
+```
+
+### Health
+
+```bash
+curl http://localhost/health                # Application health
+docker compose ps                           # Container status
+```
+
+### Secrets
+
+```bash
+# Read a secret
+cat secrets/jwt_secret.txt
+
+# Regenerate a specific secret
+./secret-tools.sh rotate jwt_secret
+
+# List all secrets
+./secret-tools.sh list
+```
+
+### Maintenance
+
+```bash
+# Disk usage
+./docker-cleanup.sh df
+
+# Container stats
+./docker-cleanup.sh stats
+
+# Prune unused data
+./docker-cleanup.sh all            # Full cleanup (CAUTION: deletes everything unused)
+./docker-cleanup.sh logs           # Truncate container logs
+./docker-cleanup.sh volumes        # Remove dangling volumes
+./docker-cleanup.sh images         # Remove dangling images
+```
+
+### Stop / Restart
+
+```bash
+# Stop all services (data preserved)
+docker compose down
+
+# Stop and delete data (IRREVERSIBLE)
+docker compose down -v
+
+# Restart all services
+docker compose restart
+
+# Restart a specific service
+docker compose restart server
+```
+
+---
+
+## Troubleshooting
+
+### WAF fails to start
+
+```bash
+docker compose logs waf
+```
+
+Common causes:
+- `nginx: [emerg] "load_module" directive is specified` — ModSecurity module path mismatch: remove `load_module` line from `waf/nginx.conf` if the image has it compiled statically
+- Port 80/443 already in use: `netstat -tulpn | grep :80`
+
+### Server can't connect to MongoDB
+
+```bash
+docker compose logs server
+```
+
+The server waits up to 60s for MongoDB. If it times out:
+```bash
+docker compose logs mongodb     # Check MongoDB health
+docker compose restart server   # Retry connection
+```
+
+### Secrets not found
+
+```bash
+# Check secret files exist
+ls -la secrets/
+
+# Regenerate
+rm -rf secrets/
+./deploy.sh
+```
+
+### Permission denied on secrets
+
+```bash
+chmod 600 secrets/*.txt
+chown root:root secrets/*.txt
+```
+
+### Application returns 502
+
+The WAF may be blocking legitimate requests. Check WAF logs:
+```bash
+docker compose logs waf | grep -i "blocked\|denied\|403"
+```
+
+If false positives, add exclusion rules to `waf/modsecurity-rules.conf`:
+```
+# Example: allow a specific user-agent
+SecRule REQUEST_HEADERS:User-Agent "@contains MyApp" "id:200001,phase:1,pass,nolog"
+```
+
+### Health check fails
+
+```bash
+# Check each service
+docker compose ps
+docker compose logs waf | tail -20
+docker compose logs nginx | tail -20
+docker compose logs server | tail -20
+docker compose logs mongodb | tail -20
+```
+
+---
+
+## File Reference
 
 ```
 vista/
-├── client/
-│   ├── Dockerfile              # Frontend build instructions
-│   ├── nginx.conf              # Frontend nginx config
-│   └── .env.docker             # Client environment variables
-├── server/
-│   ├── Dockerfile              # Backend build instructions
-│   ├── docker-entrypoint.sh    # Startup script
-│   └── logs/                   # Application logs (persisted)
+├── deploy.sh                     # → Interactive deployment script
+├── secret-tools.sh               # → Secret management utilities
+├── docker-cleanup.sh             # → Maintenance utilities
+├── docker-compose.yml            # → Service orchestration
+├── docker-compose.ssl.yml        # → Generated SSL override (if HTTPS)
+├── .env                          # → Generated configuration
+├── .gitignore
+│
 ├── nginx/
-│   ├── Dockerfile              # Nginx proxy build
-│   └── nginx.conf              # Reverse proxy config
+│   ├── Dockerfile                # → Internal reverse proxy
+│   └── nginx.conf                # → Generated at deploy time
+│
+├── waf/
+│   ├── Dockerfile                # → ModSecurity + CRS
+│   ├── nginx.conf                # → Generated at deploy time
+│   ├── modsecurity-rules.conf    # → Custom WAF rules
+│   └── blocked-user-agents.data  # → Blocked scanner list
+│
+├── server/
+│   ├── Dockerfile                # → Multi-stage backend build
+│   ├── docker-entrypoint.sh      # → Secret bridge + startup
+│   └── .dockerignore
+│
+├── client/
+│   ├── Dockerfile                # → Multi-stage frontend build
+│   ├── nginx.conf                # → SPA serving config
+│   └── .dockerignore
+│
+├── monitoring/
+│   ├── prometheus.yml            # → Scrape config
+│   ├── grafana-datasources.yml   # → Auto-provision datasource
+│   └── grafana-dashboards.yml    # → Auto-provision dashboards
+│
 ├── mongo-init/
-│   └── init-mongo.js           # MongoDB initialization
-├── docker-compose.yml          # Service orchestration
-└── .env.docker                 # Global environment variables
+│   └── init-mongo.js             # → Database initialization
+│
+└── secrets/                      # → Generated at deploy time
+    ├── .gitkeep
+    ├── jwt_secret.txt
+    ├── signing_secret.txt
+    ├── mongo_root_password.txt
+    └── admin_password.txt
 ```
 
 ---
 
-## 🆘 Getting Help
+## License
 
-### View service status
-```bash
-docker-compose ps
-```
-
-### Restart everything
-```bash
-docker-compose restart
-```
-
-### Clean slate (⚠️ DELETES ALL DATA)
-```bash
-docker-compose down -v
-docker-compose up -d --build
-```
-
-### Access container shell
-```bash
-# Server
-docker-compose exec server sh
-
-# MongoDB
-docker-compose exec mongodb mongosh
-```
-
----
-
-## 📄 License
-
-This deployment configuration is part of the Vista Project Management System.
-
----
-
-**Need help?** Check the logs first: `docker-compose logs -f`
+Part of the Vista Project Management System (CPMS).

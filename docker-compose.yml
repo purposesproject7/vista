@@ -1,7 +1,7 @@
 version: '3.8'
 
 # =============================================================================
-# Secrets — defined once, consumed by all services
+# Secrets
 # =============================================================================
 secrets:
   jwt_secret:
@@ -18,7 +18,7 @@ secrets:
 # =============================================================================
 services:
   # ---------------------------------------------------------------------------
-  # MongoDB Database
+  # MongoDB (main)
   # ---------------------------------------------------------------------------
   mongodb:
     image: mongo:7.0
@@ -28,14 +28,8 @@ services:
       - mongo_root_password
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
       MONGO_INITDB_DATABASE: vista
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        MONGO_INITDB_ROOT_PASSWORD=$$(cat /run/secrets/mongo_root_password)
-        export MONGO_INITDB_ROOT_PASSWORD
-        exec docker-entrypoint.sh mongod
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
@@ -55,9 +49,6 @@ services:
         limits:
           cpus: '1'
           memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -71,12 +62,13 @@ services:
         max-file: "3"
 
   # ---------------------------------------------------------------------------
-  # Backend Server (Node.js / Express)
+  # Backend Server
   # ---------------------------------------------------------------------------
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
+    image: vista-server:latest
     container_name: vista-server
     restart: unless-stopped
     secrets:
@@ -96,7 +88,7 @@ services:
       JWT_SECRET_FILE: /run/secrets/jwt_secret
       JWT_EXPIRE: ${JWT_EXPIRE:-1h}
       SIGNING_SECRET_FILE: /run/secrets/signing_secret
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:80}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
       EMAIL_USER: ${EMAIL_USER}
       EMAIL_PASS: ${EMAIL_PASS}
       EMAIL_FROM: ${EMAIL_FROM}
@@ -124,9 +116,6 @@ services:
         limits:
           cpus: '1'
           memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 256M
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -144,12 +133,13 @@ services:
         max-file: "3"
 
   # ---------------------------------------------------------------------------
-  # Frontend Client (React / Vite)
+  # Frontend Client
   # ---------------------------------------------------------------------------
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
+    image: vista-client:latest
     container_name: vista-client
     restart: unless-stopped
     depends_on:
@@ -168,9 +158,6 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -193,6 +180,7 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+    image: vista-nginx:latest
     container_name: vista-nginx
     restart: unless-stopped
     depends_on:
@@ -211,9 +199,6 @@ services:
         limits:
           cpus: '0.5'
           memory: 128M
-        reservations:
-          cpus: '0.25'
-          memory: 64M
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -235,12 +220,13 @@ services:
         max-file: "3"
 
   # ---------------------------------------------------------------------------
-  # WAF — ModSecurity + OWASP CRS Edge Proxy
+  # WAF Edge Proxy (ModSecurity + OWASP CRS)
   # ---------------------------------------------------------------------------
   waf:
     build:
       context: ./waf
       dockerfile: Dockerfile
+    image: vista-waf:latest
     container_name: vista-waf
     restart: unless-stopped
     ports:
@@ -248,6 +234,8 @@ services:
       - "${HOST_PORT_HTTPS:-443}:443"
     volumes:
       - waf_logs:/var/log/nginx
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
     depends_on:
       nginx:
         condition: service_started
@@ -264,9 +252,6 @@ services:
         limits:
           cpus: '1'
           memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -287,23 +272,121 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # ---------------------------------------------------------------------------
+  # Multi-service MongoDB (conditional — enabled via profile)
+  # ---------------------------------------------------------------------------
+  multi-mongodb:
+    image: mongo:7.0
+    container_name: vista-multi-mongodb
+    restart: unless-stopped
+    profiles:
+      - multi
+    secrets:
+      - mongo_root_password
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
+      MONGO_INITDB_DATABASE: multi
+    volumes:
+      - multi_mongodb_data:/data/db
+      - multi_mongodb_config:/data/configdb
+    networks:
+      - vista-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/multi --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Multi-service Backend (conditional — enabled via profile)
+  # ---------------------------------------------------------------------------
+  multi-server:
+    image: vista-server:latest
+    container_name: vista-multi-server
+    restart: unless-stopped
+    profiles:
+      - multi
+    secrets:
+      - jwt_secret
+      - signing_secret
+      - mongo_root_password
+      - admin_password
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      HOST: 0.0.0.0
+      MONGO_ROOT_USER: ${MONGO_ROOT_USER:-admin}
+      MONGO_HOST: multi-mongodb
+      MONGO_PORT: 27017
+      MONGO_DB: multi
+      MONGO_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      JWT_EXPIRE: ${JWT_EXPIRE:-1h}
+      SIGNING_SECRET_FILE: /run/secrets/signing_secret
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      ADMIN_NAME: ${ADMIN_NAME}
+      ADMIN_EMPLOYEE_ID: ${ADMIN_EMPLOYEE_ID}
+      ADMIN_SCHOOL: ${ADMIN_SCHOOL}
+      ADMIN_DEPARTMENT: ${ADMIN_DEPARTMENT}
+      RUN_ADMIN_SETUP: "false"
+    depends_on:
+      multi-mongodb:
+        condition: service_healthy
+    networks:
+      - vista-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # ===========================================================================
   # MONITORING STACK
   # ===========================================================================
-
-  # ---------------------------------------------------------------------------
-  # Prometheus — metrics collection
-  # ---------------------------------------------------------------------------
   prometheus:
     image: prom/prometheus:v2.53.0
     container_name: vista-prometheus
     restart: unless-stopped
+    profiles:
+      - monitoring
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=15d'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -317,9 +400,6 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
     security_opt:
       - no-new-privileges:true
     logging:
@@ -328,13 +408,12 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ---------------------------------------------------------------------------
-  # cAdvisor — container resource metrics
-  # ---------------------------------------------------------------------------
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: vista-cadvisor
     restart: unless-stopped
+    profiles:
+      - monitoring
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -353,9 +432,6 @@ services:
         limits:
           cpus: '0.3'
           memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
     security_opt:
       - no-new-privileges:true
     logging:
@@ -364,13 +440,12 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ---------------------------------------------------------------------------
-  # Node Exporter — host system metrics
-  # ---------------------------------------------------------------------------
   node_exporter:
     image: prom/node-exporter:v1.8.1
     container_name: vista-node-exporter
     restart: unless-stopped
+    profiles:
+      - monitoring
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -389,9 +464,6 @@ services:
         limits:
           cpus: '0.2'
           memory: 128M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
     security_opt:
       - no-new-privileges:true
     logging:
@@ -400,17 +472,15 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ---------------------------------------------------------------------------
-  # Grafana — dashboards (optional, enable for visual monitoring)
-  # ---------------------------------------------------------------------------
   grafana:
     image: grafana/grafana:11.1.0
     container_name: vista-grafana
     restart: unless-stopped
+    profiles:
+      - monitoring
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_INSTALL_PLUGINS: ""
       GF_SERVER_ROOT_URL: http://localhost:3001
       GF_AUTH_ANONYMOUS_ENABLED: "false"
     volumes:
@@ -428,9 +498,6 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
     security_opt:
       - no-new-privileges:true
     logging:
@@ -438,6 +505,12 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
 # =============================================================================
 # Networks
@@ -453,6 +526,10 @@ volumes:
   mongodb_data:
     driver: local
   mongodb_config:
+    driver: local
+  multi_mongodb_data:
+    driver: local
+  multi_mongodb_config:
     driver: local
   server_logs:
     driver: local
