@@ -130,6 +130,7 @@ export class FacultyService {
       school: data.school ? data.school.trim() : "",
       program: Array.isArray(data.program) ? data.program : (data.program ? [data.program.trim()] : []),
       specialization: data.specialization ? data.specialization.trim() : "",
+      isDefaultPassword: true,
     });
 
     await newFaculty.save();

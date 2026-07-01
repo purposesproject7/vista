@@ -134,6 +134,7 @@ async function uploadFaculty() {
         program: [DEFAULTS.program],
         specialization,
         isActive: true,
+        isDefaultPassword: true,
       });
 
       await faculty.save();
