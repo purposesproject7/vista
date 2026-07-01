@@ -195,6 +195,17 @@ chown -R root:root secrets 2>/dev/null || true
 ok "Secrets written to ./secrets/"
 
 # =============================================================================
+# Generate random MongoDB host port
+# =============================================================================
+MONGO_HOST_PORT=""
+if [[ -x scripts/get-free-port.sh ]]; then
+  MONGO_HOST_PORT=$(scripts/get-free-port.sh 2>/dev/null || echo "27017")
+else
+  MONGO_HOST_PORT="27017"
+fi
+ok "MongoDB host port: ${MONGO_HOST_PORT}"
+
+# =============================================================================
 # Generate .env
 # =============================================================================
 echo ""
@@ -208,6 +219,7 @@ cat > .env <<ENVEOF
 DOMAIN=${DOMAIN}
 HOST_PORT_HTTP=${HOST_PORT_HTTP:-80}
 MONGO_ROOT_USER=${MONGO_ROOT_USER}
+MONGO_HOST_PORT=${MONGO_HOST_PORT}
 JWT_EXPIRE=${JWT_EXPIRE}
 ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
 ADMIN_EMAIL=${ADMIN_EMAIL}
@@ -620,6 +632,7 @@ else
 fi
 echo "  API:         http://${DOMAIN}${PORT_DISPLAY}/api"
 echo "  Health:      http://${DOMAIN}${PORT_DISPLAY}/health"
+echo "  MongoDB:     localhost:${MONGO_HOST_PORT} (host port)"
 if [[ "$MULTI" == true ]]; then
   echo "  Multi:       http://${DOMAIN}${PORT_DISPLAY}/multi/"
 fi

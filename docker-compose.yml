@@ -29,7 +29,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
       MONGO_INITDB_DATABASE: vista
     ports:
-      - "127.0.0.1:27017:27017"
+      - "127.0.0.1:${MONGO_HOST_PORT:-27017}:27017"
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
@@ -37,7 +37,7 @@ services:
     networks:
       - vista-network
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/vista --quiet
+      test: mongosh --quiet -u $${MONGO_INITDB_ROOT_USERNAME} -p $$(cat /run/secrets/mongo_root_password) --authenticationDatabase admin --eval 'db.adminCommand("ping").ok'
       interval: 10s
       timeout: 5s
       retries: 5
