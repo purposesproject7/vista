@@ -16,7 +16,16 @@ import MarkingSchemaModel from "./models/markingSchema.js";
 // Setup environment
 dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://purposesproject7_db_user:bIiZVirXzT488Gdm@vista-testdb.kjfjv3y.mongodb.net/?appName=Vista-TestDB";
+if (process.env.NODE_ENV === "production") {
+  console.error("This script is NOT allowed to run in production environment.");
+  process.exit(1);
+}
+
+if (!process.env.MONGO_URI) {
+  console.error("MONGO_URI environment variable is required. Set it in .env or export it.");
+  process.exit(1);
+}
+const MONGO_URI = process.env.MONGO_URI;
 
 console.log("Script started...");
 console.log("Using URI:", MONGO_URI);

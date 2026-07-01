@@ -61,6 +61,6 @@ export const generateToken = (faculty) => {
       role: faculty.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: process.env.JWT_EXPIRE || "1h" }
   );
 };

@@ -6,10 +6,10 @@ import { validateRequired } from "../middlewares/validation.js";
 const router = express.Router();
 
 // Get student profile by registration number
-router.get("/profile/:regNo", studentController.getProfile);
+router.get("/profile/:regNo", authenticate, studentController.getProfile);
 
 // Get project details for a student
-router.get("/project/:regNo", studentController.getProject);
+router.get("/project/:regNo", authenticate, studentController.getProject);
 
 // Get marks for a student (protected)
 router.get("/marks/:regNo", authenticate, studentController.getMarks);
@@ -18,6 +18,6 @@ router.get("/marks/:regNo", authenticate, studentController.getMarks);
 router.get("/approvals/:regNo", authenticate, studentController.getApprovals);
 
 // Get broadcast messages visible to students
-router.get("/broadcasts", studentController.getBroadcasts);
+router.get("/broadcasts", authenticate, studentController.getBroadcasts);
 
 export default router;

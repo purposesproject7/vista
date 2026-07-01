@@ -1,5 +1,8 @@
 /**
  * Sanitize user input to prevent injection attacks
+ * - Trims whitespace
+ * - Strips HTML/script tags
+ * - Removes MongoDB operator keys (NoSQL injection prevention)
  */
 export default function sanitizeInput(req, res, next) {
   // ✅ Sanitize body (works because body is writable)
@@ -9,25 +12,33 @@ export default function sanitizeInput(req, res, next) {
 
   // ✅ Sanitize query (replace properties, not the object itself)
   if (req.query && typeof req.query === "object") {
-    Object.keys(req.query).forEach((key) => {
-      const value = req.query[key];
-      if (typeof value === "string") {
-        req.query[key] = value.trim();
-      }
-    });
+    sanitizeObjectInPlace(req.query);
   }
 
   // ✅ Sanitize params (replace properties, not the object itself)
   if (req.params && typeof req.params === "object") {
-    Object.keys(req.params).forEach((key) => {
-      const value = req.params[key];
-      if (typeof value === "string") {
-        req.params[key] = value.trim();
-      }
-    });
+    sanitizeObjectInPlace(req.params);
   }
 
   next();
+}
+
+function sanitizeValue(value) {
+  if (typeof value === "string") {
+    return value.trim().replace(/<[^>]*>/g, "");
+  }
+  return value;
+}
+
+function sanitizeObjectInPlace(obj) {
+  for (const key of Object.keys(obj)) {
+    const value = obj[key];
+    if (typeof value === "string") {
+      obj[key] = value.trim().replace(/<[^>]*>/g, "");
+    } else if (typeof value === "object" && value !== null) {
+      sanitizeObjectInPlace(value);
+    }
+  }
 }
 
 function sanitizeObject(obj) {
@@ -35,11 +46,14 @@ function sanitizeObject(obj) {
 
   const sanitized = {};
   for (const [key, value] of Object.entries(obj)) {
+    // Strip MongoDB operator keys to prevent NoSQL injection
+    if (key.startsWith("$")) continue;
+
     if (typeof value === "string") {
-      sanitized[key] = value.trim();
+      sanitized[key] = value.trim().replace(/<[^>]*>/g, "");
     } else if (Array.isArray(value)) {
       sanitized[key] = value.map((item) =>
-        typeof item === "object" ? sanitizeObject(item) : item,
+        typeof item === "object" && item !== null ? sanitizeObject(item) : sanitizeValue(item),
       );
     } else if (typeof value === "object" && value !== null) {
       sanitized[key] = sanitizeObject(value);

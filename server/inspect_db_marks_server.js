@@ -7,9 +7,16 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+if (process.env.NODE_ENV === "production") {
+  console.error("This script is NOT allowed to run in production environment.");
+  process.exit(1);
+}
 
-
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/vista";
+if (!process.env.MONGO_URI) {
+  console.error("MONGO_URI environment variable is required. Set it in .env or export it.");
+  process.exit(1);
+}
+const MONGO_URI = process.env.MONGO_URI;
 
 
 async function inspect() {
