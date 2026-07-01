@@ -417,6 +417,40 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                 );
               })}
 
+              {/* SDG GOAL SECTION (Full Width, Above Feedback) */}
+              {review?.type !== 'panel' && team?.role !== 'panel' && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 mb-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-slate-900">Sustainable Development Goal (SDG)</h2>
+                      <p className="text-sm text-slate-500 font-medium">Select the primary SDG this project aligns with.</p>
+                    </div>
+                  </div>
+                  
+                  <select
+                    value={teamMeta.sdgGoal}
+                    onChange={(e) => {
+                      setTeamMeta(prev => ({ ...prev, sdgGoal: e.target.value }));
+                      if (!e.target.value) {
+                        // Auto uncheck PPT Approved if SDG is removed
+                        setTeamMeta(prev => ({ ...prev, pptApproved: false }));
+                      }
+                    }}
+                    className="w-full p-4 text-lg border-2 border-emerald-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-600 bg-emerald-50 text-emerald-900 font-semibold transition-all shadow-sm"
+                  >
+                    <option value="">-- Select SDG Goal --</option>
+                    {SDG_GOALS.map((goal, idx) => (
+                      <option key={idx} value={goal}>{goal}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* TEAM FEEDBACK SECTION */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
                 <div className="flex items-center gap-4 mb-6">
@@ -435,29 +469,6 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                     className="flex-1 w-full p-4 text-base border-2 border-slate-100 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-50 transition-all resize-none min-h-[120px]"
                   />
                   <div className="w-full md:w-72 shrink-0 flex flex-col gap-4">
-                    {/* SDG Goal Dropdown */}
-                    {review?.type !== 'panel' && team?.role !== 'panel' && (
-                      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
-                        <label className="block text-xs font-bold text-slate-700 mb-1">SDG Goal</label>
-                        <select
-                          value={teamMeta.sdgGoal}
-                          onChange={(e) => {
-                            setTeamMeta(prev => ({ ...prev, sdgGoal: e.target.value }));
-                            if (!e.target.value) {
-                              // Auto uncheck PPT Approved if SDG is removed
-                              setTeamMeta(prev => ({ ...prev, pptApproved: false }));
-                            }
-                          }}
-                          className="w-full p-3 text-base border-2 border-purple-200 rounded-xl focus:ring-4 focus:ring-purple-100 focus:border-purple-600 bg-purple-50 text-purple-900 font-semibold"
-                        >
-                          <option value="">-- Select SDG Goal --</option>
-                          {SDG_GOALS.map((goal, idx) => (
-                            <option key={idx} value={goal}>{goal}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
                     <div 
                       className={`border rounded-xl p-4 transition-colors ${!teamMeta.sdgGoal && review?.type !== 'panel' && team?.role !== 'panel' ? 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed' : 'bg-blue-50 border-blue-100 cursor-pointer hover:bg-blue-100'}`} 
                       onClick={() => {

@@ -207,6 +207,7 @@ const adaptProject = (backendProject) => {
       assignedAt: rp.assignedAt,
       assignedBy: rp.assignedBy,
     })) || [],
+    sdgGoal: backendProject.sdgGoal || null,
     createdAt: backendProject.createdAt,
   };
 };
