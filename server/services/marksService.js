@@ -21,6 +21,8 @@ export class MarksService {
       totalMarks,
       maxTotalMarks,
       remarks,
+      pptApproved,
+      sdgGoal,
     } = data;
 
     // Determine faculty type
@@ -107,6 +109,37 @@ export class MarksService {
       PAT: !!hasPat
     });
 
+    // If guide is submitting, update PPT approval and SDG goal
+    if (facultyType === 'guide') {
+      let projectUpdated = false;
+      if (pptApproved) {
+        const existingApprovalIndex = projectDocFull.pptApprovals.findIndex(
+          (a) => a.reviewType === reviewType
+        );
+
+        if (existingApprovalIndex > -1) {
+          projectDocFull.pptApprovals[existingApprovalIndex].isApproved = true;
+          projectDocFull.pptApprovals[existingApprovalIndex].approvedBy = facultyId;
+          projectDocFull.pptApprovals[existingApprovalIndex].approvedAt = new Date();
+        } else {
+          projectDocFull.pptApprovals.push({
+            reviewType: reviewType,
+            isApproved: true,
+            approvedBy: facultyId,
+            approvedAt: new Date(),
+          });
+        }
+        projectUpdated = true;
+      }
+      if (sdgGoal) {
+        projectDocFull.sdgGoal = sdgGoal;
+        projectUpdated = true;
+      }
+      if (projectUpdated) {
+        await projectDocFull.save();
+      }
+    }
+
     logger.info("marks_submitted", {
       marksId: marks._id,
       facultyId,
@@ -149,6 +182,40 @@ export class MarksService {
     // Recheck PAT global status for this student
     const hasPat = await Marks.exists({ student: marks.student, remarks: /\[PAT\]/i });
     await Student.findByIdAndUpdate(marks.student, { PAT: !!hasPat });
+
+    // Update Project PPT approval and SDG goal if provided by guide
+    if (marks.facultyType === 'guide' && (updates.pptApproved || updates.sdgGoal)) {
+      const projectDoc = await Project.findById(marks.project);
+      if (projectDoc) {
+        let projectUpdated = false;
+        if (updates.pptApproved) {
+          const existingApprovalIndex = projectDoc.pptApprovals.findIndex(
+            (a) => a.reviewType === marks.reviewType
+          );
+
+          if (existingApprovalIndex > -1) {
+            projectDoc.pptApprovals[existingApprovalIndex].isApproved = true;
+            projectDoc.pptApprovals[existingApprovalIndex].approvedBy = facultyId;
+            projectDoc.pptApprovals[existingApprovalIndex].approvedAt = new Date();
+          } else {
+            projectDoc.pptApprovals.push({
+              reviewType: marks.reviewType,
+              isApproved: true,
+              approvedBy: facultyId,
+              approvedAt: new Date(),
+            });
+          }
+          projectUpdated = true;
+        }
+        if (updates.sdgGoal) {
+          projectDoc.sdgGoal = updates.sdgGoal;
+          projectUpdated = true;
+        }
+        if (projectUpdated) {
+          await projectDoc.save();
+        }
+      }
+    }
 
     logger.info("marks_updated", {
       marksId: marks._id,

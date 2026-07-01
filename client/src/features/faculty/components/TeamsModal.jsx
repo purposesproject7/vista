@@ -161,9 +161,9 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                         <div className="text-[11px] text-gray-400">
                           {team.students?.length} member{team.students?.length !== 1 ? 's' : ''}
                         </div>
-                        {team.sdgGoals && team.sdgGoals.length > 0 && (
-                          <div className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-medium flex gap-1 title={team.sdgGoals.join(', ')}">
-                            SDG: {team.sdgGoals[0].length > 20 ? team.sdgGoals[0].substring(0, 17) + '...' : team.sdgGoals[0]}
+                        {team.sdgGoal && (
+                          <div className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-medium flex gap-1 title={team.sdgGoal}">
+                            SDG: {team.sdgGoal.length > 20 ? team.sdgGoal.substring(0, 17) + '...' : team.sdgGoal}
                           </div>
                         )}
                       </div>

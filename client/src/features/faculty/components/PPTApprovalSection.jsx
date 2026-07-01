@@ -76,7 +76,7 @@ const PPTApprovalSection = ({ reviews, onRefresh }) => {
                 throw new Error("No students in team to link approval.");
             }
 
-            await approvePPT(studentId, selectedTeamForApproval.reviewId, [selectedGoal]);
+            await approvePPT(studentId, selectedTeamForApproval.reviewId, selectedGoal);
             showToast("PPT Approved successfully", "success");
             if (onRefresh) onRefresh();
             setSelectedTeamForApproval(null);

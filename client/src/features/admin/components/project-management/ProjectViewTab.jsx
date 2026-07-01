@@ -181,13 +181,11 @@ const ProjectViewTab = () => {
                         </div>
                       )}
 
-                      {project.sdgGoals && project.sdgGoals.length > 0 && (
+                      {project.sdgGoal && (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {project.sdgGoals.map((goal, idx) => (
-                            <span key={idx} className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-medium" title={goal}>
-                              {goal.length > 25 ? goal.substring(0, 25) + '...' : goal}
-                            </span>
-                          ))}
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-medium" title={project.sdgGoal}>
+                            {project.sdgGoal.length > 25 ? project.sdgGoal.substring(0, 25) + '...' : project.sdgGoal}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -264,12 +262,10 @@ const ProjectViewTab = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1">
-                            {project.sdgGoals && project.sdgGoals.length > 0 ? (
-                               project.sdgGoals.map((goal, idx) => (
-                                <span key={idx} className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-medium" title={goal}>
-                                  {goal.length > 20 ? goal.substring(0, 20) + '...' : goal}
-                                </span>
-                              ))
+                            {project.sdgGoal ? (
+                              <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-medium" title={project.sdgGoal}>
+                                {project.sdgGoal.length > 20 ? project.sdgGoal.substring(0, 20) + '...' : project.sdgGoal}
+                              </span>
                             ) : (
                                <span className="text-xs text-gray-400">None</span>
                             )}

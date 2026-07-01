@@ -395,13 +395,13 @@ export async function getSubmittedMarks(req, res) {
  */
 export async function approvePPT(req, res) {
   try {
-    const { studentId, reviewType, sdgGoals } = req.body;
+    const { studentId, reviewType, sdgGoal } = req.body;
 
     // DEBUG LOGGING
     logger.info("DEBUG: approvePPT received", { body: req.body });
     console.log("DEBUG: approvePPT body:", req.body);
 
-    await ApprovalService.approvePPT(req.user._id, studentId, reviewType, sdgGoals);
+    await ApprovalService.approvePPT(req.user._id, studentId, reviewType, sdgGoal);
 
     res.status(200).json({
       success: true,

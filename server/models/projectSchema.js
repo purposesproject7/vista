@@ -117,7 +117,7 @@ const projectSchema = new mongoose.Schema(
       default: null,
     },
 
-    sdgGoals: [{ type: String }],
+    sdgGoal: { type: String, default: null },
 
     description: { type: String },
   },

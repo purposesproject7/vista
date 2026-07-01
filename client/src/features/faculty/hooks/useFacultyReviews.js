@@ -215,6 +215,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             reviewDateTime: activePanel?.dateTime || null,
                             role: isGuide ? 'guide' : 'panel',
                             roleLabel: roleLabel, // "Temporary Panel", "Panel", "Guide"
+                            sdgGoal: project.sdgGoal || null,
                             pptApprovals: project.pptApprovals || [], // Pass PPT approvals to UI
                             requestStatus: requestStatus, // 'pending', 'approved', 'rejected' or null
                             activeRequest: activeRequest,

@@ -17,11 +17,32 @@ const DEFAULT_META = Object.freeze({
   comment: ''
 });
 
+const SDG_GOALS = [
+  "All",
+  "1. No Poverty",
+  "2. Zero Hunger",
+  "3. Good Health and Well-being",
+  "4. Quality Education",
+  "5. Gender Equality",
+  "6. Clean Water and Sanitation",
+  "7. Affordable and Clean Energy",
+  "8. Decent Work and Economic Growth",
+  "9. Industry, Innovation and Infrastructure",
+  "10. Reduced Inequality",
+  "11. Sustainable Cities and Communities",
+  "12. Responsible Consumption and Production",
+  "13. Climate Action",
+  "14. Life Below Water",
+  "15. Life on Land",
+  "16. Peace and Justice Strong Institutions",
+  "17. Partnerships to achieve the Goal"
+];
+
 const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
   // --- STATE ---
   const [marks, setMarks] = useState({});
   const [meta, setMeta] = useState({});
-  const [teamMeta, setTeamMeta] = useState({ pptApproved: false, teamComment: '' });
+  const [teamMeta, setTeamMeta] = useState({ pptApproved: false, teamComment: '', sdgGoal: '' });
 
   const [initialState, setInitialState] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -77,7 +98,8 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
     setInitialState({ marks: JSON.stringify(initMarks), meta: JSON.stringify(initMeta) });
     setTeamMeta({
       pptApproved: foundPptApproved,
-      teamComment: foundTeamComment
+      teamComment: foundTeamComment,
+      sdgGoal: team.sdgGoal || ''
     });
   }, [isOpen, team]);
 
@@ -215,6 +237,8 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
           totalMarks: totalObtained,
           maxTotalMarks: maxTotal,
           remarks: remarks,
+          pptApproved: teamMeta.pptApproved,
+          sdgGoal: teamMeta.sdgGoal,
           isSubmitted: true
         };
 
@@ -251,9 +275,14 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Reviewing Team</h2>
               <h1 className="text-xl font-black text-slate-900 leading-tight">{team.team_name}</h1>
               {team.venue && (
-                <div className="flex items-center gap-1.5 mt-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-lg inline-flex">
+                <div className="flex items-center gap-1.5 mt-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-lg inline-flex mr-2">
                   <MapPinIcon className="w-4 h-4 text-amber-600" />
                   {team.venue}
+                </div>
+              )}
+              {team.sdgGoal && (review?.type === 'panel' || team.role === 'panel') && (
+                <div className="flex items-center gap-1.5 mt-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold px-3 py-1.5 rounded-lg inline-flex">
+                  SDG: {team.sdgGoal}
                 </div>
               )}
             </div>
@@ -406,7 +435,39 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                     className="flex-1 w-full p-4 text-base border-2 border-slate-100 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-50 transition-all resize-none min-h-[120px]"
                   />
                   <div className="w-full md:w-72 shrink-0 flex flex-col gap-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setTeamMeta(prev => ({ ...prev, pptApproved: !prev.pptApproved }))}>
+                    {/* SDG Goal Dropdown */}
+                    {review?.type !== 'panel' && team?.role !== 'panel' && (
+                      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                        <label className="block text-xs font-bold text-slate-700 mb-1">SDG Goal</label>
+                        <select
+                          value={teamMeta.sdgGoal}
+                          onChange={(e) => {
+                            setTeamMeta(prev => ({ ...prev, sdgGoal: e.target.value }));
+                            if (!e.target.value) {
+                              // Auto uncheck PPT Approved if SDG is removed
+                              setTeamMeta(prev => ({ ...prev, pptApproved: false }));
+                            }
+                          }}
+                          className="w-full p-3 text-base border-2 border-purple-200 rounded-xl focus:ring-4 focus:ring-purple-100 focus:border-purple-600 bg-purple-50 text-purple-900 font-semibold"
+                        >
+                          <option value="">-- Select SDG Goal --</option>
+                          {SDG_GOALS.map((goal, idx) => (
+                            <option key={idx} value={goal}>{goal}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div 
+                      className={`border rounded-xl p-4 transition-colors ${!teamMeta.sdgGoal && review?.type !== 'panel' && team?.role !== 'panel' ? 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed' : 'bg-blue-50 border-blue-100 cursor-pointer hover:bg-blue-100'}`} 
+                      onClick={() => {
+                        if (review?.type !== 'panel' && team?.role !== 'panel' && !teamMeta.sdgGoal) {
+                          setToast({ type: 'error', message: 'Please select an SDG Goal first.' });
+                          return;
+                        }
+                        setTeamMeta(prev => ({ ...prev, pptApproved: !prev.pptApproved }));
+                      }}
+                    >
                       <label className="flex items-center gap-3 cursor-pointer pointer-events-none">
                         <input type="checkbox" checked={teamMeta.pptApproved} onChange={() => { }} className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
                         <span className="text-base font-bold text-slate-800">PPT Approved</span>

@@ -674,7 +674,7 @@ export class ReportService {
             const studentDetails = p.students.map(s => `${s.name} (${s.regNo})`).join(", ");
             const studentCount = p.students.length;
 
-            const sdgGoalsStr = p.sdgGoals && p.sdgGoals.length > 0 ? p.sdgGoals.join(", ") : "None";
+            const sdgGoalsStr = p.sdgGoal ? p.sdgGoal : "None";
 
             results.push({
                 "Project Title": p.name,
