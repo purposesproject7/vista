@@ -14,6 +14,72 @@
 # =============================================================================
 set -euo pipefail
 
+SCRIPT_ARGS=("$@")
+
+# --- Docker & Docker Compose installation ------------------------------------
+ensure_docker() {
+  if ! command -v docker &>/dev/null; then
+    warn "Docker not found."
+    read -p "  Install Docker now? [Y/n]: " INSTALL_DOCKER
+    INSTALL_DOCKER="${INSTALL_DOCKER:-Y}"
+    if [[ "$INSTALL_DOCKER" =~ ^[Yy] ]]; then
+      info "Installing Docker via get.docker.com..."
+      curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+      sh /tmp/get-docker.sh
+      if ! command -v docker &>/dev/null; then
+        error "Docker installation failed. Install manually: https://docs.docker.com/engine/install/"
+        exit 1
+      fi
+      ok "Docker installed."
+    else
+      error "Docker is required. Install it first: https://docs.docker.com/engine/install/"
+      exit 1
+    fi
+  fi
+
+  if ! docker info &>/dev/null; then
+    if [[ "$(id -u)" -eq 0 ]]; then
+      error "Docker daemon is not running. Start it with: systemctl start docker"
+      exit 1
+    else
+      warn "Cannot access Docker socket (permission denied)."
+      warn "Options:"
+      warn "  1. Run this script with sudo: sudo $0"
+      warn "  2. Add your user to the docker group and re-login:"
+      warn "     sudo usermod -aG docker \$USER && newgrp docker"
+      warn "  3. Start Docker if not running: sudo systemctl start docker"
+      read -p "  Try with sudo now? [Y/n]: " TRY_SUDO
+      TRY_SUDO="${TRY_SUDO:-Y}"
+      if [[ "$TRY_SUDO" =~ ^[Yy] ]]; then
+        exec sudo "$0" "${SCRIPT_ARGS[@]}"
+      fi
+      exit 1
+    fi
+  fi
+
+  if ! docker compose version &>/dev/null && ! command -v docker-compose &>/dev/null; then
+    warn "Docker Compose not found."
+    read -p "  Install Docker Compose now? [Y/n]: " INSTALL_DC
+    INSTALL_DC="${INSTALL_DC:-Y}"
+    if [[ "$INSTALL_DC" =~ ^[Yy] ]]; then
+      info "Installing Docker Compose plugin..."
+      mkdir -p /usr/local/lib/docker/cli-plugins
+      COMPOSE_VERSION=$(curl -fsSL https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name":' | cut -d '"' -f 4)
+      curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/lib/docker/cli-plugins/docker-compose
+      chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+      if docker compose version &>/dev/null; then
+        ok "Docker Compose installed."
+      else
+        error "Docker Compose installation failed. Install manually."
+        exit 1
+      fi
+    else
+      error "Docker Compose is required. Install it first."
+      exit 1
+    fi
+  fi
+}
+
 # --- helpers ----------------------------------------------------------------
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
@@ -22,12 +88,14 @@ warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 # --- prereqs ----------------------------------------------------------------
-for cmd in openssl docker docker-compose; do
+for cmd in openssl; do
   if ! command -v "$cmd" &>/dev/null; then
     error "'$cmd' is required but not found. Please install it first."
     exit 1
   fi
 done
+
+ensure_docker
 
 # --- source secret generator ------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -157,8 +225,17 @@ HOST_PORT_HTTPS=${HOST_PORT_HTTPS}
 
 # --- Email ------------------------------------------------------------------
 EMAIL_USER=${EMAIL_USER}
-EMAIL_PASS=${EMAIL_PASS:-}
-EMAIL_FROM=${EMAIL_FROM:-}
+ENVEOF
+
+if [[ -n "${EMAIL_USER:-}" ]]; then
+  cat >> "$ENV_FILE" <<ENVEOF
+EMAIL_PASS=${EMAIL_PASS}
+EMAIL_FROM=${EMAIL_FROM}
+ENVEOF
+fi
+
+# shellcheck disable=SC2129
+cat >> "$ENV_FILE" <<ENVEOF
 
 # --- Admin ------------------------------------------------------------------
 ADMIN_EMAIL=${ADMIN_EMAIL}
@@ -191,13 +268,13 @@ echo ""
 
 # --- optional deploy --------------------------------------------------------
 if [[ "$INTERACTIVE" == true ]]; then
-  read -p "  Start deployment with docker-compose now? [Y/n]: " DEPLOY_NOW
+  read -p "  Start deployment with Docker Compose now? [Y/n]: " DEPLOY_NOW
   DEPLOY_NOW="${DEPLOY_NOW:-Y}"
   if [[ "$DEPLOY_NOW" =~ ^[Yy] ]]; then
     echo ""
     info "Starting docker-compose..."
     cd "$SCRIPT_DIR"
-    RUN_ADMIN_SETUP=true docker-compose up -d --build
-    ok "Deployment started. Run 'docker-compose logs -f' to follow."
+    RUN_ADMIN_SETUP=true docker compose up -d --build
+    ok "Deployment started. Run 'docker compose logs -f' to follow."
   fi
 fi

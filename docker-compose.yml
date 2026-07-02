@@ -87,9 +87,9 @@ services:
       JWT_EXPIRE: ${JWT_EXPIRE:-1h}
       SIGNING_SECRET_FILE: /run/secrets/signing_secret
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASS: ${EMAIL_PASS}
-      EMAIL_FROM: ${EMAIL_FROM}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD_FILE: /run/secrets/admin_password
       ADMIN_NAME: ${ADMIN_NAME}
