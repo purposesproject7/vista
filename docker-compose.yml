@@ -22,11 +22,9 @@ services:
     image: mongo:7.0
     container_name: vista-mongodb
     restart: unless-stopped
-    secrets:
-      - mongo_root_password
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: vista
     ports:
       - "127.0.0.1:${MONGO_HOST_PORT:-27017}:27017"
@@ -37,7 +35,7 @@ services:
     networks:
       - vista-network
     healthcheck:
-      test: mongosh --quiet -u $${MONGO_INITDB_ROOT_USERNAME} -p $$(cat /run/secrets/mongo_root_password) --authenticationDatabase admin --eval 'db.adminCommand("ping").ok'
+      test: mongosh --quiet -u $${MONGO_INITDB_ROOT_USERNAME} -p $${MONGO_INITDB_ROOT_PASSWORD} --authenticationDatabase admin --eval 'db.adminCommand("ping").ok'
       interval: 10s
       timeout: 5s
       retries: 5
@@ -282,11 +280,9 @@ services:
     restart: unless-stopped
     profiles:
       - multi
-    secrets:
-      - mongo_root_password
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
-      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
       MONGO_INITDB_DATABASE: multi
     volumes:
       - multi_mongodb_data:/data/db
