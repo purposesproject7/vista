@@ -9,24 +9,24 @@ echo "Starting Vista Server..."
 # This bridges Docker secrets (files) with the app (which reads env vars)
 # =============================================================================
 
-# JWT_SECRET
-if [ -f "$JWT_SECRET_FILE" ]; then
+# JWT_SECRET — prefer direct env var, fall back to secret file
+if [ -z "$JWT_SECRET" ] && [ -f "$JWT_SECRET_FILE" ]; then
   export JWT_SECRET=$(cat "$JWT_SECRET_FILE")
 fi
 
-# SIGNING_SECRET
-if [ -f "$SIGNING_SECRET_FILE" ]; then
+# SIGNING_SECRET — prefer direct env var, fall back to secret file
+if [ -z "$SIGNING_SECRET" ] && [ -f "$SIGNING_SECRET_FILE" ]; then
   export SIGNING_SECRET=$(cat "$SIGNING_SECRET_FILE")
 fi
 
-# MONGO_ROOT_PASSWORD — also build MONGO_URI if not already set
-if [ -f "$MONGO_ROOT_PASSWORD_FILE" ]; then
+# MONGO_ROOT_PASSWORD — prefer direct env var, fall back to secret file
+if [ -z "$MONGO_ROOT_PASSWORD" ] && [ -f "$MONGO_ROOT_PASSWORD_FILE" ]; then
   MONGO_ROOT_PASSWORD=$(cat "$MONGO_ROOT_PASSWORD_FILE")
   export MONGO_ROOT_PASSWORD
 fi
 
-# ADMIN_PASSWORD
-if [ -f "$ADMIN_PASSWORD_FILE" ]; then
+# ADMIN_PASSWORD — prefer direct env var, fall back to secret file
+if [ -z "$ADMIN_PASSWORD" ] && [ -f "$ADMIN_PASSWORD_FILE" ]; then
   export ADMIN_PASSWORD=$(cat "$ADMIN_PASSWORD_FILE")
 fi
 

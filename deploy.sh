@@ -244,9 +244,9 @@ generate_secret() {
   echo "$value"
 }
 
-generate_secret jwt_secret 64 base64 > /dev/null
-generate_secret signing_secret 64 hex > /dev/null
-generate_secret mongo_root_password 32 base64 > /dev/null
+JWT_SECRET_VAL=$(generate_secret jwt_secret 64 base64)
+SIGNING_SECRET_VAL=$(generate_secret signing_secret 64 hex)
+MONGO_ROOT_PASSWORD_VAL=$(generate_secret mongo_root_password 32 base64)
 ADMIN_PASS=$(generate_secret admin_password 24 base64)${RANDOM}Aa1!
 echo -n "$ADMIN_PASS" > secrets/admin_password.txt
 chmod 600 secrets/admin_password.txt
@@ -281,11 +281,14 @@ cat > .env <<ENVEOF
 DOMAIN=${DOMAIN}
 HOST_PORT_HTTP=${HOST_PORT_HTTP:-80}
 MONGO_ROOT_USER=${MONGO_ROOT_USER}
-MONGO_ROOT_PASSWORD=$(cat secrets/mongo_root_password.txt)
+MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD_VAL}
 MONGO_HOST_PORT=${MONGO_HOST_PORT}
+JWT_SECRET=${JWT_SECRET_VAL}
+SIGNING_SECRET=${SIGNING_SECRET_VAL}
 JWT_EXPIRE=${JWT_EXPIRE}
 ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
 ADMIN_EMAIL=${ADMIN_EMAIL}
+ADMIN_PASSWORD=${ADMIN_PASS}
 ADMIN_NAME=${ADMIN_NAME}
 ADMIN_EMPLOYEE_ID=${ADMIN_EMPLOYEE_ID}
 ADMIN_SCHOOL=${ADMIN_SCHOOL}
