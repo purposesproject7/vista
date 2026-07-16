@@ -14,6 +14,7 @@ import {
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
 import api from '../../../services/api';
+import PasswordCriteria, { validatePassword } from '../../../shared/components/PasswordCriteria';
 
 const ForgotPassword = () => {
   const [step, setStep] = useState(1); // 1: Email, 2: OTP & New Password
@@ -69,8 +70,9 @@ const ForgotPassword = () => {
       return;
     }
 
-    if (newPassword.length < 6) {
-      showToast('Password must be at least 6 characters long', 'error');
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      showToast(passwordError, 'error');
       return;
     }
 
@@ -208,6 +210,10 @@ const ForgotPassword = () => {
                 }
                 onEndIconClick={togglePasswordVisibility}
               />
+              
+              {newPassword && (
+                <PasswordCriteria password={newPassword} />
+              )}
 
               <Input
                 label="Confirm Password"

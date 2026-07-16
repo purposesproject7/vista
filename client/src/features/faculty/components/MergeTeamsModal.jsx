@@ -204,11 +204,22 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Manage Project Teams" maxWidth="max-w-4xl">
             <div className="space-y-6">
-                <div className="bg-slate-50 p-4 rounded-xl flex items-start gap-3 border border-slate-100">
-                    <UserGroupIcon className="w-5 h-5 text-slate-500 mt-0.5 shrink-0" />
-                    <div className="text-sm text-slate-600">
-                        <p className="font-bold mb-1 text-slate-800">Team Construction Workspace</p>
-                        <p>Select individual students or whole teams to add to the workspace. Then create a new team with them. You can create a team with even a single student.</p>
+                <div className="bg-blue-50 p-5 rounded-xl flex items-start gap-4 border border-blue-200 shadow-sm">
+                    <div className="bg-blue-100 p-2 rounded-lg shrink-0 mt-1">
+                        <UserGroupIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="text-sm text-slate-700 space-y-2">
+                        <p className="font-bold text-slate-900 text-base">How to Merge or Reassign Teams</p>
+                        <p>This workspace allows you to create new teams by combining students from existing projects or forming entirely new groups.</p>
+                        <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                            <li><strong>Step 1:</strong> Use the dropdowns below to select whole projects or individual students to add them to the <span className="font-semibold text-slate-700">Workspace</span>.</li>
+                            <li><strong>Step 2:</strong> Review the selected students in the Workspace list. You can remove anyone added by mistake.</li>
+                            <li><strong>Step 3:</strong> Enter a <span className="font-semibold text-slate-700">New Project Title</span> and optionally assign a panel.</li>
+                            <li><strong>Step 4:</strong> Click <span className="font-bold text-blue-600">Create Team</span>. The selected students will be moved into this new team.</li>
+                        </ul>
+                        <p className="text-xs text-blue-700 bg-blue-100/50 p-2 rounded-md mt-2 inline-block">
+                            <strong>Note:</strong> Students are automatically removed from their original teams when merged into a new one.
+                        </p>
                     </div>
                 </div>
 

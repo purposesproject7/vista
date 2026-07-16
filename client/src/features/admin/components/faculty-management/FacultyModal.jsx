@@ -4,6 +4,7 @@ import Modal from '../../../../shared/components/Modal';
 import Input from '../../../../shared/components/Input';
 import Select from '../../../../shared/components/Select';
 import Button from '../../../../shared/components/Button';
+import PasswordCriteria, { validatePassword } from '../../../../shared/components/PasswordCriteria';
 
 const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
   const [formData, setFormData] = useState({
@@ -67,14 +68,12 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
     }
 
     // Validate password for new faculty
-    if (!faculty && !formData.password) {
-      alert('Password is required for new faculty');
-      return;
-    }
-
-    if (!faculty && formData.password.length < 8) {
-      alert('Password must be at least 8 characters long');
-      return;
+    if (!faculty) {
+      const passwordError = validatePassword(formData.password);
+      if (passwordError) {
+        alert(passwordError);
+        return;
+      }
     }
 
     onSave(formData);
@@ -162,9 +161,9 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
                 placeholder="Enter password"
                 required={!faculty}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Min 8 chars with uppercase, lowercase, number & special char
-              </p>
+              {formData.password && (
+                <PasswordCriteria password={formData.password} />
+              )}
             </div>
           )}
         </div>

@@ -7,6 +7,7 @@ import Input from "../../../shared/components/Input";
 import Card from "../../../shared/components/Card";
 import api from "../../../services/api";
 import { useToast } from "../../../shared/hooks/useToast";
+import PasswordCriteria, { validatePassword } from "../../../shared/components/PasswordCriteria";
 
 /**
  * SetupPassword - Mandatory first-time password change page.
@@ -58,8 +59,10 @@ const SetupPassword = ({ redirectTo: redirectToProp = "/faculty" }) => {
       setError("Passwords do not match.");
       return;
     }
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -109,7 +112,7 @@ const SetupPassword = ({ redirectTo: redirectToProp = "/faculty" }) => {
 
         <div className="mb-5 rounded-lg border border-blue-100 bg-blue-50 p-3">
           <p className="text-sm text-blue-700">
-            This is a one-time setup step. Your new password must be at least <strong>6 characters</strong> long.
+            This is a one-time setup step. Your new password must meet the security requirements below.
           </p>
         </div>
 
@@ -139,7 +142,7 @@ const SetupPassword = ({ redirectTo: redirectToProp = "/faculty" }) => {
 
           {newPassword && (
             <div>
-              <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
+              <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden mb-2">
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
@@ -148,9 +151,10 @@ const SetupPassword = ({ redirectTo: redirectToProp = "/faculty" }) => {
                   }}
                 />
               </div>
-              <p className="mt-1 text-xs font-medium" style={{ color: strengthInfo.color }}>
+              <p className="mt-1 text-xs font-medium mb-3" style={{ color: strengthInfo.color }}>
                 {strengthInfo.label}
               </p>
+              <PasswordCriteria password={newPassword} />
             </div>
           )}
 

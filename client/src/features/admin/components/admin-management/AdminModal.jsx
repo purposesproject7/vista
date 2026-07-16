@@ -4,6 +4,7 @@ import Modal from '../../../../shared/components/Modal';
 import Input from '../../../../shared/components/Input';
 import Select from '../../../../shared/components/Select';
 import Button from '../../../../shared/components/Button';
+import PasswordCriteria, { validatePassword } from '../../../../shared/components/PasswordCriteria';
 
 const AdminModal = ({ isOpen, onClose, onSave, admin }) => {
     const [formData, setFormData] = useState({
@@ -60,14 +61,12 @@ const AdminModal = ({ isOpen, onClose, onSave, admin }) => {
         }
 
         // Validate password for new admin
-        if (!admin && !formData.password) {
-            alert('Password is required for new admin');
-            return;
-        }
-
-        if (!admin && formData.password.length < 6) {
-            alert('Password must be at least 6 characters long');
-            return;
+        if (!admin) {
+            const passwordError = validatePassword(formData.password);
+            if (passwordError) {
+                alert(passwordError);
+                return;
+            }
         }
 
         onSave(formData);
@@ -167,9 +166,9 @@ const AdminModal = ({ isOpen, onClose, onSave, admin }) => {
                                 placeholder="Enter password"
                                 required={!admin}
                             />
-                            <p className="mt-1 text-xs text-gray-500">
-                                Minimum 6 characters
-                            </p>
+                            {formData.password && (
+                                <PasswordCriteria password={formData.password} />
+                            )}
                         </div>
                     )}
                 </div>

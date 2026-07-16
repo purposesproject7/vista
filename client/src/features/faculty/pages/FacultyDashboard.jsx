@@ -205,10 +205,11 @@ const FacultyDashboard = () => {
                                     {/* Merge Button: Only show if specific program is selected */}
                                     {filters.school && filters.program && filters.program !== 'All Programs' && (
                                         <Button
-                                            variant="secondary"
+                                            variant="primary"
                                             onClick={() => setIsMergeModalOpen(true)}
-                                            className="!py-1.5 !px-3 !text-xs"
+                                            className="!py-2 !px-4 !text-sm font-bold shadow-md shadow-blue-200 flex items-center gap-2 hover:-translate-y-0.5 transition-transform"
                                         >
+                                            <UserGroupIcon className="w-4 h-4" />
                                             Merge Teams
                                         </Button>
                                     )}
