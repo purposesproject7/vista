@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const isSudoAdmin = () => {
-        return user?.employeeId === "ADMIN001";
+        return user?.isMasterAdmin === true;
     };
 
     const value = {

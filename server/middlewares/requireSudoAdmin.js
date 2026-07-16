@@ -11,11 +11,12 @@ export function requireSudoAdmin(req, res, next) {
             });
         }
 
-        // Check if user is ADMIN001
-        if (req.user.employeeId !== "ADMIN001") {
+        // Check if user is the master admin (from env or default ADMIN001)
+        const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
+        if (req.user.employeeId !== masterAdminId) {
             return res.status(403).json({
                 success: false,
-                message: "Access denied. This action requires sudo admin privileges (ADMIN001).",
+                message: `Access denied. This action requires sudo admin privileges (${masterAdminId}).`,
             });
         }
 

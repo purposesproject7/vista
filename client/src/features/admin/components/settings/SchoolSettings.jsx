@@ -6,9 +6,12 @@ import Input from '../../../../shared/components/Input';
 import Modal from '../../../../shared/components/Modal';
 import { PlusIcon, PencilIcon, TrashIcon, BuildingOffice2Icon } from '@heroicons/react/24/outline';
 import { useToast } from '../../../../shared/hooks/useToast';
+import { useAuth } from '../../../../shared/hooks/useAuth';
 import { createSchool, updateSchool, deleteSchool } from '../../services/adminApi';
 
 const SchoolSettings = ({ schools, onUpdate }) => {
+  const { isSudoAdmin } = useAuth();
+  const sudo = isSudoAdmin();
   const [schoolList, setSchoolList] = useState(schools);
 
   // Sync with props when they change
@@ -110,14 +113,16 @@ const SchoolSettings = ({ schools, onUpdate }) => {
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Schools</h3>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleAdd}
-            >
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Add School
-            </Button>
+            {sudo && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleAdd}
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add School
+              </Button>
+            )}
           </div>
 
           {schoolList.length === 0 ? (
@@ -137,27 +142,29 @@ const SchoolSettings = ({ schools, onUpdate }) => {
                     <span className="text-gray-900 font-medium text-lg">{school.name}</span>
                     <span className="text-gray-500 text-sm ml-2">({school.code})</span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleEdit(school)}
-                      disabled={saving}
-                    >
-                      <PencilIcon className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleDelete(school.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      disabled={saving}
-                    >
-                      <TrashIcon className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
+                  {sudo && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleEdit(school)}
+                        disabled={saving}
+                      >
+                        <PencilIcon className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleDelete(school.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={saving}
+                      >
+                        <TrashIcon className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

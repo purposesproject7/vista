@@ -3,6 +3,7 @@ import * as adminController from "../controllers/adminController.js";
 import { authenticate } from "../middlewares/auth.js";
 import { requireRole } from "../middlewares/rbac.js";
 import { requireSudoAdmin } from "../middlewares/requireSudoAdmin.js";
+import { enforceAdminSchoolScope } from "../middlewares/enforceAdminSchoolScope.js";
 import { validateRequired } from "../middlewares/validation.js";
 import { validateAcademicContext } from "../middlewares/validation.js";
 import { validateTeamSize } from "../middlewares/featureLock.js";
@@ -13,6 +14,7 @@ const router = express.Router();
 // Global admin auth and role guard
 router.use(authenticate);
 router.use(requireRole("admin"));
+router.use(enforceAdminSchoolScope);
 
 /**
  * Master data management

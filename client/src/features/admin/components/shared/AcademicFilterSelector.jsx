@@ -6,12 +6,15 @@ import { AcademicCapIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { fetchMasterData } from "../../services/adminApi";
 import { useToast } from "../../../../shared/hooks/useToast";
 import { useAdminContext } from "../../context/AdminContext";
+import { useAuth } from "../../../../shared/hooks/useAuth";
 
 const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   const [loading, setLoading] = useState(false);
   const [masterData, setMasterData] = useState(null);
   const { showToast } = useToast();
   const { academicContext, updateAcademicContext } = useAdminContext();
+  const { user, isSudoAdmin } = useAuth();
+  const sudo = isSudoAdmin();
 
   const [options, setOptions] = useState({
     schools: [],
@@ -58,6 +61,11 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
           schools: schoolOptions,
           years: yearOptions,
         }));
+
+        // Force select the user's school if they are a regular admin
+        if (!sudo && user?.school) {
+          updateAcademicContext({ school: user.school });
+        }
       }
     } catch (error) {
       console.error("Error loading master data:", error);
@@ -157,7 +165,7 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   };
 
   const steps = [
-    { key: "school", label: "School", options: options.schools, enabled: true },
+    { key: "school", label: "School", options: options.schools, enabled: sudo, isLocked: !sudo },
     {
       key: "program",
       label: "Program",
@@ -215,9 +223,10 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
             onChange={(value) => handleChange(step.key, value)}
             options={step.options}
             placeholder={
-              step.enabled ? `Select ${step.label}` : "Select previous first"
+              step.isLocked ? `Locked to ${academicContext.school || user?.school}` :
+              (step.enabled || step.key === "school" ? `Select ${step.label}` : "Select previous first")
             }
-            className={!step.enabled ? "opacity-50 pointer-events-none" : ""}
+            disabled={!step.enabled || step.isLocked}
           />
         ))}
       </div>

@@ -80,6 +80,9 @@ export async function login(req, res) {
     const facultyData = faculty.toObject();
     delete facultyData.password;
 
+    const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
+    facultyData.isMasterAdmin = facultyData.employeeId === masterAdminId;
+
     logger.info("login_success", {
       facultyId: faculty._id,
       employeeId: faculty.employeeId,
@@ -517,9 +520,13 @@ export async function getProfile(req, res) {
       });
     }
 
+    const facultyData = faculty.toObject();
+    const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
+    facultyData.isMasterAdmin = facultyData.employeeId === masterAdminId;
+
     res.status(200).json({
       success: true,
-      data: faculty,
+      data: facultyData,
     });
   } catch (error) {
     res.status(500).json({

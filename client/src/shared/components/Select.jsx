@@ -8,7 +8,8 @@ const Select = ({
   onChange,
   options = [],
   placeholder = 'Select',
-  className = ''
+  className = '',
+  disabled = false
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -31,7 +32,7 @@ const Select = ({
   };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${className} ${disabled ? 'opacity-60 pointer-events-none' : ''}`} ref={dropdownRef}>
       {label && (
         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
           {label}
@@ -40,11 +41,15 @@ const Select = ({
 
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between px-3 py-2 bg-white border rounded-lg transition-all text-sm ${isOpen
-            ? 'border-blue-500 ring-2 ring-blue-200'
-            : 'border-gray-300 hover:border-gray-400'
-          } ${value ? 'text-gray-900 font-medium' : 'text-gray-500'}`}
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-3 py-2 bg-white border rounded-lg transition-all text-sm ${
+          disabled
+            ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+            : isOpen
+              ? 'border-blue-500 ring-2 ring-blue-200'
+              : 'border-gray-300 hover:border-gray-400'
+          } ${value && !disabled ? 'text-gray-900 font-medium' : ''}`}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}

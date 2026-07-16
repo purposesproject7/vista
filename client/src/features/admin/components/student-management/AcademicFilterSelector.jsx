@@ -5,6 +5,7 @@ import Card from "../../../../shared/components/Card";
 import { AcademicCapIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { fetchMasterData } from "../../services/adminApi";
 import { useToast } from "../../../../shared/hooks/useToast";
+import { useAuth } from "../../../../shared/hooks/useAuth";
 
 const AcademicFilterSelector = ({
   onFilterComplete,
@@ -16,6 +17,8 @@ const AcademicFilterSelector = ({
   const [masterData, setMasterData] = useState(null);
   const [showAllPrograms, setShowAllPrograms] = useState(false);
   const { showToast } = useToast();
+  const { user, isSudoAdmin } = useAuth();
+  const sudo = isSudoAdmin();
 
   const [options, setOptions] = useState({
     schools: [],
@@ -68,6 +71,10 @@ const AcademicFilterSelector = ({
           schools: schoolOptions,
           years: yearOptions,
         }));
+
+        if (!sudo && user?.school) {
+          setFilters(prev => ({ ...prev, school: user.school }));
+        }
       }
     } catch (error) {
       console.error("Error loading master data:", error);
@@ -156,7 +163,7 @@ const AcademicFilterSelector = ({
   };
 
   const steps = [
-    { key: "school", label: "School", options: options.schools, enabled: true },
+    { key: "school", label: "School", options: options.schools, enabled: sudo, isLocked: !sudo },
     {
       key: "program",
       label: "Program",
@@ -221,10 +228,11 @@ const AcademicFilterSelector = ({
               onChange={(value) => handleChange(step.key, value)}
               options={step.options}
               placeholder={
-                step.enabled ? `Select ${step.label}` : "Select previous first"
+                step.isLocked ? `Locked to ${filters.school || user?.school}` :
+                (step.enabled || step.key === "school" ? `Select ${step.label}` : "Select previous first")
               }
-              className={!step.enabled || (step.key === 'program' && showAllPrograms) ? "opacity-50 pointer-events-none" : ""}
-              disabled={step.key === 'program' && showAllPrograms}
+              className={(!step.enabled && !step.isLocked) || (step.key === 'program' && showAllPrograms) ? "opacity-50 pointer-events-none" : ""}
+              disabled={(!step.enabled || step.isLocked) || (step.key === 'program' && showAllPrograms)}
             />
 
             {step.key === 'program' && allowAllPrograms && filters.school && (
