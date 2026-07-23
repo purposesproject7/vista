@@ -13,8 +13,7 @@ export class ProjectService {
   static async getProjectList(filters = {}) {
     const query = {};
 
-    // Similar fix for projects to ensure visibility across slight context mismatches
-    if (filters.academicYear) delete filters.academicYear;
+    if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
     if (filters.program) query.program = filters.program;
     if (filters.status) query.status = filters.status;
@@ -48,7 +47,7 @@ export class ProjectService {
    */
   static async getGuideProjects(filters = {}) {
     const query = {};
-    if (filters.academicYear) delete filters.academicYear;
+    if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
     if (filters.program && filters.program !== 'all') query.program = filters.program;
 
@@ -80,7 +79,7 @@ export class ProjectService {
    */
   static async getPanelProjects(filters = {}) {
     const query = {};
-    if (filters.academicYear) delete filters.academicYear;
+    if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
     if (filters.program && filters.program !== 'all') query.program = filters.program;
 
@@ -156,7 +155,7 @@ export class ProjectService {
     // mismatches between stored values (e.g. "B.Tech") and query params (e.g. "B.TECH")
     const baseQuery = { status: "active" };
     if (filters.academicYear) {
-      delete filters.academicYear;
+      baseQuery.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     }
     if (filters.school) {
       baseQuery.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
@@ -474,6 +473,7 @@ export class ProjectService {
           $match: {
             guideFaculty: { $in: guideFacultyIds },
             status: "active",
+            academicYear,
           },
         },
         { $group: { _id: "$guideFaculty", count: { $sum: 1 } } },
@@ -672,6 +672,7 @@ export class ProjectService {
       const guideProjectCount = await Project.countDocuments({
         guideFaculty: guide._id,
         status: "active",
+        academicYear,
       });
 
       if (guideProjectCount >= config.maxProjectsPerGuide) {
