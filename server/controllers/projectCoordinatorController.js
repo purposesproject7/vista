@@ -42,9 +42,13 @@ function verifyContext(item, coordinator) {
     return false;
   }
 
-  return (
-    item.school === coordinator.school && item.program === coordinator.program
-  );
+  // item.program may be a single String (Project/Panel/ProjectCoordinator/etc.)
+  // or an array of Strings (Faculty, who can belong to multiple programs).
+  const programMatches = Array.isArray(item.program)
+    ? item.program.includes(coordinator.program)
+    : item.program === coordinator.program;
+
+  return item.school === coordinator.school && programMatches;
 }
 
 // ==================== Profile & Permissions ====================
