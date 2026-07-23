@@ -474,6 +474,8 @@ export class ProjectService {
             guideFaculty: { $in: guideFacultyIds },
             status: "active",
             academicYear,
+            school,
+            program,
           },
         },
         { $group: { _id: "$guideFaculty", count: { $sum: 1 } } },
@@ -503,6 +505,12 @@ export class ProjectService {
         if (!guide) {
           throw new Error(
             `Guide faculty with ID ${guideFacultyEmpId} not found.`
+          );
+        }
+
+        if (guide.school !== pSchool || !guide.program.includes(pProgram)) {
+          throw new Error(
+            "Guide must belong to the same school and program as the project."
           );
         }
 
@@ -638,6 +646,12 @@ export class ProjectService {
       throw new Error(`Guide faculty with ID ${guideFacultyEmpId} not found.`);
     }
 
+    if (guide.school !== school || !guide.program.includes(program)) {
+      throw new Error(
+        "Guide must belong to the same school and program as the project."
+      );
+    }
+
     // Validate specialization match
     /*
     if (guide.specialization !== specialization) {
@@ -673,6 +687,8 @@ export class ProjectService {
         guideFaculty: guide._id,
         status: "active",
         academicYear,
+        school,
+        program,
       });
 
       if (guideProjectCount >= config.maxProjectsPerGuide) {
@@ -939,10 +955,11 @@ export class ProjectService {
       // Skip check if ignoreSpecialization is true
       if (
         !ignoreSpecialization &&
-        newGuide.school !== project.school
+        (newGuide.school !== project.school ||
+          !newGuide.program.includes(project.program))
       ) {
         throw new Error(
-          "Guide must belong to the same school as the project."
+          "Guide must belong to the same school and program as the project."
         );
       }
 
@@ -952,6 +969,29 @@ export class ProjectService {
         !previousGuide ||
         previousGuide.toString() !== newGuide._id.toString()
       ) {
+        // Check max projects per guide using the LIVE config (same as panel capacity check below)
+        const guideConfig = await ProgramConfig.findOne({
+          academicYear: project.academicYear,
+          school: project.school,
+          program: project.program,
+        });
+
+        if (guideConfig?.maxProjectsPerGuide) {
+          const guideProjectCount = await Project.countDocuments({
+            guideFaculty: newGuide._id,
+            status: "active",
+            academicYear: project.academicYear,
+            school: project.school,
+            program: project.program,
+          });
+
+          if (guideProjectCount >= guideConfig.maxProjectsPerGuide) {
+            throw new Error(
+              `Guide already has maximum ${guideConfig.maxProjectsPerGuide} projects assigned.`
+            );
+          }
+        }
+
         project.history.push({
           action: "guide_reassigned",
           previousGuideFaculty: previousGuide || null,

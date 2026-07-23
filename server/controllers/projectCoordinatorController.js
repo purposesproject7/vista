@@ -1170,6 +1170,7 @@ export async function assignGuide(req, res) {
       const projectCount = await Project.countDocuments({
         guideFaculty: guide._id,
         status: "active",
+        ...getCoordinatorContext(req),
       });
 
       if (projectCount >= config.maxProjectsPerGuide) {
@@ -1263,6 +1264,7 @@ export async function reassignGuide(req, res) {
       const projectCount = await Project.countDocuments({
         guideFaculty: newGuide._id,
         status: "active",
+        ...getCoordinatorContext(req),
       });
 
       if (projectCount >= config.maxProjectsPerGuide) {
