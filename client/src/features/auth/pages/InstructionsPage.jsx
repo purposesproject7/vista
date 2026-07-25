@@ -12,7 +12,8 @@ const InstructionsPage = () => {
     <div className="min-h-screen bg-gray-50 py-12 px-4">
 
       {/* ====== FULL PAGE BLOCKING OVERLAY ====== */}
-      {!dismissed && (
+      {/* Temporarily commented out. To uncomment, remove "false &&" below. */}
+      {false && !dismissed && (
         <div
           style={{
             position: 'fixed',
