@@ -22,7 +22,6 @@ const StudentUploadTab = () => {
     name: '',
     emailId: '',
     phoneNumber: '',
-    phoneNumber: '',
     PAT: false
   });
   const [duplicateData, setDuplicateData] = useState([]);
@@ -55,7 +54,6 @@ const StudentUploadTab = () => {
         ...student,
         PAT: student.PAT === 'true' || student.PAT === 'TRUE' || student.PAT === true || student.PAT === 1,
         schoolId: filters?.school,
-        programmeId: filters?.programme,
         programmeId: filters?.programme,
         yearId: filters?.academicYear,
         academicYear: filters?.academicYear,

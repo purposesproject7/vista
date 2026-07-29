@@ -402,6 +402,9 @@ export class EmailService {
    * Send duplicate project notification to guide
    */
   static async sendDuplicateProjectNotification(guideEmail, guideName, duplicates) {
+    // Feature commented out for now: disabled emailing for excel upload issues
+    return true;
+    /*
     if (!guideEmail || duplicates.length === 0) return;
 
     try {
@@ -445,6 +448,7 @@ export class EmailService {
       logger.error("send_duplicate_notification_error", { guideEmail, error: error.message });
       return false;
     }
+    */
   }
 
   /**
@@ -458,6 +462,9 @@ export class EmailService {
     errors,
     uploadContext
   ) {
+    // Feature commented out for now: disabled emailing for excel upload issues
+    return true;
+    /*
     if (!guideEmail || !errors || errors.length === 0) return false;
 
     try {
@@ -588,5 +595,6 @@ export class EmailService {
       });
       return false;
     }
+    */
   }
 }
