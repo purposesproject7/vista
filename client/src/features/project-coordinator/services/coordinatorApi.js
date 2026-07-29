@@ -296,7 +296,7 @@ export const fetchProjects = async (filters = {}) => {
 /**
  * Create a single project
  */
-export const createProject = async (projectData) => {
+export const createProject = async (projectData, options = {}) => {
   const payload = {
     name: projectData.name,
     students: projectData.teamMembers || [],
@@ -306,6 +306,7 @@ export const createProject = async (projectData) => {
     school: projectData.school,
     department: projectData.department,
     academicYear: projectData.academicYear,
+    ignoreDepartmentMismatch: options.ignoreDepartmentMismatch,
   };
 
   const response = await api.post("/coordinator/projects", payload);
@@ -315,7 +316,7 @@ export const createProject = async (projectData) => {
 /**
  * Bulk create projects
  */
-export const bulkCreateProjects = async (projectsList) => {
+export const bulkCreateProjects = async (projectsList, options = {}) => {
   const projects = projectsList.map((project) => ({
     name: project.name,
     students: project.teamMembers || [],
@@ -327,7 +328,10 @@ export const bulkCreateProjects = async (projectsList) => {
     academicYear: project.academicYear,
   }));
 
-  const response = await api.post("/coordinator/projects/bulk", { projects }, {
+  const response = await api.post("/coordinator/projects/bulk", { 
+    projects,
+    ignoreDepartmentMismatch: options.ignoreDepartmentMismatch
+  }, {
     timeout: 120000, // 120s — bulk ops can be slow for large datasets
   });
   return response.data;

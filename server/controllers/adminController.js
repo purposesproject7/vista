@@ -1280,7 +1280,8 @@ export async function bulkCreateProjects(req, res) {
     // Assuming service expects array of project objects with same structure as createProject
     const result = await ProjectService.bulkCreateProjects(
       projects,
-      req.user._id
+      req.user._id,
+      { ignoreDepartmentMismatch: req.body.ignoreDepartmentMismatch }
     );
 
     // Send response immediately — don't block on email notifications

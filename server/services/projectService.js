@@ -361,8 +361,9 @@ export class ProjectService {
   /**
    * Create multiple projects
    */
-  static async bulkCreateProjects(data, createdBy) {
+  static async bulkCreateProjects(data, createdBy, options = {}) {
     let projectsToCreate = [];
+    let ignoreDepartmentMismatch = options.ignoreDepartmentMismatch || false;
 
     if (Array.isArray(data)) {
       projectsToCreate = data;
@@ -373,6 +374,9 @@ export class ProjectService {
     ) {
       const { school, program, academicYear, guideFacultyEmpId, projects } =
         data;
+      if (data.ignoreDepartmentMismatch !== undefined) {
+        ignoreDepartmentMismatch = data.ignoreDepartmentMismatch;
+      }
       projectsToCreate = projects.map((p) => ({
         ...p,
         school: p.school || school,
@@ -508,7 +512,7 @@ export class ProjectService {
           );
         }
 
-        if (guide.school !== pSchool || !guide.program.includes(pProgram)) {
+        if (!ignoreDepartmentMismatch && (guide.school !== pSchool || !guide.program.includes(pProgram))) {
           throw new Error(
             "Guide must belong to the same school and program as the project."
           );
@@ -638,6 +642,7 @@ export class ProjectService {
       program,
       specialization,
       type,
+      ignoreDepartmentMismatch,
     } = data;
 
     // Validate guide faculty exists
@@ -646,7 +651,7 @@ export class ProjectService {
       throw new Error(`Guide faculty with ID ${guideFacultyEmpId} not found.`);
     }
 
-    if (guide.school !== school || !guide.program.includes(program)) {
+    if (!ignoreDepartmentMismatch && (guide.school !== school || !guide.program.includes(program))) {
       throw new Error(
         "Guide must belong to the same school and program as the project."
       );

@@ -950,7 +950,9 @@ export async function createProjectsBulk(req, res) {
       program: context.program
     }));
 
-    const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id);
+    const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id, {
+      ignoreDepartmentMismatch: req.body.ignoreDepartmentMismatch
+    });
 
     // Send response immediately — don't block on email notifications
     res.status(200).json({

@@ -23,6 +23,7 @@ const ProjectUploadTab = () => {
         type: '',
         specialization: ''
     });
+    const [ignoreDepartmentMismatch, setIgnoreDepartmentMismatch] = useState(false);
     const { showToast } = useToast();
 
     const templateColumns = ['name', 'guideFacultyEmpId', 'teamMembers', 'type', 'specialization'];
@@ -64,7 +65,7 @@ const ProjectUploadTab = () => {
                 };
             });
 
-            const response = await coordinatorApi.bulkCreateProjects(enrichedData);
+            const response = await coordinatorApi.bulkCreateProjects(enrichedData, { ignoreDepartmentMismatch });
 
             if (!response.success) {
                 throw new Error(response.message || 'Failed to upload projects');
@@ -118,7 +119,7 @@ const ProjectUploadTab = () => {
                 academicYear: filters.year || filters.academicYear
             };
 
-            const response = await coordinatorApi.createProject(projectData);
+            const response = await coordinatorApi.createProject(projectData, { ignoreDepartmentMismatch });
 
             if (!response.success) {
                 throw new Error(response.message || 'Failed to create project');
@@ -169,6 +170,19 @@ const ProjectUploadTab = () => {
                         <span className="text-xs text-gray-500 self-center ml-2">
                             {filters.school} → {filters.program || filters.department} → {filters.year || filters.academicYear}
                         </span>
+                    </div>
+
+                    <div className="mb-4 flex items-center bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                        <input
+                            type="checkbox"
+                            id="ignoreDepartmentMismatch"
+                            checked={ignoreDepartmentMismatch}
+                            onChange={(e) => setIgnoreDepartmentMismatch(e.target.checked)}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                        />
+                        <label htmlFor="ignoreDepartmentMismatch" className="ml-2 text-sm text-gray-800">
+                            Ignore department mismatch between guide and project/students
+                        </label>
                     </div>
 
                     {/* Bulk Upload Section */}

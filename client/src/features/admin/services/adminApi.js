@@ -771,7 +771,7 @@ export const fetchProjects = async (filters = {}) => {
 /**
  * Create a single project
  */
-export const createProject = async (projectData) => {
+export const createProject = async (projectData, options = {}) => {
   try {
     // Transform field names for backend
     const payload = {
@@ -785,6 +785,7 @@ export const createProject = async (projectData) => {
       department: projectData.programme || projectData.department, // Keep for robustness
       academicYear: projectData.academicYear,
       description: projectData.description,
+      ignoreDepartmentMismatch: options.ignoreDepartmentMismatch,
     };
 
     const response = await api.post("/admin/projects", payload);
@@ -798,7 +799,7 @@ export const createProject = async (projectData) => {
 /**
  * Bulk create projects
  */
-export const bulkCreateProjects = async (projectsList) => {
+export const bulkCreateProjects = async (projectsList, options = {}) => {
   try {
     // Transform each project's field names for backend
     const projects = projectsList.map((project) => ({
@@ -814,7 +815,10 @@ export const bulkCreateProjects = async (projectsList) => {
       description: project.description,
     }));
 
-    const response = await api.post("/admin/projects/bulk", { projects });
+    const response = await api.post("/admin/projects/bulk", { 
+      projects,
+      ignoreDepartmentMismatch: options.ignoreDepartmentMismatch,
+    });
     return response.data;
   } catch (error) {
     console.error("Error bulk creating projects:", error);
