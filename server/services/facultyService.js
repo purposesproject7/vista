@@ -168,6 +168,10 @@ export class FacultyService {
       query.specialization = { $in: [filters.specialization] };
     }
 
+    if (filters.isProjectCoordinator !== undefined) {
+      query.isProjectCoordinator = filters.isProjectCoordinator === 'true' || filters.isProjectCoordinator === true;
+    }
+
     if (filters.academicYear) {
       // This might be used to filter by academic year context
       query.school = { $in: [filters.school] };
