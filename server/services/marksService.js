@@ -33,14 +33,24 @@ export class MarksService {
     );
 
     // Check for existing marks
-    const existingMarks = await Marks.findOne({
-      student,
-      project,
-      reviewType,
-      faculty: facultyId,
-    });
+    let existingMarks;
+    if (facultyType === 'guide') {
+      existingMarks = await Marks.findOne({
+        student,
+        project,
+        reviewType,
+        facultyType: 'guide',
+      });
+    } else {
+      existingMarks = await Marks.findOne({
+        student,
+        project,
+        reviewType,
+        faculty: facultyId,
+      });
+    }
 
-    if (existingMarks && existingMarks.isSubmitted) {
+    if (existingMarks && existingMarks.isSubmitted && String(existingMarks.faculty) === String(facultyId)) {
       throw new Error(
         "Marks already submitted for this review. Use update endpoint."
       );
@@ -79,31 +89,48 @@ export class MarksService {
       throw new Error("Student profile incomplete: Academic Year missing.");
     }
 
-    // Create marks
-    const marks = new Marks({
-      student,
-      project,
-      reviewType,
-      faculty: facultyId,
-      facultyType,
-      academicYear: studentDoc.academicYear,
-      school,
-      program,
-      componentMarks,
-      totalMarks,
-      maxTotalMarks,
-      remarks,
-      isSubmitted: true,
-      submittedAt: new Date(),
-    });
+    // Create or update marks
+    let marks;
+    if (existingMarks) {
+      marks = existingMarks;
+      marks.faculty = facultyId;
+      marks.school = school;
+      marks.program = program;
+      marks.componentMarks = componentMarks;
+      marks.totalMarks = totalMarks;
+      marks.maxTotalMarks = maxTotalMarks;
+      marks.remarks = remarks;
+      marks.isSubmitted = true;
+      marks.submittedAt = new Date();
+    } else {
+      marks = new Marks({
+        student,
+        project,
+        reviewType,
+        faculty: facultyId,
+        facultyType,
+        academicYear: studentDoc.academicYear,
+        school,
+        program,
+        componentMarks,
+        totalMarks,
+        maxTotalMarks,
+        remarks,
+        isSubmitted: true,
+        submittedAt: new Date(),
+      });
+    }
 
     try {
       await marks.save();
     } catch (err) {
       // Handle race condition where multiple requests are sent concurrently (e.g. frontend double click)
       if (err.message && (err.message.includes('Guide has already submitted marks') || err.code === 11000)) {
-        const existing = await Marks.findOne({ student, project, reviewType, faculty: facultyId });
-        if (existing) {
+        const query = facultyType === 'guide' 
+          ? { student, project, reviewType, facultyType: 'guide' }
+          : { student, project, reviewType, faculty: facultyId };
+        const existing = await Marks.findOne(query);
+        if (existing && String(existing.faculty) === String(facultyId)) {
           // If the exact same mark was already saved by us concurrently, treat as success.
           logger.info("Race condition: duplicate marks submission ignored.", { student, project, facultyId });
           // Note: we don't update PAT or PPT approvals again since the concurrent request already did.
