@@ -97,7 +97,21 @@ export class MarksService {
       submittedAt: new Date(),
     });
 
-    await marks.save();
+    try {
+      await marks.save();
+    } catch (err) {
+      // Handle race condition where multiple requests are sent concurrently (e.g. frontend double click)
+      if (err.message && (err.message.includes('Guide has already submitted marks') || err.code === 11000)) {
+        const existing = await Marks.findOne({ student, project, reviewType, faculty: facultyId });
+        if (existing) {
+          // If the exact same mark was already saved by us concurrently, treat as success.
+          logger.info("Race condition: duplicate marks submission ignored.", { student, project, facultyId });
+          // Note: we don't update PAT or PPT approvals again since the concurrent request already did.
+          return existing;
+        }
+      }
+      throw err;
+    }
 
     // Update student marks references and check PAT
     const updateField = facultyType === "guide" ? "guideMarks" : "panelMarks";
