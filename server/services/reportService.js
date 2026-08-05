@@ -45,8 +45,7 @@ export class ReportService {
      */
     static async generateMasterReport(filters) {
         // Determine query context if filters exist (e.g. for specific year)
-        const baseQuery = {};
-        if (filters.academicYear) baseQuery.academicYear = filters.academicYear;
+        const baseQuery = this._buildMatchQuery(filters);
 
         const [students, faculty, projects, marks, panels] = await Promise.all([
             Student.find(baseQuery).lean(),
@@ -408,25 +407,28 @@ export class ReportService {
      * 6. Faculty Workload Report
      */
     static async generateFacultyWorkloadReport(filters) {
-        const query = {};
-        if (filters.school) query.school = filters.school;
-        // Faculty school matching
+        const facultyQuery = {};
+        if (filters.school) facultyQuery.school = filters.school;
+        if (filters.programme) facultyQuery.program = filters.programme;
+        // Faculty school and program matching
 
-        const facultyList = await Faculty.find(query).lean();
+        const facultyList = await Faculty.find(facultyQuery).lean();
         const results = [];
+
+        const projectPanelQuery = this._buildMatchQuery(filters);
 
         for (const f of facultyList) {
             // Count projects as Guide
             const guideCount = await Project.countDocuments({
+                ...projectPanelQuery,
                 guideFaculty: f._id,
-                status: "active",
-                academicYear: filters.year || filters.academicYear
+                status: "active"
             });
 
             // Count panels they are part of
             const panelCount = await Panel.countDocuments({
-                "members.faculty": f._id,
-                academicYear: filters.year || filters.academicYear
+                ...projectPanelQuery,
+                "members.faculty": f._id
             });
 
             results.push({
@@ -597,7 +599,7 @@ export class ReportService {
         const query = {};
         if (filters.school) query.school = filters.school;
         if (filters.programme) query.program = filters.programme;
-        if (filters.year) query.academicYear = filters.year;
+        if (filters.year || filters.academicYear) query.academicYear = filters.year || filters.academicYear;
 
         // Log the constructed query for debugging
         console.log('[REPORT QUERY]', JSON.stringify(query));

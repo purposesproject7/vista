@@ -414,7 +414,7 @@ export class ProjectService {
         projectsToCreate.flatMap((p) => {
           const members = p.students || p.teamMembers || [];
           return members.map((s) =>
-            typeof s === "string" ? s : s.regNo
+            typeof s === "string" ? s.toUpperCase() : s.regNo.toUpperCase()
           ).filter(Boolean);
         })
       ),
@@ -429,12 +429,12 @@ export class ProjectService {
       await Promise.all([
         Faculty.find({ employeeId: { $in: uniqueGuideEmpIds } }).lean(),
         allRegNos.length
-          ? Student.find({ regNo: { $in: allRegNos } }).lean()
+          ? Student.find({ regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } }).lean()
           : Promise.resolve([]),
         ProgramConfig.findOne({ academicYear, school, program }).lean(),
         // Fetch all active projects that contain any of these students
         allRegNos.length
-          ? Student.find({ regNo: { $in: allRegNos } })
+          ? Student.find({ regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } })
               .select("_id regNo")
               .lean()
               .then((foundStudents) => {
@@ -456,7 +456,7 @@ export class ProjectService {
       faculties.map((f) => [f.employeeId, f])
     );
     const studentByRegNo = new Map(
-      students.map((s) => [s.regNo, s])
+      students.map((s) => [s.regNo.toUpperCase(), s])
     );
 
     // Build a set of student _ids already in an active project, mapped to project name
@@ -550,7 +550,7 @@ export class ProjectService {
             typeof studentData === "string" ? studentData : studentData?.regNo;
           if (!regNo) throw new Error("Invalid student data. Expected Reg No.");
 
-          const student = studentByRegNo.get(regNo);
+          const student = studentByRegNo.get(regNo.toUpperCase());
           if (!student) {
             throw new Error(`Student with Reg No ${regNo} not found.`);
           }
