@@ -1,0 +1,7 @@
+PORT=3000
+MONGOOSE_CONNECTION_STRING=mongodb+srv://purposesproject7:ASLL3ibviwHXnfHz@cpms.psgh5.mongodb.net/?retryWrites=true&w=majority&appName=CPMS
+JWT_SECRET=mySecretKey123
+VITE_API_URL=https://cpms-latest.onrender.com/api
+EMAIL_USER=purposesproject7@gmail.com
+EMAIL_PASS=tcxm wvjg hzot avuc
+EMAIL_FROM="VIT Faculty Portal <purposesproject7@gmail.com>"

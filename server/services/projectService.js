@@ -956,17 +956,6 @@ export class ProjectService {
         throw new Error("New guide faculty not found.");
       }
 
-      // Ensure same academic context
-      // Skip check if ignoreSpecialization is true
-      if (
-        !ignoreSpecialization &&
-        (newGuide.school !== project.school ||
-          !newGuide.program.includes(project.program))
-      ) {
-        throw new Error(
-          "Guide must belong to the same school and program as the project."
-        );
-      }
 
       const previousGuide = project.guideFaculty;
 

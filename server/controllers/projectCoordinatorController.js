@@ -892,12 +892,6 @@ export async function createProject(req, res) {
       });
     }
 
-    if (!verifyContext(guide, req.coordinator)) {
-      return res.status(400).json({
-        success: false,
-        message: "Guide faculty must be from the same program.",
-      });
-    }
 
     // Validate specialization match
     /*
@@ -946,8 +940,8 @@ export async function createProjectsBulk(req, res) {
     const enrichedProjects = projects.map(p => ({
       ...p,
       academicYear: context.academicYear,
-      school: context.school,
-      program: context.program
+      school: p.school || context.school,
+      program: p.program || context.program
     }));
 
     const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id, {
@@ -1149,12 +1143,6 @@ export async function assignGuide(req, res) {
       });
     }
 
-    if (!verifyContext(guide, req.coordinator)) {
-      return res.status(400).json({
-        success: false,
-        message: "Guide must be from the same program.",
-      });
-    }
 
     // Validate specialization match
     /*
@@ -1243,12 +1231,6 @@ export async function reassignGuide(req, res) {
       });
     }
 
-    if (!verifyContext(newGuide, req.coordinator)) {
-      return res.status(400).json({
-        success: false,
-        message: "New guide must be from the same program.",
-      });
-    }
 
     // Validate specialization match
     /*
