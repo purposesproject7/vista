@@ -151,11 +151,9 @@ export class PanelService {
   static async getPanelList(filters = {}) {
     const query = { isActive: true };
 
-    // Panel are active across academic years or manage their own lifecycle
-    // Removing academicYear from strict filter if it causes issues, 
-    // or ensure it matches exactly what's in DB.
-    // Based on user request to fix like faculty, removing might be safer if DB has mixed data.
-    if (filters.academicYear) delete filters.academicYear;
+    if (filters.academicYear && filters.academicYear !== 'all') {
+      query.academicYear = filters.academicYear;
+    }
 
     // Handle 'all' as special case to fetch panels from all schools
     if (filters.school && filters.school !== 'all') {
@@ -549,6 +547,7 @@ export class PanelService {
     const safeYear = academicYear?.trim();
 
     let allPanels = await Panel.find({
+      academicYear: safeYear,
       school: { $regex: new RegExp(`^${safeSchool}$`, "i") },
       program: { $regex: new RegExp(`^${safeProgram}$`, "i") },
       isActive: true,
@@ -845,9 +844,15 @@ export class PanelService {
         }
 
         // Find Panel
-        const panel = await Panel.findOne({ 
+        const panelQuery = {
           panelName: { $regex: new RegExp(`^${panelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } 
-        });
+        };
+
+        if (project.academicYear) {
+          panelQuery.academicYear = project.academicYear;
+        }
+
+        const panel = await Panel.findOne(panelQuery);
         
         if (!panel) {
           throw new Error(`Panel '${panelName}' not found`);
