@@ -5,6 +5,7 @@ import Button from '../../../../shared/components/Button';
 import Badge from '../../../../shared/components/Badge';
 import EmptyState from '../../../../shared/components/EmptyState';
 import LoadingSpinner from '../../../../shared/components/LoadingSpinner';
+import { useVirtualList } from '../../../../shared/hooks/useVirtualList';
 import {
   UserGroupIcon,
   PhoneIcon,
@@ -18,11 +19,16 @@ import {
 const StudentList = ({ students = [], loading = false, onViewDetails }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Search always runs against the full `students` array, never the
+  // virtualized/rendered subset - so search results are unaffected by
+  // which rows happen to be mounted at the time.
   const filteredStudents = students.filter(student =>
     student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.regNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const virtual = useVirtualList({ count: filteredStudents.length, overscan: 5, estimateSize: 220 });
 
   const getPPTStatusBadge = (student) => {
     if (!student.reviewStatuses || student.reviewStatuses.length === 0) {
@@ -91,9 +97,31 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
           />
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filteredStudents.map((student) => (
-            <Card key={student.id} padding="md" className="hover:shadow-md transition-shadow">
+        <div
+          ref={virtual.setScrollElement}
+          onScroll={virtual.onScroll}
+          className="overflow-y-auto"
+          style={{ maxHeight: '70vh' }}
+        >
+          <div style={{ height: virtual.totalHeight, position: 'relative' }}>
+            {Array.from({ length: Math.max(0, virtual.endIndex - virtual.startIndex + 1) }, (_, i) => {
+              const index = virtual.startIndex + i;
+              const student = filteredStudents[index];
+              if (!student) return null;
+              return (
+                <div
+                  key={student.id}
+                  ref={virtual.measureRow(index)}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    transform: `translateY(${virtual.getOffset(index)}px)`
+                  }}
+                  className="pb-3"
+                >
+            <Card padding="md" className="hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between gap-4">
                 {/* Student Info */}
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -176,7 +204,10 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                 </div>
               </div>
             </Card>
-          ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
