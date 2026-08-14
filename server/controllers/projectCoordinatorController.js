@@ -26,10 +26,29 @@ import { logger } from "../utils/logger.js";
  * Helper: Get coordinator context filter
  */
 function getCoordinatorContext(req) {
+  let targetProgram = req.coordinator.program;
+
+  if (req.coordinators && req.coordinators.length > 0) {
+    const authorizedPrograms = req.coordinators.map(c => c.program);
+    
+    if (req.query.program) {
+      const requested = Array.isArray(req.query.program) ? req.query.program : [req.query.program];
+      const validRequested = requested.filter(p => authorizedPrograms.includes(p));
+      
+      if (validRequested.length > 0) {
+        targetProgram = validRequested;
+      }
+    } else if (req.coordinator.isPrimary && authorizedPrograms.length > 1) {
+      targetProgram = authorizedPrograms;
+    }
+  }
+
+  const programFilter = Array.isArray(targetProgram) ? { $in: targetProgram } : targetProgram;
+
   return {
-    academicYear: req.coordinator.academicYear,
+    academicYear: req.query.academicYear || req.coordinator.academicYear,
     school: req.coordinator.school,
-    program: req.coordinator.program,
+    program: targetProgram, // Keep as array/string, let services handle $in if needed for specific schemas
   };
 }
 
@@ -600,10 +619,12 @@ export async function getStudentList(req, res) {
   try {
     const coordinator = req.coordinator; // From requireProjectCoordinator middleware
 
+    const context = getCoordinatorContext(req);
+
     const filters = {
-      academicYear: req.query.academicYear || coordinator.academicYear,
-      school: coordinator.school,
-      program: coordinator.program,
+      academicYear: context.academicYear,
+      school: context.school,
+      program: context.program,
       regNo: req.query.regNo,
       name: req.query.name,
       specialization: req.query.specialization,

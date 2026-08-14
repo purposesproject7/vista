@@ -114,7 +114,13 @@ export class StudentService {
     const query = { isActive: true };
 
     if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.program) {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
     if (filters.academicYear) query.academicYear = filters.academicYear;
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
     if (filters.name) query.name = new RegExp(filters.name, "i");
@@ -124,18 +130,30 @@ export class StudentService {
     let schemaReviews = [];
     if (filters.school && filters.program && filters.academicYear) {
       try {
-        const schema = await MarkingSchema.findOne({
+        const schemaQuery = {
           school: filters.school,
-          program: filters.program,
           academicYear: filters.academicYear
-        }).lean();
-        if (schema && schema.reviews) {
-          schemaReviews = schema.reviews;
+        };
+        if (Array.isArray(filters.program)) {
+          schemaQuery.program = { $in: filters.program };
+        } else {
+          schemaQuery.program = filters.program;
+        }
+
+        const schemas = await MarkingSchema.find(schemaQuery).lean();
+        if (schemas && schemas.length > 0) {
           reviewTypes = new Map();
-          schema.reviews.forEach(r => {
-            const rName = r.reviewName || r.name;
-            if (rName) {
-              reviewTypes.set(rName, r.facultyType);
+          schemas.forEach(schema => {
+            if (schema.reviews) {
+              schema.reviews.forEach(r => {
+                const rName = r.reviewName || r.name;
+                if (rName) {
+                  reviewTypes.set(rName, r.facultyType);
+                }
+                if (!schemaReviews.find(sr => (sr.reviewName || sr.name) === rName)) {
+                  schemaReviews.push(r);
+                }
+              });
             }
           });
         }

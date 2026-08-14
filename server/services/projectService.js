@@ -15,7 +15,13 @@ export class ProjectService {
 
     if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.program) {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
     if (filters.status) query.status = filters.status;
     if (filters.guideFaculty) query.guideFaculty = filters.guideFaculty;
     if (filters.panel) query.panel = filters.panel;
@@ -49,7 +55,13 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
-    if (filters.program && filters.program !== 'all') query.program = filters.program;
+    if (filters.program && filters.program !== 'all') {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
 
     const projects = await Project.find(query)
       .populate("students", "regNo name")
@@ -81,7 +93,13 @@ export class ProjectService {
     const query = {};
     if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
-    if (filters.program && filters.program !== 'all') query.program = filters.program;
+    if (filters.program && filters.program !== 'all') {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
 
     const projects = await Project.find(query)
       .populate("students", "regNo name emailId")
@@ -162,7 +180,11 @@ export class ProjectService {
     }
     if (filters.program && filters.program !== 'All Programs') {
       // Match by either the full program name OR its code (case-insensitive)
-      baseQuery.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      if (Array.isArray(filters.program)) {
+        baseQuery.program = { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) };
+      } else {
+        baseQuery.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      }
     }
 
     // Guide projects

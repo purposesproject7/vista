@@ -161,7 +161,7 @@ export class FacultyService {
     }
 
     if (filters.program && filters.program !== "all") {
-      query.program = { $in: [filters.program] };
+      query.program = Array.isArray(filters.program) ? { $in: filters.program } : { $in: [filters.program] };
     }
 
     if (filters.specialization && filters.specialization !== "all") {
@@ -174,8 +174,8 @@ export class FacultyService {
 
     if (filters.academicYear) {
       // This might be used to filter by academic year context
-      query.school = { $in: [filters.school] };
-      query.program = { $in: [filters.program] };
+      query.school = Array.isArray(filters.school) ? { $in: filters.school } : { $in: [filters.school] };
+      query.program = Array.isArray(filters.program) ? { $in: filters.program } : { $in: [filters.program] };
     }
 
     const sort = sortOptions.sortBy
@@ -196,7 +196,7 @@ export class FacultyService {
     }
 
     if (filters.program && filters.program !== "all") {
-      query.program = { $in: [filters.program] };
+      query.program = Array.isArray(filters.program) ? { $in: filters.program } : { $in: [filters.program] };
     }
 
     const sort = sortOptions.sortBy
