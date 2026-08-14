@@ -262,8 +262,11 @@ export class ReportService {
      */
     static async generateComprehensiveMarksReport(filters) {
         const query = this._buildMatchQuery(filters);
+        console.log('[COMPREHENSIVE MARKS] Query:', JSON.stringify(query));
 
         const students = await Student.find(query).sort({ regNo: 1 }).lean();
+        console.log('[COMPREHENSIVE MARKS] Found students:', students.length);
+        
         const studentIds = students.map(s => s._id);
 
         const [allProjects, allMarks] = await Promise.all([
@@ -276,6 +279,9 @@ export class ReportService {
                 .lean(),
             Marks.find({ student: { $in: studentIds } }).lean()
         ]);
+        
+        console.log('[COMPREHENSIVE MARKS] Found projects:', allProjects.length);
+        console.log('[COMPREHENSIVE MARKS] Found marks:', allMarks.length);
 
         const projectsByStudentId = {};
         for (const p of allProjects) {
@@ -298,10 +304,8 @@ export class ReportService {
             // Find Project
             const project = projectsByStudentId[studentStrId];
 
-            if (!project) {
-                //console.log(`DEBUG: Skipping student ${student.regNo} - No active/completed project found.`);
-                continue;
-            }
+            // Include all students, even those without projects
+            // Removed: if (!project) { continue; }
 
             // Find Marks for this student
             const marks = marksByStudentId[studentStrId] || [];
@@ -322,40 +326,15 @@ export class ReportService {
                 }
             });
 
-            // Process each review type found
-            // If no marks found at all, we might want to still show the student row?
-            // The original logic seemed to flatten per student, but didn't clearly separate reviews.
-            // If we want a flattened list per review per student, we loop reviews.
-            // If we want one row per student with accumulated reviews, we loop marksByReview.
-            // Assuming the requirement "add the marks for each review... avg them and show them in the script"
-            // implies we likely want list of report rows where each row might be a review or columns are reviews.
-            // Given the existing structure was ONE row per student with 'guideMarks' and 'panelMarks' (implying maybe only one main review or sum),
-            // let's try to maintain one row per student but accumulate total averages across all reviews, OR return detailed per-review data?
-            // "Show them in the script" -> likely means the frontend script/table.
-            // To support multiple reviews (Review 1, Review 2 etc), let's construct a detail object.
-
-            // HOWEVER, the original code had:
-            // guideMarks: guideMark ? guideMark.totalMarks : "Pending",
-            // panelMarks: panelMark ? panelMark.totalMarks : "Pending",
-            // total: (guideMark?.totalMarks || 0) + (panelMark?.totalMarks || 0)
-
-            // This suggests it MIGHT have been built for a single review scenario or flawed logic picking *any* mark.
-            // To support distinct reviews properly, let's output an array of reviews for the student
-            // OR if the table expects one row per student, we might sum up everything?
-            // "Avg them and show them": context implies averaging PANEL marks for A SINGLE REVIEW.
-
-            // Let's iterate found review types and create a row for EACH Review Type for clarity, 
-            // OR keep student-centric and nest review details.
-            // Standard report tables often want flat data. Let's produce one row PER REVIEW per Student.
-
+            // Process marks by review type
             if (Object.keys(marksByReview).length === 0) {
                 // No marks yet
                 results.push({
                     regNo: student.regNo,
                     name: student.name,
-                    projectTitle: project.name,
-                    guideName: project.guideFaculty?.name,
-                    panelName: project.panel?.panelName,
+                    projectTitle: project?.name || "Not Assigned",
+                    guideName: project?.guideFaculty?.name || "Unassigned",
+                    panelName: project?.panel?.panelName || "Unassigned",
                     reviewType: "N/A",
                     guideMarks: "Pending",
                     panelMarks: "Pending",
@@ -387,9 +366,9 @@ export class ReportService {
                     results.push({
                         regNo: student.regNo,
                         name: student.name,
-                        projectTitle: project.name,
-                        guideName: project.guideFaculty?.name,
-                        panelName: project.panel?.panelName,
+                        projectTitle: project?.name || "Not Assigned",
+                        guideName: project?.guideFaculty?.name || "Unassigned",
+                        panelName: project?.panel?.panelName || "Unassigned",
                         reviewType: reviewType,
                         guideMarks: guideStatus === "Submitted" ? guideMarkVal : "Pending",
                         panelMarks: panelStatus === "Submitted" ? Number(panelAvg.toFixed(2)) : "Pending",

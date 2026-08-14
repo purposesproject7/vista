@@ -104,15 +104,25 @@ export async function login(req, res) {
       req
     );
 
-    // If project coordinator, fetch primary status
+    // If project coordinator, use the active primary context when multiple assignments exist.
     let isPrimary = false;
+    let coordinatorContext = null;
     if (faculty.isProjectCoordinator) {
-      const coordinatorData = await ProjectCoordinator.findOne({
+      const coordinatorAssignments = await ProjectCoordinator.find({
         faculty: faculty._id,
-        isActive: true
-      });
-      if (coordinatorData) {
-        isPrimary = coordinatorData.isPrimary;
+        isActive: true,
+      }).lean();
+
+      if (coordinatorAssignments.length > 0) {
+        coordinatorContext =
+          coordinatorAssignments.find((c) => c.isPrimary) ||
+          coordinatorAssignments[0];
+        isPrimary = Boolean(coordinatorContext.isPrimary);
+
+        // Keep the authenticated user's school/program aligned with the active coordinator context
+        // instead of the base faculty record, which may be a broader or older value.
+        facultyData.school = coordinatorContext.school;
+        facultyData.program = coordinatorContext.program;
       }
     }
 
@@ -123,7 +133,9 @@ export async function login(req, res) {
       data: {
         ...facultyData,
         isProjectCoordinator: faculty.isProjectCoordinator,
-        isPrimary, // Add isPrimary flag
+        isPrimary,
+        school: facultyData.school,
+        program: facultyData.program,
       },
     });
   } catch (error) {
@@ -523,6 +535,33 @@ export async function getProfile(req, res) {
     const facultyData = faculty.toObject();
     const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
     facultyData.isMasterAdmin = facultyData.employeeId === masterAdminId;
+
+    if (faculty.isProjectCoordinator) {
+      const coordinator = await ProjectCoordinator.findOne({
+        faculty: faculty._id,
+        isActive: true,
+        isPrimary: true,
+      }).lean();
+
+      if (coordinator) {
+        facultyData.school = coordinator.school;
+        facultyData.program = coordinator.program;
+        facultyData.academicYear = coordinator.academicYear;
+        facultyData.isPrimary = coordinator.isPrimary;
+      } else {
+        const fallbackCoordinator = await ProjectCoordinator.findOne({
+          faculty: faculty._id,
+          isActive: true,
+        }).sort({ createdAt: -1 }).lean();
+
+        if (fallbackCoordinator) {
+          facultyData.school = fallbackCoordinator.school;
+          facultyData.program = fallbackCoordinator.program;
+          facultyData.academicYear = fallbackCoordinator.academicYear;
+          facultyData.isPrimary = fallbackCoordinator.isPrimary;
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,

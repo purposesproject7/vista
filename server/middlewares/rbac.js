@@ -60,6 +60,18 @@ export async function requireProjectCoordinator(req, res, next) {
     // Attach to request
     req.coordinators = coordinators;
 
+    // Prefer the primary coordinator assignment when one exists; otherwise use the first active assignment.
+    const selectedCoordinator = coordinators.find((c) => c.isPrimary) || coordinators[0];
+    req.coordinator = selectedCoordinator;
+
+    // Keep the authenticated user context aligned with the actual coordinator assignment.
+    if (req.user && selectedCoordinator) {
+      req.user.school = selectedCoordinator.school;
+      req.user.program = selectedCoordinator.program;
+      req.user.academicYear = selectedCoordinator.academicYear;
+      req.user.isPrimary = selectedCoordinator.isPrimary;
+    }
+
     // Apply ProgramConfig deadlines dynamically
     for (const coordinator of coordinators) {
       const config = await ProgramConfig.findOne({
@@ -89,9 +101,12 @@ export async function requireProjectCoordinator(req, res, next) {
       }
     }
 
-    // Always set req.coordinator — fallback to first assignment
-    // validateCoordinatorContext can be used downstream for context-specific ops
-    req.coordinator = coordinators[0];
+    // Prefer the primary coordinator context when multiple active assignments exist.
+    // This prevents a secondary assignment from overriding the user's primary school/program,
+    // which is the root cause of empty request lists for primary coordinators.
+    const primaryCoordinator =
+      coordinators.find((c) => c.isPrimary) || coordinators[0];
+    req.coordinator = primaryCoordinator;
 
     next();
   } catch (error) {

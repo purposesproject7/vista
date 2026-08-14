@@ -2954,17 +2954,26 @@ export const requestAccess = async (req, res) => {
   try {
     const { reason, featureName, priority } = req.body;
     const coordinatorId = req.user._id;
+    const coordinatorContext = req.coordinator || {
+      school: req.user?.school || "Unknown",
+      program: Array.isArray(req.user?.program)
+        ? req.user.program[0] || "Unknown"
+        : req.user?.program || "Unknown",
+    };
 
-    // Create a new Access Request record
+    const normalizedProgram = Array.isArray(coordinatorContext.program)
+      ? coordinatorContext.program[0] || "Unknown"
+      : coordinatorContext.program || "Unknown";
+
+    // Create a new Access Request record using the actual coordinator assignment context.
     const newRequest = await AccessRequest.create({
       featureName,
       reason,
       priority: priority || "medium",
-      // Default deadline to 7 days from now
       requiredDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       requestedBy: coordinatorId,
-      school: req.user.school || "Unknown",
-      program: req.user.program || "Unknown",
+      school: coordinatorContext.school || "Unknown",
+      program: normalizedProgram,
       status: "pending",
     });
 
