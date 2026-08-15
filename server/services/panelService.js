@@ -152,21 +152,26 @@ export class PanelService {
     const query = { isActive: true };
 
     if (filters.academicYear && filters.academicYear !== 'all') {
-      query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
+      const acYearStr = Array.isArray(filters.academicYear)
+        ? filters.academicYear.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.academicYear.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.academicYear = { $regex: new RegExp(`^(${acYearStr})$`, 'i') };
     }
 
     // Handle 'all' as special case to fetch panels from all schools
     if (filters.school && filters.school !== 'all') {
-      query.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
+      const schoolStr = Array.isArray(filters.school)
+        ? filters.school.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.school = { $regex: new RegExp(`^(${schoolStr})$`, 'i') };
     }
 
     // Handle 'all' as special case to fetch panels from all programs
     if (filters.program && filters.program !== 'all') {
-      if (Array.isArray(filters.program)) {
-        query.program = { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) };
-      } else {
-        query.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
-      }
+      const progStr = Array.isArray(filters.program)
+        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
     }
 
     if (filters.specialization) {

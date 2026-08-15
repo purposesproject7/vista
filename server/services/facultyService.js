@@ -157,13 +157,17 @@ export class FacultyService {
     query.role = "faculty";
 
     if (filters.school && filters.school !== "all") {
-      query.school = { $in: [new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
+      const schoolStr = Array.isArray(filters.school)
+        ? filters.school.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.school = { $regex: new RegExp(`^(${schoolStr})$`, 'i') };
     }
 
     if (filters.program && filters.program !== "all") {
-      query.program = Array.isArray(filters.program) 
-        ? { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
-        : { $in: [new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
+      const progStr = Array.isArray(filters.program)
+        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
     }
 
     if (filters.specialization && filters.specialization !== "all") {
@@ -176,13 +180,15 @@ export class FacultyService {
 
     if (filters.academicYear) {
       // This might be used to filter by academic year context
-      query.school = Array.isArray(filters.school) 
-        ? { $in: filters.school.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
-        : { $in: [new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
+      const schoolStr = Array.isArray(filters.school)
+        ? filters.school.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.school = { $regex: new RegExp(`^(${schoolStr})$`, 'i') };
         
-      query.program = Array.isArray(filters.program) 
-        ? { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
-        : { $in: [new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
+      const progStr = Array.isArray(filters.program)
+        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
     }
 
     const sort = sortOptions.sortBy
@@ -203,9 +209,10 @@ export class FacultyService {
     }
 
     if (filters.program && filters.program !== "all") {
-      query.program = Array.isArray(filters.program) 
-        ? { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
-        : { $in: [new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
+      const progStr = Array.isArray(filters.program)
+        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
     }
 
     const sort = sortOptions.sortBy
