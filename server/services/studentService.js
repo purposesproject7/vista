@@ -122,15 +122,21 @@ export class StudentService {
   static async getFilteredStudents(filters = {}) {
     const query = { isActive: true };
 
-    if (filters.school) query.school = filters.school;
+    if (filters.school) {
+      query.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
+    }
+    
     if (filters.program) {
       if (Array.isArray(filters.program)) {
-        query.program = { $in: filters.program };
+        query.program = { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) };
       } else {
-        query.program = filters.program;
+        query.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
       }
     }
-    if (filters.academicYear) query.academicYear = filters.academicYear;
+    
+    if (filters.academicYear) {
+      query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
+    }
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
     if (filters.name) query.name = new RegExp(filters.name, "i");
 
@@ -139,14 +145,22 @@ export class StudentService {
     let schemaReviews = [];
     if (filters.school && filters.program && filters.academicYear) {
       try {
-        const schemaQuery = {
-          school: filters.school,
-          academicYear: filters.academicYear
-        };
-        if (Array.isArray(filters.program)) {
-          schemaQuery.program = { $in: filters.program };
-        } else {
-          schemaQuery.program = filters.program;
+        const schemaQuery = {};
+        
+        if (filters.school) {
+          schemaQuery.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
+        }
+        
+        if (filters.academicYear) {
+          schemaQuery.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
+        }
+        
+        if (filters.program) {
+          if (Array.isArray(filters.program)) {
+            schemaQuery.program = { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) };
+          } else {
+            schemaQuery.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
+          }
         }
 
         const schemas = await MarkingSchema.find(schemaQuery).lean();

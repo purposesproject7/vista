@@ -157,11 +157,13 @@ export class FacultyService {
     query.role = "faculty";
 
     if (filters.school && filters.school !== "all") {
-      query.school = { $in: [filters.school] };
+      query.school = { $in: [new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
     }
 
     if (filters.program && filters.program !== "all") {
-      query.program = Array.isArray(filters.program) ? { $in: filters.program } : { $in: [filters.program] };
+      query.program = Array.isArray(filters.program) 
+        ? { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
+        : { $in: [new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
     }
 
     if (filters.specialization && filters.specialization !== "all") {
@@ -174,8 +176,13 @@ export class FacultyService {
 
     if (filters.academicYear) {
       // This might be used to filter by academic year context
-      query.school = Array.isArray(filters.school) ? { $in: filters.school } : { $in: [filters.school] };
-      query.program = Array.isArray(filters.program) ? { $in: filters.program } : { $in: [filters.program] };
+      query.school = Array.isArray(filters.school) 
+        ? { $in: filters.school.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
+        : { $in: [new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
+        
+      query.program = Array.isArray(filters.program) 
+        ? { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
+        : { $in: [new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
     }
 
     const sort = sortOptions.sortBy
@@ -196,7 +203,9 @@ export class FacultyService {
     }
 
     if (filters.program && filters.program !== "all") {
-      query.program = Array.isArray(filters.program) ? { $in: filters.program } : { $in: [filters.program] };
+      query.program = Array.isArray(filters.program) 
+        ? { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) } 
+        : { $in: [new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')] };
     }
 
     const sort = sortOptions.sortBy

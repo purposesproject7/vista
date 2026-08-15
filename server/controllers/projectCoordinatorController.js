@@ -33,7 +33,9 @@ function getCoordinatorContext(req) {
     
     if (req.query.program) {
       const requested = Array.isArray(req.query.program) ? req.query.program : [req.query.program];
-      const validRequested = requested.filter(p => authorizedPrograms.includes(p));
+      const validRequested = requested.filter(p => 
+        authorizedPrograms.some(authP => authP.toLowerCase() === p.toLowerCase())
+      );
       
       if (validRequested.length > 0) {
         targetProgram = validRequested;
