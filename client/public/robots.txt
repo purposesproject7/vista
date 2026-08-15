@@ -1,0 +1,3 @@
+# VIT Vista is an internal, login-gated application. Nothing here is public.
+User-agent: *
+Disallow: /

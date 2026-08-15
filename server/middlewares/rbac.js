@@ -32,6 +32,29 @@ export function requireRole(...roles) {
 }
 
 /**
+ * Require the authenticated user to be a student accessing their own
+ * regNo-scoped resource. Compares the route's :regNo param against the
+ * student's own regNo from the JWT-derived req.user (never trusts the URL alone).
+ */
+export function requireSelfStudent(req, res, next) {
+  if (!req.user || req.user.role !== "student") {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Student account required.",
+    });
+  }
+
+  if (req.params.regNo && req.params.regNo !== req.user.regNo) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. You may only access your own records.",
+    });
+  }
+
+  next();
+}
+
+/**
  * Check if user is a project coordinator
  */
 export async function requireProjectCoordinator(req, res, next) {

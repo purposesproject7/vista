@@ -12,6 +12,7 @@ import { useAuth } from '../../../shared/hooks/useAuth';
 import PPTApprovalSection from '../components/PPTApprovalSection';
 import MergeTeamsModal from '../components/MergeTeamsModal';
 import EditProjectModal from '../components/EditProjectModal';
+import TitleAbstractReviewSection from '../components/TitleAbstractReviewSection';
 import { PencilSquareIcon } from '@heroicons/react/24/outline'; // Add icon import
 
 
@@ -258,6 +259,11 @@ const FacultyDashboard = () => {
                                                     <p className="text-xs font-bold text-slate-700">{project.academicYear}</p>
                                                 </div>
                                             </div>
+
+                                            <TitleAbstractReviewSection
+                                                project={project}
+                                                onAccepted={refreshReviews}
+                                            />
                                         </div>
                                     ))}
 

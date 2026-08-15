@@ -7,6 +7,7 @@ import TeamSettings from "../components/settings/TeamSettings";
 import RubricSettings from "../components/settings/RubricSettings";
 import ModificationSettings from "../components/settings/ModificationSettings";
 import ForcePPTApproval from "../components/settings/ForcePPTApproval";
+import ContentCheckSettings from "../components/settings/ContentCheckSettings";
 import RoleManagement from "../components/RoleManagement";
 
 import { INITIAL_FACULTY } from "../components/faculty-management/facultyData";
@@ -28,6 +29,7 @@ import {
   DocumentTextIcon,
   PencilSquareIcon,
   CheckCircleIcon,
+  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 
 const AdminSettings = () => {
@@ -132,6 +134,12 @@ const AdminSettings = () => {
       label: "Modification",
       icon: PencilSquareIcon,
       description: "Modify project assignments",
+    },
+    {
+      id: "content-check",
+      label: "Content Check",
+      icon: ShieldExclamationIcon,
+      description: "Plagiarism & AI content-check thresholds",
     },
     {
       id: "force-ppt",
@@ -258,6 +266,14 @@ const AdminSettings = () => {
           )}
 
           {activeTab === "modification" && <ModificationSettings />}
+
+          {activeTab === "content-check" && (
+            <ContentCheckSettings
+              schools={schools}
+              programs={programs}
+              years={years}
+            />
+          )}
 
           {activeTab === "force-ppt" && (
             <ForcePPTApproval

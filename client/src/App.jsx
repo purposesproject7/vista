@@ -7,6 +7,7 @@ import { CoordinatorProvider } from "./features/project-coordinator/context/Coor
 import GlobalErrorBoundary from "./shared/components/GlobalErrorBoundary";
 
 import FacultyDashboard from "./features/faculty/pages/FacultyDashboard";
+import StudentDashboard from "./features/student/pages/StudentDashboard";
 import FacultyTutorial from "./features/faculty/pages/tutorial/FacultyTutorial";
 import GuideReviews from "./features/faculty/pages/GuideReviews";
 import StudentManagement from "./features/admin/pages/StudentManagement";
@@ -178,6 +179,17 @@ function AppRoutes() {
             <ProtectedRoute allowedRoles={["faculty"]}>
               <PasswordSetupGuard>
                 <GuideReviews />
+              </PasswordSetupGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <PasswordSetupGuard>
+                <StudentDashboard />
               </PasswordSetupGuard>
             </ProtectedRoute>
           }

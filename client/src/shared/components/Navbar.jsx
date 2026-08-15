@@ -45,6 +45,8 @@ const Navbar = () => {
                 ? "Faculty Dashboard"
                 : user.role === "admin"
                 ? "Admin Dashboard"
+                : user.role === "student"
+                ? "Student Portal"
                 : "Dashboard"}
             </p>
           </div>

@@ -154,7 +154,7 @@ const ForgotPassword = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="faculty@example.com"
+                placeholder="Enter your email"
                 required
               />
 

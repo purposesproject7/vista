@@ -73,6 +73,10 @@ const programConfigSchema = new mongoose.Schema(
 
     // Feature locks with deadlines
     featureLocks: [featureLockSchema],
+
+    // Title/abstract content-check thresholds (score above this is flagged)
+    plagiarismThreshold: { type: Number, required: true, default: 60, min: 0, max: 100 },
+    aiThreshold: { type: Number, required: true, default: 60, min: 0, max: 100 },
   },
   { timestamps: true }
 );

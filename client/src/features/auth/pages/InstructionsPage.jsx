@@ -155,13 +155,13 @@ const InstructionsPage = () => {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Faculty Evaluation Portal
+            Project Portal
           </h1>
           <p className="text-gray-600">Complete guide to using the system</p>
         </div>
 
         <Card className="mb-6">
-          <h2 className="text-2xl font-semibold mb-4">For Faculty</h2>
+          <h2 className="text-2xl font-semibold mb-4">Getting Started</h2>
           <div className="space-y-4 text-gray-700">
             <div>
               <h3 className="font-semibold text-lg mb-2">1. Login &amp; Select Filters</h3>

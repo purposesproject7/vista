@@ -51,6 +51,8 @@ const Login = () => {
             ? null // handled by role modal after setup
             : result.user.role === "faculty"
             ? "/faculty"
+            : result.user.role === "student"
+            ? "/student"
             : "/";
 
         navigate("/setup-password", {
@@ -75,6 +77,8 @@ const Login = () => {
         navigate("/admin");
       } else if (result.user.role === "faculty") {
         navigate("/faculty");
+      } else if (result.user.role === "student") {
+        navigate("/student");
       } else {
         navigate("/");
       }
@@ -106,7 +110,7 @@ const Login = () => {
           </span>
         </div>
         <h1 className="text-xl text-gray-600 mb-6 text-center">
-          Faculty Evaluation Portal
+          Project Portal
         </h1>
 
         {error && (
@@ -121,7 +125,7 @@ const Login = () => {
             type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="faculty@university.edu"
+            placeholder="Enter your email"
             required
           />
 

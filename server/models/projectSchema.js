@@ -46,9 +46,35 @@ const reviewPanelAssignmentSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const contentCheckSchema = new mongoose.Schema(
+  {
+    plagiarismScore: { type: Number, default: null },
+    aiScore: { type: Number, default: null },
+    checkedAt: { type: Date, default: null },
+    flagged: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const titleAbstractHistorySchema = new mongoose.Schema(
+  {
+    action: {
+      type: String,
+      enum: ["submitted", "discrepancy", "consensus_reached", "accepted"],
+      required: true,
+    },
+    title: { type: String },
+    abstract: { type: String },
+    performedBy: { type: mongoose.Schema.Types.ObjectId, refPath: "titleAbstractHistory.performedByModel" },
+    performedByModel: { type: String, enum: ["Student", "Faculty"] },
+    performedAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
 const projectSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, maxlength: 200, trim: true },
 
     students: [
       {
@@ -120,6 +146,31 @@ const projectSchema = new mongoose.Schema(
     sdgGoal: { type: String, default: null },
 
     description: { type: String },
+
+    // Student-submitted, guide-locked title/abstract workflow
+    abstract: { type: String, default: null },
+    proposedTitle: { type: String, maxlength: 200, trim: true, default: null },
+    proposedAbstract: { type: String, default: null },
+    titleAbstractStatus: {
+      type: String,
+      enum: [
+        "not_started",
+        "pending_consensus",
+        "discrepancy",
+        "consensus_reached",
+        "pending_review",
+        "accepted",
+      ],
+      default: "not_started",
+    },
+    contentCheck: { type: contentCheckSchema, default: () => ({}) },
+    titleAbstractAcceptedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Faculty",
+      default: null,
+    },
+    titleAbstractAcceptedAt: { type: Date, default: null },
+    titleAbstractHistory: [titleAbstractHistorySchema],
   },
   { timestamps: true }
 );

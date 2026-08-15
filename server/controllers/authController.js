@@ -1,10 +1,13 @@
 import Faculty from "../models/facultySchema.js";
+import Student from "../models/studentSchema.js";
 import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
 import crypto from "crypto";
 import ActivityLogService from "../services/activityLogService.js";
+
+const STUDENT_EMAIL_DOMAIN = "@vitstudent.ac.in";
 
 /**
  * Generate JWT token
@@ -23,12 +26,91 @@ const generateToken = (faculty) => {
 };
 
 /**
- * Login - Unified for all roles (admin, faculty, project_coordinator)
+ * Generate JWT token for a student
+ */
+const generateStudentToken = (student) => {
+  return jwt.sign(
+    {
+      id: student._id,
+      emailId: student.emailId,
+      regNo: student.regNo,
+      role: "student",
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRE || "1h" }
+  );
+};
+
+/**
+ * Login for a student account (@vitstudent.ac.in)
+ */
+async function loginStudent(req, res, emailId, password) {
+  const student = await Student.findOne({ emailId }).select("+password");
+
+  if (!student) {
+    logger.warn("login_failed", {
+      emailId,
+      reason: "user_not_found",
+      ip: req.ip,
+    });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid email or password.",
+    });
+  }
+
+  if (!student.isActive) {
+    return res.status(403).json({
+      success: false,
+      message: "This account has been deactivated. Contact your coordinator.",
+    });
+  }
+
+  const isPasswordMatch = await bcrypt.compare(password, student.password);
+
+  if (!isPasswordMatch) {
+    logger.warn("login_failed", {
+      emailId,
+      reason: "invalid_password",
+      ip: req.ip,
+    });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid email or password.",
+    });
+  }
+
+  const token = generateStudentToken(student);
+
+  const studentData = student.toObject();
+  delete studentData.password;
+  studentData.role = "student";
+
+  logger.info("login_success", {
+    studentId: student._id,
+    regNo: student.regNo,
+    role: "student",
+    ip: req.ip,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Login successful.",
+    token,
+    data: studentData,
+  });
+}
+
+/**
+ * Login - Unified for all roles (admin, faculty, project_coordinator, student)
  */
 export async function login(req, res) {
   try {
-    console.log("Login request body:", req.body);
     const { emailId, password, expectedRole } = req.body;
+
+    if (emailId && emailId.toLowerCase().endsWith(STUDENT_EMAIL_DOMAIN)) {
+      return loginStudent(req, res, emailId, password);
+    }
 
     const faculty = await Faculty.findOne({ emailId }).select("+password");
 
@@ -364,29 +446,30 @@ export async function setupPassword(req, res) {
       });
     }
 
-    const faculty = await Faculty.findById(req.user._id);
+    const Model = req.user.role === "student" ? Student : Faculty;
+    const user = await Model.findById(req.user._id);
 
-    if (!faculty) {
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Faculty not found.",
+        message: `${req.user.role === "student" ? "Student" : "Faculty"} not found.`,
       });
     }
 
-    if (!faculty.isDefaultPassword) {
+    if (!user.isDefaultPassword) {
       return res.status(400).json({
         success: false,
         message: "Password has already been set up. Use Change Password instead.",
       });
     }
 
-    faculty.password = await bcrypt.hash(newPassword, 10);
-    faculty.isDefaultPassword = false;
-    await faculty.save();
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.isDefaultPassword = false;
+    await user.save();
 
     logger.info("password_setup_completed", {
-      facultyId: faculty._id,
-      employeeId: faculty.employeeId,
+      userId: user._id,
+      role: req.user.role,
     });
 
     res.status(200).json({
@@ -413,18 +496,19 @@ export async function changePassword(req, res) {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    const faculty = await Faculty.findById(req.user._id).select("+password");
+    const Model = req.user.role === "student" ? Student : Faculty;
+    const user = await Model.findById(req.user._id).select("+password");
 
-    if (!faculty) {
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Faculty not found.",
+        message: `${req.user.role === "student" ? "Student" : "Faculty"} not found.`,
       });
     }
 
     const isPasswordMatch = await bcrypt.compare(
       currentPassword,
-      faculty.password
+      user.password
     );
 
     if (!isPasswordMatch) {
@@ -434,12 +518,12 @@ export async function changePassword(req, res) {
       });
     }
 
-    faculty.password = await bcrypt.hash(newPassword, 10);
-    await faculty.save();
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
 
     logger.info("password_changed", {
-      facultyId: faculty._id,
-      employeeId: faculty.employeeId,
+      userId: user._id,
+      role: req.user.role,
     });
 
     res.status(200).json({
@@ -523,6 +607,25 @@ export async function logout(req, res) {
  */
 export async function getProfile(req, res) {
   try {
+    if (req.user.role === "student") {
+      const student = await Student.findById(req.user._id).select("-password");
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: "Student not found.",
+        });
+      }
+
+      const studentData = student.toObject();
+      studentData.role = "student";
+
+      return res.status(200).json({
+        success: true,
+        data: studentData,
+      });
+    }
+
     const faculty = await Faculty.findById(req.user._id).select("-password");
 
     if (!faculty) {

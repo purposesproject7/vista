@@ -1,4 +1,5 @@
 import Faculty from "../models/facultySchema.js";
+import Student from "../models/studentSchema.js";
 import bcrypt from "bcryptjs";
 import { EmailService } from "../services/emailService.js";
 import { OTPService } from "../services/otpService.js";
@@ -20,9 +21,10 @@ export async function sendOTP(req, res) {
       });
     }
 
-    // Check if faculty exists
+    // Check if faculty or student exists
     const faculty = await Faculty.findOne({ emailId });
-    if (!faculty) {
+    const account = faculty || (await Student.findOne({ emailId }));
+    if (!account) {
       return res.status(404).json({
         success: false,
         message: "No account found with this email address.",
@@ -31,14 +33,15 @@ export async function sendOTP(req, res) {
 
     // Generate and store OTP
     const otp = OTPService.generateOTP();
-    OTPService.storeOTP(emailId, otp, faculty.name);
+    OTPService.storeOTP(emailId, otp, account.name);
 
     // Send OTP via email
-    await EmailService.sendOTPEmail(emailId, otp, faculty.name);
+    await EmailService.sendOTPEmail(emailId, otp, account.name);
 
     logger.info("otp_sent", {
       emailId,
-      facultyId: faculty._id,
+      accountId: account._id,
+      accountType: faculty ? "faculty" : "student",
       requestId: req.requestId,
     });
 
@@ -99,27 +102,32 @@ export async function verifyOTPAndResetPassword(req, res) {
       });
     }
 
-    // Find faculty
+    // Find faculty or student
     const faculty = await Faculty.findOne({ emailId });
-    if (!faculty) {
+    const account = faculty || (await Student.findOne({ emailId }));
+    if (!account) {
       OTPService.deleteOTP(emailId);
       return res.status(404).json({
         success: false,
-        message: "Faculty not found.",
+        message: "Account not found.",
       });
     }
 
     // Hash and update password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    faculty.password = hashedPassword;
-    await faculty.save();
+    account.password = hashedPassword;
+    if (!faculty) {
+      account.isDefaultPassword = false;
+    }
+    await account.save();
 
     // Remove OTP from storage
     OTPService.deleteOTP(emailId);
 
     logger.info("password_reset_via_otp", {
       emailId,
-      facultyId: faculty._id,
+      accountId: account._id,
+      accountType: faculty ? "faculty" : "student",
     });
 
     res.status(200).json({

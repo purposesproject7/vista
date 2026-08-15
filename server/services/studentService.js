@@ -5,6 +5,15 @@ import MarkingSchema from "../models/markingSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Marks from "../models/marksSchema.js";
 import { logger } from "../utils/logger.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { EmailService } from "./emailService.js";
+
+const STUDENT_EMAIL_DOMAIN = "@vitstudent.ac.in";
+
+function generateDefaultPassword() {
+  return crypto.randomBytes(9).toString("base64url");
+}
 
 export class StudentService {
   /**
@@ -784,6 +793,21 @@ export class StudentService {
           continue;
         }
 
+        if (
+          !studentData.emailId
+            .toString()
+            .toLowerCase()
+            .endsWith(STUDENT_EMAIL_DOMAIN)
+        ) {
+          results.errors++;
+          results.details.push({
+            row: i + 1,
+            regNo: studentData.regNo,
+            error: `Email must end with ${STUDENT_EMAIL_DOMAIN}`,
+          });
+          continue;
+        }
+
         // Check if student already exists
         const existing = await Student.findOne({ regNo: studentData.regNo });
 
@@ -817,7 +841,10 @@ export class StudentService {
           // But let's assume it might still be part of some schema version.
           // I will strip the 'reviews: reviewsMap' part to be safe.
 
-          // Create student
+          // Create student with an auto-generated default password
+          const rawPassword = generateDefaultPassword();
+          const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
           const student = new Student({
             regNo: studentData.regNo,
             name: studentData.name,
@@ -832,9 +859,23 @@ export class StudentService {
             requiresContribution: markingSchema.requiresContribution || false,
             contributionType: markingSchema.contributionType || "none",
             isActive: true,
+            password: hashedPassword,
+            isDefaultPassword: true,
           });
 
           await student.save();
+
+          EmailService.sendWelcomeEmail(
+            student.emailId,
+            student.name,
+            rawPassword,
+            "VIT Student Portal"
+          ).catch((err) =>
+            logger.error("student_welcome_email_failed", {
+              regNo: student.regNo,
+              error: err.message,
+            })
+          );
 
           // Handle Guide Assignment if guideEmpId provided
           if (studentData.guideEmpId) {

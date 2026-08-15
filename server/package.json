@@ -24,6 +24,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "setup-admin": "node scripts/setupAdmin001.js"
+    "setup-admin": "node scripts/setupAdmin001.js",
+    "setup-test-accounts": "node scripts/setupTestAccounts.js"
   }
 }

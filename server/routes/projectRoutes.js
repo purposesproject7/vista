@@ -58,6 +58,13 @@ router.put(
   projectController.updateProjectDetails
 );
 
+// Guide accepts the student-submitted title/abstract, locking it (guide/admin only)
+router.put(
+  "/:id/accept-title-abstract",
+  requireRole("faculty", "admin"),
+  projectController.acceptTitleAbstract
+);
+
 // Delete project (requires faculty or admin role)
 router.delete("/:id", requireRole("faculty", "admin"), projectController.deleteProject);
 

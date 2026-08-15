@@ -216,7 +216,12 @@ export class EmailService {
   /**
    * Send welcome email (optional)
    */
-  static async sendWelcomeEmail(emailId, facultyName, temporaryPassword) {
+  static async sendWelcomeEmail(
+    emailId,
+    facultyName,
+    temporaryPassword,
+    portalName = "VIT Faculty Portal"
+  ) {
     try {
       const transporter = this.createTransporter();
 
@@ -226,7 +231,7 @@ export class EmailService {
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to VIT Faculty Portal</title>
+          <title>Welcome to ${portalName}</title>
         </head>
         <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
           <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
@@ -237,7 +242,7 @@ export class EmailService {
                   <!-- Header -->
                   <tr>
                     <td style="background-color: #2455a3; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Welcome to VIT Faculty Portal</h1>
+                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Welcome to ${portalName}</h1>
                     </td>
                   </tr>
 
@@ -265,7 +270,7 @@ export class EmailService {
                       </p>
                       <p style="color: #666666; font-size: 14px; line-height: 1.5; margin: 10px 0 0 0;">
                         Best regards,<br>
-                        <strong>VIT Faculty Portal Team</strong>
+                        <strong>${portalName} Team</strong>
                       </p>
                     </td>
                   </tr>
@@ -274,7 +279,7 @@ export class EmailService {
                   <tr>
                     <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-radius: 0 0 8px 8px;">
                       <p style="color: #999999; font-size: 12px; margin: 0;">
-                        © ${new Date().getFullYear()} VIT Faculty Portal. All rights reserved.
+                        © ${new Date().getFullYear()} ${portalName}. All rights reserved.
                       </p>
                     </td>
                   </tr>
@@ -288,9 +293,9 @@ export class EmailService {
       `;
 
       const info = await transporter.sendMail({
-        from: `VIT Faculty Portal <${process.env.EMAIL_USER}>`,
+        from: `${portalName} <${process.env.EMAIL_USER}>`,
         to: emailId,
-        subject: "Welcome to VIT Faculty Portal",
+        subject: `Welcome to ${portalName}`,
         html: htmlContent,
       });
 

@@ -32,6 +32,12 @@ function sanitizeValue(value) {
 
 function sanitizeObjectInPlace(obj) {
   for (const key of Object.keys(obj)) {
+    // Strip MongoDB operator keys to prevent NoSQL injection (parity with sanitizeObject)
+    if (key.startsWith("$")) {
+      delete obj[key];
+      continue;
+    }
+
     const value = obj[key];
     if (typeof value === "string") {
       obj[key] = value.trim().replace(/<[^>]*>/g, "");

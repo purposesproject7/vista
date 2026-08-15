@@ -51,3 +51,11 @@ export const approvePPT = async (studentId, reviewType, sdgGoal) => {
   const response = await api.post("/faculty/approvals/ppt", { studentId, reviewType, sdgGoal });
   return response.data;
 };
+
+/**
+ * Guide accepts a project's consensus-reached title/abstract, locking it.
+ */
+export const acceptTitleAbstract = async (projectId) => {
+  const response = await api.put(`/project/${projectId}/accept-title-abstract`);
+  return response.data;
+};

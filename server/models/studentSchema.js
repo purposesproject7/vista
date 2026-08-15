@@ -15,6 +15,26 @@ const studentSchema = new mongoose.Schema(
 
     isActive: { type: Boolean, default: true },
 
+    // Auth fields (mirrors facultySchema.js)
+    password: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ["student"],
+      default: "student",
+      lowercase: true,
+      trim: true,
+    },
+    isDefaultPassword: { type: Boolean, default: true },
+    passwordResetToken: { type: String },
+    passwordResetExpires: { type: Date },
+
+    // In-flight title/abstract submission, pending team consensus
+    titleAbstractSubmission: {
+      title: { type: String, trim: true },
+      abstract: { type: String },
+      submittedAt: { type: Date },
+    },
+
     // References to Marks documents (JIT created)
     guideMarks: [
       {
@@ -52,7 +72,7 @@ const studentSchema = new mongoose.Schema(
 
 studentSchema.index({ regNo: 1, academicYear: 1 }, { unique: true });
 studentSchema.index({ school: 1, program: 1, academicYear: 1 });
-studentSchema.index({ emailId: 1 });
+studentSchema.index({ emailId: 1 }, { unique: true });
 
 const Student = mongoose.model("Student", studentSchema);
 export default Student;
