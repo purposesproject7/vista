@@ -240,10 +240,7 @@ export async function getFacultyList(req, res) {
       filters.name = new RegExp(req.query.name, 'i');
     }
 
-    const faculties = await Faculty.find(filters)
-      .select("-password")
-      .sort({ name: 1 })
-      .lean();
+    const faculties = await FacultyService.getFacultyList(filters);
 
     res.status(200).json({
       success: true,

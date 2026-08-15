@@ -156,6 +156,10 @@ export class FacultyService {
     // Always exclude admins from faculty list
     query.role = "faculty";
 
+    if (filters.name) {
+      query.name = filters.name;
+    }
+
     if (filters.school && filters.school !== "all") {
       const schoolStr = Array.isArray(filters.school)
         ? filters.school.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
