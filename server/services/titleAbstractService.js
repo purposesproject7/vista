@@ -155,7 +155,7 @@ export class TitleAbstractService {
       };
     }
 
-    // Consensus reached — run the content check and hand off to the guide
+    // Consensus reached — run the content check before handing off to the guide
     const confirmedTitle = teammates[0].titleAbstractSubmission.title;
     const confirmedAbstract = teammates[0].titleAbstractSubmission.abstract;
 
@@ -169,18 +169,50 @@ export class TitleAbstractService {
       program: project.program,
     }).lean();
 
-    const plagiarismThreshold = config?.plagiarismThreshold ?? 60;
-    const aiThreshold = config?.aiThreshold ?? 60;
-    const flagged = plagiarismScore > plagiarismThreshold || aiScore > aiThreshold;
+    const flagThreshold = config?.flagThreshold ?? 60;
+    const autoRejectThreshold = config?.autoRejectThreshold ?? 85;
+    const highestScore = Math.max(plagiarismScore, aiScore);
+    const rejected = highestScore > autoRejectThreshold;
+    const flagged = !rejected && highestScore > flagThreshold;
 
-    project.proposedTitle = confirmedTitle;
-    project.proposedAbstract = confirmedAbstract;
     project.contentCheck = {
       plagiarismScore,
       aiScore,
       checkedAt: new Date(),
       flagged,
+      rejected,
     };
+
+    if (rejected) {
+      // Auto-rejected: do not advance to guide review. Students see the scores
+      // and rejection reason, and must revise + resubmit (their individual
+      // submissions are left in place so they can edit rather than start over).
+      project.titleAbstractStatus = "rejected";
+      project.titleAbstractHistory.push({
+        action: "rejected",
+        title: confirmedTitle,
+        abstract: confirmedAbstract,
+        performedBy: studentId,
+        performedByModel: "Student",
+      });
+
+      await project.save();
+
+      logger.info("title_abstract_auto_rejected", {
+        projectId: project._id,
+        plagiarismScore,
+        aiScore,
+        autoRejectThreshold,
+      });
+
+      return {
+        status: project.titleAbstractStatus,
+        contentCheck: project.contentCheck,
+      };
+    }
+
+    project.proposedTitle = confirmedTitle;
+    project.proposedAbstract = confirmedAbstract;
     project.titleAbstractStatus = "pending_review";
     project.titleAbstractHistory.push({
       action: "consensus_reached",
@@ -223,11 +255,11 @@ export class TitleAbstractService {
       proposedAbstract: project.proposedAbstract,
       title: project.name,
       abstract: project.abstract,
-      contentCheck:
-        project.titleAbstractStatus === "pending_review" ||
-        project.titleAbstractStatus === "accepted"
-          ? project.contentCheck
-          : null,
+      contentCheck: ["pending_review", "accepted", "rejected"].includes(
+        project.titleAbstractStatus
+      )
+        ? project.contentCheck
+        : null,
       acceptedAt: project.titleAbstractAcceptedAt,
     };
   }

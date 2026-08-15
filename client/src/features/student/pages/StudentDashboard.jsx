@@ -9,7 +9,7 @@ import ConsensusStatus from "../components/ConsensusStatus";
 import GuidePanelInfo from "../components/GuidePanelInfo";
 import { getMyProject, getTitleAbstractStatus, submitTitleAbstract } from "../services/studentApi";
 
-const EDITABLE_STATUSES = ["not_started", "pending_consensus", "discrepancy"];
+const EDITABLE_STATUSES = ["not_started", "pending_consensus", "discrepancy", "rejected"];
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -90,6 +90,7 @@ const StudentDashboard = () => {
             submissions={statusData?.submissions}
             proposedTitle={statusData?.proposedTitle || statusData?.title}
             proposedAbstract={statusData?.proposedAbstract || statusData?.abstract}
+            mySubmission={statusData?.mySubmission}
             contentCheck={statusData?.contentCheck}
             acceptedAt={statusData?.acceptedAt}
           />

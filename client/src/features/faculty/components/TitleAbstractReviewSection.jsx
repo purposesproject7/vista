@@ -9,6 +9,7 @@ const STATUS_LABELS = {
   pending_consensus: { label: "Waiting on Students", variant: "warning" },
   discrepancy: { label: "Discrepancy Among Students", variant: "danger" },
   consensus_reached: { label: "Consensus Reached", variant: "info" },
+  rejected: { label: "Auto-Rejected", variant: "danger" },
   pending_review: { label: "Pending Your Review", variant: "info" },
   accepted: { label: "Accepted & Locked", variant: "success" },
 };
@@ -67,6 +68,23 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
           Students on this team submitted mismatched titles/abstracts and need
           to resubmit matching content before you can review.
         </p>
+      )}
+
+      {status === "rejected" && (
+        <div className="text-xs text-red-600 space-y-1">
+          <p>
+            The team's submission was automatically rejected by the content
+            check (plagiarism/AI score exceeded the auto-reject threshold) and
+            never reached your review queue. Students must revise and
+            resubmit.
+          </p>
+          {project.contentCheck && (
+            <p className="text-gray-600">
+              Plagiarism: {project.contentCheck.plagiarismScore}% &middot; AI
+              Content: {project.contentCheck.aiScore}%
+            </p>
+          )}
+        </div>
       )}
 
       {(status === "pending_review" || status === "accepted") && (

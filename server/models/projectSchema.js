@@ -52,6 +52,7 @@ const contentCheckSchema = new mongoose.Schema(
     aiScore: { type: Number, default: null },
     checkedAt: { type: Date, default: null },
     flagged: { type: Boolean, default: false },
+    rejected: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -60,7 +61,7 @@ const titleAbstractHistorySchema = new mongoose.Schema(
   {
     action: {
       type: String,
-      enum: ["submitted", "discrepancy", "consensus_reached", "accepted"],
+      enum: ["submitted", "discrepancy", "consensus_reached", "rejected", "accepted"],
       required: true,
     },
     title: { type: String },
@@ -158,6 +159,7 @@ const projectSchema = new mongoose.Schema(
         "pending_consensus",
         "discrepancy",
         "consensus_reached",
+        "rejected",
         "pending_review",
         "accepted",
       ],

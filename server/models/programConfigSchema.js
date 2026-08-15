@@ -74,9 +74,31 @@ const programConfigSchema = new mongoose.Schema(
     // Feature locks with deadlines
     featureLocks: [featureLockSchema],
 
-    // Title/abstract content-check thresholds (score above this is flagged)
-    plagiarismThreshold: { type: Number, required: true, default: 60, min: 0, max: 100 },
-    aiThreshold: { type: Number, required: true, default: 60, min: 0, max: 100 },
+    // Title/abstract content-check thresholds, applied to both the plagiarism
+    // and AI-generated-content scores. A score above flagThreshold is flagged
+    // for the guide's attention (guide can still accept). A score above
+    // autoRejectThreshold blocks the submission outright — the student cannot
+    // submit it and must revise the content.
+    flagThreshold: {
+      type: Number,
+      required: true,
+      default: 60,
+      min: 0,
+      max: 100,
+    },
+    autoRejectThreshold: {
+      type: Number,
+      required: true,
+      default: 85,
+      min: 0,
+      max: 100,
+      validate: {
+        validator: function (value) {
+          return value >= this.flagThreshold;
+        },
+        message: "autoRejectThreshold cannot be less than flagThreshold",
+      },
+    },
   },
   { timestamps: true }
 );

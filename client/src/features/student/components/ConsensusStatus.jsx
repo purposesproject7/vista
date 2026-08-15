@@ -7,11 +7,21 @@ const STATUS_LABELS = {
   pending_consensus: { label: "Waiting on Teammates", variant: "warning" },
   discrepancy: { label: "Discrepancy Found", variant: "danger" },
   consensus_reached: { label: "Consensus Reached", variant: "info" },
+  rejected: { label: "Rejected — Revision Required", variant: "danger" },
   pending_review: { label: "Pending Guide Review", variant: "info" },
   accepted: { label: "Accepted & Locked", variant: "success" },
 };
 
-const ConsensusStatus = ({ status, waitingOn, submissions, proposedTitle, proposedAbstract, contentCheck, acceptedAt }) => {
+const ConsensusStatus = ({
+  status,
+  waitingOn,
+  submissions,
+  proposedTitle,
+  proposedAbstract,
+  mySubmission,
+  contentCheck,
+  acceptedAt,
+}) => {
   const meta = STATUS_LABELS[status] || STATUS_LABELS.not_started;
 
   return (
@@ -47,6 +57,37 @@ const ConsensusStatus = ({ status, waitingOn, submissions, proposedTitle, propos
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {status === "rejected" && (
+        <Card padding="sm" className="bg-red-50 border-red-200 space-y-2">
+          <p className="text-sm text-red-800 font-medium">
+            Your team's submission was automatically rejected by the content
+            check and cannot be sent for guide review. Please revise the title
+            and abstract to reduce plagiarism / AI-generated content and
+            resubmit.
+          </p>
+          {mySubmission?.title && (
+            <p className="text-sm font-semibold text-gray-900">{mySubmission.title}</p>
+          )}
+          {mySubmission?.abstract && (
+            <p className="text-sm text-gray-600 whitespace-pre-wrap">{mySubmission.abstract}</p>
+          )}
+          {contentCheck && (
+            <div className="pt-2 border-t border-red-100 space-y-1">
+              <p className="text-xs text-gray-600">
+                Plagiarism Score:{" "}
+                <span className="font-medium text-gray-800">
+                  {contentCheck.plagiarismScore}%
+                </span>
+              </p>
+              <p className="text-xs text-gray-600">
+                AI-Generated Content Score:{" "}
+                <span className="font-medium text-gray-800">{contentCheck.aiScore}%</span>
+              </p>
+            </div>
+          )}
         </Card>
       )}
 

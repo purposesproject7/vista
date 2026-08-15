@@ -2954,8 +2954,8 @@ export async function createProgramConfig(req, res) {
       maxPanelSize,
       minPanelSize,
       featureLocks,
-      plagiarismThreshold,
-      aiThreshold,
+      flagThreshold,
+      autoRejectThreshold,
     } = req.body;
 
     // Check if already exists
@@ -2981,8 +2981,8 @@ export async function createProgramConfig(req, res) {
 
       maxPanelSize: maxPanelSize || 5,
       minPanelSize: minPanelSize || 3,
-      plagiarismThreshold: plagiarismThreshold ?? 60,
-      aiThreshold: aiThreshold ?? 60,
+      flagThreshold: flagThreshold ?? 60,
+      autoRejectThreshold: autoRejectThreshold ?? 85,
       featureLocks:
         featureLocks ||
         [

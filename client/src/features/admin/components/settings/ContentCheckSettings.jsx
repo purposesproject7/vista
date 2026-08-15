@@ -8,8 +8,8 @@ import { useToast } from "../../../../shared/hooks/useToast";
 import { fetchProgramConfig, saveProgramConfig } from "../../services/adminApi";
 
 const DEFAULT_SETTINGS = {
-  plagiarismThreshold: 60,
-  aiThreshold: 60,
+  flagThreshold: 60,
+  autoRejectThreshold: 85,
 };
 
 const ContentCheckSettings = ({ schools, programs, years }) => {
@@ -49,8 +49,8 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         );
         if (response.success && response.data) {
           setSettings({
-            plagiarismThreshold: response.data.plagiarismThreshold ?? 60,
-            aiThreshold: response.data.aiThreshold ?? 60,
+            flagThreshold: response.data.flagThreshold ?? 60,
+            autoRejectThreshold: response.data.autoRejectThreshold ?? 85,
           });
         } else {
           setSettings(DEFAULT_SETTINGS);
@@ -72,12 +72,20 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
     }
 
     if (
-      settings.plagiarismThreshold < 0 ||
-      settings.plagiarismThreshold > 100 ||
-      settings.aiThreshold < 0 ||
-      settings.aiThreshold > 100
+      settings.flagThreshold < 0 ||
+      settings.flagThreshold > 100 ||
+      settings.autoRejectThreshold < 0 ||
+      settings.autoRejectThreshold > 100
     ) {
       showToast("Thresholds must be between 0 and 100", "error");
+      return;
+    }
+
+    if (settings.autoRejectThreshold < settings.flagThreshold) {
+      showToast(
+        "Auto-reject threshold cannot be lower than the flag threshold",
+        "error"
+      );
       return;
     }
 
@@ -87,8 +95,8 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         academicYear: selectedYear,
         school: selectedSchool,
         program: selectedProgram,
-        plagiarismThreshold: settings.plagiarismThreshold,
-        aiThreshold: settings.aiThreshold,
+        flagThreshold: settings.flagThreshold,
+        autoRejectThreshold: settings.autoRejectThreshold,
       });
 
       if (response.success) {
@@ -135,9 +143,8 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
           </h3>
           <p className="text-sm text-gray-600 mt-1">
             Student-submitted project titles and abstracts are automatically
-            checked for plagiarism and AI-generated content. Scores above
-            these thresholds are flagged for the guide's attention; the guide
-            can still choose to accept a flagged submission.
+            checked for plagiarism and AI-generated content. The higher of the
+            two scores is compared against both thresholds below.
           </p>
         </div>
 
@@ -201,39 +208,47 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Plagiarism Score Threshold (%)
+                    Flag Threshold (%)
                   </label>
                   <Input
                     type="number"
                     min={0}
                     max={100}
-                    value={settings.plagiarismThreshold}
+                    value={settings.flagThreshold}
                     disabled={isLoading}
                     onChange={(e) =>
                       setSettings({
                         ...settings,
-                        plagiarismThreshold: parseInt(e.target.value) || 0,
+                        flagThreshold: parseInt(e.target.value) || 0,
                       })
                     }
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Above this score, the submission is flagged for the guide's
+                    attention — the guide can still choose to accept it.
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    AI-Generated Content Threshold (%)
+                    Auto-Reject Threshold (%)
                   </label>
                   <Input
                     type="number"
                     min={0}
                     max={100}
-                    value={settings.aiThreshold}
+                    value={settings.autoRejectThreshold}
                     disabled={isLoading}
                     onChange={(e) =>
                       setSettings({
                         ...settings,
-                        aiThreshold: parseInt(e.target.value) || 0,
+                        autoRejectThreshold: parseInt(e.target.value) || 0,
                       })
                     }
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Above this score, the submission is blocked outright — the
+                    student cannot submit it and must revise the content.
+                  </p>
                 </div>
               </div>
             </div>
