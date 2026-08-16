@@ -576,9 +576,20 @@ export class ReportService {
     // Helper to standardise filters
     static _buildMatchQuery(filters) {
         const query = {};
-        if (filters.school) query.school = filters.school;
-        if (filters.programme) query.program = filters.programme;
-        if (filters.year || filters.academicYear) query.academicYear = filters.year || filters.academicYear;
+
+        if (filters.school) {
+            query.school = Array.isArray(filters.school) ? { $in: filters.school } : filters.school;
+        }
+
+        const programValue = filters.programme ?? filters.program;
+        if (programValue) {
+            query.program = Array.isArray(programValue) ? { $in: programValue } : programValue;
+        }
+
+        const yearValue = filters.year ?? filters.academicYear;
+        if (yearValue) {
+            query.academicYear = yearValue;
+        }
 
         // Log the constructed query for debugging
         console.log('[REPORT QUERY]', JSON.stringify(query));
