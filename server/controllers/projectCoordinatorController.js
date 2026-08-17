@@ -59,17 +59,18 @@ function getCoordinatorContext(req) {
  */
 function verifyContext(item, coordinator) {
   // If item has an academicYear field, it must match
-  if (item.academicYear && item.academicYear !== coordinator.academicYear) {
+  if (item.academicYear && String(item.academicYear).toLowerCase() !== String(coordinator.academicYear).toLowerCase()) {
     return false;
   }
 
   // item.program may be a single String (Project/Panel/ProjectCoordinator/etc.)
   // or an array of Strings (Faculty, who can belong to multiple programs).
+  const coordProgram = String(coordinator.program).toLowerCase();
   const programMatches = Array.isArray(item.program)
-    ? item.program.includes(coordinator.program)
-    : item.program === coordinator.program;
+    ? item.program.some(p => String(p).toLowerCase() === coordProgram)
+    : String(item.program).toLowerCase() === coordProgram;
 
-  return item.school === coordinator.school && programMatches;
+  return String(item.school).toLowerCase() === String(coordinator.school).toLowerCase() && programMatches;
 }
 
 // ==================== Profile & Permissions ====================

@@ -578,17 +578,25 @@ export class ReportService {
         const query = {};
 
         if (filters.school) {
-            query.school = Array.isArray(filters.school) ? { $in: filters.school } : filters.school;
+            if (Array.isArray(filters.school)) {
+                query.school = { $in: filters.school.map(s => new RegExp(`^${String(s).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i')) };
+            } else {
+                query.school = { $regex: new RegExp(`^${String(filters.school).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+            }
         }
 
         const programValue = filters.programme ?? filters.program;
         if (programValue) {
-            query.program = Array.isArray(programValue) ? { $in: programValue } : programValue;
+            if (Array.isArray(programValue)) {
+                query.program = { $in: programValue.map(p => new RegExp(`^${String(p).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i')) };
+            } else {
+                query.program = { $regex: new RegExp(`^${String(programValue).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+            }
         }
 
         const yearValue = filters.year ?? filters.academicYear;
         if (yearValue) {
-            query.academicYear = yearValue;
+            query.academicYear = { $regex: new RegExp(`^${String(yearValue).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
         }
 
         // Log the constructed query for debugging
