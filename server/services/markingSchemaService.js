@@ -212,6 +212,8 @@ export class MarkingSchemaService {
         })),
       })),
       deadline: review.deadline || null,
+      pptRequired: review.pptRequired || false,
+      draftRequired: review.draftRequired || false,
       order: review.order !== undefined ? review.order : index,
       isActive: review.isActive !== undefined ? review.isActive : true,
     }));
