@@ -28,6 +28,11 @@ connectDB();
 
 const app = express();
 
+// Trust the first hop (nginx) so req.ip reflects the real client IP from
+// X-Forwarded-For instead of the proxy's own address — required for
+// per-IP rate limiting to work correctly behind the WAF.
+app.set("trust proxy", 1);
+
 // Security - Helmet
 if (process.env.NODE_ENV === "production") {
   app.use(
