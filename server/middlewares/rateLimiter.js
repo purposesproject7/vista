@@ -1,12 +1,29 @@
+import crypto from "crypto";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { logger } from "../utils/logger.js";
+
+/**
+ * Most of our users sit behind the campus NAT, so every one of them presents
+ * the same public IP to nginx. Keying purely on IP therefore shares a single
+ * bucket across the whole college. When a bearer token is present we key on a
+ * hash of it (one bucket per logged-in session) and only fall back to the IP
+ * for genuinely anonymous traffic.
+ */
+const sessionOrIpKey = (req) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (token) {
+    return `s:${crypto.createHash("sha256").update(token).digest("hex")}`;
+  }
+  return `i:${ipKeyGenerator(req.ip)}`;
+};
 
 /**
  * Rate limiter to prevent abuse
  */
 const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 1000, // Per logged-in session (see sessionOrIpKey), not per IP
+  keyGenerator: sessionOrIpKey,
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   handler: (req, res) => {
@@ -35,7 +52,13 @@ const rateLimiter = rateLimit({
  */
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per IP per window
+  max: 10, // 10 attempts per targeted account per window
+  // Brute-force protection is about the account being guessed, not the source
+  // address; keying on IP would lock out the entire NATed campus at once.
+  keyGenerator: (req) =>
+    req.body?.emailId
+      ? `e:${String(req.body.emailId).toLowerCase()}`
+      : ipKeyGenerator(req.ip),
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
@@ -63,7 +86,10 @@ export const resendOtpLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.body?.emailId || ipKeyGenerator(req.ip),
+  keyGenerator: (req) =>
+    req.body?.emailId
+      ? `e:${String(req.body.emailId).toLowerCase()}`
+      : ipKeyGenerator(req.ip),
   handler: (req, res) => {
     logger.warn("resend_otp_rate_limit_exceeded", {
       ip: req.ip,
