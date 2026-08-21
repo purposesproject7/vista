@@ -360,9 +360,15 @@ export class StudentService {
       }
     }
 
-    // Set Student PAT flag to false
-    student.PAT = false;
-    await student.save();
+    // Use findOneAndUpdate to avoid full-document validation (which requires
+    // the `password` field and causes a validation error on student.save())
+    const updatedStudent = await Student.findOneAndUpdate(
+      { regNo },
+      { $set: { PAT: false } },
+      { new: true }
+    );
+
+    if (!updatedStudent) throw new Error("Student not found after update.");
 
     logger.info("student_pat_undone", {
       regNo,
@@ -371,7 +377,7 @@ export class StudentService {
       marksUpdated: marksDocs.length
     });
 
-    return this.processStudentData(student.toObject());
+    return this.processStudentData(updatedStudent.toObject());
   }
 
   /**
