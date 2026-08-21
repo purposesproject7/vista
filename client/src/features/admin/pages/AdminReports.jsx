@@ -12,7 +12,8 @@ import {
   UserGroupIcon,
   ClipboardDocumentCheckIcon,
   TableCellsIcon,
-  ClockIcon
+  ClockIcon,
+  PresentationChartBarIcon
 } from '@heroicons/react/24/outline';
 import { processTimeSheetData } from '../utils/reportHelpers';
 import { YEARS } from '../../../shared/constants/config';
@@ -183,6 +184,14 @@ const AdminReports = () => {
       icon: UserGroupIcon,
       filters: ['school', 'programme', 'year'],
       color: 'indigo'
+    },
+    {
+      id: 'ppt-approval-status',
+      name: 'PPT Approval Status (Panel Reviews)',
+      description: 'Shows whether the guide has approved the PPT for each project per review type — essential for verifying panel review readiness',
+      icon: PresentationChartBarIcon,
+      filters: ['school', 'programme', 'year'],
+      color: 'violet'
     }
   ];
 

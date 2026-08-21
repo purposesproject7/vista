@@ -12,7 +12,8 @@ import {
     UserGroupIcon,
     ClipboardDocumentCheckIcon,
     TableCellsIcon,
-    ExclamationTriangleIcon
+    ExclamationTriangleIcon,
+    PresentationChartBarIcon
 } from '@heroicons/react/24/outline';
 import { useToast } from '../../../shared/hooks/useToast';
 import * as XLSX from 'xlsx';
@@ -153,6 +154,14 @@ const CoordinatorReports = () => {
             icon: UserGroupIcon,
             filters: [],
             color: 'indigo'
+        },
+        {
+            id: 'ppt-approval-status',
+            name: 'PPT Approval Status (Panel Reviews)',
+            description: 'Shows whether the guide has approved the PPT for each project per review type — essential for verifying panel review readiness',
+            icon: PresentationChartBarIcon,
+            filters: [],
+            color: 'violet'
         }
     ];
 

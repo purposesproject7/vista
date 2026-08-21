@@ -34,6 +34,8 @@ export class ReportService {
                 return this.generateTimeSheetReport(filters);
             case "team-details":
                 return this.generateTeamDetailsReport(filters);
+            case "ppt-approval-status":
+                return this.generatePPTApprovalReport(filters);
             default:
                 throw new Error("Invalid report type");
         }
@@ -690,6 +692,76 @@ export class ReportService {
                 "SDG Goals": sdgGoalsStr
             });
         }
+
+        return results;
+    }
+
+    /**
+     * 12. PPT Approval Status Report
+     * Lists every project with its PPT approval status per review type.
+     * Useful for verifying which projects have had their PPT approved by the guide
+     * before a panel review session.
+     */
+    static async generatePPTApprovalReport(filters) {
+        const query = this._buildMatchQuery(filters);
+
+        const projects = await Project.find(query)
+            .populate('students', 'name regNo')
+            .populate('guideFaculty', 'name employeeId')
+            .populate({
+                path: 'panel',
+                select: 'panelName members',
+                populate: {
+                    path: 'members.faculty',
+                    select: 'name'
+                }
+            })
+            .populate('pptApprovals.approvedBy', 'name employeeId')
+            .lean();
+
+        const results = [];
+
+        for (const project of projects) {
+            // Collect all review types referenced in pptApprovals
+            // If a project has no pptApprovals array we still want one row per project.
+            const approvals = project.pptApprovals && project.pptApprovals.length > 0
+                ? project.pptApprovals
+                : [{ reviewType: 'N/A', isApproved: false, approvedBy: null, approvedAt: null }];
+
+            const studentNames = (project.students || []).map(s => `${s.name} (${s.regNo})`).join(', ');
+            const panelName = project.panel?.panelName || 'Unassigned';
+            const panelMembers = (project.panel?.members || [])
+                .map(m => m.faculty?.name)
+                .filter(Boolean)
+                .join(', ') || 'Unassigned';
+
+            for (const approval of approvals) {
+                results.push({
+                    'Project Title': project.name,
+                    'Students': studentNames,
+                    'Academic Year': project.academicYear,
+                    'Program': project.program,
+                    'School': project.school,
+                    'Guide Name': project.guideFaculty?.name || 'Unassigned',
+                    'Guide EmpID': project.guideFaculty?.employeeId || 'N/A',
+                    'Panel Name': panelName,
+                    'Panel Members': panelMembers,
+                    'Review Type': approval.reviewType,
+                    'PPT Approved by Guide': approval.isApproved ? 'Yes' : 'No',
+                    'Approved By': approval.approvedBy?.name || (approval.isApproved ? 'Unknown' : 'Pending'),
+                    'Approved At': approval.approvedAt
+                        ? new Date(approval.approvedAt).toLocaleString()
+                        : 'N/A',
+                });
+            }
+        }
+
+        // Sort by Project Title then Review Type
+        results.sort((a, b) => {
+            const titleCmp = a['Project Title'].localeCompare(b['Project Title']);
+            if (titleCmp !== 0) return titleCmp;
+            return a['Review Type'].localeCompare(b['Review Type']);
+        });
 
         return results;
     }
