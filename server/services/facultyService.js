@@ -1,6 +1,7 @@
 import Faculty from "../models/facultySchema.js";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
+import { buildCoordinatorFilterQuery, warnOnFilterMismatch } from "../utils/filterHelpers.js";
 
 export class FacultyService {
   /**
@@ -151,6 +152,7 @@ export class FacultyService {
    * Get faculty with filters
    */
   static async getFacultyList(filters = {}, sortOptions = {}) {
+    const CONTEXT = "FacultyService";
     const query = {};
 
     // Always exclude admins from faculty list
@@ -160,19 +162,10 @@ export class FacultyService {
       query.name = filters.name;
     }
 
-    if (filters.school && filters.school !== "all") {
-      const schoolStr = Array.isArray(filters.school)
-        ? filters.school.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.school = { $regex: new RegExp(`^(${schoolStr})$`, 'i') };
-    }
-
-    if (filters.program && filters.program !== "all") {
-      const progStr = Array.isArray(filters.program)
-        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
-    }
+    // Build case-insensitive coordinator dimension filters
+    const { query: coordQuery, appliedFilters } = buildCoordinatorFilterQuery(filters, CONTEXT);
+    // Faculty schema: 'school' is String, 'program' is [String] — $regex works for both
+    Object.assign(query, coordQuery);
 
     if (filters.specialization && filters.specialization !== "all") {
       query.specialization = { $in: [filters.specialization] };
@@ -182,24 +175,35 @@ export class FacultyService {
       query.isProjectCoordinator = filters.isProjectCoordinator === 'true' || filters.isProjectCoordinator === true;
     }
 
-    if (filters.academicYear) {
-      // This might be used to filter by academic year context
-      const schoolStr = Array.isArray(filters.school)
-        ? filters.school.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.school = { $regex: new RegExp(`^(${schoolStr})$`, 'i') };
-        
-      const progStr = Array.isArray(filters.program)
-        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
-    }
+    // Warn on potential program/school mismatch against actual DB values
+    try {
+      if (filters.program && filters.program !== "all") {
+        const distinctPrograms = await Faculty.distinct("program");
+        warnOnFilterMismatch(filters.program, distinctPrograms, "program", CONTEXT);
+      }
+      if (filters.school && filters.school !== "all") {
+        const distinctSchools = await Faculty.distinct("school");
+        warnOnFilterMismatch(filters.school, distinctSchools, "school", CONTEXT);
+      }
+    } catch (e) { /* non-fatal */ }
 
     const sort = sortOptions.sortBy
       ? { [sortOptions.sortBy]: sortOptions.sortOrder === "desc" ? -1 : 1 }
       : { name: 1 };
 
-    return await Faculty.find(query).sort(sort).select("-password").lean();
+    const faculties = await Faculty.find(query).sort(sort).select("-password").lean();
+
+    logger.info(`[${CONTEXT}] Query result`, {
+      facultiesFound: faculties.length,
+      appliedFilters,
+    });
+    if (faculties.length === 0) {
+      logger.warn(`[${CONTEXT}] Zero faculties returned. Check if coordinator's program/school matches the Faculty collection.`, {
+        requestedFilters: { school: filters.school, program: filters.program },
+      });
+    }
+
+    return faculties;
   }
 
   /**

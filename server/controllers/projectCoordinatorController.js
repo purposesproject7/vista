@@ -39,19 +39,42 @@ function getCoordinatorContext(req) {
       
       if (validRequested.length > 0) {
         targetProgram = validRequested;
+      } else {
+        // Log when requested program doesn't match any authorized program
+        logger.warn("[CoordinatorContext] Requested program not in authorized list — falling back to coordinator default", {
+          requestedPrograms: requested,
+          authorizedPrograms,
+          coordinatorId: req.coordinator._id,
+          hint: "Coordinator's stored program name may differ from what the frontend sent (case or spelling mismatch).",
+        });
       }
     } else if (req.coordinator.isPrimary && authorizedPrograms.length > 1) {
       targetProgram = authorizedPrograms;
     }
   }
 
-  const programFilter = Array.isArray(targetProgram) ? { $in: targetProgram } : targetProgram;
-
-  return {
+  const context = {
     academicYear: req.query.academicYear || req.coordinator.academicYear,
     school: req.coordinator.school,
-    program: targetProgram, // Keep as array/string, let services handle $in if needed for specific schemas
+    program: targetProgram,
   };
+
+  logger.debug("[CoordinatorContext] Resolved context", {
+    coordinatorId: req.coordinator._id,
+    storedValues: {
+      school: req.coordinator.school,
+      program: req.coordinator.program,
+      academicYear: req.coordinator.academicYear,
+    },
+    resolvedContext: context,
+    queryParams: {
+      school: req.query.school,
+      program: req.query.program,
+      academicYear: req.query.academicYear,
+    },
+  });
+
+  return context;
 }
 
 /**

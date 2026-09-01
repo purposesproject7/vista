@@ -4,6 +4,7 @@ import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import Student from "../models/studentSchema.js";
 import { logger } from "../utils/logger.js";
+import { buildCoordinatorFilterQuery, warnOnFilterMismatch } from "../utils/filterHelpers.js";
 export class PanelService {
   /**
    * Validate panel members
@@ -149,48 +150,48 @@ export class PanelService {
    * Get panels with filters
    */
   static async getPanelList(filters = {}) {
+    const CONTEXT = "PanelService";
     const query = { isActive: true };
 
-    if (filters.academicYear && filters.academicYear !== 'all') {
-      const acYearStr = Array.isArray(filters.academicYear)
-        ? filters.academicYear.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.academicYear.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.academicYear = { $regex: new RegExp(`^(${acYearStr})$`, 'i') };
-    }
-
-    // Handle 'all' as special case to fetch panels from all schools
-    if (filters.school && filters.school !== 'all') {
-      const schoolStr = Array.isArray(filters.school)
-        ? filters.school.map(s => s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.school = { $regex: new RegExp(`^(${schoolStr})$`, 'i') };
-    }
-
-    // Handle 'all' as special case to fetch panels from all programs
-    if (filters.program && filters.program !== 'all') {
-      const progStr = Array.isArray(filters.program)
-        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
-    }
+    // Build case-insensitive coordinator dimension filters
+    const { query: coordQuery, appliedFilters } = buildCoordinatorFilterQuery(filters, CONTEXT);
+    Object.assign(query, coordQuery);
 
     if (filters.specialization) {
       query.specializations = { $in: [filters.specialization] };
     }
 
+    // Warn on potential mismatches
+    try {
+      if (filters.program && filters.program !== "all") {
+        const distinctPrograms = await Panel.find({ isActive: true }).distinct("program");
+        warnOnFilterMismatch(filters.program, distinctPrograms, "program", CONTEXT);
+      }
+    } catch (e) { /* non-fatal */ }
+
     const panels = await Panel.find(query)
       .populate("members.faculty", "name employeeId emailId specialization")
       .lean();
+
+    logger.info(`[${CONTEXT}] Query result`, {
+      panelsFound: panels.length,
+      appliedFilters,
+    });
+    if (panels.length === 0) {
+      logger.warn(`[${CONTEXT}] Zero panels returned.`, {
+        requestedFilters: { school: filters.school, program: filters.program, academicYear: filters.academicYear },
+      });
+    }
 
     // Populate assigned projects for each panel
     const panelsWithProjects = await Promise.all(
       panels.map(async (panel) => {
         const projects = await Project.find({
           panel: panel._id,
-          status: { $ne: "archived" }, // Exclude archived if necessary, or just all
+          status: { $ne: "archived" },
         })
-          .select("name type teamSize studentIds students") // Ensure students field is selected
-          .populate("students", "name regNo") // Populate student details
+          .select("name type teamSize studentIds students")
+          .populate("students", "name regNo")
           .lean();
 
         return { ...panel, projects };

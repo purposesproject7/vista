@@ -5,6 +5,7 @@ import MarkingSchema from "../models/markingSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Marks from "../models/marksSchema.js";
 import { logger } from "../utils/logger.js";
+import { buildCoordinatorFilterQuery, buildCaseInsensitiveFilter, warnOnFilterMismatch } from "../utils/filterHelpers.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { EmailService } from "./emailService.js";
@@ -120,50 +121,45 @@ export class StudentService {
    * Get filtered students list
    */
   static async getFilteredStudents(filters = {}) {
+    const CONTEXT = "StudentService";
     const query = { isActive: true };
 
-    if (filters.school) {
-      query.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
-    }
-    
-    if (filters.program) {
-      if (Array.isArray(filters.program)) {
-        query.program = { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) };
-      } else {
-        query.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
-      }
-    }
-    
-    if (filters.academicYear) {
-      query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
-    }
+    // Build case-insensitive filter query using centralized helper
+    const { query: coordQuery, appliedFilters } = buildCoordinatorFilterQuery(filters, CONTEXT);
+    Object.assign(query, coordQuery);
+
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
-    if (filters.name) query.name = new RegExp(filters.name, "i");
+    if (filters.name)  query.name  = new RegExp(filters.name, "i");
+
+    // Warn early if the requested program/school/year has no likely match in DB
+    try {
+      if (filters.program) {
+        const distinctPrograms = await Student.distinct("program");
+        warnOnFilterMismatch(filters.program, distinctPrograms, "program", CONTEXT);
+      }
+      if (filters.school) {
+        const distinctSchools = await Student.distinct("school");
+        warnOnFilterMismatch(filters.school, distinctSchools, "school", CONTEXT);
+      }
+      if (filters.academicYear) {
+        const distinctYears = await Student.distinct("academicYear");
+        warnOnFilterMismatch(filters.academicYear, distinctYears, "academicYear", CONTEXT);
+      }
+    } catch (e) { /* non-fatal – best-effort validation */ }
+
 
     // Fetch schema map if context is available
     let reviewTypes = null;
     let schemaReviews = [];
     if (filters.school && filters.program && filters.academicYear) {
       try {
-        const schemaQuery = {};
-        
-        if (filters.school) {
-          schemaQuery.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
-        }
-        
-        if (filters.academicYear) {
-          schemaQuery.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
-        }
-        
-        if (filters.program) {
-          if (Array.isArray(filters.program)) {
-            schemaQuery.program = { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i')) };
-          } else {
-            schemaQuery.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')}$`, 'i') };
-          }
-        }
+        const { query: schemaQuery } = buildCoordinatorFilterQuery(filters, `${CONTEXT}:SchemaLookup`);
 
         const schemas = await MarkingSchema.find(schemaQuery).lean();
+        logger.info(`[${CONTEXT}:SchemaLookup] Found ${schemas.length} marking schema(s)`, {
+          expected: { school: filters.school, program: filters.program, academicYear: filters.academicYear },
+          schemasFound: schemas.map(s => ({ school: s.school, program: s.program, academicYear: s.academicYear })),
+        });
         if (schemas && schemas.length > 0) {
           reviewTypes = new Map();
           schemas.forEach(schema => {
@@ -181,7 +177,7 @@ export class StudentService {
           });
         }
       } catch (err) {
-        logger.error("Error fetching schema for student list marks calculation", err);
+        logger.error(`[${CONTEXT}] Error fetching marking schema`, { error: err.message });
       }
     }
 
@@ -197,6 +193,21 @@ export class StudentService {
         select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
       })
       .lean();
+
+    logger.info(`[${CONTEXT}] Query result`, {
+      studentsFound: students.length,
+      appliedFilters,
+      mongoQuery: JSON.stringify(query),
+    });
+    if (students.length === 0) {
+      logger.warn(`[${CONTEXT}] Zero students returned. Verify coordinator's program/school/academicYear match the values stored in the Student collection.`, {
+        requestedFilters: {
+          school: filters.school,
+          program: filters.program,
+          academicYear: filters.academicYear,
+        },
+      });
+    }
 
     // Get all student IDs
     const studentIds = students.map(s => s._id);
