@@ -969,7 +969,7 @@ export async function createProject(req, res) {
 
 export async function createProjectsBulk(req, res) {
   try {
-    const { projects } = req.body;
+    const { projects, ignoreDepartmentMismatch } = req.body;
 
     if (!Array.isArray(projects) || projects.length === 0) {
       return res.status(400).json({
@@ -989,7 +989,7 @@ export async function createProjectsBulk(req, res) {
     }));
 
     const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id, {
-      ignoreDepartmentMismatch: req.body.ignoreDepartmentMismatch
+      ignoreDepartmentMismatch: ignoreDepartmentMismatch === true || ignoreDepartmentMismatch === "true"
     });
 
     // Send response immediately — don't block on email notifications

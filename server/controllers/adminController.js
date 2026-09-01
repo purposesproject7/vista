@@ -1230,6 +1230,7 @@ export async function createProject(req, res) {
       type,
       specialization,
       description,
+      ignoreDepartmentMismatch,
     } = req.body;
 
     const projectData = {
@@ -1242,6 +1243,7 @@ export async function createProject(req, res) {
       type,
       specialization,
       description,
+      ignoreDepartmentMismatch: ignoreDepartmentMismatch === true || ignoreDepartmentMismatch === "true",
     };
 
     const project = await ProjectService.createProject(
@@ -1267,7 +1269,7 @@ export async function createProject(req, res) {
  */
 export async function bulkCreateProjects(req, res) {
   try {
-    const { projects } = req.body;
+    const { projects, ignoreDepartmentMismatch } = req.body;
 
     if (!Array.isArray(projects) || projects.length === 0) {
       return res.status(400).json({
@@ -1281,7 +1283,7 @@ export async function bulkCreateProjects(req, res) {
     const result = await ProjectService.bulkCreateProjects(
       projects,
       req.user._id,
-      { ignoreDepartmentMismatch: req.body.ignoreDepartmentMismatch }
+      { ignoreDepartmentMismatch: ignoreDepartmentMismatch === true || ignoreDepartmentMismatch === "true" }
     );
 
     // Send response immediately — don't block on email notifications

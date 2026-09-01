@@ -385,7 +385,7 @@ export class ProjectService {
    */
   static async bulkCreateProjects(data, createdBy, options = {}) {
     let projectsToCreate = [];
-    let ignoreDepartmentMismatch = options.ignoreDepartmentMismatch || false;
+    let ignoreDepartmentMismatch = options.ignoreDepartmentMismatch === true || options.ignoreDepartmentMismatch === "true";
 
     if (Array.isArray(data)) {
       projectsToCreate = data;
@@ -534,7 +534,10 @@ export class ProjectService {
           );
         }
 
-        if (!ignoreDepartmentMismatch && (guide.school !== pSchool || !guide.program.includes(pProgram))) {
+        if (!ignoreDepartmentMismatch && (
+          guide.school.toLowerCase() !== pSchool.toLowerCase() ||
+          !guide.program.some(p => p.toLowerCase().includes(pProgram.toLowerCase()) || pProgram.toLowerCase().includes(p.toLowerCase()))
+        )) {
           throw new Error(
             "Guide must belong to the same school and program as the project."
           );
@@ -673,7 +676,10 @@ export class ProjectService {
       throw new Error(`Guide faculty with ID ${guideFacultyEmpId} not found.`);
     }
 
-    if (!ignoreDepartmentMismatch && (guide.school !== school || !guide.program.includes(program))) {
+    if (!ignoreDepartmentMismatch && (
+      guide.school.toLowerCase() !== school.toLowerCase() ||
+      !guide.program.some(p => p.toLowerCase().includes(program.toLowerCase()) || program.toLowerCase().includes(p.toLowerCase()))
+    )) {
       throw new Error(
         "Guide must belong to the same school and program as the project."
       );
