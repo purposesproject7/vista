@@ -423,15 +423,10 @@ export class ProjectService {
     if (projectsToCreate.length === 0) return results;
 
     // ── Batch prefetch ──────────────────────────────────────────────────────
-    // Collect all unique guide employee IDs.
-    // IMPORTANT: Excel parses numeric cells as numbers (e.g. 54128), but
-    // Faculty.employeeId is stored as a String in MongoDB. Convert to string
-    // so { $in: [...] } and Map lookups match the DB values reliably.
+    // Collect all unique guide employee IDs
     const uniqueGuideEmpIds = [
       ...new Set(
-        projectsToCreate
-          .map((p) => p.guideFacultyEmpId != null ? String(p.guideFacultyEmpId).trim() : null)
-          .filter(Boolean)
+        projectsToCreate.map((p) => p.guideFacultyEmpId ? String(p.guideFacultyEmpId).trim() : null).filter(Boolean)
       ),
     ];
 
@@ -478,8 +473,7 @@ export class ProjectService {
           : Promise.resolve([]),
       ]);
 
-    // Build fast lookup Maps.
-    // Key on the string employeeId (already stored as String in DB).
+    // Build fast lookup Maps
     const facultyByEmpId = new Map(
       faculties.map((f) => [String(f.employeeId).trim(), f])
     );
@@ -532,12 +526,12 @@ export class ProjectService {
 
         const students_input = projectData.students || projectData.teamMembers || [];
 
-        // Resolve guide from cache.
-        // Stringify the ID from project data in case Excel parsed it as a number.
-        const guide = facultyByEmpId.get(String(guideFacultyEmpId).trim());
+        // Resolve guide from cache
+        const normalizedGuideId = String(guideFacultyEmpId).trim();
+        const guide = facultyByEmpId.get(normalizedGuideId);
         if (!guide) {
           throw new Error(
-            `Guide faculty with ID ${guideFacultyEmpId} not found. If the guide belongs to a different department, enable "Ignore department mismatch" and ensure the employee ID is correct.`
+            `Guide faculty with ID ${guideFacultyEmpId} not found.`
           );
         }
 
@@ -677,15 +671,11 @@ export class ProjectService {
       ignoreDepartmentMismatch,
     } = data;
 
-    // Validate guide faculty exists.
-    // Stringify the ID so numeric values from Excel (e.g. 54128) match the
-    // String-typed employeeId stored in MongoDB.
-    const normalizedGuideId = String(guideFacultyEmpId || "").trim();
+    // Validate guide faculty exists
+    const normalizedGuideId = String(guideFacultyEmpId).trim();
     const guide = await Faculty.findOne({ employeeId: normalizedGuideId });
     if (!guide) {
-      throw new Error(
-        `Guide faculty with ID ${guideFacultyEmpId} not found. If the guide belongs to a different department, enable "Ignore department mismatch" and ensure the employee ID is correct.`
-      );
+      throw new Error(`Guide faculty with ID ${guideFacultyEmpId} not found.`);
     }
 
     if (!ignoreDepartmentMismatch && (

@@ -70,32 +70,24 @@ const ProjectUploadTab = () => {
         throw new Error(response.message || 'Failed to upload projects');
       }
 
-      const { created = 0, failed = 0, errors: uploadErrors = [] } = response.data || {};
-
-      if (failed > 0) {
-        const errorLines = uploadErrors.map((e, i) => {
-          const label = e.name || `Row ${(e.index ?? i) + 1}`;
-          return `• ${label}: ${e.error || 'Unknown error'}`;
-        });
-        const detailMsg = [
-          `⚠️ ${created} project${created !== 1 ? 's' : ''} uploaded, ${failed} failed.`,
-          '',
-          ...errorLines,
-        ].join('\n');
-        setUploadStatus({ success: false, message: detailMsg });
-        if (created > 0) {
-          showToast(`${created} project(s) uploaded, ${failed} failed — see details below`, 'error');
-        } else {
-          showToast('All projects failed to upload — see details below', 'error');
-        }
+      const { created, failed, errors } = response.data || {};
+            
+      if (failed === 0) {
+          setUploadStatus({ type: 'success', message: `Successfully uploaded ${created} projects` });
+          showToast('Projects uploaded successfully', 'success');
+          setParsedData([]);
+      } else if (created > 0 && failed > 0) {
+          const errorLines = errors.map(e => `• ${e.name || `Row ${e.index + 1}`}: ${e.error}`).join('\n');
+          setUploadStatus({ type: 'partial', message: `${created} uploaded, ${failed} failed\n${errorLines}` });
+          showToast('Upload completed with errors', 'warning');
       } else {
-        setUploadStatus({ success: true, message: `Successfully uploaded ${created} project${created !== 1 ? 's' : ''}` });
-        showToast(`Successfully uploaded ${created} project${created !== 1 ? 's' : ''}`, 'success');
-        setParsedData([]);
+          const errorLines = (errors || []).map(e => `• ${e.name || `Row ${e.index + 1}`}: ${e.error}`).join('\n');
+          setUploadStatus({ type: 'error', message: `All ${failed || parsedData.length} projects failed to upload\n${errorLines}` });
+          showToast('Upload failed', 'error');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      setUploadStatus({ success: false, message: error.response?.data?.message || 'Failed to upload projects' });
+      setUploadStatus({ type: 'error', message: error.response?.data?.message || error.message || 'Failed to upload projects' });
     } finally {
       setIsUploading(false);
     }
@@ -221,21 +213,12 @@ const ProjectUploadTab = () => {
 
                 {uploadStatus && (
                   <div className={`p-3 rounded-lg flex items-start gap-2 ${
-                    uploadStatus.success
-                      ? 'bg-green-50 text-green-800 border border-green-200'
-                      : uploadStatus.message?.startsWith('⚠️')
-                        ? 'bg-amber-50 text-amber-900 border border-amber-200'
-                        : 'bg-red-50 text-red-800 border border-red-200'
+                    uploadStatus.type === 'success' ? 'bg-green-50 text-green-800' :
+                    uploadStatus.type === 'partial' ? 'bg-yellow-50 text-yellow-800' :
+                    'bg-red-50 text-red-800'
                   }`}>
-                    <span className="mt-0.5 flex-shrink-0">
-                      {uploadStatus.success
-                        ? <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                        : uploadStatus.message?.startsWith('⚠️')
-                          ? <span className="text-base leading-none">⚠️</span>
-                          : <XCircleIcon className="w-4 h-4 text-red-600" />
-                      }
-                    </span>
-                    <pre className="text-sm whitespace-pre-wrap font-sans break-words flex-1">{uploadStatus.message?.startsWith('⚠️') ? uploadStatus.message.replace(/^⚠️\s*/, '') : uploadStatus.message}</pre>
+                    {uploadStatus.type === 'success' ? <CheckCircleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" /> : <XCircleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" />}
+                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{uploadStatus.message}</pre>
                   </div>
                 )}
 

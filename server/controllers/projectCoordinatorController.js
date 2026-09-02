@@ -925,16 +925,15 @@ export async function createProject(req, res) {
     req.body.program = context.program;
 
     // Validate guide faculty exists and belongs to same dept
-    // Stringify so numeric IDs from Excel match the String-typed employeeId in DB.
-    req.body.guideFacultyEmpId = String(req.body.guideFacultyEmpId || "").trim();
+    const normalizedGuideId = req.body.guideFacultyEmpId ? String(req.body.guideFacultyEmpId).trim() : null;
     const guide = await Faculty.findOne({
-      employeeId: req.body.guideFacultyEmpId,
+      employeeId: normalizedGuideId,
     });
 
     if (!guide) {
       return res.status(404).json({
         success: false,
-        message: `Guide faculty with ID '${req.body.guideFacultyEmpId}' not found.`,
+        message: "Guide faculty not found.",
       });
     }
 
@@ -1180,7 +1179,8 @@ export async function assignGuide(req, res) {
     }
 
     // Validate guide faculty
-    const guide = await Faculty.findOne({ employeeId: guideFacultyEmpId });
+    const normalizedGuideId = guideFacultyEmpId ? String(guideFacultyEmpId).trim() : null;
+    const guide = await Faculty.findOne({ employeeId: normalizedGuideId });
 
     if (!guide) {
       return res.status(404).json({
