@@ -925,6 +925,8 @@ export async function createProject(req, res) {
     req.body.program = context.program;
 
     // Validate guide faculty exists and belongs to same dept
+    // Stringify so numeric IDs from Excel match the String-typed employeeId in DB.
+    req.body.guideFacultyEmpId = String(req.body.guideFacultyEmpId || "").trim();
     const guide = await Faculty.findOne({
       employeeId: req.body.guideFacultyEmpId,
     });
@@ -932,7 +934,7 @@ export async function createProject(req, res) {
     if (!guide) {
       return res.status(404).json({
         success: false,
-        message: "Guide faculty not found.",
+        message: `Guide faculty with ID '${req.body.guideFacultyEmpId}' not found.`,
       });
     }
 

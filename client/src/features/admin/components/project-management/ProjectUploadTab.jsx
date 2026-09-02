@@ -69,9 +69,30 @@ const ProjectUploadTab = () => {
       if (!response.success) {
         throw new Error(response.message || 'Failed to upload projects');
       }
-      setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} projects` });
-      showToast('Projects uploaded successfully', 'success');
-      setParsedData([]);
+
+      const { created = 0, failed = 0, errors: uploadErrors = [] } = response.data || {};
+
+      if (failed > 0) {
+        const errorLines = uploadErrors.map((e, i) => {
+          const label = e.name || `Row ${(e.index ?? i) + 1}`;
+          return `• ${label}: ${e.error || 'Unknown error'}`;
+        });
+        const detailMsg = [
+          `⚠️ ${created} project${created !== 1 ? 's' : ''} uploaded, ${failed} failed.`,
+          '',
+          ...errorLines,
+        ].join('\n');
+        setUploadStatus({ success: false, message: detailMsg });
+        if (created > 0) {
+          showToast(`${created} project(s) uploaded, ${failed} failed — see details below`, 'error');
+        } else {
+          showToast('All projects failed to upload — see details below', 'error');
+        }
+      } else {
+        setUploadStatus({ success: true, message: `Successfully uploaded ${created} project${created !== 1 ? 's' : ''}` });
+        showToast(`Successfully uploaded ${created} project${created !== 1 ? 's' : ''}`, 'success');
+        setParsedData([]);
+      }
     } catch (error) {
       console.error('Upload error:', error);
       setUploadStatus({ success: false, message: error.response?.data?.message || 'Failed to upload projects' });
@@ -199,9 +220,22 @@ const ProjectUploadTab = () => {
                 </p>
 
                 {uploadStatus && (
-                  <div className={`p-3 rounded-lg flex items-center gap-2 ${uploadStatus.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                    {uploadStatus.success ? <CheckCircleIcon className="w-4 h-4" /> : <XCircleIcon className="w-4 h-4" />}
-                    <span className="text-sm">{uploadStatus.message}</span>
+                  <div className={`p-3 rounded-lg flex items-start gap-2 ${
+                    uploadStatus.success
+                      ? 'bg-green-50 text-green-800 border border-green-200'
+                      : uploadStatus.message?.startsWith('⚠️')
+                        ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
+                  }`}>
+                    <span className="mt-0.5 flex-shrink-0">
+                      {uploadStatus.success
+                        ? <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                        : uploadStatus.message?.startsWith('⚠️')
+                          ? <span className="text-base leading-none">⚠️</span>
+                          : <XCircleIcon className="w-4 h-4 text-red-600" />
+                      }
+                    </span>
+                    <pre className="text-sm whitespace-pre-wrap font-sans break-words flex-1">{uploadStatus.message?.startsWith('⚠️') ? uploadStatus.message.replace(/^⚠️\s*/, '') : uploadStatus.message}</pre>
                   </div>
                 )}
 
