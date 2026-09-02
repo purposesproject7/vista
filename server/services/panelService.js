@@ -4,7 +4,6 @@ import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import Student from "../models/studentSchema.js";
 import { logger } from "../utils/logger.js";
-import { buildCoordinatorFilterQuery, warnOnFilterMismatch } from "../utils/filterHelpers.js";
 export class PanelService {
   /**
    * Validate panel members
@@ -150,48 +149,43 @@ export class PanelService {
    * Get panels with filters
    */
   static async getPanelList(filters = {}) {
-    const CONTEXT = "PanelService";
     const query = { isActive: true };
 
-    // Build case-insensitive coordinator dimension filters
-    const { query: coordQuery, appliedFilters } = buildCoordinatorFilterQuery(filters, CONTEXT);
-    Object.assign(query, coordQuery);
+    if (filters.academicYear) {
+      query.academicYear = filters.academicYear;
+    }
+
+    // Handle 'all' as special case to fetch panels from all schools
+    if (filters.school && filters.school !== 'all') {
+      query.school = filters.school;
+    }
+
+    // Handle 'all' as special case to fetch panels from all programs
+    if (filters.program && filters.program !== 'all') {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
 
     if (filters.specialization) {
       query.specializations = { $in: [filters.specialization] };
     }
 
-    // Warn on potential mismatches
-    try {
-      if (filters.program && filters.program !== "all") {
-        const distinctPrograms = await Panel.find({ isActive: true }).distinct("program");
-        warnOnFilterMismatch(filters.program, distinctPrograms, "program", CONTEXT);
-      }
-    } catch (e) { /* non-fatal */ }
-
     const panels = await Panel.find(query)
       .populate("members.faculty", "name employeeId emailId specialization")
       .lean();
-
-    logger.info(`[${CONTEXT}] Query result`, {
-      panelsFound: panels.length,
-      appliedFilters,
-    });
-    if (panels.length === 0) {
-      logger.warn(`[${CONTEXT}] Zero panels returned.`, {
-        requestedFilters: { school: filters.school, program: filters.program, academicYear: filters.academicYear },
-      });
-    }
 
     // Populate assigned projects for each panel
     const panelsWithProjects = await Promise.all(
       panels.map(async (panel) => {
         const projects = await Project.find({
           panel: panel._id,
-          status: { $ne: "archived" },
+          status: { $ne: "archived" }, // Exclude archived if necessary, or just all
         })
-          .select("name type teamSize studentIds students")
-          .populate("students", "name regNo")
+          .select("name type teamSize studentIds students") // Ensure students field is selected
+          .populate("students", "name regNo") // Populate student details
           .lean();
 
         return { ...panel, projects };
@@ -850,15 +844,9 @@ export class PanelService {
         }
 
         // Find Panel
-        const panelQuery = {
+        const panel = await Panel.findOne({ 
           panelName: { $regex: new RegExp(`^${panelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } 
-        };
-
-        if (project.academicYear) {
-          panelQuery.academicYear = project.academicYear;
-        }
-
-        const panel = await Panel.findOne(panelQuery);
+        });
         
         if (!panel) {
           throw new Error(`Panel '${panelName}' not found`);
