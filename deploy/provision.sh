@@ -78,6 +78,8 @@ WAZUH_MANAGER='$WAZUH_MANAGER'
 RCLONE_REMOTE='$RCLONE_REMOTE'
 RCLONE_PATH='$RCLONE_PATH'
 BACKUP_CRON='$BACKUP_CRON'
+# Set to yes once a CA-issued cert is installed (HSTS locks browsers to https).
+ENABLE_HSTS='no'
 # TLS — change these if your issued cert uses different filenames.
 SSL_CERT='/etc/certs/fullchain.pem'
 SSL_KEY='/etc/certs/privkey.pem'
@@ -334,6 +336,16 @@ ok "mongod running as ${REPL_SET} PRIMARY, auth on"
 # ---------------------------------------------------------------------------
 mkdir -p "$SSL_DIR"
 
+# HSTS pins the browser to https for a year. Sent while the cert is still the
+# self-signed placeholder, it makes Chrome refuse to let anyone click past the
+# warning — the site becomes unreachable for testing. Turn it on in $CONF once
+# the CA-issued cert is installed.
+if [ "${ENABLE_HSTS:-no}" = yes ]; then
+  HSTS_HEADER='    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;'
+else
+  HSTS_HEADER='    # HSTS off until a CA-issued cert is installed: set ENABLE_HSTS=yes in /etc/vista/deploy.conf'
+fi
+
 c "writing /etc/nginx/sites-available/vista"
 mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled "$WEB_ROOT"
 cat > /etc/nginx/sites-available/vista <<EOF
@@ -373,7 +385,7 @@ server {
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+${HSTS_HEADER}
 
     location /api/ {
         proxy_pass http://127.0.0.1:5000;
