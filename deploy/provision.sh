@@ -61,6 +61,7 @@ if [ ! -f "$CONF" ]; then
   ask RCLONE_REMOTE     "rclone Google Drive remote name" "gdrive"
   ask RCLONE_PATH       "Folder in that Drive account" "vista-backups"
   ask BACKUP_CRON       "Backup schedule (cron)" "30 2 * * *"
+  ask HTTP_HOSTS        "Host/IP to also serve over plain HTTP (blank = none)"
 
   umask 077
   cat > "$CONF" <<EOF
@@ -78,6 +79,8 @@ WAZUH_MANAGER='$WAZUH_MANAGER'
 RCLONE_REMOTE='$RCLONE_REMOTE'
 RCLONE_PATH='$RCLONE_PATH'
 BACKUP_CRON='$BACKUP_CRON'
+# Hosts served over plain HTTP, no redirect. Unencrypted — clear once TLS works.
+HTTP_HOSTS='$HTTP_HOSTS'
 # Set to yes once a CA-issued cert is installed (HSTS locks browsers to https).
 ENABLE_HSTS='no'
 # TLS — change these if your issued cert uses different filenames.
@@ -111,6 +114,17 @@ fi
 SSL_DIR="${SSL_DIR:-/etc/certs}"
 SSL_CERT="${SSL_CERT:-$SSL_DIR/fullchain.pem}"
 SSL_KEY="${SSL_KEY:-$SSL_DIR/privkey.pem}"
+
+# Hosts served over plain HTTP with no redirect to https — space separated,
+# normally the LAN IP, so the app is usable before TLS works. Everything on
+# these, logins included, travels unencrypted. Empty once TLS is in place.
+HTTP_HOSTS="${HTTP_HOSTS:-}"
+
+# CORS: the https domain, plus http:// for every plain-HTTP host. The SPA
+# calls /api on its own origin so most requests are same-origin, but the
+# allowlist has to cover the origin the page was actually loaded from.
+ALLOWED_ORIGINS="https://${DOMAIN}"
+for h in $HTTP_HOSTS; do ALLOWED_ORIGINS="${ALLOWED_ORIGINS},http://${h}"; done
 
 # ---------------------------------------------------------------------------
 # 2. Base packages
@@ -347,8 +361,69 @@ else
 fi
 
 c "writing /etc/nginx/sites-available/vista"
-mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled "$WEB_ROOT"
+mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/snippets "$WEB_ROOT"
+
+# Everything that is identical for every way the app is reached. Kept in a
+# snippet so the https vhost and the plain-http one cannot drift apart.
+cat > /etc/nginx/snippets/vista-app.conf <<EOF
+root ${WEB_ROOT};
+index index.html;
+client_max_body_size 50M;
+
+gzip on;
+gzip_vary on;
+gzip_min_length 1024;
+gzip_types text/plain text/css text/xml application/javascript application/json image/svg+xml;
+
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+location /api/ {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    # bulk xlsx imports run long; server.timeout is 300s
+    proxy_connect_timeout 120s;
+    proxy_send_timeout    300s;
+    proxy_read_timeout    300s;
+}
+
+location = /health {
+    proxy_pass http://127.0.0.1:5000/health;
+    access_log off;
+}
+
+location ~* \.(js|css|woff2?|png|jpg|jpeg|svg|ico)\$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+
+# SPA fallback
+location / { try_files \$uri \$uri/ /index.html; }
+EOF
+
+# Plain HTTP, no redirect, for the hosts in HTTP_HOSTS (typically the LAN IP).
+# Lets the app be used before a usable TLS certificate exists. Traffic here is
+# unencrypted, including logins — clear HTTP_HOSTS once TLS works.
+if [ -n "$HTTP_HOSTS" ]; then
+  HTTP_BLOCK="server {
+    listen 80;
+    listen [::]:80;
+    server_name ${HTTP_HOSTS};
+
+    include /etc/nginx/snippets/vista-app.conf;
+}"
+else
+  HTTP_BLOCK=""
+fi
+
 cat > /etc/nginx/sites-available/vista <<EOF
+${HTTP_BLOCK}
+
 server {
     listen 80;
     listen [::]:80;
@@ -373,45 +448,9 @@ server {
     ssl_session_timeout 1d;
     # ----------------------------------------------------------------------
 
-    root ${WEB_ROOT};
-    index index.html;
-    client_max_body_size 50M;
-
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_types text/plain text/css text/xml application/javascript application/json image/svg+xml;
-
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 ${HSTS_HEADER}
 
-    location /api/ {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        # bulk xlsx imports run long; server.timeout is 300s
-        proxy_connect_timeout 120s;
-        proxy_send_timeout    300s;
-        proxy_read_timeout    300s;
-    }
-
-    location = /health {
-        proxy_pass http://127.0.0.1:5000/health;
-        access_log off;
-    }
-
-    location ~* \.(js|css|woff2?|png|jpg|jpeg|svg|ico)\$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # SPA fallback
-    location / { try_files \$uri \$uri/ /index.html; }
+    include /etc/nginx/snippets/vista-app.conf;
 }
 EOF
 ln -sf /etc/nginx/sites-available/vista /etc/nginx/sites-enabled/vista
@@ -475,7 +514,7 @@ MONGODB_URI=${MONGO_URI}
 JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRE=1h
 
-ALLOWED_ORIGINS=https://${DOMAIN}
+ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
 FRONTEND_URL=https://${DOMAIN}
 
 EMAIL_USER=${EMAIL_USER}
