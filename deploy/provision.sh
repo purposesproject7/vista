@@ -3,9 +3,9 @@
 # provision.sh — bare-metal (no Docker) provisioning for VISTA
 #   Ubuntu 22.04 / 24.04, run as root:  sudo ./deploy/provision.sh
 #
-# Installs + configures: Node 20 + pm2, MongoDB 8 (localhost-only, auth on),
-# nginx (TLS from /etc/certs), ufw, Wazuh agent, Tailscale, rclone, and a nightly mongodump
-# cron that keeps ONE archive in Google Drive.
+# Installs + configures: Node 20 + pm2, MongoDB 8 (localhost-only, auth on,
+# single-node replica set), nginx (TLS from /etc/certs), ufw, Wazuh agent,
+# rclone, and a nightly mongodump cron that keeps ONE archive in Google Drive.
 #
 # Settings come from /etc/vista/deploy.conf (created on first run from your
 # answers). Re-running is safe: generated secrets are never regenerated.
@@ -58,7 +58,6 @@ if [ ! -f "$CONF" ]; then
   ask ADMIN_SCHOOL      "Admin school" "SCOPE"
   ask ADMIN_DEPARTMENT  "Admin department" "CSE"
   ask WAZUH_MANAGER     "Wazuh manager IP/host (blank = skip Wazuh)"
-  ask TS_AUTHKEY        "Tailscale auth key (blank = interactive login)"
   ask RCLONE_REMOTE     "rclone Google Drive remote name" "gdrive"
   ask RCLONE_PATH       "Folder in that Drive account" "vista-backups"
   ask BACKUP_CRON       "Backup schedule (cron)" "30 2 * * *"
@@ -76,7 +75,6 @@ ADMIN_EMPLOYEE_ID='$ADMIN_EMPLOYEE_ID'
 ADMIN_SCHOOL='$ADMIN_SCHOOL'
 ADMIN_DEPARTMENT='$ADMIN_DEPARTMENT'
 WAZUH_MANAGER='$WAZUH_MANAGER'
-TS_AUTHKEY='$TS_AUTHKEY'
 RCLONE_REMOTE='$RCLONE_REMOTE'
 RCLONE_PATH='$RCLONE_PATH'
 BACKUP_CRON='$BACKUP_CRON'
@@ -154,10 +152,14 @@ id -u "$RUN_USER" >/dev/null 2>&1 || \
   useradd --system --create-home --shell /bin/bash "$RUN_USER"
 
 # ---------------------------------------------------------------------------
-# 3. MongoDB config + auth
+# 3. MongoDB daemon: config file, auth, single-node replica set
 # ---------------------------------------------------------------------------
-c "configuring mongod (127.0.0.1 only, auth on)"
-cat > /etc/mongod.conf <<'EOF'
+REPL_SET="${REPL_SET:-rs0}"
+KEYFILE=/etc/vista/mongo-keyfile
+MONGO_URI="mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista&replicaSet=${REPL_SET}"
+
+write_mongod_conf() { # write_mongod_conf <with-auth: yes|no>
+  cat > /etc/mongod.conf <<EOF
 storage:
   dbPath: /var/lib/mongodb
 systemLog:
@@ -169,28 +171,82 @@ net:
   bindIp: 127.0.0.1
 processManagement:
   timeZoneInfo: /usr/share/zoneinfo
+replication:
+  replSetName: ${REPL_SET}
+EOF
+  # Replica set members authenticate to each other with a shared keyfile.
+  # mongod refuses to start a replica set with authorization on and no
+  # keyFile, even for a single-member set. keyFile implies authorization.
+  [ "$1" = yes ] && cat >> /etc/mongod.conf <<EOF
 security:
   authorization: enabled
+  keyFile: ${KEYFILE}
 EOF
+  return 0
+}
 
-# The localhost exception only applies while no user exists, so users have to
-# be created on a no-auth pass before authorization is switched on.
-if [ ! -f /etc/vista/.mongo-users-created ]; then
-  c "creating mongo users"
-  systemctl stop mongod 2>/dev/null || true
+wait_for_mongod() { # ping is allowed before authenticating
+  for _ in $(seq 1 60); do
+    mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  die "mongod did not accept connections within 60s — see /var/log/mongodb/mongod.log"
+}
+
+# Bootstrap needs a pass with auth OFF: the localhost exception only applies
+# while admin has no user, and rs.initiate() on an uninitiated member is
+# simpler to do unauthenticated. mongod is bound to 127.0.0.1 and ufw has not
+# been opened yet at this point, so nothing off-box can reach it meanwhile.
+if [ ! -f /etc/vista/.mongo-users-created ] || [ ! -f /etc/vista/.mongo-rs-initiated ]; then
+  c "bootstrapping mongod: replica set ${REPL_SET} + users"
   chown -R mongodb:mongodb /var/lib/mongodb /var/log/mongodb
-  sudo -u mongodb mongod --dbpath /var/lib/mongodb --bind_ip 127.0.0.1 --fork \
-       --logpath /var/log/mongodb/bootstrap.log
+  write_mongod_conf no
+  systemctl restart mongod
+  wait_for_mongod
+
+  if ! mongosh --quiet --eval 'rs.status().ok' >/dev/null 2>&1; then
+    mongosh --quiet --eval \
+      "rs.initiate({_id:'${REPL_SET}',members:[{_id:0,host:'127.0.0.1:27017'}]})" >/dev/null
+  fi
+  for _ in $(seq 1 60); do
+    [ "$(mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] && break
+    sleep 1
+  done
+  [ "$(mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] \
+    || die "replica set ${REPL_SET} did not reach PRIMARY"
+  touch /etc/vista/.mongo-rs-initiated
+
+  # Idempotent: re-running must not fail on users that already exist.
   mongosh --quiet --eval "
-    db.getSiblingDB('admin').createUser({user:'admin',pwd:'${MONGO_ROOT_PASSWORD}',
+    const a = db.getSiblingDB('admin');
+    if (!a.getUser('admin')) a.createUser({user:'admin',pwd:'${MONGO_ROOT_PASSWORD}',
       roles:[{role:'root',db:'admin'}]});
-    db.getSiblingDB('vista').createUser({user:'vista',pwd:'${MONGO_APP_PASSWORD}',
-      roles:[{role:'readWrite',db:'vista'}]});"
-  sudo -u mongodb mongod --dbpath /var/lib/mongodb --shutdown
+    const v = db.getSiblingDB('vista');
+    if (!v.getUser('vista')) v.createUser({user:'vista',pwd:'${MONGO_APP_PASSWORD}',
+      roles:[{role:'readWrite',db:'vista'}]});" >/dev/null
   touch /etc/vista/.mongo-users-created
 fi
-systemctl enable --now mongod
-ok "mongod running"
+
+c "configuring mongod daemon (127.0.0.1 only, auth on, replSet ${REPL_SET})"
+if [ ! -s "$KEYFILE" ]; then
+  openssl rand -base64 756 > "$KEYFILE"
+fi
+chown mongodb:mongodb "$KEYFILE"
+chmod 400 "$KEYFILE"
+
+write_mongod_conf yes
+systemctl enable mongod >/dev/null
+systemctl restart mongod
+wait_for_mongod
+
+MSH="mongosh --quiet -u admin -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin"
+for _ in $(seq 1 60); do
+  [ "$($MSH --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] && break
+  sleep 1
+done
+[ "$($MSH --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] \
+  || die "mongod is up but ${REPL_SET} is not PRIMARY — see /var/log/mongodb/mongod.log"
+ok "mongod running as ${REPL_SET} PRIMARY, auth on"
 
 # ---------------------------------------------------------------------------
 # 4. nginx + TLS (written before the app build, so a build failure still
@@ -317,8 +373,8 @@ PORT=5000
 HOST=127.0.0.1
 LOG_LEVEL=info
 
-MONGO_URI=mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista
-MONGODB_URI=mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista
+MONGO_URI=${MONGO_URI}
+MONGODB_URI=${MONGO_URI}
 
 JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRE=1h
@@ -388,30 +444,12 @@ ufw default allow outgoing >/dev/null
 ufw allow OpenSSH >/dev/null
 ufw allow 80/tcp  >/dev/null
 ufw allow 443/tcp >/dev/null
-ufw allow in on tailscale0 >/dev/null     # admin access over the tailnet
-ufw allow out 41641/udp >/dev/null        # tailscale
 # 27017 deliberately NOT opened — mongod binds 127.0.0.1 only.
 ufw --force enable >/dev/null
 ok "ufw active"
 
 # ---------------------------------------------------------------------------
-# 8. Tailscale
-# ---------------------------------------------------------------------------
-if ! command -v tailscale >/dev/null; then
-  c "installing tailscale"
-  curl -fsSL https://tailscale.com/install.sh | sh >/dev/null
-fi
-if ! tailscale status >/dev/null 2>&1; then
-  if [ -n "${TS_AUTHKEY:-}" ]; then
-    tailscale up --authkey "$TS_AUTHKEY" --ssh --hostname "vista-$(hostname -s)"
-  else
-    echo "  -> no TS_AUTHKEY in $CONF; finish with: tailscale up --ssh"
-  fi
-fi
-ok "tailscale ready"
-
-# ---------------------------------------------------------------------------
-# 9. Wazuh agent (SIEM)
+# 8. Wazuh agent (SIEM)
 # ---------------------------------------------------------------------------
 if [ -n "${WAZUH_MANAGER:-}" ]; then
   if [ ! -x /var/ossec/bin/wazuh-control ]; then
@@ -451,7 +489,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 10. Backups: nightly mongodump -> Google Drive (latest only)
+# 9. Backups: nightly mongodump -> Google Drive (latest only)
 # ---------------------------------------------------------------------------
 c "installing backup job"
 mkdir -p "$BACKUP_DIR"
@@ -468,6 +506,8 @@ STAMP=$(date -u +%Y%m%d_%H%M%S)
 ARCHIVE="$BACKUP_DIR/vista_${STAMP}.archive.gz"
 log() { echo "$(date -u +%FT%TZ) $*" >> /var/log/vista-backup.log; }
 
+# Direct connection on purpose: mongodump does not need replica-set discovery,
+# and this avoids the backup depending on the set name.
 mkdir -p "$BACKUP_DIR"
 mongodump --uri="mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista" \
           --archive="$ARCHIVE" --gzip --quiet
@@ -499,7 +539,7 @@ rclone listremotes 2>/dev/null | grep -qx "${RCLONE_REMOTE}:" || \
   echo "  -> Drive not linked. Run once: rclone config  (remote '${RCLONE_REMOTE}', type=drive, headless auth)"
 
 # ---------------------------------------------------------------------------
-# 11. Verify — the runnable check for everything above
+# 10. Verify — the runnable check for everything above
 # ---------------------------------------------------------------------------
 echo
 c "verifying"
@@ -524,9 +564,15 @@ grep -rqs "https://${DOMAIN}/api" "$WEB_ROOT"/assets 2>/dev/null \
   && ok "client bundle points at https://${DOMAIN}/api" \
   || echo "    WARN: API URL not found in bundle — client/.env may have been written after the build"
 systemctl is-active --quiet mongod && ok "mongod active" || { echo "    mongod NOT active"; fail=1; }
-mongosh "mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista" \
+mongosh "${MONGO_URI}" \
         --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1 \
-  && ok "mongo app user can authenticate" || { echo "    mongo auth FAILED"; fail=1; }
+  && ok "mongo app user can authenticate over the ${REPL_SET} URI" \
+  || { echo "    mongo auth FAILED"; fail=1; }
+[ "$($MSH --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] \
+  && ok "replica set ${REPL_SET} is PRIMARY" || { echo "    ${REPL_SET} NOT primary"; fail=1; }
+grep -q "replicaSet=${REPL_SET}" "$APP_DIR/server/.env" \
+  && ok "server/.env MONGO_URI carries replicaSet=${REPL_SET}" \
+  || { echo "    replicaSet missing from server/.env"; fail=1; }
 sleep 3
 curl -fsS http://127.0.0.1:5000/health >/dev/null \
   && ok "API /health 200" || { echo "    API health FAILED — check: pm2 logs vista-api"; fail=1; }
