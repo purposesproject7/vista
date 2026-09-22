@@ -195,6 +195,10 @@ mongod_died() { # print why instead of retrying a process that already exited
   echo
   echo "--- systemctl status mongod ---" >&2
   systemctl --no-pager --lines=5 status mongod 2>&1 | sed 's/^/    /' >&2
+  # A config-parse error happens before mongod opens its logfile, so the only
+  # copy of that message is in the journal.
+  echo "--- journalctl -u mongod ---" >&2
+  journalctl -u mongod -n 20 --no-pager -o cat 2>/dev/null | sed 's/^/    /' >&2
   echo "--- last 20 lines of /var/log/mongodb/mongod.log ---" >&2
   tail -20 /var/log/mongodb/mongod.log 2>/dev/null | sed 's/^/    /' >&2
   echo "--- /etc/mongod.conf ---" >&2
