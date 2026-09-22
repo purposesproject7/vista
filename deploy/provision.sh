@@ -138,14 +138,17 @@ if [ -z "${MONGO_MAJOR:-}" ]; then
   fi
 fi
 
-# MongoDB does not publish a suite for every Ubuntu release. Ask the repo
-# rather than guessing from a list that goes stale every six months; fall back
-# to the newest LTS suite, whose packages work on later releases.
-if curl -fsI "https://repo.mongodb.org/apt/ubuntu/dists/${CODENAME}/mongodb-org/${MONGO_MAJOR}/Release" >/dev/null 2>&1; then
-  MONGO_SUITE="$CODENAME"
-else
-  MONGO_SUITE="noble"
-fi
+# MongoDB does not publish every suite for every major — 8.0 has resolute and
+# noble, 7.0 stops at jammy. Ask the repo instead of guessing, newest first,
+# and take the first suite that actually exists for the chosen major.
+MONGO_SUITE=""
+for s in "$CODENAME" resolute noble jammy focal; do
+  if curl -fsI "https://repo.mongodb.org/apt/ubuntu/dists/${s}/mongodb-org/${MONGO_MAJOR}/Release" >/dev/null 2>&1; then
+    MONGO_SUITE="$s"
+    break
+  fi
+done
+[ -n "$MONGO_SUITE" ] || die "no MongoDB ${MONGO_MAJOR} apt suite exists for this release"
 
 if ! command -v node >/dev/null || [ "$(node -v | cut -d. -f1)" != "v20" ]; then
   c "installing Node 20"
