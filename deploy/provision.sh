@@ -437,6 +437,10 @@ if [ -d "$APP_DIR/.git" ]; then
   TARGET_BRANCH="${BRANCH:-$(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD)}"
   c "updating $APP_DIR (branch $TARGET_BRANCH)"
   git -C "$APP_DIR" fetch --all -q
+  # client/.env.production is tracked. An earlier version of this script wrote
+  # to it, which leaves the tree dirty and makes checkout refuse. Put it back;
+  # deployment overrides now go in the gitignored .env.production.local.
+  git -C "$APP_DIR" checkout -q -- client/.env.production 2>/dev/null || true
   git -C "$APP_DIR" checkout -q "$TARGET_BRANCH"
   git -C "$APP_DIR" pull -q --ff-only
 else
@@ -478,8 +482,18 @@ umask 022
 
 # Client env lives in the client folder, server env in the server folder.
 # Vite inlines VITE_* at BUILD time, so this must exist before `npm run build`.
-c "writing $APP_DIR/client/.env"
-printf 'VITE_API_BASE_URL=https://%s/api\n' "$DOMAIN" > "$APP_DIR/client/.env"
+#
+# Not .env: the repo tracks client/.env.production, and a mode-specific file
+# beats plain .env, so anything written there is silently ignored in a
+# production build. .env.production.local has the highest precedence and is
+# gitignored (.env.*.local), so it overrides without dirtying the tree.
+#
+# Relative /api, matching the repo default: nginx proxies /api/ to the API on
+# the same origin, so the bundle stays portable across the domain, a bare IP
+# and localhost instead of baking one hostname in.
+c "writing $APP_DIR/client/.env.production.local"
+printf 'VITE_API_BASE_URL=/api\n' > "$APP_DIR/client/.env.production.local"
+rm -f "$APP_DIR/client/.env"   # written by an earlier version; had no effect
 
 c "installing server deps"
 (cd "$APP_DIR/server" && npm ci --omit=dev --silent)
@@ -639,10 +653,17 @@ else
   echo "    nginx config INVALID"; fail=1
 fi
 [ -s "$APP_DIR/server/.env" ] && ok "server/.env written" || { echo "    server/.env MISSING"; fail=1; }
-[ -s "$APP_DIR/client/.env" ] && ok "client/.env written" || { echo "    client/.env MISSING"; fail=1; }
-grep -rqs "https://${DOMAIN}/api" "$WEB_ROOT"/assets 2>/dev/null \
-  && ok "client bundle points at https://${DOMAIN}/api" \
-  || echo "    WARN: API URL not found in bundle — client/.env may have been written after the build"
+[ -s "$APP_DIR/client/.env.production.local" ] && ok "client/.env.production.local written" \
+  || { echo "    client/.env.production.local MISSING"; fail=1; }
+# The dev fallback in client/src/shared/constants/config.js is
+# http://localhost:5000/api. If that string reached the bundle, the env file
+# was not picked up and every browser would call its own machine.
+grep -rqs "localhost:5000" "$WEB_ROOT"/assets 2>/dev/null \
+  && { echo "    client bundle contains localhost:5000 — client env not applied at build time"; fail=1; } \
+  || ok "client bundle has no localhost fallback baked in"
+git -C "$APP_DIR" diff --quiet -- client/.env.production \
+  && ok "tracked client/.env.production left clean" \
+  || { echo "    tracked client/.env.production is dirty — next checkout will fail"; fail=1; }
 systemctl is-active --quiet mongod && ok "mongod active" || { echo "    mongod NOT active"; fail=1; }
 mongosh "${MONGO_URI}" \
         --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1 \
