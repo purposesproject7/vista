@@ -4,7 +4,7 @@
 #   Ubuntu 22.04 / 24.04, run as root:  sudo ./deploy/provision.sh
 #
 # Installs + configures: Node 20 + pm2, MongoDB 8 (localhost-only, auth on),
-# nginx (TLS), ufw, Wazuh agent, Tailscale, rclone, and a nightly mongodump
+# nginx (TLS from /etc/certs), ufw, Wazuh agent, Tailscale, rclone, and a nightly mongodump
 # cron that keeps ONE archive in Google Drive.
 #
 # Settings come from /etc/vista/deploy.conf (created on first run from your
@@ -80,6 +80,9 @@ TS_AUTHKEY='$TS_AUTHKEY'
 RCLONE_REMOTE='$RCLONE_REMOTE'
 RCLONE_PATH='$RCLONE_PATH'
 BACKUP_CRON='$BACKUP_CRON'
+# TLS — change these if your issued cert uses different filenames.
+SSL_CERT='/etc/certs/fullchain.pem'
+SSL_KEY='/etc/certs/privkey.pem'
 EOF
   chmod 600 "$CONF"
   umask 022          # restore: a leaked 077 makes apt keyrings unreadable by _apt
@@ -101,6 +104,13 @@ if [ ! -f "$SECRETS" ]; then
   ok "generated $SECRETS"
 fi
 . "$SECRETS"
+
+# TLS material. Defaults live in /etc/certs; override SSL_CERT / SSL_KEY in
+# $CONF if your issued cert uses different filenames (e.g. vista.crt /
+# vista.key), or point them at /etc/letsencrypt/live/<domain>/ for certbot.
+SSL_DIR="${SSL_DIR:-/etc/certs}"
+SSL_CERT="${SSL_CERT:-$SSL_DIR/fullchain.pem}"
+SSL_KEY="${SSL_KEY:-$SSL_DIR/privkey.pem}"
 
 # ---------------------------------------------------------------------------
 # 2. Base packages
@@ -186,15 +196,20 @@ ok "mongod running"
 # 4. nginx + TLS (written before the app build, so a build failure still
 #    leaves a valid server config on disk)
 # ---------------------------------------------------------------------------
-CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
-if [ ! -f "$CERT_DIR/fullchain.pem" ]; then
-  # Self-signed placeholder so nginx starts before certbot has ever run.
-  c "no cert yet — writing self-signed placeholder into $CERT_DIR"
-  mkdir -p "$CERT_DIR"
+mkdir -p "$SSL_DIR"
+if [ ! -s "$SSL_CERT" ] || [ ! -s "$SSL_KEY" ]; then
+  # Self-signed placeholder so nginx starts before the real cert is dropped in.
+  c "no cert at $SSL_CERT — writing self-signed placeholder"
   openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-    -keyout "$CERT_DIR/privkey.pem" -out "$CERT_DIR/fullchain.pem" \
-    -subj "/CN=$DOMAIN" 2>/dev/null
+    -keyout "$SSL_KEY" -out "$SSL_CERT" -subj "/CN=$DOMAIN" 2>/dev/null
+  PLACEHOLDER_CERT=1
+  # Anything already sitting in $SSL_DIR under other names is probably the
+  # real cert — say so rather than letting a self-signed one go unnoticed.
+  found=$(ls -1 "$SSL_DIR" 2>/dev/null | grep -vE '^(fullchain|privkey)\.pem$' | tr '\n' ' ')
+  [ -n "$found" ] && echo "    NOTE: $SSL_DIR also contains: $found
+          If one of those is your real cert, set SSL_CERT/SSL_KEY in $CONF and re-run."
 fi
+chmod 600 "$SSL_KEY"
 
 c "writing /etc/nginx/sites-available/vista"
 mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled "$WEB_ROOT"
@@ -215,8 +230,8 @@ server {
     server_name ${DOMAIN};
 
     # --- SSL certificate paths --------------------------------------------
-    ssl_certificate     ${CERT_DIR}/fullchain.pem;
-    ssl_certificate_key ${CERT_DIR}/privkey.pem;
+    ssl_certificate     ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
     ssl_session_cache   shared:SSL:10m;
@@ -511,13 +526,30 @@ curl -fsS http://127.0.0.1:5000/health >/dev/null \
 ufw status | grep -q "Status: active" && ok "ufw active" || { echo "    ufw not active"; fail=1; }
 curl -fskS "https://${DOMAIN}/health" >/dev/null \
   && ok "https://${DOMAIN}/health reachable" \
-  || echo "    (https check failed — expected until DNS + certbot are done)"
+  || echo "    (https check failed — expected until DNS and the real cert are in place)"
+if openssl x509 -in "$SSL_CERT" -noout -checkend 0 >/dev/null 2>&1; then
+  issuer=$(openssl x509 -in "$SSL_CERT" -noout -issuer 2>/dev/null)
+  subject=$(openssl x509 -in "$SSL_CERT" -noout -subject 2>/dev/null)
+  if [ "$issuer" = "${subject/subject=/issuer=}" ]; then
+    echo "    WARN: $SSL_CERT is SELF-SIGNED — browsers will show a warning"
+  else
+    ok "cert at $SSL_CERT is CA-issued, not expired"
+  fi
+else
+  echo "    cert at $SSL_CERT missing or expired"; fail=1
+fi
 
 echo
-if [ ! -s "/etc/letsencrypt/renewal/${DOMAIN}.conf" ]; then
-  echo "NEXT — point DNS at this host, then replace the self-signed cert:"
-  echo "  certbot certonly --webroot -w /var/www/html -d ${DOMAIN} \\"
-  echo "          -m ${LE_EMAIL:-you@example.com} --agree-tos -n && systemctl reload nginx"
+if [ -n "${PLACEHOLDER_CERT:-}" ]; then
+  echo "NEXT — drop the real certificate in place (nginx reads these paths):"
+  echo "  ${SSL_CERT}   <- full chain (server cert + intermediates)"
+  echo "  ${SSL_KEY}   <- private key, chmod 600"
+  echo "  then: nginx -t && systemctl reload nginx"
+  echo "  Different filenames? Set SSL_CERT / SSL_KEY in ${CONF} and re-run."
+  echo "  Or use Let's Encrypt instead:"
+  echo "    certbot certonly --webroot -w /var/www/html -d ${DOMAIN} \\"
+  echo "            -m ${LE_EMAIL:-you@example.com} --agree-tos -n"
+  echo "    then point SSL_CERT/SSL_KEY at /etc/letsencrypt/live/${DOMAIN}/ and re-run."
 fi
 echo "NEXT — seed the admin account:"
 echo "  sudo -u ${RUN_USER} bash -c 'cd ${APP_DIR}/server && npm run setup-admin'"
