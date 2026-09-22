@@ -115,6 +115,11 @@ SSL_KEY="${SSL_KEY:-$SSL_DIR/privkey.pem}"
 # ---------------------------------------------------------------------------
 c "installing base packages"
 export DEBIAN_FRONTEND=noninteractive
+# This script owns the mongodb-org repo files and rewrites the right one below
+# once the major and suite are known. Drop them first: a stale list left by an
+# earlier run (wrong major, or a suite that has no Release file) makes every
+# apt-get update in this script fail, including this one.
+rm -f /etc/apt/sources.list.d/mongodb-org-*.list
 apt-get update -qq
 apt-get install -y -qq curl gnupg ca-certificates git ufw cron rclone \
                       nginx certbot python3-certbot-nginx
@@ -178,16 +183,20 @@ if [ -n "$INSTALLED_MAJOR" ] && [ "$INSTALLED_MAJOR" != "$MONGO_MAJOR" ]; then
   die "refusing to change MongoDB major version automatically"
 fi
 
+# Always (re)write the repo files, not just when installing, so the host keeps
+# a working mongodb-org source after the deleting pass above.
+c "configuring MongoDB ${MONGO_MAJOR} apt repo (${MONGO_SUITE})"
+curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_MAJOR}.asc" \
+  | gpg --batch --yes --dearmor -o "/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg"
+echo "deb [signed-by=/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg] https://repo.mongodb.org/apt/ubuntu ${MONGO_SUITE}/mongodb-org/${MONGO_MAJOR} multiverse" \
+  > "/etc/apt/sources.list.d/mongodb-org-${MONGO_MAJOR}.list"
+# gpgv runs as _apt, not root — both files must be world-readable.
+chmod 644 "/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg" \
+          "/etc/apt/sources.list.d/mongodb-org-${MONGO_MAJOR}.list"
+apt-get update -qq
+
 if [ -z "$INSTALLED_MAJOR" ]; then
-  c "installing MongoDB ${MONGO_MAJOR} (${MONGO_SUITE})"
-  curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_MAJOR}.asc" \
-    | gpg --batch --yes --dearmor -o "/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg"
-  echo "deb [signed-by=/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg] https://repo.mongodb.org/apt/ubuntu ${MONGO_SUITE}/mongodb-org/${MONGO_MAJOR} multiverse" \
-    > "/etc/apt/sources.list.d/mongodb-org-${MONGO_MAJOR}.list"
-  # gpgv runs as _apt, not root — both files must be world-readable.
-  chmod 644 "/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg" \
-            "/etc/apt/sources.list.d/mongodb-org-${MONGO_MAJOR}.list"
-  apt-get update -qq
+  c "installing MongoDB ${MONGO_MAJOR}"
   apt-get install -y -qq mongodb-org
 fi
 
