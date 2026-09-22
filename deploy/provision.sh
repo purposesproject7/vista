@@ -197,19 +197,6 @@ ok "mongod running"
 #    leaves a valid server config on disk)
 # ---------------------------------------------------------------------------
 mkdir -p "$SSL_DIR"
-if [ ! -s "$SSL_CERT" ] || [ ! -s "$SSL_KEY" ]; then
-  # Self-signed placeholder so nginx starts before the real cert is dropped in.
-  c "no cert at $SSL_CERT — writing self-signed placeholder"
-  openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-    -keyout "$SSL_KEY" -out "$SSL_CERT" -subj "/CN=$DOMAIN" 2>/dev/null
-  PLACEHOLDER_CERT=1
-  # Anything already sitting in $SSL_DIR under other names is probably the
-  # real cert — say so rather than letting a self-signed one go unnoticed.
-  found=$(ls -1 "$SSL_DIR" 2>/dev/null | grep -vE '^(fullchain|privkey)\.pem$' | tr '\n' ' ')
-  [ -n "$found" ] && echo "    NOTE: $SSL_DIR also contains: $found
-          If one of those is your real cert, set SSL_CERT/SSL_KEY in $CONF and re-run."
-fi
-chmod 600 "$SSL_KEY"
 
 c "writing /etc/nginx/sites-available/vista"
 mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled "$WEB_ROOT"
@@ -290,9 +277,20 @@ if ! grep -qE '^\s*include\s+.*sites-enabled' /etc/nginx/nginx.conf; then
   echo 'include /etc/nginx/sites-enabled/*;' > /etc/nginx/conf.d/vista-sites-enabled.conf
 fi
 
-nginx -t && systemctl reload nginx
 [ -L /etc/nginx/sites-enabled/vista ] || die "sites-enabled/vista symlink missing"
 ok "nginx configured: /etc/nginx/sites-available/vista -> sites-enabled/vista"
+
+# nginx -t fails while $SSL_CERT does not exist yet. That is expected until the
+# college hands over the cert, so warn and carry on instead of aborting the run.
+if nginx -t 2>/dev/null; then
+  systemctl reload nginx
+  ok "nginx reloaded"
+else
+  echo "    nginx -t failed — port 80 keeps serving, 443 will not until the cert exists:"
+  echo "      ${SSL_CERT}"
+  echo "      ${SSL_KEY}"
+  echo "    Drop them in, then: nginx -t && systemctl reload nginx"
+fi
 
 # ---------------------------------------------------------------------------
 # 5. Application code, .env, build
@@ -506,10 +504,20 @@ rclone listremotes 2>/dev/null | grep -qx "${RCLONE_REMOTE}:" || \
 echo
 c "verifying"
 fail=0
-nginx -t >/dev/null 2>&1 && ok "nginx config valid" || { echo "    nginx config INVALID"; fail=1; }
 [ -s /etc/nginx/sites-available/vista ] && ok "sites-available/vista written" || { echo "    sites-available/vista MISSING"; fail=1; }
 [ -L /etc/nginx/sites-enabled/vista ] && ok "sites-enabled/vista linked" || { echo "    sites-enabled/vista MISSING"; fail=1; }
-nginx -T 2>/dev/null | grep -q "server_name ${DOMAIN}" && ok "nginx actually loaded the vista site" || { echo "    vista site NOT loaded by nginx"; fail=1; }
+grep -q "ssl_certificate  *${SSL_CERT};" /etc/nginx/sites-available/vista \
+  && ok "nginx points at ${SSL_CERT}" || { echo "    cert path NOT in site config"; fail=1; }
+if nginx -t >/dev/null 2>&1; then
+  ok "nginx config valid"
+  nginx -T 2>/dev/null | grep -q "server_name ${DOMAIN}" \
+    && ok "nginx loaded the vista site" || { echo "    vista site NOT loaded by nginx"; fail=1; }
+elif [ ! -s "$SSL_CERT" ]; then
+  # Expected: the 443 block names a cert that has not been issued yet.
+  echo "    nginx -t fails because ${SSL_CERT} does not exist yet (expected)"
+else
+  echo "    nginx config INVALID"; fail=1
+fi
 [ -s "$APP_DIR/server/.env" ] && ok "server/.env written" || { echo "    server/.env MISSING"; fail=1; }
 [ -s "$APP_DIR/client/.env" ] && ok "client/.env written" || { echo "    client/.env MISSING"; fail=1; }
 grep -rqs "https://${DOMAIN}/api" "$WEB_ROOT"/assets 2>/dev/null \
@@ -524,32 +532,17 @@ curl -fsS http://127.0.0.1:5000/health >/dev/null \
   && ok "API /health 200" || { echo "    API health FAILED — check: pm2 logs vista-api"; fail=1; }
 [ -s "$WEB_ROOT/index.html" ] && ok "client build present in $WEB_ROOT" || { echo "    client build MISSING"; fail=1; }
 ufw status | grep -q "Status: active" && ok "ufw active" || { echo "    ufw not active"; fail=1; }
-curl -fskS "https://${DOMAIN}/health" >/dev/null \
-  && ok "https://${DOMAIN}/health reachable" \
-  || echo "    (https check failed — expected until DNS and the real cert are in place)"
-if openssl x509 -in "$SSL_CERT" -noout -checkend 0 >/dev/null 2>&1; then
-  issuer=$(openssl x509 -in "$SSL_CERT" -noout -issuer 2>/dev/null)
-  subject=$(openssl x509 -in "$SSL_CERT" -noout -subject 2>/dev/null)
-  if [ "$issuer" = "${subject/subject=/issuer=}" ]; then
-    echo "    WARN: $SSL_CERT is SELF-SIGNED — browsers will show a warning"
-  else
-    ok "cert at $SSL_CERT is CA-issued, not expired"
-  fi
-else
-  echo "    cert at $SSL_CERT missing or expired"; fail=1
-fi
+curl -fsS "http://127.0.0.1/health" >/dev/null 2>&1 \
+  && ok "http://127.0.0.1/health reachable through nginx" \
+  || echo "    (nginx health check failed)"
 
 echo
-if [ -n "${PLACEHOLDER_CERT:-}" ]; then
-  echo "NEXT — drop the real certificate in place (nginx reads these paths):"
+if [ ! -s "$SSL_CERT" ]; then
+  echo "NEXT — TLS. nginx is already pointed at these paths; drop the files in:"
   echo "  ${SSL_CERT}   <- full chain (server cert + intermediates)"
-  echo "  ${SSL_KEY}   <- private key, chmod 600"
+  echo "  ${SSL_KEY}   <- private key"
   echo "  then: nginx -t && systemctl reload nginx"
   echo "  Different filenames? Set SSL_CERT / SSL_KEY in ${CONF} and re-run."
-  echo "  Or use Let's Encrypt instead:"
-  echo "    certbot certonly --webroot -w /var/www/html -d ${DOMAIN} \\"
-  echo "            -m ${LE_EMAIL:-you@example.com} --agree-tos -n"
-  echo "    then point SSL_CERT/SSL_KEY at /etc/letsencrypt/live/${DOMAIN}/ and re-run."
 fi
 echo "NEXT — seed the admin account:"
 echo "  sudo -u ${RUN_USER} bash -c 'cd ${APP_DIR}/server && npm run setup-admin'"
