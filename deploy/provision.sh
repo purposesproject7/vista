@@ -185,12 +185,40 @@ EOF
   return 0
 }
 
-wait_for_mongod() { # ping is allowed before authenticating
-  for _ in $(seq 1 60); do
-    mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1 && return 0
+# mongosh defaults to a 30s server-selection timeout, which turns any retry
+# loop into a multi-minute hang. Always connect with a short timeout, and
+# directConnection so an uninitiated replica set member is still reachable.
+MURI="mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000"
+msh() { mongosh "$MURI" --quiet "$@"; }
+
+mongod_died() { # print why instead of retrying a process that already exited
+  echo
+  echo "--- systemctl status mongod ---" >&2
+  systemctl --no-pager --lines=5 status mongod 2>&1 | sed 's/^/    /' >&2
+  echo "--- last 20 lines of /var/log/mongodb/mongod.log ---" >&2
+  tail -20 /var/log/mongodb/mongod.log 2>/dev/null | sed 's/^/    /' >&2
+  echo "--- /etc/mongod.conf ---" >&2
+  sed 's/^/    /' /etc/mongod.conf >&2
+  die "$1"
+}
+
+start_mongod() {
+  systemctl restart mongod || true
+  for _ in $(seq 1 30); do
+    systemctl is-active --quiet mongod || mongod_died "mongod exited on startup"
+    msh --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1 && return 0
     sleep 1
   done
-  die "mongod did not accept connections within 60s — see /var/log/mongodb/mongod.log"
+  mongod_died "mongod is running but never accepted connections"
+}
+
+wait_primary() { # wait_primary [auth-args...]
+  for _ in $(seq 1 30); do
+    [ "$(mongosh "$@" --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] \
+      && return 0
+    sleep 1
+  done
+  return 1
 }
 
 # Bootstrap needs a pass with auth OFF: the localhost exception only applies
@@ -201,23 +229,17 @@ if [ ! -f /etc/vista/.mongo-users-created ] || [ ! -f /etc/vista/.mongo-rs-initi
   c "bootstrapping mongod: replica set ${REPL_SET} + users"
   chown -R mongodb:mongodb /var/lib/mongodb /var/log/mongodb
   write_mongod_conf no
-  systemctl restart mongod
-  wait_for_mongod
+  start_mongod
 
-  if ! mongosh --quiet --eval 'rs.status().ok' >/dev/null 2>&1; then
-    mongosh --quiet --eval \
+  if ! msh --eval 'rs.status().ok' >/dev/null 2>&1; then
+    msh --eval \
       "rs.initiate({_id:'${REPL_SET}',members:[{_id:0,host:'127.0.0.1:27017'}]})" >/dev/null
   fi
-  for _ in $(seq 1 60); do
-    [ "$(mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] && break
-    sleep 1
-  done
-  [ "$(mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] \
-    || die "replica set ${REPL_SET} did not reach PRIMARY"
+  wait_primary "$MURI" || mongod_died "replica set ${REPL_SET} did not reach PRIMARY"
   touch /etc/vista/.mongo-rs-initiated
 
   # Idempotent: re-running must not fail on users that already exist.
-  mongosh --quiet --eval "
+  msh --eval "
     const a = db.getSiblingDB('admin');
     if (!a.getUser('admin')) a.createUser({user:'admin',pwd:'${MONGO_ROOT_PASSWORD}',
       roles:[{role:'root',db:'admin'}]});
@@ -236,16 +258,11 @@ chmod 400 "$KEYFILE"
 
 write_mongod_conf yes
 systemctl enable mongod >/dev/null
-systemctl restart mongod
-wait_for_mongod
+start_mongod
 
-MSH="mongosh --quiet -u admin -p ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin"
-for _ in $(seq 1 60); do
-  [ "$($MSH --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] && break
-  sleep 1
-done
-[ "$($MSH --eval 'db.hello().isWritablePrimary' 2>/dev/null)" = "true" ] \
-  || die "mongod is up but ${REPL_SET} is not PRIMARY — see /var/log/mongodb/mongod.log"
+ADMIN_URI="mongodb://admin:${MONGO_ROOT_PASSWORD}@127.0.0.1:27017/?authSource=admin&directConnection=true&serverSelectionTimeoutMS=2000"
+MSH="mongosh $ADMIN_URI --quiet"
+wait_primary "$ADMIN_URI" || mongod_died "mongod is up but ${REPL_SET} is not PRIMARY"
 ok "mongod running as ${REPL_SET} PRIMARY, auth on"
 
 # ---------------------------------------------------------------------------
