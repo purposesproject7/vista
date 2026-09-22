@@ -78,6 +78,7 @@ RCLONE_PATH='$RCLONE_PATH'
 BACKUP_CRON='$BACKUP_CRON'
 EOF
   chmod 600 "$CONF"
+  umask 022          # restore: a leaked 077 makes apt keyrings unreadable by _apt
   ok "wrote $CONF"
 fi
 [ -n "${DOMAIN:-}" ] || die "DOMAIN unset in $CONF"
@@ -92,6 +93,7 @@ if [ ! -f "$SECRETS" ]; then
     echo "MONGO_ROOT_PASSWORD='$(openssl rand -hex 24)'"
   } > "$SECRETS"
   chmod 600 "$SECRETS"
+  umask 022
   ok "generated $SECRETS"
 fi
 . "$SECRETS"
@@ -106,6 +108,13 @@ apt-get install -y -qq curl gnupg ca-certificates git ufw cron rclone \
                       nginx certbot python3-certbot-nginx
 
 CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+# MongoDB publishes apt suites for LTS releases only. Interim releases
+# (oracular, plucky, questing, resolute, ...) have no repo of their own, so
+# point them at the LTS they derive from.
+case "$CODENAME" in
+  focal|jammy|noble) MONGO_SUITE="$CODENAME" ;;
+  *)                 MONGO_SUITE="noble" ;;
+esac
 
 if ! command -v node >/dev/null || [ "$(node -v | cut -d. -f1)" != "v20" ]; then
   c "installing Node 20"
@@ -117,9 +126,11 @@ command -v pm2 >/dev/null || npm install -g pm2 >/dev/null
 if ! command -v mongod >/dev/null; then
   c "installing MongoDB 8.0"
   curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
-    | gpg --dearmor -o /usr/share/keyrings/mongodb-8.0.gpg
-  echo "deb [signed-by=/usr/share/keyrings/mongodb-8.0.gpg] https://repo.mongodb.org/apt/ubuntu ${CODENAME}/mongodb-org/8.0 multiverse" \
+    | gpg --batch --yes --dearmor -o /usr/share/keyrings/mongodb-8.0.gpg
+  echo "deb [signed-by=/usr/share/keyrings/mongodb-8.0.gpg] https://repo.mongodb.org/apt/ubuntu ${MONGO_SUITE}/mongodb-org/8.0 multiverse" \
     > /etc/apt/sources.list.d/mongodb-org-8.0.list
+  # gpgv runs as _apt, not root — both files must be world-readable.
+  chmod 644 /usr/share/keyrings/mongodb-8.0.gpg /etc/apt/sources.list.d/mongodb-org-8.0.list
   apt-get update -qq
   apt-get install -y -qq mongodb-org
 fi
@@ -363,9 +374,10 @@ if [ -n "${WAZUH_MANAGER:-}" ]; then
   if [ ! -x /var/ossec/bin/wazuh-control ]; then
     c "installing wazuh-agent -> $WAZUH_MANAGER"
     curl -fsSL https://packages.wazuh.com/key/GPG-KEY-WAZUH \
-      | gpg --dearmor -o /usr/share/keyrings/wazuh.gpg
+      | gpg --batch --yes --dearmor -o /usr/share/keyrings/wazuh.gpg
     echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" \
       > /etc/apt/sources.list.d/wazuh.list
+    chmod 644 /usr/share/keyrings/wazuh.gpg /etc/apt/sources.list.d/wazuh.list
     apt-get update -qq
     WAZUH_MANAGER="$WAZUH_MANAGER" WAZUH_AGENT_NAME="vista-$(hostname -s)" \
       apt-get install -y -qq wazuh-agent
