@@ -112,13 +112,14 @@ apt-get install -y -qq curl gnupg ca-certificates git ufw cron rclone \
                       nginx certbot python3-certbot-nginx
 
 CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
-# MongoDB publishes apt suites for LTS releases only. Interim releases
-# (oracular, plucky, questing, resolute, ...) have no repo of their own, so
-# point them at the LTS they derive from.
-case "$CODENAME" in
-  focal|jammy|noble) MONGO_SUITE="$CODENAME" ;;
-  *)                 MONGO_SUITE="noble" ;;
-esac
+# MongoDB does not publish a suite for every Ubuntu release. Ask the repo
+# rather than guessing from a list that goes stale every six months; fall back
+# to the newest LTS suite, whose packages work on later releases.
+if curl -fsI "https://repo.mongodb.org/apt/ubuntu/dists/${CODENAME}/mongodb-org/8.0/Release" >/dev/null 2>&1; then
+  MONGO_SUITE="$CODENAME"
+else
+  MONGO_SUITE="noble"
+fi
 
 if ! command -v node >/dev/null || [ "$(node -v | cut -d. -f1)" != "v20" ]; then
   c "installing Node 20"
