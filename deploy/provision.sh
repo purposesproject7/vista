@@ -16,7 +16,7 @@ CONF=/etc/vista/deploy.conf
 SECRETS=/etc/vista/secrets.env
 REPO_URL="${REPO_URL:-https://github.com/purposesproject7/vista.git}"
 APP_DIR="${APP_DIR:-/opt/vista}"
-BRANCH="${BRANCH:-main}"
+BRANCH="${BRANCH:-}"          # empty = keep the branch $APP_DIR is already on
 WEB_ROOT=/var/www/vista
 BACKUP_DIR=/var/backups/vista
 RUN_USER="${RUN_USER:-vista}"
@@ -282,13 +282,17 @@ ok "nginx configured: /etc/nginx/sites-available/vista -> sites-enabled/vista"
 # 5. Application code, .env, build
 # ---------------------------------------------------------------------------
 if [ -d "$APP_DIR/.git" ]; then
-  c "updating $APP_DIR"
+  # Stay on whatever branch the checkout is already on unless BRANCH was set
+  # explicitly — otherwise a clone made with -b <branch> silently gets moved.
+  TARGET_BRANCH="${BRANCH:-$(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD)}"
+  c "updating $APP_DIR (branch $TARGET_BRANCH)"
   git -C "$APP_DIR" fetch --all -q
-  git -C "$APP_DIR" checkout -q "$BRANCH"
+  git -C "$APP_DIR" checkout -q "$TARGET_BRANCH"
   git -C "$APP_DIR" pull -q --ff-only
 else
-  c "cloning into $APP_DIR"
-  git clone -q -b "$BRANCH" "$REPO_URL" "$APP_DIR"
+  TARGET_BRANCH="${BRANCH:-main}"
+  c "cloning into $APP_DIR (branch $TARGET_BRANCH)"
+  git clone -q -b "$TARGET_BRANCH" "$REPO_URL" "$APP_DIR"
 fi
 
 c "writing $APP_DIR/server/.env"
@@ -343,6 +347,11 @@ chown -R "$RUN_USER":"$RUN_USER" "$APP_DIR/server" "$WEB_ROOT"
 # 6. pm2
 # ---------------------------------------------------------------------------
 c "starting API under pm2"
+# Run from a directory $RUN_USER can traverse. If the script is invoked from
+# somewhere only the invoking user can read (e.g. another user's home), node
+# inherits that cwd and every spawn dies with EACCES.
+cd "$APP_DIR/server"
+install -d -o "$RUN_USER" -g "$RUN_USER" -m 755 "/home/$RUN_USER"
 PM2="sudo -u $RUN_USER HOME=/home/$RUN_USER pm2"
 if $PM2 describe vista-api >/dev/null 2>&1; then
   $PM2 restart vista-api --update-env
@@ -352,6 +361,7 @@ else
 fi
 $PM2 save
 pm2 startup systemd -u "$RUN_USER" --hp "/home/$RUN_USER" >/dev/null
+cd /
 ok "pm2 online"
 
 # ---------------------------------------------------------------------------
