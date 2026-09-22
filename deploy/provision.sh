@@ -670,6 +670,12 @@ if [ ! -s "$SSL_CERT" ]; then
   echo "  then: nginx -t && systemctl reload nginx"
   echo "  Different filenames? Set SSL_CERT / SSL_KEY in ${CONF} and re-run."
 fi
-echo "NEXT — seed the admin account:"
-echo "  sudo -u ${RUN_USER} bash -c 'cd ${APP_DIR}/server && npm run setup-admin'"
+echo "Deployed branch: $(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD) @ $(git -C "$APP_DIR" rev-parse --short HEAD)"
+if grep -q '"setup-admin"' "$APP_DIR/server/package.json"; then
+  echo "NEXT — seed the admin account:"
+  echo "  sudo -u ${RUN_USER} bash -c 'cd ${APP_DIR}/server && npm run setup-admin'"
+else
+  echo "NOTE — this branch has no setup-admin script; create the admin account"
+  echo "       by hand, or deploy a branch that ships one: BRANCH=<name> $0"
+fi
 exit $fail
