@@ -21,9 +21,13 @@ WEB_ROOT=/var/www/vista
 BACKUP_DIR=/var/backups/vista
 RUN_USER="${RUN_USER:-vista}"
 
-c()  { echo -e "\033[0;36m[*]\033[0m $*"; }
+STEP="startup"
+c()  { STEP="$*"; echo -e "\033[0;36m[*]\033[0m $*"; }
 ok() { echo -e "\033[0;32m[+]\033[0m $*"; }
 die(){ echo -e "\033[0;31m[!]\033[0m $*" >&2; exit 1; }
+
+# set -e otherwise aborts silently mid-run and it looks like a step was skipped.
+trap 'rc=$?; echo -e "\n\033[0;31m[!] FAILED during: ${STEP} (line $LINENO, exit $rc)\033[0m\n    Everything after this step did NOT run. Fix the error above and re-run." >&2' ERR
 
 [ "$(id -u)" = 0 ] || die "run as root"
 
@@ -178,80 +182,8 @@ systemctl enable --now mongod
 ok "mongod running"
 
 # ---------------------------------------------------------------------------
-# 4. Application code, .env, build
-# ---------------------------------------------------------------------------
-if [ -d "$APP_DIR/.git" ]; then
-  c "updating $APP_DIR"
-  git -C "$APP_DIR" fetch --all -q
-  git -C "$APP_DIR" checkout -q "$BRANCH"
-  git -C "$APP_DIR" pull -q --ff-only
-else
-  c "cloning into $APP_DIR"
-  git clone -q -b "$BRANCH" "$REPO_URL" "$APP_DIR"
-fi
-
-c "writing $APP_DIR/server/.env"
-umask 077
-cat > "$APP_DIR/server/.env" <<EOF
-NODE_ENV=production
-PORT=5000
-HOST=127.0.0.1
-LOG_LEVEL=info
-
-MONGO_URI=mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista
-MONGODB_URI=mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista
-
-JWT_SECRET=${JWT_SECRET}
-JWT_EXPIRE=1h
-
-ALLOWED_ORIGINS=https://${DOMAIN}
-FRONTEND_URL=https://${DOMAIN}
-
-EMAIL_USER=${EMAIL_USER}
-EMAIL_PASS=${EMAIL_PASS}
-EMAIL_FROM=Vista System <${EMAIL_USER}>
-
-ADMIN_EMAIL=${ADMIN_EMAIL}
-ADMIN_PASSWORD=${ADMIN_PASSWORD}
-ADMIN_NAME=${ADMIN_NAME}
-ADMIN_EMPLOYEE_ID=${ADMIN_EMPLOYEE_ID}
-ADMIN_SCHOOL=${ADMIN_SCHOOL}
-ADMIN_DEPARTMENT=${ADMIN_DEPARTMENT}
-EOF
-chmod 640 "$APP_DIR/server/.env"
-umask 022
-
-printf 'VITE_API_BASE_URL=https://%s/api\n' "$DOMAIN" > "$APP_DIR/client/.env.production"
-
-c "installing server deps"
-(cd "$APP_DIR/server" && npm ci --omit=dev --silent)
-
-c "building client"
-(cd "$APP_DIR/client" && npm ci --silent && npm run build)
-mkdir -p "$WEB_ROOT"
-rm -rf "${WEB_ROOT:?}"/*
-cp -r "$APP_DIR/client/dist/." "$WEB_ROOT/"
-
-mkdir -p "$APP_DIR/server/logs"
-chown -R "$RUN_USER":"$RUN_USER" "$APP_DIR/server" "$WEB_ROOT"
-
-# ---------------------------------------------------------------------------
-# 5. pm2
-# ---------------------------------------------------------------------------
-c "starting API under pm2"
-PM2="sudo -u $RUN_USER HOME=/home/$RUN_USER pm2"
-if $PM2 describe vista-api >/dev/null 2>&1; then
-  $PM2 restart vista-api --update-env
-else
-  $PM2 start "$APP_DIR/server/index.js" --name vista-api \
-      --cwd "$APP_DIR/server" --time --max-memory-restart 600M
-fi
-$PM2 save
-pm2 startup systemd -u "$RUN_USER" --hp "/home/$RUN_USER" >/dev/null
-ok "pm2 online"
-
-# ---------------------------------------------------------------------------
-# 6. nginx + TLS
+# 4. nginx + TLS (written before the app build, so a build failure still
+#    leaves a valid server config on disk)
 # ---------------------------------------------------------------------------
 CERT_DIR="/etc/letsencrypt/live/$DOMAIN"
 if [ ! -f "$CERT_DIR/fullchain.pem" ]; then
@@ -264,6 +196,7 @@ if [ ! -f "$CERT_DIR/fullchain.pem" ]; then
 fi
 
 c "writing /etc/nginx/sites-available/vista"
+mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled "$WEB_ROOT"
 cat > /etc/nginx/sites-available/vista <<EOF
 server {
     listen 80;
@@ -332,8 +265,94 @@ server {
 EOF
 ln -sf /etc/nginx/sites-available/vista /etc/nginx/sites-enabled/vista
 rm -f /etc/nginx/sites-enabled/default
+
+# Debian/Ubuntu's nginx.conf includes sites-enabled/*, but a hand-edited or
+# upstream-packaged nginx.conf may only include conf.d/*.conf — in which case
+# the site above is written but never loaded.
+if ! grep -qE '^\s*include\s+.*sites-enabled' /etc/nginx/nginx.conf; then
+  c "nginx.conf does not include sites-enabled — bridging via conf.d"
+  echo 'include /etc/nginx/sites-enabled/*;' > /etc/nginx/conf.d/vista-sites-enabled.conf
+fi
+
 nginx -t && systemctl reload nginx
-ok "nginx configured"
+[ -L /etc/nginx/sites-enabled/vista ] || die "sites-enabled/vista symlink missing"
+ok "nginx configured: /etc/nginx/sites-available/vista -> sites-enabled/vista"
+
+# ---------------------------------------------------------------------------
+# 5. Application code, .env, build
+# ---------------------------------------------------------------------------
+if [ -d "$APP_DIR/.git" ]; then
+  c "updating $APP_DIR"
+  git -C "$APP_DIR" fetch --all -q
+  git -C "$APP_DIR" checkout -q "$BRANCH"
+  git -C "$APP_DIR" pull -q --ff-only
+else
+  c "cloning into $APP_DIR"
+  git clone -q -b "$BRANCH" "$REPO_URL" "$APP_DIR"
+fi
+
+c "writing $APP_DIR/server/.env"
+umask 077
+cat > "$APP_DIR/server/.env" <<EOF
+NODE_ENV=production
+PORT=5000
+HOST=127.0.0.1
+LOG_LEVEL=info
+
+MONGO_URI=mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista
+MONGODB_URI=mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista
+
+JWT_SECRET=${JWT_SECRET}
+JWT_EXPIRE=1h
+
+ALLOWED_ORIGINS=https://${DOMAIN}
+FRONTEND_URL=https://${DOMAIN}
+
+EMAIL_USER=${EMAIL_USER}
+EMAIL_PASS=${EMAIL_PASS}
+EMAIL_FROM=Vista System <${EMAIL_USER}>
+
+ADMIN_EMAIL=${ADMIN_EMAIL}
+ADMIN_PASSWORD=${ADMIN_PASSWORD}
+ADMIN_NAME=${ADMIN_NAME}
+ADMIN_EMPLOYEE_ID=${ADMIN_EMPLOYEE_ID}
+ADMIN_SCHOOL=${ADMIN_SCHOOL}
+ADMIN_DEPARTMENT=${ADMIN_DEPARTMENT}
+EOF
+chmod 640 "$APP_DIR/server/.env"
+umask 022
+
+# Client env lives in the client folder, server env in the server folder.
+# Vite inlines VITE_* at BUILD time, so this must exist before `npm run build`.
+c "writing $APP_DIR/client/.env"
+printf 'VITE_API_BASE_URL=https://%s/api\n' "$DOMAIN" > "$APP_DIR/client/.env"
+
+c "installing server deps"
+(cd "$APP_DIR/server" && npm ci --omit=dev --silent)
+
+c "building client"
+(cd "$APP_DIR/client" && npm ci --silent && npm run build)
+mkdir -p "$WEB_ROOT"
+rm -rf "${WEB_ROOT:?}"/*
+cp -r "$APP_DIR/client/dist/." "$WEB_ROOT/"
+
+mkdir -p "$APP_DIR/server/logs"
+chown -R "$RUN_USER":"$RUN_USER" "$APP_DIR/server" "$WEB_ROOT"
+
+# ---------------------------------------------------------------------------
+# 6. pm2
+# ---------------------------------------------------------------------------
+c "starting API under pm2"
+PM2="sudo -u $RUN_USER HOME=/home/$RUN_USER pm2"
+if $PM2 describe vista-api >/dev/null 2>&1; then
+  $PM2 restart vista-api --update-env
+else
+  $PM2 start "$APP_DIR/server/index.js" --name vista-api \
+      --cwd "$APP_DIR/server" --time --max-memory-restart 600M
+fi
+$PM2 save
+pm2 startup systemd -u "$RUN_USER" --hp "/home/$RUN_USER" >/dev/null
+ok "pm2 online"
 
 # ---------------------------------------------------------------------------
 # 7. ufw
@@ -462,6 +481,14 @@ echo
 c "verifying"
 fail=0
 nginx -t >/dev/null 2>&1 && ok "nginx config valid" || { echo "    nginx config INVALID"; fail=1; }
+[ -s /etc/nginx/sites-available/vista ] && ok "sites-available/vista written" || { echo "    sites-available/vista MISSING"; fail=1; }
+[ -L /etc/nginx/sites-enabled/vista ] && ok "sites-enabled/vista linked" || { echo "    sites-enabled/vista MISSING"; fail=1; }
+nginx -T 2>/dev/null | grep -q "server_name ${DOMAIN}" && ok "nginx actually loaded the vista site" || { echo "    vista site NOT loaded by nginx"; fail=1; }
+[ -s "$APP_DIR/server/.env" ] && ok "server/.env written" || { echo "    server/.env MISSING"; fail=1; }
+[ -s "$APP_DIR/client/.env" ] && ok "client/.env written" || { echo "    client/.env MISSING"; fail=1; }
+grep -rqs "https://${DOMAIN}/api" "$WEB_ROOT"/assets 2>/dev/null \
+  && ok "client bundle points at https://${DOMAIN}/api" \
+  || echo "    WARN: API URL not found in bundle — client/.env may have been written after the build"
 systemctl is-active --quiet mongod && ok "mongod active" || { echo "    mongod NOT active"; fail=1; }
 mongosh "mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista" \
         --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1 \
