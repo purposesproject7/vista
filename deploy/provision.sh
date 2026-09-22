@@ -120,6 +120,12 @@ SSL_KEY="${SSL_KEY:-$SSL_DIR/privkey.pem}"
 # these, logins included, travels unencrypted. Empty once TLS is in place.
 HTTP_HOSTS="${HTTP_HOSTS:-}"
 
+# URL path the Wazuh dashboard is reverse-proxied at, e.g. /siem. Empty = not
+# proxied. wazuh-server.sh sets this and binds the dashboard to loopback, so
+# the SIEM is reachable only through nginx on the app's own domain.
+SIEM_PATH="${SIEM_PATH:-}"
+SIEM_UPSTREAM="${SIEM_UPSTREAM:-https://127.0.0.1:8443}"
+
 # CORS: the https domain, plus http:// for every plain-HTTP host. The SPA
 # calls /api on its own origin so most requests are same-origin, but the
 # allowlist has to cover the origin the page was actually loaded from.
@@ -360,6 +366,30 @@ else
   HSTS_HEADER='    # HSTS off until a CA-issued cert is installed: set ENABLE_HSTS=yes in /etc/vista/deploy.conf'
 fi
 
+# Reverse-proxy the Wazuh dashboard at $SIEM_PATH. The dashboard serves https
+# with its own self-signed cert on loopback, so verification is off for that
+# hop; it is not reachable from outside this machine. basePath/rewriteBasePath
+# must be set on the dashboard side or it redirects back to / and breaks.
+if [ -n "$SIEM_PATH" ]; then
+  SIEM_LOCATION="location ${SIEM_PATH} {
+    proxy_pass ${SIEM_UPSTREAM};
+    proxy_ssl_verify off;
+    proxy_http_version 1.1;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection \"upgrade\";
+    # the dashboard sets large session cookies
+    proxy_buffer_size 16k;
+    proxy_buffers   8 16k;
+    proxy_read_timeout 300s;
+}"
+else
+  SIEM_LOCATION=""
+fi
+
 c "writing /etc/nginx/sites-available/vista"
 mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/snippets "$WEB_ROOT"
 
@@ -396,6 +426,7 @@ location = /health {
     proxy_pass http://127.0.0.1:5000/health;
     access_log off;
 }
+${SIEM_LOCATION}
 
 location ~* \.(js|css|woff2?|png|jpg|jpeg|svg|ico)\$ {
     expires 1y;

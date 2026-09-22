@@ -14,6 +14,7 @@ set -euo pipefail
 
 WAZUH_VERSION="${WAZUH_VERSION:-4.14}"
 DASH_PORT="${DASH_PORT:-8443}"
+SIEM_PATH="${SIEM_PATH:-/siem}"
 CONF=/etc/vista/deploy.conf
 WORK=/root/wazuh-install
 
@@ -74,19 +75,29 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Move the dashboard off 443
+# 3. Put the dashboard on loopback behind nginx at $SIEM_PATH
 # ---------------------------------------------------------------------------
 DASH_CONF=/etc/wazuh-dashboard/opensearch_dashboards.yml
 if [ -f "$DASH_CONF" ]; then
-  c "moving the dashboard to port ${DASH_PORT} so nginx keeps 443"
-  if grep -q '^server.port:' "$DASH_CONF"; then
-    sed -i "s|^server.port:.*|server.port: ${DASH_PORT}|" "$DASH_CONF"
-  else
-    echo "server.port: ${DASH_PORT}" >> "$DASH_CONF"
-  fi
+  c "binding the dashboard to 127.0.0.1:${DASH_PORT} under ${SIEM_PATH}"
+  # OpenSearch Dashboards builds its own redirect and asset URLs. Without
+  # basePath it sends the browser back to / and the app's SPA answers instead;
+  # rewriteBasePath makes it accept the prefixed paths nginx forwards.
+  set_yml() { # set_yml <key> <value>
+    if grep -qE "^#?${1}:" "$DASH_CONF"; then
+      sed -i "s|^#\?${1}:.*|${1}: ${2}|" "$DASH_CONF"
+    else
+      echo "${1}: ${2}" >> "$DASH_CONF"
+    fi
+  }
+  set_yml server.port "${DASH_PORT}"
+  set_yml server.host "\"127.0.0.1\""
+  set_yml server.basePath "\"${SIEM_PATH}\""
+  set_yml server.rewriteBasePath true
   systemctl restart wazuh-dashboard
 fi
 
+# ---------------------------------------------------------------------------
 restore_nginx
 trap - EXIT
 
@@ -94,10 +105,10 @@ trap - EXIT
 # 4. Firewall
 # ---------------------------------------------------------------------------
 if ufw status 2>/dev/null | grep -q "Status: active"; then
-  c "opening ${DASH_PORT}/tcp for the dashboard"
-  ufw allow "${DASH_PORT}/tcp" >/dev/null
-  # 1514/1515 are agent traffic and enrolment. Only needed for agents on OTHER
-  # hosts; the local agent reaches the manager over loopback.
+  # The dashboard listens on loopback only and is reached through nginx on
+  # 443, so its own port must NOT be open. Remove the rule if a previous run
+  # of this script added it.
+  ufw delete allow "${DASH_PORT}/tcp" >/dev/null 2>&1 || true
   echo "    agent ports 1514/1515 left closed — open them only when remote"
   echo "    machines need to report in: ufw allow 1514/tcp && ufw allow 1515/tcp"
 fi
@@ -111,7 +122,12 @@ if [ -f "$CONF" ]; then
   else
     echo "WAZUH_MANAGER='127.0.0.1'" >> "$CONF"
   fi
-  ok "set WAZUH_MANAGER=127.0.0.1 in $CONF"
+  if grep -q '^SIEM_PATH=' "$CONF"; then
+    sed -i "s|^SIEM_PATH=.*|SIEM_PATH='${SIEM_PATH}'|" "$CONF"
+  else
+    echo "SIEM_PATH='${SIEM_PATH}'" >> "$CONF"
+  fi
+  ok "set WAZUH_MANAGER=127.0.0.1 and SIEM_PATH=${SIEM_PATH} in $CONF"
 fi
 
 # ---------------------------------------------------------------------------
@@ -129,15 +145,18 @@ systemctl is-active --quiet nginx && ok "nginx still running on 443" || { echo "
 
 cat <<EOF
 
-Dashboard:  https://$(hostname -I | awk '{print $1}'):${DASH_PORT}
+Password:   tar -O -xf ${WORK}/wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt
 Username:   admin
-Password:   sudo tar -O -xf ${WORK}/wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt
 
-The dashboard uses its own self-signed certificate, so the browser will warn.
+The dashboard is bound to 127.0.0.1:${DASH_PORT} and is NOT reachable directly.
 
-NEXT — enrol this server as an agent:
+NEXT — publish it at ${SIEM_PATH} and enrol this host as an agent:
   ${APP_DIR:-/opt/vista}/deploy/provision.sh
-which installs wazuh-agent against 127.0.0.1 and ships the app, nginx and
-mongod logs into the SIEM.
+
+That run adds the ${SIEM_PATH} location to the nginx site and installs
+wazuh-agent against 127.0.0.1, shipping the app, nginx and mongod logs into
+the SIEM. Afterwards:
+
+  https://$(. /etc/vista/deploy.conf 2>/dev/null; echo "${DOMAIN:-<domain>}")${SIEM_PATH}
 EOF
 exit $fail
