@@ -207,7 +207,9 @@ id -u "$RUN_USER" >/dev/null 2>&1 || \
 # 3. MongoDB daemon: config file, auth, single-node replica set
 # ---------------------------------------------------------------------------
 REPL_SET="${REPL_SET:-rs0}"
-KEYFILE=/etc/vista/mongo-keyfile
+# Not under /etc/vista: that directory is 0700 root-owned, and mongod runs as
+# the mongodb user, which cannot traverse into it to read the key.
+KEYFILE=/etc/mongod-keyfile
 MONGO_URI="mongodb://vista:${MONGO_APP_PASSWORD}@127.0.0.1:27017/vista?authSource=vista&replicaSet=${REPL_SET}"
 
 write_mongod_conf() { # write_mongod_conf <with-auth: yes|no>
@@ -307,10 +309,15 @@ fi
 
 c "configuring mongod daemon (127.0.0.1 only, auth on, replSet ${REPL_SET})"
 if [ ! -s "$KEYFILE" ]; then
+  # Single-member set, so regenerating the key costs nothing; clean up the
+  # earlier unreadable location if it is still around.
+  rm -f /etc/vista/mongo-keyfile
   openssl rand -base64 756 > "$KEYFILE"
 fi
 chown mongodb:mongodb "$KEYFILE"
 chmod 400 "$KEYFILE"
+sudo -u mongodb test -r "$KEYFILE" \
+  || die "mongodb user cannot read $KEYFILE — check the permissions on $(dirname "$KEYFILE")"
 
 write_mongod_conf yes
 systemctl enable mongod >/dev/null
