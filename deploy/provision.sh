@@ -120,10 +120,28 @@ apt-get install -y -qq curl gnupg ca-certificates git ufw cron rclone \
                       nginx certbot python3-certbot-nginx
 
 CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+
+# MongoDB 8.0+ vendors a TCMalloc that violates the rseq ABI on Linux 6.19
+# through 7.0.13 and corrupts memory, so mongod refuses to start on those
+# kernels (SERVER-121912). Ubuntu 26.04 ships 7.0, which lands in that range.
+# MongoDB 7.0 vendors the older allocator and is unaffected, so pick it when
+# the running kernel is in the broken window. Override with MONGO_MAJOR=.
+ver_lt() { [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ]; }
+KVER=$(uname -r | cut -d- -f1)
+if [ -z "${MONGO_MAJOR:-}" ]; then
+  if ! ver_lt "$KVER" 6.19 && ver_lt "$KVER" 7.0.14; then
+    MONGO_MAJOR=7.0
+    echo "    kernel $KVER is in the 6.19–7.0.13 window that MongoDB 8.0 refuses"
+    echo "    to run on; installing MongoDB 7.0 instead (MONGO_MAJOR= to override)"
+  else
+    MONGO_MAJOR=8.0
+  fi
+fi
+
 # MongoDB does not publish a suite for every Ubuntu release. Ask the repo
 # rather than guessing from a list that goes stale every six months; fall back
 # to the newest LTS suite, whose packages work on later releases.
-if curl -fsI "https://repo.mongodb.org/apt/ubuntu/dists/${CODENAME}/mongodb-org/8.0/Release" >/dev/null 2>&1; then
+if curl -fsI "https://repo.mongodb.org/apt/ubuntu/dists/${CODENAME}/mongodb-org/${MONGO_MAJOR}/Release" >/dev/null 2>&1; then
   MONGO_SUITE="$CODENAME"
 else
   MONGO_SUITE="noble"
@@ -136,14 +154,36 @@ if ! command -v node >/dev/null || [ "$(node -v | cut -d. -f1)" != "v20" ]; then
 fi
 command -v pm2 >/dev/null || npm install -g pm2 >/dev/null
 
-if ! command -v mongod >/dev/null; then
-  c "installing MongoDB 8.0"
-  curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
-    | gpg --batch --yes --dearmor -o /usr/share/keyrings/mongodb-8.0.gpg
-  echo "deb [signed-by=/usr/share/keyrings/mongodb-8.0.gpg] https://repo.mongodb.org/apt/ubuntu ${MONGO_SUITE}/mongodb-org/8.0 multiverse" \
-    > /etc/apt/sources.list.d/mongodb-org-8.0.list
+INSTALLED_MAJOR=""
+command -v mongod >/dev/null && INSTALLED_MAJOR=$(mongod --version 2>/dev/null \
+  | sed -n 's/^db version v\([0-9]*\.[0-9]*\).*/\1/p')
+
+if [ -n "$INSTALLED_MAJOR" ] && [ "$INSTALLED_MAJOR" != "$MONGO_MAJOR" ]; then
+  # Switching majors downward is not a data-compatible operation, and wiping a
+  # data directory is the operator's call, not this script's.
+  echo >&2
+  echo "MongoDB ${INSTALLED_MAJOR} is installed but ${MONGO_MAJOR} is required on kernel ${KVER}." >&2
+  echo "Downgrading is not data-compatible. If /var/lib/mongodb holds nothing you" >&2
+  echo "need (a fresh deploy that never took real data), remove it and re-run:" >&2
+  echo >&2
+  echo "  systemctl stop mongod" >&2
+  echo "  apt-get purge -y mongodb-org mongodb-org-* && rm -rf /var/lib/mongodb /etc/apt/sources.list.d/mongodb-org-*.list" >&2
+  echo "  rm -f /etc/vista/.mongo-users-created /etc/vista/.mongo-rs-initiated" >&2
+  echo "  $0" >&2
+  echo >&2
+  echo "If it holds data you need, mongodump it first with a ${INSTALLED_MAJOR} toolchain." >&2
+  die "refusing to change MongoDB major version automatically"
+fi
+
+if [ -z "$INSTALLED_MAJOR" ]; then
+  c "installing MongoDB ${MONGO_MAJOR} (${MONGO_SUITE})"
+  curl -fsSL "https://www.mongodb.org/static/pgp/server-${MONGO_MAJOR}.asc" \
+    | gpg --batch --yes --dearmor -o "/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg"
+  echo "deb [signed-by=/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg] https://repo.mongodb.org/apt/ubuntu ${MONGO_SUITE}/mongodb-org/${MONGO_MAJOR} multiverse" \
+    > "/etc/apt/sources.list.d/mongodb-org-${MONGO_MAJOR}.list"
   # gpgv runs as _apt, not root — both files must be world-readable.
-  chmod 644 /usr/share/keyrings/mongodb-8.0.gpg /etc/apt/sources.list.d/mongodb-org-8.0.list
+  chmod 644 "/usr/share/keyrings/mongodb-${MONGO_MAJOR}.gpg" \
+            "/etc/apt/sources.list.d/mongodb-org-${MONGO_MAJOR}.list"
   apt-get update -qq
   apt-get install -y -qq mongodb-org
 fi
