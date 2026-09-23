@@ -627,7 +627,12 @@ ok "ufw active"
 # ---------------------------------------------------------------------------
 # 8. Wazuh agent (SIEM)
 # ---------------------------------------------------------------------------
-if [ -n "${WAZUH_MANAGER:-}" ]; then
+if [ -d /var/ossec ] && dpkg -s wazuh-manager >/dev/null 2>&1; then
+  # wazuh-agent and wazuh-manager both own /var/ossec and cannot coexist. This
+  # host runs the manager (see deploy/wazuh-server.sh), which reads the local
+  # logs directly, so there is no agent to install.
+  echo "  -> wazuh-manager is installed here; skipping the agent"
+elif [ -n "${WAZUH_MANAGER:-}" ]; then
   if [ ! -x /var/ossec/bin/wazuh-control ]; then
     c "installing wazuh-agent -> $WAZUH_MANAGER"
     curl -fsSL https://packages.wazuh.com/key/GPG-KEY-WAZUH \
