@@ -350,6 +350,16 @@ MSH="mongosh $ADMIN_URI --quiet"
 wait_primary "$ADMIN_URI" || mongod_died "mongod is up but ${REPL_SET} is not PRIMARY"
 ok "mongod running as ${REPL_SET} PRIMARY, auth on"
 
+# `vdb` = root mongosh on the vista db. Reads the password at run time, so it
+# never lands in shell history or dotfiles. Root-only.
+cat > /usr/local/bin/vdb <<'VDB_EOF'
+#!/usr/bin/env bash
+. /etc/vista/secrets.env
+exec mongosh "mongodb://admin:${MONGO_ROOT_PASSWORD}@127.0.0.1:27017/vista?authSource=admin&directConnection=true" "$@"
+VDB_EOF
+chmod 700 /usr/local/bin/vdb
+ok "installed vdb (root mongosh shortcut)"
+
 # ---------------------------------------------------------------------------
 # 4. nginx + TLS (written before the app build, so a build failure still
 #    leaves a valid server config on disk)
