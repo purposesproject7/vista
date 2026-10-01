@@ -27,8 +27,7 @@ const CoordinatorUploadTab = ({ onSuccess }) => {
                 setMasterData(masterResponse.data);
             }
 
-            // Load faculties marked as project coordinators
-            const facultyResponse = await fetchFaculty({ isProjectCoordinator: true });
+            const facultyResponse = await fetchFaculty();
             if (facultyResponse.success) {
                 setFaculties(facultyResponse.faculty || []);
             }
@@ -116,9 +115,6 @@ const CoordinatorUploadTab = ({ onSuccess }) => {
                             </option>
                         ))}
                     </select>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Only showing faculty with project coordinator status enabled
-                    </p>
                 </div>
 
                 {/* Academic Context */}

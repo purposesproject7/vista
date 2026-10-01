@@ -839,19 +839,11 @@ export async function assignProjectCoordinator(req, res) {
   try {
     const { facultyId, academicYear, school, program, isPrimary, permissions } = req.body;
 
-    // Verify faculty exists and has isProjectCoordinator flag
     const faculty = await Faculty.findById(facultyId);
     if (!faculty) {
       return res.status(404).json({
         success: false,
         message: "Faculty not found.",
-      });
-    }
-
-    if (!faculty.isProjectCoordinator) {
-      return res.status(400).json({
-        success: false,
-        message: "Faculty must have project coordinator status enabled.",
       });
     }
 
@@ -896,6 +888,12 @@ export async function assignProjectCoordinator(req, res) {
       permissions: defaultPermissions,
       isActive: true,
     });
+
+    // Login/RBAC gate on this flag, so assigning a coordinator implies it
+    if (!faculty.isProjectCoordinator) {
+      faculty.isProjectCoordinator = true;
+      await faculty.save();
+    }
 
     const populatedCoordinator = await ProjectCoordinator.findById(coordinator._id)
       .populate("faculty", "name emailId employeeId phoneNumber");
