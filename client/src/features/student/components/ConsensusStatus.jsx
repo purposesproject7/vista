@@ -86,6 +86,14 @@ const ConsensusStatus = ({
                 AI-Generated Content Score:{" "}
                 <span className="font-medium text-gray-800">{contentCheck.aiScore}%</span>
               </p>
+              {contentCheck.similarityScore != null && (
+                <p className="text-xs text-gray-600">
+                  Similarity to an Existing Project:{" "}
+                  <span className="font-medium text-gray-800">
+                    {contentCheck.similarityScore}%
+                  </span>
+                </p>
+              )}
             </div>
           )}
         </Card>
@@ -108,6 +116,14 @@ const ConsensusStatus = ({
                 AI-Generated Content Score:{" "}
                 <span className="font-medium text-gray-700">{contentCheck.aiScore}%</span>
               </p>
+              {contentCheck.similarityScore != null && (
+                <p className="text-xs text-gray-500">
+                  Similarity to an Existing Project:{" "}
+                  <span className="font-medium text-gray-700">
+                    {contentCheck.similarityScore}%
+                  </span>
+                </p>
+              )}
               {contentCheck.flagged && (
                 <p className="text-xs text-orange-600 font-medium">
                   ⚠ This submission has been flagged for your guide's attention.

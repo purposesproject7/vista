@@ -50,6 +50,17 @@ const contentCheckSchema = new mongoose.Schema(
   {
     plagiarismScore: { type: Number, default: null },
     aiScore: { type: Number, default: null },
+    // Highest semantic similarity (0-100) to any other project's abstract
+    similarityScore: { type: Number, default: null },
+    similarProjects: [
+      {
+        _id: false,
+        project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
+        title: String,
+        academicYear: String,
+        score: Number,
+      },
+    ],
     checkedAt: { type: Date, default: null },
     flagged: { type: Boolean, default: false },
     rejected: { type: Boolean, default: false },
@@ -166,6 +177,8 @@ const projectSchema = new mongoose.Schema(
       default: "not_started",
     },
     contentCheck: { type: contentCheckSchema, default: () => ({}) },
+    // Embedding of title + abstract for duplicate-project detection (see similarityService)
+    abstractEmbedding: { type: [Number], select: false, default: undefined },
     titleAbstractAcceptedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Faculty",

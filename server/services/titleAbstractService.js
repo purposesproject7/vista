@@ -2,7 +2,14 @@ import Project from "../models/projectSchema.js";
 import Student from "../models/studentSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { PlagiarismService } from "./plagiarismService.js";
+import { checkSimilarity } from "./similarityService.js";
 import { logger } from "../utils/logger.js";
+
+// Similarity to an existing project (0-100). Embedding cosine scores sit high
+// even for unrelated abstracts, so these are separate from the plagiarism/AI
+// thresholds in ProgramConfig. Tune via env once real scores are visible.
+const SIMILARITY_FLAG = Number(process.env.SIMILARITY_FLAG_THRESHOLD ?? 85);
+const SIMILARITY_REJECT = Number(process.env.SIMILARITY_REJECT_THRESHOLD ?? 95);
 
 const TITLE_MAX_LENGTH = 200;
 const ABSTRACT_MIN_WORDS = 250;
@@ -18,6 +25,13 @@ function normalize(text) {
 
 function wordCount(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Students see their scores, not which other teams' projects they matched.
+function forStudent(contentCheck) {
+  if (!contentCheck) return contentCheck;
+  const { similarProjects, ...rest } = contentCheck.toObject?.() ?? contentCheck;
+  return rest;
 }
 
 async function findStudentProject(studentId) {
@@ -163,6 +177,25 @@ export class TitleAbstractService {
       confirmedAbstract
     );
 
+    // Duplicate-project check. A model failure must not block submission, so
+    // it degrades to "not checked" and the guide reviews as before.
+    let similarity = { similarityScore: null, similarProjects: [] };
+    try {
+      similarity = await checkSimilarity(confirmedTitle, confirmedAbstract, project._id);
+      await Project.updateOne(
+        { _id: project._id },
+        { abstractEmbedding: similarity.vector }
+      );
+    } catch (error) {
+      logger.error("similarity_check_failed", {
+        projectId: project._id,
+        error: error.message,
+      });
+    }
+    const { similarityScore, similarProjects } = similarity;
+    const similarityRejected = similarityScore !== null && similarityScore >= SIMILARITY_REJECT;
+    const similarityFlagged = similarityScore !== null && similarityScore >= SIMILARITY_FLAG;
+
     const config = await ProgramConfig.findOne({
       academicYear: project.academicYear,
       school: project.school,
@@ -172,12 +205,14 @@ export class TitleAbstractService {
     const flagThreshold = config?.flagThreshold ?? 60;
     const autoRejectThreshold = config?.autoRejectThreshold ?? 85;
     const highestScore = Math.max(plagiarismScore, aiScore);
-    const rejected = highestScore > autoRejectThreshold;
-    const flagged = !rejected && highestScore > flagThreshold;
+    const rejected = highestScore > autoRejectThreshold || similarityRejected;
+    const flagged = !rejected && (highestScore > flagThreshold || similarityFlagged);
 
     project.contentCheck = {
       plagiarismScore,
       aiScore,
+      similarityScore,
+      similarProjects,
       checkedAt: new Date(),
       flagged,
       rejected,
@@ -202,12 +237,13 @@ export class TitleAbstractService {
         projectId: project._id,
         plagiarismScore,
         aiScore,
+        similarityScore,
         autoRejectThreshold,
       });
 
       return {
         status: project.titleAbstractStatus,
-        contentCheck: project.contentCheck,
+        contentCheck: forStudent(project.contentCheck),
       };
     }
 
@@ -228,6 +264,7 @@ export class TitleAbstractService {
       projectId: project._id,
       plagiarismScore,
       aiScore,
+      similarityScore,
       flagged,
     });
 
@@ -235,7 +272,7 @@ export class TitleAbstractService {
       status: project.titleAbstractStatus,
       proposedTitle: confirmedTitle,
       proposedAbstract: confirmedAbstract,
-      contentCheck: project.contentCheck,
+      contentCheck: forStudent(project.contentCheck),
     };
   }
 
@@ -258,7 +295,7 @@ export class TitleAbstractService {
       contentCheck: ["pending_review", "accepted", "rejected"].includes(
         project.titleAbstractStatus
       )
-        ? project.contentCheck
+        ? forStudent(project.contentCheck)
         : null,
       acceptedAt: project.titleAbstractAcceptedAt,
     };

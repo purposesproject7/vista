@@ -14,6 +14,21 @@ const STATUS_LABELS = {
   accepted: { label: "Accepted & Locked", variant: "success" },
 };
 
+const SimilarProjects = ({ contentCheck }) =>
+  contentCheck?.similarProjects?.length > 0 && (
+    <div className="text-xs text-gray-600">
+      <p>Most similar existing projects:</p>
+      <ul className="list-disc pl-4">
+        {contentCheck.similarProjects.map((p) => (
+          <li key={p.project}>
+            {p.title}
+            {p.academicYear ? ` (${p.academicYear})` : ""} — {p.score}%
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
 const TitleAbstractReviewSection = ({ project, onAccepted }) => {
   const [accepting, setAccepting] = useState(false);
   const { showToast } = useToast();
@@ -74,7 +89,8 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
         <div className="text-xs text-red-600 space-y-1">
           <p>
             The team's submission was automatically rejected by the content
-            check (plagiarism/AI score exceeded the auto-reject threshold) and
+            check (plagiarism/AI score exceeded the auto-reject threshold, or
+            it nearly duplicates an existing project) and
             never reached your review queue. Students must revise and
             resubmit.
           </p>
@@ -82,8 +98,11 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
             <p className="text-gray-600">
               Plagiarism: {project.contentCheck.plagiarismScore}% &middot; AI
               Content: {project.contentCheck.aiScore}%
+              {project.contentCheck.similarityScore != null &&
+                ` · Similarity: ${project.contentCheck.similarityScore}%`}
             </p>
           )}
+          <SimilarProjects contentCheck={project.contentCheck} />
         </div>
       )}
 
@@ -101,7 +120,10 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
               <p className="text-xs text-gray-500">
                 Plagiarism: {project.contentCheck.plagiarismScore}% &middot; AI
                 Content: {project.contentCheck.aiScore}%
+                {project.contentCheck.similarityScore != null &&
+                  ` · Similarity: ${project.contentCheck.similarityScore}%`}
               </p>
+              <SimilarProjects contentCheck={project.contentCheck} />
               {project.contentCheck.flagged && (
                 <p className="text-xs text-orange-600 font-medium">
                   ⚠ Flagged for review — scores exceed the configured
