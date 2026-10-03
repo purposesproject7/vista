@@ -2956,6 +2956,8 @@ export async function createProgramConfig(req, res) {
       featureLocks,
       flagThreshold,
       autoRejectThreshold,
+      plagiarismCheckEnabled,
+      similarityCheckEnabled,
     } = req.body;
 
     // Check if already exists
@@ -2983,6 +2985,8 @@ export async function createProgramConfig(req, res) {
       minPanelSize: minPanelSize || 3,
       flagThreshold: flagThreshold ?? 60,
       autoRejectThreshold: autoRejectThreshold ?? 85,
+      plagiarismCheckEnabled: plagiarismCheckEnabled === true,
+      similarityCheckEnabled: similarityCheckEnabled !== false,
       featureLocks:
         featureLocks ||
         [

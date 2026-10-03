@@ -9,7 +9,8 @@ import ConsensusStatus from "../components/ConsensusStatus";
 import GuidePanelInfo from "../components/GuidePanelInfo";
 import { getMyProject, getTitleAbstractStatus, submitTitleAbstract } from "../services/studentApi";
 
-const EDITABLE_STATUSES = ["not_started", "pending_consensus", "discrepancy", "rejected"];
+// Editable until the guide accepts.
+const EDITABLE_STATUSES = ["not_started", "pending_consensus", "discrepancy", "rejected", "pending_review"];
 
 const StudentDashboard = () => {
   const { user } = useAuth();
@@ -47,8 +48,7 @@ const StudentDashboard = () => {
   const handleSubmit = async ({ title, abstract }) => {
     setSubmitting(true);
     try {
-      const result = await submitTitleAbstract({ title, abstract });
-      setStatusData((prev) => ({ ...prev, ...result, mySubmission: { title, abstract } }));
+      await submitTitleAbstract({ title, abstract });
       showToast("Title and abstract submitted.", "success");
     } catch (err) {
       showToast(
@@ -56,6 +56,8 @@ const StudentDashboard = () => {
         "error"
       );
     } finally {
+      // Refetch either way: a teammate may have submitted first (409).
+      await loadData();
       setSubmitting(false);
     }
   };
@@ -98,6 +100,8 @@ const StudentDashboard = () => {
           {showForm && (
             <div className="mt-6 pt-6 border-t border-gray-100">
               <TitleAbstractForm
+                // Remount on a new team submission so the form shows the latest text.
+                key={statusData?.mySubmission?.submittedAt || "new"}
                 initialTitle={statusData?.mySubmission?.title || ""}
                 initialAbstract={statusData?.mySubmission?.abstract || ""}
                 onSubmit={handleSubmit}

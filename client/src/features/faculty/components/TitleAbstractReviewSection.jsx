@@ -4,6 +4,14 @@ import Button from "../../../shared/components/Button";
 import { useToast } from "../../../shared/hooks/useToast";
 import { acceptTitleAbstract } from "../services/facultyApi";
 
+// Plagiarism/AI scores are null when the program has those checks turned off.
+function scoreLine(c) {
+  const parts = [];
+  if (c.plagiarismScore != null) parts.push(`Plagiarism: ${c.plagiarismScore}%`, `AI Content: ${c.aiScore}%`);
+  if (c.similarityScore != null) parts.push(`Similarity: ${c.similarityScore}%`);
+  return parts.join(" · ") || "Not checked";
+}
+
 const STATUS_LABELS = {
   not_started: { label: "Not Started", variant: "default" },
   pending_consensus: { label: "Waiting on Students", variant: "warning" },
@@ -13,6 +21,21 @@ const STATUS_LABELS = {
   pending_review: { label: "Pending Your Review", variant: "info" },
   accepted: { label: "Accepted & Locked", variant: "success" },
 };
+
+const SimilarProjects = ({ contentCheck }) =>
+  contentCheck?.similarProjects?.length > 0 && (
+    <div className="text-xs text-gray-600">
+      <p>Most similar existing projects:</p>
+      <ul className="list-disc pl-4">
+        {contentCheck.similarProjects.map((p) => (
+          <li key={p.project}>
+            {p.title}
+            {p.academicYear ? ` (${p.academicYear})` : ""} — {p.score}%
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
 const TitleAbstractReviewSection = ({ project, onAccepted }) => {
   const [accepting, setAccepting] = useState(false);
@@ -74,16 +97,17 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
         <div className="text-xs text-red-600 space-y-1">
           <p>
             The team's submission was automatically rejected by the content
-            check (plagiarism/AI score exceeded the auto-reject threshold) and
+            check (plagiarism/AI score exceeded the auto-reject threshold, or
+            it nearly duplicates an existing project) and
             never reached your review queue. Students must revise and
             resubmit.
           </p>
           {project.contentCheck && (
             <p className="text-gray-600">
-              Plagiarism: {project.contentCheck.plagiarismScore}% &middot; AI
-              Content: {project.contentCheck.aiScore}%
+              {scoreLine(project.contentCheck)}
             </p>
           )}
+          <SimilarProjects contentCheck={project.contentCheck} />
         </div>
       )}
 
@@ -99,9 +123,9 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
           {project.contentCheck && (
             <div className="pt-2 border-t border-gray-200 space-y-1">
               <p className="text-xs text-gray-500">
-                Plagiarism: {project.contentCheck.plagiarismScore}% &middot; AI
-                Content: {project.contentCheck.aiScore}%
+                {scoreLine(project.contentCheck)}
               </p>
+              <SimilarProjects contentCheck={project.contentCheck} />
               {project.contentCheck.flagged && (
                 <p className="text-xs text-orange-600 font-medium">
                   ⚠ Flagged for review — scores exceed the configured

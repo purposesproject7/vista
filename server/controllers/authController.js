@@ -4,6 +4,7 @@ import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
+import { isMasterAdmin } from "../utils/facultyHelpers.js";
 import crypto from "crypto";
 import ActivityLogService from "../services/activityLogService.js";
 
@@ -162,8 +163,7 @@ export async function login(req, res) {
     const facultyData = faculty.toObject();
     delete facultyData.password;
 
-    const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
-    facultyData.isMasterAdmin = facultyData.employeeId === masterAdminId;
+    facultyData.isMasterAdmin = isMasterAdmin(facultyData);
 
     logger.info("login_success", {
       facultyId: faculty._id,
@@ -636,8 +636,7 @@ export async function getProfile(req, res) {
     }
 
     const facultyData = faculty.toObject();
-    const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
-    facultyData.isMasterAdmin = facultyData.employeeId === masterAdminId;
+    facultyData.isMasterAdmin = isMasterAdmin(facultyData);
 
     if (faculty.isProjectCoordinator) {
       const coordinator = await ProjectCoordinator.findOne({

@@ -1,29 +1,36 @@
 import Project from "../models/projectSchema.js";
-import Student from "../models/studentSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { PlagiarismService } from "./plagiarismService.js";
+import { checkSimilarity, embed, embeddingText, MODEL } from "./similarityService.js";
 import { logger } from "../utils/logger.js";
+
+// Similarity to an existing project (0-100). Embedding cosine scores sit high
+// even for unrelated abstracts, so these are separate from the plagiarism/AI
+// thresholds in ProgramConfig. Calibrated for arctic-embed-m-v2.0: light
+// edits ~97, heavy rewrites 80-88, same idea/different approach 55-65,
+// different projects below 56. Re-calibrate if EMBEDDING_MODEL changes.
+const SIMILARITY_FLAG = Number(process.env.SIMILARITY_FLAG_THRESHOLD ?? 75);
+const SIMILARITY_REJECT = Number(process.env.SIMILARITY_REJECT_THRESHOLD ?? 93);
 
 const TITLE_MAX_LENGTH = 200;
 const ABSTRACT_MIN_WORDS = 250;
 const ABSTRACT_MAX_WORDS = 500;
 
-function normalize(text) {
-  return text
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
 function wordCount(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Students see their scores, not which other teams' projects they matched.
+function forStudent(contentCheck) {
+  if (!contentCheck) return contentCheck;
+  const { similarProjects, ...rest } = contentCheck.toObject?.() ?? contentCheck;
+  return rest;
 }
 
 async function findStudentProject(studentId) {
   const project = await Project.findOne({ students: studentId }).populate(
     "students",
-    "name regNo emailId titleAbstractSubmission"
+    "name regNo emailId"
   );
 
   if (!project) {
@@ -36,13 +43,11 @@ async function findStudentProject(studentId) {
 }
 
 export class TitleAbstractService {
-  static normalize = normalize;
-
   /**
-   * Submit (or re-submit) a student's proposed title/abstract. Once every
-   * teammate has submitted, compares the normalized values across the team:
-   * a match advances the project to plagiarism/AI review, a mismatch surfaces
-   * a discrepancy for the team to resolve.
+   * Submit (or re-submit) the team's title/abstract. Any one teammate submits
+   * for the whole team: it goes straight to the plagiarism/AI/similarity check,
+   * then to guide review. Can be updated until the guide accepts; each update
+   * is re-checked and replaces what the guide sees.
    */
   static async submitTitleAbstract(studentId, { title, abstract }) {
     if (!title || !title.trim()) {
@@ -90,94 +95,64 @@ export class TitleAbstractService {
       throw err;
     }
 
-    await Student.findByIdAndUpdate(studentId, {
-      titleAbstractSubmission: {
-        title: title.trim(),
-        abstract: abstract.trim(),
-        submittedAt: new Date(),
-      },
-    });
+    // One teammate submits for the whole team; it goes straight to the content
+    // check. Any teammate may update it (re-checked) until the guide accepts.
+    const confirmedTitle = title.trim();
+    const confirmedAbstract = abstract.trim();
 
     project.titleAbstractHistory.push({
       action: "submitted",
-      title: title.trim(),
-      abstract: abstract.trim(),
+      title: confirmedTitle,
+      abstract: confirmedAbstract,
       performedBy: studentId,
       performedByModel: "Student",
     });
 
-    // Reload teammates' submissions (including the one just written)
-    const teammates = await Student.find({
-      _id: { $in: project.students.map((s) => s._id) },
-    }).select("titleAbstractSubmission name regNo");
-
-    const allSubmitted = teammates.every((s) => s.titleAbstractSubmission?.title);
-
-    if (!allSubmitted) {
-      project.titleAbstractStatus = "pending_consensus";
-      await project.save();
-      return {
-        status: project.titleAbstractStatus,
-        waitingOn: teammates
-          .filter((s) => !s.titleAbstractSubmission?.title)
-          .map((s) => ({ name: s.name, regNo: s.regNo })),
-      };
-    }
-
-    const normalizedTitles = teammates.map((s) =>
-      normalize(s.titleAbstractSubmission.title)
-    );
-    const normalizedAbstracts = teammates.map((s) =>
-      normalize(s.titleAbstractSubmission.abstract)
-    );
-
-    const titlesMatch = normalizedTitles.every((t) => t === normalizedTitles[0]);
-    const abstractsMatch = normalizedAbstracts.every(
-      (a) => a === normalizedAbstracts[0]
-    );
-
-    if (!titlesMatch || !abstractsMatch) {
-      project.titleAbstractStatus = "discrepancy";
-      project.titleAbstractHistory.push({
-        action: "discrepancy",
-        performedBy: studentId,
-        performedByModel: "Student",
-      });
-      await project.save();
-      return {
-        status: project.titleAbstractStatus,
-        submissions: teammates.map((s) => ({
-          name: s.name,
-          regNo: s.regNo,
-          title: s.titleAbstractSubmission.title,
-          abstract: s.titleAbstractSubmission.abstract,
-        })),
-      };
-    }
-
-    // Consensus reached — run the content check before handing off to the guide
-    const confirmedTitle = teammates[0].titleAbstractSubmission.title;
-    const confirmedAbstract = teammates[0].titleAbstractSubmission.abstract;
-
-    const { plagiarismScore, aiScore } = await PlagiarismService.checkContent(
-      confirmedAbstract
-    );
-
+    // Duplicate-project check against approved projects only. The submission
+    // itself is not stored for comparison until the guide accepts it. A model
+    // failure must not block submission: it degrades to "not checked".
     const config = await ProgramConfig.findOne({
       academicYear: project.academicYear,
       school: project.school,
       program: project.program,
     }).lean();
 
+    // Admin can switch the check off per program (default on; older configs
+    // without the field count as on).
+    let similarity = { similarityScore: null, similarProjects: [] };
+    if (config?.similarityCheckEnabled !== false) {
+      try {
+        similarity = await checkSimilarity(confirmedTitle, confirmedAbstract, project._id);
+      } catch (error) {
+        logger.error("similarity_check_failed", {
+          projectId: project._id,
+          error: error.message,
+        });
+      }
+    }
+    const { similarityScore, similarProjects } = similarity;
+    const similarityRejected = similarityScore !== null && similarityScore >= SIMILARITY_REJECT;
+    const similarityFlagged = similarityScore !== null && similarityScore >= SIMILARITY_FLAG;
+
+    // Plagiarism/AI scoring is opt-in per program (admin > Content Check):
+    // when off, both scores stay null and play no part in flag/reject.
+    const { plagiarismScore, aiScore } = config?.plagiarismCheckEnabled
+      ? await PlagiarismService.checkContent(confirmedAbstract)
+      : { plagiarismScore: null, aiScore: null };
+
     const flagThreshold = config?.flagThreshold ?? 60;
     const autoRejectThreshold = config?.autoRejectThreshold ?? 85;
-    const highestScore = Math.max(plagiarismScore, aiScore);
-    const rejected = highestScore > autoRejectThreshold;
-    const flagged = !rejected && highestScore > flagThreshold;
+    const highestScore = plagiarismScore === null ? null : Math.max(plagiarismScore, aiScore);
+    const rejected =
+      (highestScore !== null && highestScore > autoRejectThreshold) || similarityRejected;
+    const flagged =
+      !rejected && ((highestScore !== null && highestScore > flagThreshold) || similarityFlagged);
 
     project.contentCheck = {
       plagiarismScore,
       aiScore,
+      similarityScore,
+      similarProjects,
       checkedAt: new Date(),
       flagged,
       rejected,
@@ -185,8 +160,8 @@ export class TitleAbstractService {
 
     if (rejected) {
       // Auto-rejected: do not advance to guide review. Students see the scores
-      // and rejection reason, and must revise + resubmit (their individual
-      // submissions are left in place so they can edit rather than start over).
+      // and rejection reason, and any teammate may revise + resubmit (the form
+      // is prefilled from the last submission, see getStatus).
       project.titleAbstractStatus = "rejected";
       project.titleAbstractHistory.push({
         action: "rejected",
@@ -202,12 +177,13 @@ export class TitleAbstractService {
         projectId: project._id,
         plagiarismScore,
         aiScore,
+        similarityScore,
         autoRejectThreshold,
       });
 
       return {
         status: project.titleAbstractStatus,
-        contentCheck: project.contentCheck,
+        contentCheck: forStudent(project.contentCheck),
       };
     }
 
@@ -228,6 +204,7 @@ export class TitleAbstractService {
       projectId: project._id,
       plagiarismScore,
       aiScore,
+      similarityScore,
       flagged,
     });
 
@@ -235,7 +212,7 @@ export class TitleAbstractService {
       status: project.titleAbstractStatus,
       proposedTitle: confirmedTitle,
       proposedAbstract: confirmedAbstract,
-      contentCheck: project.contentCheck,
+      contentCheck: forStudent(project.contentCheck),
     };
   }
 
@@ -244,13 +221,22 @@ export class TitleAbstractService {
    */
   static async getStatus(studentId) {
     const project = await findStudentProject(studentId);
-    const student = await Student.findById(studentId).select(
-      "titleAbstractSubmission"
-    );
+
+    // The team's latest submission, whoever made it — prefills the form for
+    // every teammate and shows who submitted.
+    const last = project.titleAbstractHistory.findLast((h) => h.action === "submitted");
+    const submitter = last && project.students.find((s) => s._id.equals(last.performedBy));
 
     return {
       status: project.titleAbstractStatus,
-      mySubmission: student.titleAbstractSubmission || null,
+      mySubmission: last
+        ? {
+            title: last.title,
+            abstract: last.abstract,
+            submittedAt: last.performedAt,
+            submittedBy: submitter ? { name: submitter.name, regNo: submitter.regNo } : null,
+          }
+        : null,
       proposedTitle: project.proposedTitle,
       proposedAbstract: project.proposedAbstract,
       title: project.name,
@@ -258,7 +244,7 @@ export class TitleAbstractService {
       contentCheck: ["pending_review", "accepted", "rejected"].includes(
         project.titleAbstractStatus
       )
-        ? project.contentCheck
+        ? forStudent(project.contentCheck)
         : null,
       acceptedAt: project.titleAbstractAcceptedAt,
     };
@@ -307,6 +293,20 @@ export class TitleAbstractService {
     });
 
     await project.save();
+
+    // Approved title/abstract joins the corpus later submissions are compared
+    // against. Not fatal: the backfill embeds any project left without one.
+    try {
+      await Project.updateOne(
+        { _id: project._id },
+        {
+          abstractEmbedding: await embed(embeddingText(project.name, project.abstract)),
+          abstractEmbeddingModel: MODEL,
+        }
+      );
+    } catch (error) {
+      logger.error("accept_embedding_failed", { projectId: project._id, error: error.message });
+    }
 
     logger.info("title_abstract_accepted", {
       projectId: project._id,

@@ -25,8 +25,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Only redirect if NOT verifying token
-      if (!error.config.url.includes("/auth/profile")) {
+      // Skip when verifying a token, and on login itself: a 401 there means
+      // wrong credentials, and reloading would wipe the error message.
+      const url = error.config.url;
+      if (!url.includes("/auth/profile") && !url.includes("/auth/login")) {
         localStorage.removeItem("authToken");
         window.location.href = "/login";
       }

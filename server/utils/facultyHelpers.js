@@ -99,3 +99,16 @@ export function getFacultyAudience(faculty) {
 
   return { schools, programs };
 }
+
+/**
+ * Employee id of the master ("sudo") admin, who is exempt from school
+ * scoping. Normalized the way employee ids are stored (trimmed, uppercased),
+ * so "admin001" or a stray space in deploy.conf still matches.
+ */
+export function masterAdminId() {
+  return String(process.env.ADMIN_EMPLOYEE_ID || "ADMIN001").trim().toUpperCase();
+}
+
+export function isMasterAdmin(user) {
+  return String(user?.employeeId ?? "").trim().toUpperCase() === masterAdminId();
+}

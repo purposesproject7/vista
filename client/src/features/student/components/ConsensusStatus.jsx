@@ -31,6 +31,16 @@ const ConsensusStatus = ({
         <Badge variant={meta.variant}>{meta.label}</Badge>
       </div>
 
+      {mySubmission?.submittedBy && status !== "not_started" && (
+        <p className="text-xs text-gray-500">
+          Submitted for your team by {mySubmission.submittedBy.name} (
+          {mySubmission.submittedBy.regNo})
+          {mySubmission.submittedAt
+            ? ` on ${new Date(mySubmission.submittedAt).toLocaleString()}`
+            : ""}
+        </p>
+      )}
+
       {status === "pending_consensus" && waitingOn?.length > 0 && (
         <Card padding="sm" className="bg-yellow-50 border-yellow-200">
           <p className="text-sm text-yellow-800">
@@ -76,16 +86,28 @@ const ConsensusStatus = ({
           )}
           {contentCheck && (
             <div className="pt-2 border-t border-red-100 space-y-1">
-              <p className="text-xs text-gray-600">
-                Plagiarism Score:{" "}
-                <span className="font-medium text-gray-800">
-                  {contentCheck.plagiarismScore}%
-                </span>
-              </p>
-              <p className="text-xs text-gray-600">
-                AI-Generated Content Score:{" "}
-                <span className="font-medium text-gray-800">{contentCheck.aiScore}%</span>
-              </p>
+              {contentCheck.plagiarismScore != null && (
+                <>
+                  <p className="text-xs text-gray-600">
+                    Plagiarism Score:{" "}
+                    <span className="font-medium text-gray-800">
+                      {contentCheck.plagiarismScore}%
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    AI-Generated Content Score:{" "}
+                    <span className="font-medium text-gray-800">{contentCheck.aiScore}%</span>
+                  </p>
+                </>
+              )}
+              {contentCheck.similarityScore != null && (
+                <p className="text-xs text-gray-600">
+                  Similarity to an Existing Project:{" "}
+                  <span className="font-medium text-gray-800">
+                    {contentCheck.similarityScore}%
+                  </span>
+                </p>
+              )}
             </div>
           )}
         </Card>
@@ -98,16 +120,28 @@ const ConsensusStatus = ({
 
           {contentCheck && (
             <div className="pt-2 border-t border-gray-100 space-y-1">
-              <p className="text-xs text-gray-500">
-                Plagiarism Score:{" "}
-                <span className="font-medium text-gray-700">
-                  {contentCheck.plagiarismScore}%
-                </span>
-              </p>
-              <p className="text-xs text-gray-500">
-                AI-Generated Content Score:{" "}
-                <span className="font-medium text-gray-700">{contentCheck.aiScore}%</span>
-              </p>
+              {contentCheck.plagiarismScore != null && (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Plagiarism Score:{" "}
+                    <span className="font-medium text-gray-700">
+                      {contentCheck.plagiarismScore}%
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    AI-Generated Content Score:{" "}
+                    <span className="font-medium text-gray-700">{contentCheck.aiScore}%</span>
+                  </p>
+                </>
+              )}
+              {contentCheck.similarityScore != null && (
+                <p className="text-xs text-gray-500">
+                  Similarity to an Existing Project:{" "}
+                  <span className="font-medium text-gray-700">
+                    {contentCheck.similarityScore}%
+                  </span>
+                </p>
+              )}
               {contentCheck.flagged && (
                 <p className="text-xs text-orange-600 font-medium">
                   ⚠ This submission has been flagged for your guide's attention.
@@ -125,7 +159,9 @@ const ConsensusStatus = ({
           )}
           {status === "pending_review" && (
             <p className="text-xs text-blue-700 font-medium pt-2 border-t border-gray-100">
-              Your team's submission is awaiting your guide's approval.
+              Your team's submission is awaiting your guide's approval. Any
+              teammate can still update it below until the guide accepts it;
+              an update is re-checked for similarity.
             </p>
           )}
         </Card>

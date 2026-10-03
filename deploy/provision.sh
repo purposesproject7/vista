@@ -5,7 +5,8 @@
 #
 # Installs + configures: Node 20 + pm2, MongoDB 8 (localhost-only, auth on,
 # single-node replica set), nginx (TLS from /etc/certs), ufw, Wazuh agent,
-# rclone, and a nightly mongodump cron that keeps ONE archive in Google Drive.
+# rclone, a nightly mongodump cron that keeps ONE archive in Google Drive, and
+# the local embedding model for the duplicate-project check.
 #
 # Settings come from /etc/vista/deploy.conf (created on first run from your
 # answers). Re-running is safe: generated secrets are never regenerated.
@@ -125,6 +126,14 @@ HTTP_HOSTS="${HTTP_HOSTS:-}"
 # the SIEM is reachable only through nginx on the app's own domain.
 SIEM_PATH="${SIEM_PATH:-}"
 SIEM_UPSTREAM="${SIEM_UPSTREAM:-https://127.0.0.1:8443}"
+
+# Duplicate-project check (see SIMILARITY_CHECK.md). The embedding model runs
+# locally on CPU; override any of these in $CONF.
+SIMILARITY_FLAG_THRESHOLD="${SIMILARITY_FLAG_THRESHOLD:-75}"
+SIMILARITY_REJECT_THRESHOLD="${SIMILARITY_REJECT_THRESHOLD:-93}"
+EMBEDDING_MODEL="${EMBEDDING_MODEL:-Snowflake/snowflake-arctic-embed-m-v2.0}"
+# Outside node_modules, so `npm ci` doesn't throw away the ~110 MB download.
+MODEL_CACHE=/var/cache/vista/models
 
 # CORS: the https domain, plus http:// for every plain-HTTP host. The SPA
 # calls /api on its own origin so most requests are same-origin, but the
@@ -568,6 +577,10 @@ ADMIN_NAME=${ADMIN_NAME}
 ADMIN_EMPLOYEE_ID=${ADMIN_EMPLOYEE_ID}
 ADMIN_SCHOOL=${ADMIN_SCHOOL}
 ADMIN_DEPARTMENT=${ADMIN_DEPARTMENT}
+
+SIMILARITY_FLAG_THRESHOLD=${SIMILARITY_FLAG_THRESHOLD}
+SIMILARITY_REJECT_THRESHOLD=${SIMILARITY_REJECT_THRESHOLD}
+EMBEDDING_MODEL=${EMBEDDING_MODEL}
 EOF
 chmod 640 "$APP_DIR/server/.env"
 umask 022
@@ -599,6 +612,20 @@ cp -r "$APP_DIR/client/dist/." "$WEB_ROOT/"
 mkdir -p "$APP_DIR/server/logs"
 chown -R "$RUN_USER":"$RUN_USER" "$APP_DIR/server" "$WEB_ROOT"
 
+# Embedding model for the duplicate-project check. transformers.js caches
+# under its own package dir, so point that at a cache npm ci won't wipe.
+c "setting up the embedding model ($EMBEDDING_MODEL)"
+install -d -o "$RUN_USER" -g "$RUN_USER" -m 755 "$MODEL_CACHE"
+TF_CACHE="$APP_DIR/server/node_modules/@huggingface/transformers/.cache"
+rm -rf "$TF_CACHE"
+ln -s "$MODEL_CACHE" "$TF_CACHE"
+# Downloads the model on first run, then embeds every project that has an
+# abstract but no embedding yet (idempotent). Not fatal: without it the API
+# still runs; submissions just aren't compared against older projects.
+sudo -u "$RUN_USER" HOME="/home/$RUN_USER" bash -c "cd '$APP_DIR/server' && node scripts/backfillEmbeddings.js" \
+  && ok "model cached in $MODEL_CACHE; existing projects embedded" \
+  || echo "  -> embedding backfill FAILED (model download blocked?). Re-run: sudo -u $RUN_USER bash -c 'cd $APP_DIR/server && node scripts/backfillEmbeddings.js'"
+
 # ---------------------------------------------------------------------------
 # 6. pm2
 # ---------------------------------------------------------------------------
@@ -609,12 +636,11 @@ c "starting API under pm2"
 cd "$APP_DIR/server"
 install -d -o "$RUN_USER" -g "$RUN_USER" -m 755 "/home/$RUN_USER"
 PM2="sudo -u $RUN_USER HOME=/home/$RUN_USER pm2"
-if $PM2 describe vista-api >/dev/null 2>&1; then
-  $PM2 restart vista-api --update-env
-else
-  $PM2 start "$APP_DIR/server/index.js" --name vista-api \
-      --cwd "$APP_DIR/server" --time --max-memory-restart 600M
-fi
+# Recreated rather than restarted: `pm2 restart` keeps the old start options.
+# 1500M leaves room for the in-process embedding model (~300 MB loaded).
+$PM2 delete vista-api >/dev/null 2>&1 || true
+$PM2 start "$APP_DIR/server/index.js" --name vista-api \
+    --cwd "$APP_DIR/server" --time --max-memory-restart 1500M
 $PM2 save
 pm2 startup systemd -u "$RUN_USER" --hp "/home/$RUN_USER" >/dev/null
 cd /
@@ -775,6 +801,9 @@ sleep 3
 curl -fsS http://127.0.0.1:5000/health >/dev/null \
   && ok "API /health 200" || { echo "    API health FAILED — check: pm2 logs vista-api"; fail=1; }
 [ -s "$WEB_ROOT/index.html" ] && ok "client build present in $WEB_ROOT" || { echo "    client build MISSING"; fail=1; }
+sudo -u "$RUN_USER" HOME="/home/$RUN_USER" bash -c "cd '$APP_DIR/server' && node scripts/similarityCheck.js" >/dev/null 2>&1 \
+  && ok "duplicate-project check: model loads and scores sample abstracts correctly" \
+  || { echo "    similarity check FAILED — run: cd $APP_DIR/server && node scripts/similarityCheck.js"; fail=1; }
 ufw status | grep -q "Status: active" && ok "ufw active" || { echo "    ufw not active"; fail=1; }
 curl -fsS "http://127.0.0.1/health" >/dev/null 2>&1 \
   && ok "http://127.0.0.1/health reachable through nginx" \

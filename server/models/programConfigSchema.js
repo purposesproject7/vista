@@ -74,6 +74,16 @@ const programConfigSchema = new mongoose.Schema(
     // Feature locks with deadlines
     featureLocks: [featureLockSchema],
 
+    // Plagiarism/AI-content scoring. Off until a real provider is wired into
+    // PlagiarismService (the built-in one is a mock that returns hash-derived
+    // scores). Off = those scores are not computed and never flag/reject; the
+    // duplicate-project similarity check runs regardless.
+    plagiarismCheckEnabled: { type: Boolean, default: false },
+    // Duplicate-project (similarity/RAG) check on submission. Off = no score,
+    // never flags/rejects. Approved projects are still embedded on acceptance,
+    // so turning it back on compares against the complete set.
+    similarityCheckEnabled: { type: Boolean, default: true },
+
     // Title/abstract content-check thresholds, applied to both the plagiarism
     // and AI-generated-content scores. A score above flagThreshold is flagged
     // for the guide's attention (guide can still accept). A score above
