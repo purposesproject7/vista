@@ -93,7 +93,7 @@ const AcademicFilterSelector = ({
         masterData.departments
           ?.filter((d) => d.isActive !== false && d.school === filters.school)
           ?.map((d) => ({
-            value: d.code || d.name, // Use code if available
+            value: d.name, // programs are stored by name, never the code
             label: d.name,
             name: d.name,
             code: d.code,
@@ -103,13 +103,13 @@ const AcademicFilterSelector = ({
         masterData.programs
           ?.filter((p) => p.isActive !== false && p.school === filters.school)
           ?.map((p) => ({
-            value: p.code || p.name, // Use code if available
+            value: p.name, // programs are stored by name, never the code
             label: p.name,
             name: p.name,
             code: p.code,
           })) || [];
 
-      // Merge and deduplicate by value (code)
+      // Merge and deduplicate by value (name)
       const allPrograms = [...deptPrograms, ...progPrograms];
       const uniquePrograms = Array.from(
         new Map(allPrograms.map((item) => [item.value, item])).values()

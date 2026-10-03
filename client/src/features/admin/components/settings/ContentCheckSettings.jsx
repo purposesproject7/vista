@@ -31,7 +31,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
 
   useEffect(() => {
     if (selectedProgram && availablePrograms.length > 0) {
-      const exists = availablePrograms.find((p) => p.code === selectedProgram);
+      const exists = availablePrograms.find((p) => p.name === selectedProgram);
       if (!exists) setSelectedProgram("");
     } else if (availablePrograms.length === 0) {
       setSelectedProgram("");
@@ -109,7 +109,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         const schoolName =
           schools.find((s) => s.code === selectedSchool)?.name || selectedSchool;
         const programName =
-          availablePrograms.find((p) => p.code === selectedProgram)?.name ||
+          availablePrograms.find((p) => p.name === selectedProgram)?.name ||
           selectedProgram;
         showToast(
           `Content check settings saved for ${schoolName} - ${programName}`,
@@ -130,7 +130,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
 
   const schoolOptions = schools.map((s) => ({ value: s.code, label: s.name }));
   const programOptions = availablePrograms.map((p) => ({
-    value: p.code,
+    value: p.name, // programs are stored by name
     label: p.name,
   }));
   const yearOptions = years.map((y) => ({

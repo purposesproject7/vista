@@ -225,7 +225,7 @@ const ForcePPTApproval = ({ schools, programs, years }) => {
                         >
                             <option value="">Select Program</option>
                             {availablePrograms.map((program) => (
-                                <option key={program.id} value={program.code || program.name}>
+                                <option key={program.id} value={program.name}>
                                     {program.name}
                                 </option>
                             ))}

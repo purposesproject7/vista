@@ -57,7 +57,7 @@ const TeamSettings = ({
   React.useEffect(() => {
     // If we have a selected program but it's not in the new available list, clear it
     if (selectedProgram && availablePrograms.length > 0) {
-      const exists = availablePrograms.find((p) => p.code === selectedProgram);
+      const exists = availablePrograms.find((p) => p.name === selectedProgram);
       if (!exists) {
         setSelectedProgram("");
       }
@@ -167,7 +167,7 @@ const TeamSettings = ({
           schools.find((s) => s.code === selectedSchool)?.name ||
           selectedSchool;
         const programName =
-          availablePrograms.find((p) => p.code === selectedProgram)?.name ||
+          availablePrograms.find((p) => p.name === selectedProgram)?.name ||
           selectedProgram;
 
         showToast(
@@ -191,7 +191,7 @@ const TeamSettings = ({
 
   const schoolOptions = schools.map((s) => ({ value: s.code, label: s.name }));
   const programOptions = availablePrograms.map((p) => ({
-    value: p.code,
+    value: p.name, // programs are stored by name
     label: p.name,
   }));
   // Adjust year options to use 'year' string as value if that's what backend expects (schema: academicYear: String)
