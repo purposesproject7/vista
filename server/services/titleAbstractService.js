@@ -1,7 +1,7 @@
 import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { PlagiarismService } from "./plagiarismService.js";
-import { checkSimilarity, embed, embeddingText, MODEL } from "./similarityService.js";
+import { checkSimilarity, embed, embeddingText, MODEL, rememberProject } from "./similarityService.js";
 import { logger } from "../utils/logger.js";
 
 // Similarity to an existing project (0-100). Embedding cosine scores sit high
@@ -305,13 +305,13 @@ export class TitleAbstractService {
     // Approved title/abstract joins the corpus later submissions are compared
     // against. Not fatal: the backfill embeds any project left without one.
     try {
+      const vector = await embed(embeddingText(project.name, project.abstract));
       await Project.updateOne(
         { _id: project._id },
-        {
-          abstractEmbedding: await embed(embeddingText(project.name, project.abstract)),
-          abstractEmbeddingModel: MODEL,
-        }
+        { abstractEmbedding: vector, abstractEmbeddingModel: MODEL }
       );
+      // Compared against from the very next submission, not after a refresh.
+      rememberProject(project._id, project.name, project.academicYear, vector);
     } catch (error) {
       logger.error("accept_embedding_failed", { projectId: project._id, error: error.message });
     }

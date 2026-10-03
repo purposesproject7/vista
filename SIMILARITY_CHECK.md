@@ -40,6 +40,8 @@ Typical scores:
 
 If the model fails for any reason, the submission still goes through without a similarity score, and the guide reviews it as usual.
 
+**Speed.** The app keeps every comparison vector in memory, so a check costs one embedding (about 0.1–0.3 s) plus a few milliseconds of scoring, however many abstracts are stored. The copy loads on the first check, refreshes in the background every 10 minutes (picking up deletions, renamed titles or a manual backfill), and a project a guide accepts is added immediately. Memory use is about 3 KB per stored abstract (30 MB for 10,000). `node scripts/similarityCacheCheck.js` tests this without a database.
+
 ## What is the backfill?
 
 The check can only compare against projects that already have an embedding. Projects created before this feature have none, so new submissions would never be matched against them.
@@ -128,4 +130,5 @@ It was picked by benchmark on 7 project topics, each with an original abstract, 
 | `server/scripts/backfillEmbeddings.js` | The backfill (runs on every deploy); also seeds the common projects |
 | `server/data/referenceProjects.json` | The 100 common projects |
 | `server/models/referenceProjectSchema.js` | Where they are stored |
-| `server/scripts/similarityCheck.js` | Self-check |
+| `server/scripts/similarityCheck.js` | Self-check of the model |
+| `server/scripts/similarityCacheCheck.js` | Self-check of the in-memory vector cache |
