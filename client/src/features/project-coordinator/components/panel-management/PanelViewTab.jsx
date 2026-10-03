@@ -17,7 +17,7 @@ import Badge from "../../../../shared/components/Badge";
 import EmptyState from "../../../../shared/components/EmptyState";
 import LoadingSpinner from "../../../../shared/components/LoadingSpinner";
 import { useToast } from "../../../../shared/hooks/useToast";
-import { useAuth } from "../../../../shared/hooks/useAuth";
+import { useCoordinatorScope } from "../../context/CoordinatorContext";
 import { fetchPanels as apiFetchPanels, fetchProjects, deletePanel } from "../../services/coordinatorApi";
 import {
   formatPanelName,
@@ -37,7 +37,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
   const [loadingProjects, setLoadingProjects] = useState({});
   const [editingPanel, setEditingPanel] = useState(null);
   const { showToast } = useToast();
-  const { user } = useAuth();
+  const scope = useCoordinatorScope();
 
   // Fetch panels when filters change
   useEffect(() => {
@@ -52,8 +52,8 @@ const PanelViewTab = ({ isPrimary = false }) => {
       setLoading(true);
 
       const response = await apiFetchPanels({
-        school: user?.school,
-        program: user?.program,
+        school: scope.school,
+        program: scope.program,
         academicYear: filters?.year,
       });
 
@@ -72,7 +72,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [filters, user, showToast]);
+  }, [filters, scope.school, scope.program, showToast]);
 
   const fetchPanelProjects = useCallback(async (panelId) => {
     try {
@@ -83,8 +83,8 @@ const PanelViewTab = ({ isPrimary = false }) => {
       if (!currentPanel) return;
 
       const response = await fetchProjects({
-        school: user?.school,
-        program: user?.program,
+        school: scope.school,
+        program: scope.program,
         academicYear: filters?.year,
       });
 
@@ -123,7 +123,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
     } finally {
       setLoadingProjects(prev => ({ ...prev, [panelId]: false }));
     }
-  }, [filters, panels, user, showToast]);
+  }, [filters, panels, scope.school, scope.program, showToast]);
 
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);

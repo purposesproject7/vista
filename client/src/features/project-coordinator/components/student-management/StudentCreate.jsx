@@ -11,7 +11,7 @@ import Card from "../../../../shared/components/Card";
 import Button from "../../../../shared/components/Button";
 import Input from "../../../../shared/components/Input";
 import { useToast } from "../../../../shared/hooks/useToast";
-import { useAuth } from "../../../../shared/hooks/useAuth";
+import { useCoordinatorScope } from "../../context/CoordinatorContext";
 import {
   downloadStudentTemplate,
   validateStudentFile,
@@ -38,7 +38,7 @@ const StudentCreate = () => {
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
   const { showToast } = useToast();
-  const { user } = useAuth();
+  const scope = useCoordinatorScope();
 
   const handleFilterComplete = useCallback((selectedFilters) => {
     setFilters(selectedFilters);
@@ -97,9 +97,9 @@ const StudentCreate = () => {
       // Add school, department, and academicYear from filters
       const enrichedData = studentData.map((student) => ({
         ...student,
-        school: user?.school,
-        department: user?.program,
-        program: user?.program,
+        school: scope.school,
+        department: scope.program,
+        program: scope.program,
         academicYear: filters.year,
       }));
 
@@ -124,7 +124,7 @@ const StudentCreate = () => {
       setUploading(false);
       setTimeout(() => setUploadProgress(0), 1000);
     }
-  }, [selectedFile, filters, showToast]);
+  }, [selectedFile, filters, scope.school, scope.program, showToast]);
 
   const handleManualFormChange = (field, value) => {
     setManualForm((prev) => ({
@@ -173,9 +173,9 @@ const StudentCreate = () => {
 
       const newStudent = {
         ...manualForm,
-        school: user?.school,
-        department: user?.program,
-        program: user?.program,
+        school: scope.school,
+        department: scope.program,
+        program: scope.program,
         academicYear: filters.year,
       };
 
@@ -196,7 +196,7 @@ const StudentCreate = () => {
     } finally {
       setIsSubmittingManual(false);
     }
-  }, [manualForm, filters, manualStudents, uploadedStudents, showToast]);
+  }, [manualForm, filters, manualStudents, uploadedStudents, scope.school, scope.program, showToast]);
 
   const handleRemoveStudent = useCallback(
     (index, source) => {
@@ -304,7 +304,7 @@ const StudentCreate = () => {
               <div>
                 <p className="text-xs text-gray-600 font-semibold">School</p>
                 <p className="text-sm text-gray-900 font-medium">
-                  {user?.school}
+                  {scope.school}
                 </p>
               </div>
               <div>
@@ -312,7 +312,7 @@ const StudentCreate = () => {
                   Department
                 </p>
                 <p className="text-sm text-gray-900 font-medium">
-                  {user?.program}
+                  {scope.program}
                 </p>
               </div>
               <div>
@@ -504,7 +504,7 @@ const StudentCreate = () => {
               <div>
                 <p className="text-xs text-gray-600 font-semibold">School</p>
                 <p className="text-sm text-gray-900 font-medium">
-                  {user?.school}
+                  {scope.school}
                 </p>
               </div>
               <div>
@@ -512,7 +512,7 @@ const StudentCreate = () => {
                   Department
                 </p>
                 <p className="text-sm text-gray-900 font-medium">
-                  {user?.program}
+                  {scope.program}
                 </p>
               </div>
               <div>

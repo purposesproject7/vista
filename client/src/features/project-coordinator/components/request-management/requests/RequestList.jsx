@@ -5,6 +5,7 @@ import Button from "../../../../../shared/components/Button";
 import Modal from "../../../../../shared/components/Modal";
 import { useToast } from "../../../../../shared/hooks/useToast";
 import { useAuth } from "../../../../../shared/hooks/useAuth";
+import { useCoordinatorScope } from "../../../context/CoordinatorContext";
 import { CheckCircleIcon } from "@heroicons/react/24/outline";
 import RequestFilters from "./RequestFilters";
 import FacultyRequestCard from "./FacultyRequestCard";
@@ -19,6 +20,7 @@ import {
 const RequestList = () => {
   const { showToast } = useToast();
   const { user } = useAuth();
+  const scope = useCoordinatorScope();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -37,8 +39,8 @@ const RequestList = () => {
       try {
         setLoading(true);
         const response = await fetchRequests({
-          school: user?.school,
-          program: user?.program,
+          school: scope.school,
+          program: scope.program,
         });
 
         if (response.success) {
@@ -57,12 +59,12 @@ const RequestList = () => {
       }
     };
 
-    if (user?.school && user?.program) {
+    if (scope.school && scope.program) {
       loadRequests();
-    } else if (user && (!user.school || !user.program)) {
+    } else if (user && (!scope.school || !scope.program)) {
       setLoading(false); // Stop loading if user exists but lacks required context
     }
-  }, [user, showToast]);
+  }, [user, scope.school, scope.program, showToast]);
 
   // Apply filters and group by faculty
   const filteredRequests = useMemo(() => {

@@ -54,6 +54,21 @@ export function requireSelfStudent(req, res, next) {
   next();
 }
 
+const eq = (a, b) => String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
+
+/**
+ * The coordinator assignment matching the program (and, if given, academic
+ * year) in the request's query or body. Null when none was asked for, more
+ * than one program was asked for, or the coordinator holds no such assignment.
+ */
+export function findRequestedAssignment(coordinators, req) {
+  const program = req.query?.program ?? req.body?.program;
+  if (!program || Array.isArray(program)) return null;
+  const year = req.query?.academicYear ?? req.body?.academicYear;
+  const matches = coordinators.filter((c) => eq(c.program, program));
+  return matches.find((c) => year && eq(c.academicYear, year)) || matches[0] || null;
+}
+
 /**
  * Check if user is a project coordinator
  */
@@ -83,8 +98,14 @@ export async function requireProjectCoordinator(req, res, next) {
     // Attach to request
     req.coordinators = coordinators;
 
-    // Prefer the primary coordinator assignment when one exists; otherwise use the first active assignment.
-    const selectedCoordinator = coordinators.find((c) => c.isPrimary) || coordinators[0];
+    // Act as the assignment for the program the client asked for (the
+    // coordinator's program dropdown), so lists, ownership checks, school and
+    // permissions all follow the selection. Only assignments the coordinator
+    // actually holds can be selected; otherwise fall back to the primary one.
+    const selectedCoordinator =
+      findRequestedAssignment(coordinators, req) ||
+      coordinators.find((c) => c.isPrimary) ||
+      coordinators[0];
     req.coordinator = selectedCoordinator;
 
     // Keep the authenticated user context aligned with the actual coordinator assignment.
@@ -123,13 +144,6 @@ export async function requireProjectCoordinator(req, res, next) {
         });
       }
     }
-
-    // Prefer the primary coordinator context when multiple active assignments exist.
-    // This prevents a secondary assignment from overriding the user's primary school/program,
-    // which is the root cause of empty request lists for primary coordinators.
-    const primaryCoordinator =
-      coordinators.find((c) => c.isPrimary) || coordinators[0];
-    req.coordinator = primaryCoordinator;
 
     next();
   } catch (error) {

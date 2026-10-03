@@ -7,18 +7,20 @@ import StudentViewTab from "../components/student-management/StudentViewTab";
 import StudentUploadTab from "../components/student-management/StudentUploadTab";
 import { fetchStudents } from "../services/coordinatorApi";
 import { useAuth } from "../../../shared/hooks/useAuth";
+import { useCoordinatorScope } from "../context/CoordinatorContext";
 
 const StudentManagement = () => {
   const [activeTab, setActiveTab] = useState("view");
   const [totalStudents, setTotalStudents] = useState(0);
   const { user } = useAuth();
+  const scope = useCoordinatorScope();
 
   useEffect(() => {
     const loadStats = async () => {
       try {
         const response = await fetchStudents({
-          school: user?.school,
-          program: user?.program
+          school: scope.school,
+          program: scope.program
         });
         if (response.success) {
           setTotalStudents(response.students?.length || 0);
@@ -28,7 +30,7 @@ const StudentManagement = () => {
       }
     };
     if (user) loadStats();
-  }, [user]);
+  }, [user, scope.school, scope.program]);
 
   const studentTabs = [
     {

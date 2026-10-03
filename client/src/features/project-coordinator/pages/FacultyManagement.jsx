@@ -9,7 +9,7 @@ import FacultyModal from "../components/faculty-management/FacultyModal";
 import FacultyCreationTab from "../components/faculty-management/FacultyCreation";
 import Card from "../../../shared/components/Card";
 import { useToast } from "../../../shared/hooks/useToast";
-import { useAuth } from "../../../shared/hooks/useAuth";
+import { useCoordinatorScope } from "../context/CoordinatorContext";
 import {
   fetchFaculty as apiFetchFaculty,
   createFaculty as apiCreateFaculty,
@@ -30,7 +30,7 @@ const FacultyManagement = () => {
   const [coordinatorSchool, setCoordinatorSchool] = useState("1"); // Default SCOPE
   const [coordinatorProgramme, setCoordinatorProgramme] = useState("1"); // Default B.Tech CSE
   const { showToast } = useToast();
-  const { user } = useAuth();
+  const scope = useCoordinatorScope();
 
   // Load coordinator context (school and programme)
   useEffect(() => {
@@ -38,9 +38,9 @@ const FacultyManagement = () => {
       try {
         setLoading(true);
         // Get coordinator's school and programme from user data or API
-        if (user && user.school && user.department) {
-          setCoordinatorSchool(user.school);
-          setCoordinatorProgramme(user.department);
+        if (scope.school && scope.program) {
+          setCoordinatorSchool(scope.school);
+          setCoordinatorProgramme(scope.program);
         }
 
         // Fetch permissions to check if primary
@@ -57,7 +57,7 @@ const FacultyManagement = () => {
     };
 
     fetchCoordinatorContext();
-  }, [user, showToast]);
+  }, [scope.school, scope.program, showToast]);
 
   // Fetch faculty when filters change
   useEffect(() => {
@@ -65,15 +65,15 @@ const FacultyManagement = () => {
       fetchFaculty();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, activeTab, showAllPrograms]);
+  }, [filters, activeTab, showAllPrograms, scope.program]);
 
   const fetchFaculty = async () => {
     try {
       setLoading(true);
 
       const response = await apiFetchFaculty({
-        school: user?.school,
-        program: showAllPrograms ? 'all' : user?.program,
+        school: scope.school,
+        program: showAllPrograms ? 'all' : scope.program,
         academicYear: filters?.year,
         showAllPrograms: showAllPrograms
       });
@@ -275,8 +275,8 @@ const FacultyManagement = () => {
               // Create new faculty
               const response = await apiCreateFaculty({
                 ...formData,
-                school: user?.school,
-                department: user?.department,
+                school: scope.school,
+                department: scope.program,
                 academicYear: filters?.academicYear,
               });
 

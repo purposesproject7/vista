@@ -119,7 +119,17 @@ export async function getProfile(req, res) {
 
     res.status(200).json({
       success: true,
-      data: coordinator,
+      data: {
+        ...coordinator,
+        // Every active assignment, so the client can offer exactly these
+        // programs (values as stored, which the server matches on).
+        assignments: (req.coordinators || []).map((c) => ({
+          school: c.school,
+          program: c.program,
+          academicYear: c.academicYear,
+          isPrimary: c.isPrimary,
+        })),
+      },
     });
   } catch (error) {
     res.status(500).json({
