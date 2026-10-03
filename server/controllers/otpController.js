@@ -61,9 +61,15 @@ export async function sendOTP(req, res) {
       OTPService.deleteOTP(req.body.emailId);
     }
 
+    const message =
+      error.message === "Email credentials not configured" ||
+      error.message === "Email authentication failed. Please contact administrator."
+        ? error.message
+        : "Error sending OTP. Please try again.";
+
     res.status(500).json({
       success: false,
-      message: "Error sending OTP. Please try again.",
+      message,
       error: error.message, // Exposed for debugging
     });
   }

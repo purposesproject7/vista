@@ -32,7 +32,7 @@ const RequestItem = ({ request, onApprove, onReject }) => {
           </div>
 
           <h4 className="font-semibold text-gray-900 mb-1">
-            {request.isGroup ? `${request.studentName} (${request.childRequests?.length + 1 || 'Multiple'} Students)` : request.studentName}
+            {request.studentName}
           </h4>
           <p className="text-sm text-gray-600 mb-1">
             {request.projectTitle}
