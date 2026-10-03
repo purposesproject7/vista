@@ -76,6 +76,10 @@ export class FacultyService {
       throw new Error(validationErrors.join(", "));
     }
 
+    const incomingPrograms = Array.isArray(data.program)
+      ? data.program.map(p => p.trim())
+      : data.program ? [data.program.trim()] : [];
+
     // Check duplicate
     const existing = await this.checkDuplicate(
       data.emailId,

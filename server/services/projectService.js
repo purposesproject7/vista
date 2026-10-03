@@ -52,6 +52,9 @@ export class ProjectService {
    * Get guide projects
    */
   static async getGuideProjects(filters = {}) {
+    // Ensure visibility across slight context mismatches
+    if (filters.academicYear) delete filters.academicYear;
+
     const query = {};
     if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
@@ -90,6 +93,9 @@ export class ProjectService {
    * Get panel projects
    */
   static async getPanelProjects(filters = {}) {
+    // Ensure visibility across slight context mismatches
+    if (filters.academicYear) delete filters.academicYear;
+
     const query = {};
     if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;

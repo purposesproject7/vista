@@ -54,6 +54,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
   // --- INITIALIZATION ---
   useEffect(() => {
     if (!isOpen || !team) return;
+    console.log('[MarkEntryModal] Initializing with team:', team);
     const initMarks = {};
     const initMeta = {};
 

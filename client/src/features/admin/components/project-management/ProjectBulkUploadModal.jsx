@@ -17,6 +17,8 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
   const [parsedData, setParsedData] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const abortControllerRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   const handleDataParsed = (data) => {
     // Transform and enrich data
@@ -45,6 +47,10 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
       setUploadStatus({ type: 'error', message: 'No data to upload' });
       return;
     }
+
+    // Cancel any previous request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
 
     setUploading(true);
     setUploadStatus({ type: 'info', message: 'Uploading...' });
@@ -90,6 +96,9 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
   };
 
   const handleClose = () => {
+    // Cancel in-flight request before closing
+    abortControllerRef.current?.abort();
+    clearTimeout(timeoutRef.current);
     setParsedData(null);
     setUploadStatus(null);
     onClose();
