@@ -111,24 +111,28 @@ export class TitleAbstractService {
     // Duplicate-project check against approved projects only. The submission
     // itself is not stored for comparison until the guide accepts it. A model
     // failure must not block submission: it degrades to "not checked".
-    let similarity = { similarityScore: null, similarProjects: [] };
-    try {
-      similarity = await checkSimilarity(confirmedTitle, confirmedAbstract, project._id);
-    } catch (error) {
-      logger.error("similarity_check_failed", {
-        projectId: project._id,
-        error: error.message,
-      });
-    }
-    const { similarityScore, similarProjects } = similarity;
-    const similarityRejected = similarityScore !== null && similarityScore >= SIMILARITY_REJECT;
-    const similarityFlagged = similarityScore !== null && similarityScore >= SIMILARITY_FLAG;
-
     const config = await ProgramConfig.findOne({
       academicYear: project.academicYear,
       school: project.school,
       program: project.program,
     }).lean();
+
+    // Admin can switch the check off per program (default on; older configs
+    // without the field count as on).
+    let similarity = { similarityScore: null, similarProjects: [] };
+    if (config?.similarityCheckEnabled !== false) {
+      try {
+        similarity = await checkSimilarity(confirmedTitle, confirmedAbstract, project._id);
+      } catch (error) {
+        logger.error("similarity_check_failed", {
+          projectId: project._id,
+          error: error.message,
+        });
+      }
+    }
+    const { similarityScore, similarProjects } = similarity;
+    const similarityRejected = similarityScore !== null && similarityScore >= SIMILARITY_REJECT;
+    const similarityFlagged = similarityScore !== null && similarityScore >= SIMILARITY_FLAG;
 
     // Plagiarism/AI scoring is opt-in per program (admin > Content Check):
     // when off, both scores stay null and play no part in flag/reject.

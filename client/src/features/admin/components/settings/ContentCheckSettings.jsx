@@ -9,6 +9,7 @@ import { fetchProgramConfig, saveProgramConfig } from "../../services/adminApi";
 
 const DEFAULT_SETTINGS = {
   plagiarismCheckEnabled: false,
+  similarityCheckEnabled: true,
   flagThreshold: 60,
   autoRejectThreshold: 85,
 };
@@ -51,6 +52,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         if (response.success && response.data) {
           setSettings({
             plagiarismCheckEnabled: response.data.plagiarismCheckEnabled === true,
+            similarityCheckEnabled: response.data.similarityCheckEnabled !== false,
             flagThreshold: response.data.flagThreshold ?? 60,
             autoRejectThreshold: response.data.autoRejectThreshold ?? 85,
           });
@@ -98,6 +100,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         school: selectedSchool,
         program: selectedProgram,
         plagiarismCheckEnabled: settings.plagiarismCheckEnabled,
+        similarityCheckEnabled: settings.similarityCheckEnabled,
         flagThreshold: settings.flagThreshold,
         autoRejectThreshold: settings.autoRejectThreshold,
       });
@@ -208,6 +211,33 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
                 isLoading ? "opacity-50 pointer-events-none" : ""
               }`}
             >
+              <label className="flex items-start gap-3 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={settings.similarityCheckEnabled}
+                  disabled={isLoading}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      similarityCheckEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-900">
+                    Enable duplicate-project (similarity) check
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-1">
+                    Compares each submission with approved projects using the
+                    on-server model, flagging close matches for the guide and
+                    auto-rejecting near-copies. When off, submissions get no
+                    similarity score; approved projects are still recorded, so
+                    turning it back on compares against all of them.
+                  </span>
+                </span>
+              </label>
+
               <label className="flex items-start gap-3 mb-6 cursor-pointer">
                 <input
                   type="checkbox"
