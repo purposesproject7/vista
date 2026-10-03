@@ -1,3 +1,5 @@
+import { isMasterAdmin } from "../utils/facultyHelpers.js";
+
 /**
  * Middleware to enforce school scoping for regular (sub) admins.
  * Master admin (identified by env.ADMIN_EMPLOYEE_ID) is exempt from this.
@@ -11,10 +13,8 @@ export function enforceAdminSchoolScope(req, res, next) {
             });
         }
 
-        const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
-
         // If the user is an admin but NOT the master admin
-        if (req.user.role === 'admin' && req.user.employeeId !== masterAdminId) {
+        if (req.user.role === 'admin' && !isMasterAdmin(req.user)) {
             // Aggressively force the school query param to match the admin's assigned school
             if (!req.user.school) {
                 return res.status(403).json({

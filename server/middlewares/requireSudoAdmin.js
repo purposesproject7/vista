@@ -1,3 +1,5 @@
+import { isMasterAdmin, masterAdminId } from "../utils/facultyHelpers.js";
+
 /**
  * Middleware to check if the authenticated user is ADMIN001 (sudo admin)
  * This middleware should be used after authenticate and requireRole('admin')
@@ -12,11 +14,10 @@ export function requireSudoAdmin(req, res, next) {
         }
 
         // Check if user is the master admin (from env or default ADMIN001)
-        const masterAdminId = process.env.ADMIN_EMPLOYEE_ID || "ADMIN001";
-        if (req.user.employeeId !== masterAdminId) {
+        if (!isMasterAdmin(req.user)) {
             return res.status(403).json({
                 success: false,
-                message: `Access denied. This action requires sudo admin privileges (${masterAdminId}).`,
+                message: `Access denied. This action requires sudo admin privileges (${masterAdminId()}).`,
             });
         }
 
