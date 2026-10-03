@@ -45,46 +45,18 @@ useEffect(() => {
   };
 
   const handleBulkUpload = async () => {
-  if (parsedData.length === 0) {
-    setUploadStatus({ success: false, message: 'No data to upload' });
-    return;
-  }
-
-  // Cancel any previous in-flight request
-  abortControllerRef.current?.abort();
-  abortControllerRef.current = new AbortController();
-
-  try {
-    setIsUploading(true);
-    setUploadStatus(null);
-
-    const enrichedData = parsedData.map(project => {
-      const teamMembersArray = typeof project.teamMembers === 'string'
-        ? project.teamMembers.split(',').map(m => m.trim()).filter(Boolean)
-        : project.teamMembers || [];
-
-      return {
-        name: project.name,
-        guideFacultyEmpId: project.guideFacultyEmpId,
-        teamMembers: teamMembersArray,
-        type: project.type || 'Capstone Project',
-        specialization: project.specialization || '',
-        school: filters.school,
-        department: filters.department,
-        academicYear: filters.academicYear
-      };
-    });
-
-    // Pass signal here ↓
-    const response = await adminApi.bulkCreateProjects(enrichedData, abortControllerRef.current.signal);
-
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to upload projects');
+    if (parsedData.length === 0) {
+      setUploadStatus({ type: 'error', message: 'No data to upload' });
+      return;
     }
 
-    setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} projects` });
-    showToast('Projects uploaded successfully', 'success');
-    setParsedData([]);
+    // Cancel any previous in-flight request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+
+    try {
+      setIsUploading(true);
+      setUploadStatus(null);
 
       const enrichedData = parsedData.map(project => {
         const teamMembersArray = project.teamMembers
@@ -103,14 +75,17 @@ useEffect(() => {
         };
       });
 
-      const response = await adminApi.bulkCreateProjects(enrichedData, { ignoreDepartmentMismatch });
+      const response = await adminApi.bulkCreateProjects(enrichedData, {
+        ignoreDepartmentMismatch,
+        signal: abortControllerRef.current.signal,
+      });
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to upload projects');
       }
 
       const { created, failed, errors } = response.data || {};
-            
+
       if (failed === 0) {
           setUploadStatus({ type: 'success', message: `Successfully uploaded ${created} projects` });
           showToast('Projects uploaded successfully', 'success');
@@ -125,6 +100,8 @@ useEffect(() => {
           showToast('Upload failed', 'error');
       }
     } catch (error) {
+      // Cancelled by leaving the page or starting a newer upload: not an error.
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return;
       console.error('Upload error:', error);
       setUploadStatus({ type: 'error', message: error.response?.data?.message || error.message || 'Failed to upload projects' });
     } finally {

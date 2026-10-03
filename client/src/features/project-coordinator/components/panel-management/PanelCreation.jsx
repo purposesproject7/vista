@@ -32,6 +32,7 @@ import {
   autoCreatePanels,
   bulkCreatePanels,
   fetchFacultyDetailsBulk,
+  fetchFaculty,
 } from "../../services/coordinatorApi";
 
 const SPECIALIZATION_OPTIONS = [
