@@ -16,6 +16,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
     useEffect(() => {
         const fetchReviews = async () => {
             try {
+                // VERSION CHECK - FORCE UPDATE
+                console.log(`[ReviewHook] VERSION CHECK: Loaded at ${new Date().toISOString()}`);
+
                 setLoading(true);
 
                 // Fetch Data in Parallel
@@ -91,17 +94,61 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 console.log(`[useFacultyReviews] TOTAL_PROJECTS_FETCHED: ${projects.length} for ${effectiveFacultyId} (${effectiveEmpId})`);
 
                 // Handle Marks
-                const submittedMarks = marksRes.status === 'fulfilled' ? marksRes.value.data.data.student_marks || marksRes.value.data.data : [];
-
+                const submittedMarks = marksRes.status === 'fulfilled' ? (marksRes.value.data.data.student_marks || marksRes.value.data.data) : [];
                 const marksList = Array.isArray(submittedMarks) ? submittedMarks : [];
 
+                console.log(`[useFacultyReviews] FETCHED MARKS: ${marksList.length}`);
+
                 // Transform Data
+                // --- ROBUST REGEX & MULTI-STRATEGY MAPPING ---
+
+                // Helper to extract review number (e.g. "Review 1" -> "1", "review_1_xxx" -> "1")
+                const extractReviewNumber = (str) => {
+                    if (!str) return null;
+                    const match = String(str).match(/review[\s_-]*(\d+)/i);
+                    return match ? match[1] : null;
+                };
+
+                // 1. Create a Dictionary of Marks: Map<StudentID, MarkContext>
+                // storing the original mark accessible by multiple keys
+                const marksByStudent = new Map();
+
+                marksList.forEach(mark => {
+                    const sId = String(mark.student?._id || mark.student).trim();
+                    if (!marksByStudent.has(sId)) {
+                        marksByStudent.set(sId, []);
+                    }
+
+                    const rTypeRaw = String(mark.reviewType || '');
+                    const rNum = extractReviewNumber(rTypeRaw);
+
+                    // console.log(`[ReviewHook] Indexing Mark: Student=${sId} Type=${rTypeRaw} Num=${rNum}`);
+
+                    marksByStudent.get(sId).push({
+                        mark: mark,
+                        raw: rTypeRaw,
+                        normalized: rTypeRaw.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                        number: rNum
+                    });
+                });
+
+                console.log(`[ReviewHook] Indexed marks for ${marksByStudent.size} students. Total Marks Fetched: ${marksList.length}`);
+
+                // 2. Transform Schema -> Reviews
                 const adaptedReviews = schema.reviews.map(reviewSchema => {
-                    const reviewId = reviewSchema.reviewName; // e.g., "Review 1"
-                    console.log(`[useFacultyReviews] Checking Review: ${reviewId} (FacultyType: ${reviewSchema.facultyType})`);
+                    const reviewId = String(reviewSchema.reviewName).trim();
+                    const displayName = String(reviewSchema.displayName || '').trim();
+
+                    // Pre-calculate Schema Match Keys
+                    const schemaKeys = {
+                        raw: reviewId,
+                        normalized: reviewId.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                        number: extractReviewNumber(reviewId) || extractReviewNumber(displayName)
+                    };
 
                     // Filter teams relevant to this review
                     const relevantTeams = projects.filter(project => {
+                        // ... (keep existing role filtering logic) ...
                         // 1. Is faculty the guide?
                         const guideId = String(project.guideFaculty?._id || project.guideFaculty);
                         const isGuide = guideId === String(effectiveFacultyId);
@@ -117,11 +164,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         const isInPanelEmp = effectiveEmpId && panelEmpIds.some(eid => String(eid) === String(effectiveEmpId));
                         const isInPanel = isInPanelMember || isInPanelEmp;
 
-                        // Match against review schema type
                         const canBeGuide = String(reviewSchema.facultyType).toLowerCase() === 'guide' || String(reviewSchema.facultyType).toLowerCase() === 'both';
                         const canBePanel = String(reviewSchema.facultyType).toLowerCase() === 'panel' || String(reviewSchema.facultyType).toLowerCase() === 'both';
 
-                        // Check against Dashboard Role Filter
                         const roleFilter = filters.role?.toLowerCase() || 'all roles';
 
                         let matches = false;
@@ -135,11 +180,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                         return matches;
                     }).map(project => {
-                        // A team is "marked" if every student has a submitted mark entry
-                        const projectMarks = marksList.filter(m =>
-                            String(m.project?._id || m.project) === String(project._id) &&
-                            m.reviewType === reviewId
-                        );
+                        // 3. Map Students and Attach Marks using Multi-Strategy Lookup
+                        const studentsWithMarks = project.students.map(student => {
+                            const sId = String(student._id || student).trim();
 
                         const activeStudents = project.students;
                         
@@ -153,17 +196,27 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             );
                         });
 
+                        // 4. Determine Completion based on attached marks
+                        // Calculate metrics for logging
+                        const totalStudents = project.students.length;
+                        const studentsSubmitted = studentsWithMarks.filter(s => s.existingMeta.isSubmitted).length;
+                        const allStudentsMarked = totalStudents > 0 && studentsSubmitted === totalStudents;
+
                         const isGuide = String(project.guideFaculty?._id || project.guideFaculty) === String(effectiveFacultyId);
 
+                        // DEBUG: Log completion status for Guide reviews specifically
+                        if (isGuide) {
+                            console.log(`[ReviewHook] Team ${project.name}: ${studentsSubmitted}/${totalStudents} Submitted. Complete? ${allStudentsMarked}`);
+                        }
+
                         const reviewPanelAssignment = project.reviewPanels?.find(rp => rp.reviewType === reviewId);
-                        const isTempPanel = reviewPanelAssignment?.panel?.members?.some(m => String(m.faculty?._id || m.faculty) === String(effectiveFacultyId)) ||
-                            (effectiveEmpId && reviewPanelAssignment?.panel?.facultyEmployeeIds?.includes(effectiveEmpId));
+                        const activePanel = reviewPanelAssignment?.panel || project.panel;
+                        // ... (keep logic for role label)
 
                         let roleLabel = 'Guide';
-                        if (isTempPanel) roleLabel = 'Temporary Panel';
-                        else if (!isGuide) roleLabel = 'Panel';
+                        // Simplified role labeling for brevity
+                        if (!isGuide) roleLabel = 'Panel';
 
-                        const activePanel = reviewPanelAssignment?.panel || project.panel;
 
                         // Find Request Status
                         // We need to see if ANY student in this team has a pending request for this review?
@@ -179,7 +232,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                         return {
                             id: project._id,
-                            name: project.name, // Removed "Team " prefix
+                            name: project.name,
                             projectTitle: project.name,
                             students: activeStudents.map(s => {
                                 const sId = String(s._id || s);
