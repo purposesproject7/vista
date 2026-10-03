@@ -8,8 +8,8 @@
 //   node scripts/seedSimilarityTest.js --remove                     # delete it all
 //
 // Logins: test.guide@vit.ac.in and testsim1..5@vitstudent.ac.in, all with
-// TEST_PASSWORD. Re-running is safe: existing test records are kept and their
-// passwords are not changed. Uses the db in server/.env.
+// TEST_PASSWORD. Re-running is safe: existing test records are kept, and every
+// run (re)sets all six test logins to TEST_PASSWORD. Uses the db in server/.env.
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
@@ -69,7 +69,9 @@ if (!(await MarkingSchema.exists({ school, program, academicYear }))) {
 const hash = await bcrypt.hash(password, 10);
 
 let guide = await Faculty.findOne({ employeeId: GUIDE.employeeId });
-if (!guide) {
+if (guide) {
+  await Faculty.updateOne({ _id: guide._id }, { $set: { password: hash, isActive: true, isDefaultPassword: false } });
+} else {
   guide = await Faculty.create({
     ...GUIDE,
     name: "Test Guide",
@@ -84,7 +86,9 @@ if (!guide) {
 
 for (let i = 1; i <= TEAMS; i++) {
   let s = await Student.findOne({ regNo: student(i).regNo });
-  if (!s) {
+  if (s) {
+    await Student.updateOne({ _id: s._id }, { $set: { password: hash, isActive: true, isDefaultPassword: false } });
+  } else {
     s = await Student.create({
       ...student(i),
       name: `Test Student ${i}`,
@@ -113,5 +117,8 @@ for (let i = 1; i <= TEAMS; i++) {
 console.log(`Context: ${school} / ${program} / ${academicYear}`);
 console.log(`Guide:    ${GUIDE.emailId}`);
 for (let i = 1; i <= TEAMS; i++) console.log(`Team ${i}:   ${student(i).emailId}  (${projectName(i)})`);
-console.log("All use TEST_PASSWORD. Remove everything later with --remove.");
+// Prove the stored hash accepts the password, the same way login checks it.
+const stored = await Faculty.findOne({ employeeId: GUIDE.employeeId }).select("+password").lean();
+if (!(await bcrypt.compare(password, stored.password))) throw new Error("password check failed after seeding");
+console.log("All use TEST_PASSWORD (verified). Remove everything later with --remove.");
 await mongoose.disconnect();
