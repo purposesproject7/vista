@@ -45,8 +45,12 @@ const generateStudentToken = (student) => {
 /**
  * Login for a student account (@vitstudent.ac.in)
  */
+// Emails match case-insensitively: "Admin@vit.ac.in" and the stored
+// "admin@vit.ac.in" are the same account.
+const CASE_INSENSITIVE = { locale: "en", strength: 2 };
+
 async function loginStudent(req, res, emailId, password) {
-  const student = await Student.findOne({ emailId }).select("+password");
+  const student = await Student.findOne({ emailId }).collation(CASE_INSENSITIVE).select("+password");
 
   if (!student) {
     logger.warn("login_failed", {
@@ -107,13 +111,15 @@ async function loginStudent(req, res, emailId, password) {
  */
 export async function login(req, res) {
   try {
-    const { emailId, password, expectedRole } = req.body;
+    const { password, expectedRole } = req.body;
+    // Autofill and copy-paste often add surrounding spaces.
+    const emailId = String(req.body.emailId ?? "").trim();
 
     if (emailId && emailId.toLowerCase().endsWith(STUDENT_EMAIL_DOMAIN)) {
       return loginStudent(req, res, emailId, password);
     }
 
-    const faculty = await Faculty.findOne({ emailId }).select("+password");
+    const faculty = await Faculty.findOne({ emailId }).collation(CASE_INSENSITIVE).select("+password");
 
     if (!faculty) {
       logger.warn("login_failed", {
@@ -140,6 +146,17 @@ export async function login(req, res) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password.",
+      });
+    }
+
+    // Every later request rejects an inactive account (middlewares/auth.js),
+    // which bounced the user straight back to /login after a "successful"
+    // login. Say so here instead.
+    if (faculty.isActive === false) {
+      logger.warn("login_failed", { emailId, reason: "inactive_account", ip: req.ip });
+      return res.status(403).json({
+        success: false,
+        message: "This account is inactive. Please contact the administrator.",
       });
     }
 
