@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Button from "./Button";
 import UserMenu from "./UserMenu";
+import BroadcastBell from "./BroadcastBell";
 import ChangePasswordModal from "../../features/auth/components/ChangePasswordModal";
 import {
   ArrowRightOnRectangleIcon,
@@ -85,6 +86,9 @@ const Navbar = () => {
                 </button>
               </div>
             )}
+
+            {/* Admin broadcasts as notifications: faculty and coordinators only */}
+            {user.role === "faculty" && <BroadcastBell user={user} />}
 
             <UserMenu
               user={user}

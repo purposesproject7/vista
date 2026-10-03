@@ -86,21 +86,6 @@ export async function getFacultyTypeForProject(
 }
 
 /**
- * Extract school/program arrays from faculty for broadcast matching
- */
-export function getFacultyAudience(faculty) {
-  const schools = Array.isArray(faculty.school)
-    ? faculty.school
-    : [faculty.school];
-
-  const programs = Array.isArray(faculty.program)
-    ? faculty.program
-    : [faculty.program];
-
-  return { schools, programs };
-}
-
-/**
  * Employee id of the master ("sudo") admin, who is exempt from school
  * scoping. Normalized the way employee ids are stored (trimmed, uppercased),
  * so "admin001" or a stray space in deploy.conf still matches.
