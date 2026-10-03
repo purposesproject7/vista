@@ -28,7 +28,7 @@ const SimilarProjects = ({ contentCheck }) =>
       <p>Most similar existing projects:</p>
       <ul className="list-disc pl-4">
         {contentCheck.similarProjects.map((p) => (
-          <li key={p.project}>
+          <li key={p.project || p.title}>
             {p.title}
             {p.academicYear ? ` (${p.academicYear})` : ""} — {p.score}%
           </li>

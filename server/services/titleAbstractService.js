@@ -11,6 +11,11 @@ import { logger } from "../utils/logger.js";
 // different projects below 56. Re-calibrate if EMBEDDING_MODEL changes.
 const SIMILARITY_FLAG = Number(process.env.SIMILARITY_FLAG_THRESHOLD ?? 75);
 const SIMILARITY_REJECT = Number(process.env.SIMILARITY_REJECT_THRESHOLD ?? 93);
+// Common reference projects (data/referenceProjects.json) are short generic
+// abstracts, so a full submission of the same common project scores ~72-94
+// against one and a different approach to the same problem ~51-69. They only
+// ever flag: doing a common project is allowed, copying a team's is not.
+const SIMILARITY_REFERENCE_FLAG = Number(process.env.SIMILARITY_REFERENCE_FLAG_THRESHOLD ?? 70);
 
 const TITLE_MAX_LENGTH = 200;
 const ABSTRACT_MIN_WORDS = 250;
@@ -119,7 +124,7 @@ export class TitleAbstractService {
 
     // Admin can switch the check off per program (default on; older configs
     // without the field count as on).
-    let similarity = { similarityScore: null, similarProjects: [] };
+    let similarity = { similarityScore: null, projectScore: null, referenceScore: null, similarProjects: [] };
     if (config?.similarityCheckEnabled !== false) {
       try {
         similarity = await checkSimilarity(confirmedTitle, confirmedAbstract, project._id);
@@ -130,9 +135,12 @@ export class TitleAbstractService {
         });
       }
     }
-    const { similarityScore, similarProjects } = similarity;
-    const similarityRejected = similarityScore !== null && similarityScore >= SIMILARITY_REJECT;
-    const similarityFlagged = similarityScore !== null && similarityScore >= SIMILARITY_FLAG;
+    const { similarityScore, projectScore, referenceScore, similarProjects } = similarity;
+    // Only a near-copy of an approved project rejects; references only flag.
+    const similarityRejected = projectScore !== null && projectScore >= SIMILARITY_REJECT;
+    const similarityFlagged =
+      (projectScore !== null && projectScore >= SIMILARITY_FLAG) ||
+      (referenceScore !== null && referenceScore >= SIMILARITY_REFERENCE_FLAG);
 
     // Plagiarism/AI scoring is opt-in per program (admin > Content Check):
     // when off, both scores stay null and play no part in flag/reject.

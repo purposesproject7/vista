@@ -1,5 +1,6 @@
 import { pipeline } from "@huggingface/transformers";
 import Project from "../models/projectSchema.js";
+import ReferenceProject from "../models/referenceProjectSchema.js";
 import { logger } from "../utils/logger.js";
 
 // Runs locally on CPU; the model downloads once to the transformers cache.
@@ -33,44 +34,67 @@ function dot(a, b) {
   return sum;
 }
 
+const REFERENCE_LABEL = "Common project";
+
 /**
- * Top matches among every other project that has an embedding (approved
- * title/abstracts only, see acceptTitleAbstract and the backfill), as
- * { project, title, academicYear, score } with score 0-100.
+ * Score every approved project (other than this one) and every reference
+ * project that has an embedding from the current model. Each match is
+ * { project, title, academicYear, score, source } with score 0-100;
+ * source is "project" or "reference".
  */
 export async function findSimilar(vector, excludeProjectId) {
   // ponytail: brute-force scan over all stored vectors; fine for tens of
   // thousands of projects, switch to a vector index beyond that.
-  const candidates = await Project.find({
-    _id: { $ne: excludeProjectId },
-    abstractEmbeddingModel: MODEL,
-  })
-    .select("+abstractEmbedding name academicYear")
-    .lean();
+  const [projects, references] = await Promise.all([
+    Project.find({ _id: { $ne: excludeProjectId }, abstractEmbeddingModel: MODEL })
+      .select("+abstractEmbedding name academicYear")
+      .lean(),
+    ReferenceProject.find({ abstractEmbeddingModel: MODEL })
+      .select("+abstractEmbedding title")
+      .lean(),
+  ]);
+  const score = (v) => Math.max(0, Math.round(dot(vector, v) * 100));
 
-  return candidates
-    .map((p) => ({
+  return [
+    ...projects.map((p) => ({
       project: p._id,
       title: p.name,
       academicYear: p.academicYear,
-      score: Math.max(0, Math.round(dot(vector, p.abstractEmbedding) * 100)),
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, TOP_K);
+      score: score(p.abstractEmbedding),
+      source: "project",
+    })),
+    ...references.map((r) => ({
+      title: r.title,
+      academicYear: REFERENCE_LABEL,
+      score: score(r.abstractEmbedding),
+      source: "reference",
+    })),
+  ].sort((a, b) => b.score - a.score);
 }
 
-/** Embed a title/abstract and find the closest existing projects. */
+/**
+ * Embed a title/abstract and find the closest matches. projectScore is the top
+ * match among approved projects (can reject); referenceScore the top match
+ * among common reference projects (can only flag). Both null when there is
+ * nothing of that kind to compare against.
+ */
 export async function checkSimilarity(title, abstract, projectId) {
   const vector = await embed(embeddingText(title, abstract));
-  const similarProjects = await findSimilar(vector, projectId);
-  const similarityScore = similarProjects[0]?.score ?? 0;
+  const matches = await findSimilar(vector, projectId);
+  const top = (source) => matches.find((m) => m.source === source)?.score ?? null;
+  const projectScore = top("project");
+  const referenceScore = top("reference");
+  const similarityScore = matches[0]?.score ?? null;
+  const similarProjects = matches.slice(0, TOP_K).map(({ source, ...m }) => m);
 
   logger.info("similarity_check_completed", {
     projectId,
     model: MODEL,
     similarityScore,
-    compared: similarProjects.length,
+    projectScore,
+    referenceScore,
+    compared: matches.length,
   });
 
-  return { vector, similarityScore, similarProjects };
+  return { vector, similarityScore, projectScore, referenceScore, similarProjects };
 }
