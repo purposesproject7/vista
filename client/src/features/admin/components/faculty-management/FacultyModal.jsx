@@ -4,6 +4,7 @@ import Modal from '../../../../shared/components/Modal';
 import Input from '../../../../shared/components/Input';
 import Select from '../../../../shared/components/Select';
 import Button from '../../../../shared/components/Button';
+import PasswordCriteria, { validatePassword } from '../../../../shared/components/PasswordCriteria';
 
 const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
   const [formData, setFormData] = useState({
@@ -13,7 +14,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
     phoneNumber: '',
     password: '',
     specialization: '',
-    role: 'faculty'
+    role: 'faculty',
+    isProjectCoordinator: false
   });
 
   useEffect(() => {
@@ -27,7 +29,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
           phoneNumber: faculty.phoneNumber || faculty.phone || '',
           password: '', // Don't show existing password
           specialization: faculty.specialization || '',
-          role: faculty.role || 'faculty'
+          role: faculty.role || 'faculty',
+          isProjectCoordinator: faculty.isProjectCoordinator || false
         });
       } else {
         setFormData({
@@ -37,7 +40,8 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
           phoneNumber: '',
           password: '',
           specialization: '',
-          role: 'faculty'
+          role: 'faculty',
+          isProjectCoordinator: false
         });
       }
     }
@@ -45,7 +49,7 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.emailId.trim() || !formData.employeeId.trim() || !formData.phoneNumber.trim()) {
       alert('Please fill in all required fields');
       return;
@@ -64,14 +68,12 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
     }
 
     // Validate password for new faculty
-    if (!faculty && !formData.password) {
-      alert('Password is required for new faculty');
-      return;
-    }
-
-    if (!faculty && formData.password.length < 8) {
-      alert('Password must be at least 8 characters long');
-      return;
+    if (!faculty) {
+      const passwordError = validatePassword(formData.password);
+      if (passwordError) {
+        alert(passwordError);
+        return;
+      }
     }
 
     onSave(formData);
@@ -91,7 +93,7 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
         {/* Basic Information */}
         <div className="bg-gray-50 p-4 rounded-lg space-y-4">
           <h4 className="font-semibold text-gray-900 mb-3">Basic Information</h4>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Full Name <span className="text-red-500">*</span>
@@ -159,9 +161,9 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
                 placeholder="Enter password"
                 required={!faculty}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Min 8 chars with uppercase, lowercase, number & special char
-              </p>
+              {formData.password && (
+                <PasswordCriteria password={formData.password} />
+              )}
             </div>
           )}
         </div>
@@ -169,7 +171,7 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
         {/* Academic Information */}
         <div className="bg-gray-50 p-4 rounded-lg space-y-4">
           <h4 className="font-semibold text-gray-900 mb-3">Academic Information</h4>
-          
+
           {/* Display School and Department from filters as read-only */}
           {filters && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -183,11 +185,13 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
                 <label className="block text-xs font-medium text-blue-700 mb-1">
                   Department (from filter)
                 </label>
-                <p className="text-sm font-semibold text-blue-900">{filters.department}</p>
+                <p className="text-sm font-semibold text-blue-900">
+                  {Array.isArray(filters.department) ? filters.department.join(', ') : filters.department}
+                </p>
               </div>
             </div>
           )}
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -214,6 +218,23 @@ const FacultyModal = ({ isOpen, onClose, onSave, faculty, filters }) => {
                 required
               />
             </div>
+          </div>
+
+          {/* Project Coordinator Toggle */}
+          <div className="mt-4 flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Project Coordinator Status</p>
+              <p className="text-xs text-blue-600 mt-0.5">Enable to allow assigning this faculty as a project coordinator</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={formData.isProjectCoordinator}
+                onChange={(e) => handleChange('isProjectCoordinator', e.target.checked)}
+              />
+              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-400 rounded-full peer peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
           </div>
         </div>
 

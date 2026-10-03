@@ -65,11 +65,17 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const isSudoAdmin = () => {
+        return user?.isMasterAdmin === true;
+    };
+
     const value = {
         user,
+        setUser,
         loading,
         login,
         logout,
+        isSudoAdmin,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

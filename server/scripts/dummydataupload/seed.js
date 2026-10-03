@@ -138,6 +138,119 @@ const seedProjects = async () => {
   }
 };
 
+// Master Data
+import MasterData from "../../models/masterDataSchema.js";
+
+const seedMasterData = async () => {
+  console.log("Seeding Master Data...");
+
+  // Load raw data to extract master data
+  const facultyList = await loadData("faculty.json");
+  const studentList = await loadData("students.json");
+  const projectList = await loadData("projects.json");
+
+  const schoolsMap = new Map();
+  const programsMap = new Map();
+  const yearsMap = new Map();
+
+  // Helper to collect data
+  const collect = (list) => {
+    list.forEach((item) => {
+      // Collect Schools
+      if (item.school) {
+        if (!schoolsMap.has(item.school)) {
+          schoolsMap.set(item.school, {
+            name: item.school,
+            code: item.school, // Use name as code to match JSON references
+            isActive: true,
+          });
+        }
+      }
+
+      // Collect Programs
+      if (item.program && item.school) {
+        const key = `${item.school}|${item.program}`;
+        if (!programsMap.has(key)) {
+          programsMap.set(key, {
+            school: item.school,
+            name: item.program,
+            code: item.program, // Use name as code to match JSON references
+            isActive: true,
+          });
+        }
+      }
+
+      // Collect Academic Years
+      if (item.academicYear) {
+        if (!yearsMap.has(item.academicYear)) {
+          yearsMap.set(item.academicYear, {
+            year: item.academicYear,
+            isActive: true,
+            isCurrent: item.academicYear === "2024-2025",
+          });
+        }
+      }
+    });
+  };
+
+  collect(facultyList);
+  collect(studentList);
+  collect(projectList);
+
+  // Check if a Master Data doc exists or create new
+  let masterData = await MasterData.findOne();
+  if (!masterData) {
+    masterData = new MasterData({
+      schools: [],
+      programs: [],
+      academicYears: [],
+    });
+  }
+
+  // Update Schools
+  for (const s of schoolsMap.values()) {
+    const exists = masterData.schools.find(
+      (ex) => ex.code === s.code || ex.name === s.name
+    );
+    if (!exists) {
+      masterData.schools.push(s);
+    }
+  }
+
+  // Update Programs
+  for (const p of programsMap.values()) {
+    const exists = masterData.programs.find(
+      (ex) =>
+        ex.school === p.school &&
+        (ex.code === p.code || ex.name === p.name)
+    );
+    if (!exists) {
+      masterData.programs.push(p);
+    }
+  }
+
+  // Update Academic Years
+  for (const y of yearsMap.values()) {
+    const exists = masterData.academicYears.find((ex) => ex.year === y.year);
+    if (!exists) {
+      masterData.academicYears.push(y);
+    } else {
+      // Ensure isCurrent is updated if needed
+      if (y.isCurrent) {
+        // Unset other current years if simple logic, but for now just ensure this one is true
+        // Real logic might need to unset others, but let's stick to safe upsert
+        exists.isCurrent = true;
+      }
+    }
+  }
+
+  await masterData.save();
+  console.log("Master Data Seeded Successfully.");
+  console.log(`Schools: ${masterData.schools.length}`);
+  console.log(`Programs: ${masterData.programs.length}`);
+  console.log(`Years: ${masterData.academicYears.length}`);
+};
+
 const seed = async () => {
   await connectDB();
   try {
@@ -148,6 +261,7 @@ const seed = async () => {
     await ProjectCoordinator.deleteMany({});
     console.log("Data cleared.");
 
+    await seedMasterData();
     await seedFaculty();
     await seedStudents();
     await seedProjects();

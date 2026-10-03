@@ -48,22 +48,34 @@ const StudentBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
       }));
 
       const result = await onUpload(enrichedData);
-      
+
       if (result.success) {
-        setUploadStatus({ 
-          success: true, 
-          message: `Successfully uploaded ${parsedData.length} students` 
+        // Parse the actual server response
+        const { created = 0, updated = 0, errors = 0 } = result.data || {};
+
+        // Build detailed success message
+        let message = `Bulk upload completed. `;
+        message += `Created: ${created}, Updated: ${updated}`;
+
+        if (errors > 0) {
+          message += `, Errors: ${errors}`;
+        }
+
+        setUploadStatus({
+          success: true,
+          message,
+          details: result.data
         });
-        
+
         setTimeout(() => {
           handleClose();
-        }, 2000);
+        }, 3000);
       }
     } catch (error) {
       console.error('Upload error:', error);
-      setUploadStatus({ 
-        success: false, 
-        message: error.response?.data?.message || error.message || 'Failed to upload students' 
+      setUploadStatus({
+        success: false,
+        message: error.response?.data?.message || error.message || 'Failed to upload students'
       });
     } finally {
       setIsUploading(false);

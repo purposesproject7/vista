@@ -7,16 +7,20 @@ import { CoordinatorProvider } from "./features/project-coordinator/context/Coor
 import GlobalErrorBoundary from "./shared/components/GlobalErrorBoundary";
 
 import FacultyDashboard from "./features/faculty/pages/FacultyDashboard";
+import StudentDashboard from "./features/student/pages/StudentDashboard";
 import FacultyTutorial from "./features/faculty/pages/tutorial/FacultyTutorial";
 import GuideReviews from "./features/faculty/pages/GuideReviews";
 import StudentManagement from "./features/admin/pages/StudentManagement";
 import FacultyManagement from "./features/admin/pages/FacultyManagement";
+import AdminManagement from "./features/admin/pages/AdminManagement";
 import ProjectManagement from "./features/admin/pages/ProjectManagement";
 import PanelManagementLanding from "./features/admin/pages/PanelManagementLanding";
 import AdminReports from "./features/admin/pages/AdminReports";
 import AdminSettings from "./features/admin/pages/AdminSettings";
 import RequestManagement from "./features/admin/pages/RequestManagement";
 import AdminBroadcasts from "./features/admin/pages/AdminBroadcasts";
+import CoordinatorManagement from "./features/admin/pages/CoordinatorManagement";
+
 
 // Project Coordinator Pages
 import CoordinatorStudentManagement from "./features/project-coordinator/pages/StudentManagement";
@@ -31,6 +35,7 @@ import CoordinatorReports from "./features/project-coordinator/pages/Coordinator
 
 import Login from "./features/auth/pages/Login";
 import ForgotPassword from "./features/auth/pages/ForgotPassword";
+import SetupPassword from "./features/auth/pages/SetupPassword";
 import InstructionsPage from "./features/auth/pages/InstructionsPage";
 import BlockedPage from "./features/auth/pages/BlockedPage";
 
@@ -62,6 +67,22 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     if (!hasRole && !(isCoordinatorRoute && isFacultyCoordinator)) {
       return <Navigate to="/unauthorized" replace />;
     }
+  }
+
+  return children;
+};
+
+/**
+ * PasswordSetupGuard - Wraps protected routes to ensure faculty who still have
+ * the admin-assigned default password are redirected to /setup-password first.
+ * Admins are exempt (they manage the system).
+ */
+const PasswordSetupGuard = ({ children }) => {
+  const { user } = useAuth();
+
+  // Only enforce for non-admin faculty roles
+  if (user && user.role !== "admin" && user.isDefaultPassword === true) {
+    return <Navigate to="/setup-password" replace />;
   }
 
   return children;
@@ -121,12 +142,22 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/blocked" element={<BlockedPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        <Route
+          path="/setup-password"
+          element={
+            <ProtectedRoute>
+              <SetupPassword />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/faculty"
           element={
             <ProtectedRoute allowedRoles={["faculty"]}>
-              <FacultyDashboard />
+              <PasswordSetupGuard>
+                <FacultyDashboard />
+              </PasswordSetupGuard>
             </ProtectedRoute>
           }
         />
@@ -135,7 +166,9 @@ function AppRoutes() {
           path="/faculty/tutorial"
           element={
             <ProtectedRoute allowedRoles={["faculty"]}>
-              <FacultyTutorial />
+              <PasswordSetupGuard>
+                <FacultyTutorial />
+              </PasswordSetupGuard>
             </ProtectedRoute>
           }
         />
@@ -144,7 +177,20 @@ function AppRoutes() {
           path="/faculty/reviews"
           element={
             <ProtectedRoute allowedRoles={["faculty"]}>
-              <GuideReviews />
+              <PasswordSetupGuard>
+                <GuideReviews />
+              </PasswordSetupGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student"
+          element={
+            <ProtectedRoute allowedRoles={["student"]}>
+              <PasswordSetupGuard>
+                <StudentDashboard />
+              </PasswordSetupGuard>
             </ProtectedRoute>
           }
         />
@@ -169,6 +215,22 @@ function AppRoutes() {
                   element={
                     <ProtectedRoute allowedRoles={["admin"]}>
                       <FacultyManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admins"
+                  element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <AdminManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="coordinators"
+                  element={
+                    <ProtectedRoute allowedRoles={["admin"]}>
+                      <CoordinatorManagement />
                     </ProtectedRoute>
                   }
                 />

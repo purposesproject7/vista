@@ -6,6 +6,7 @@ import Button from '../../../shared/components/Button';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../services/api';
+import PasswordCriteria, { validatePassword } from '../../../shared/components/PasswordCriteria';
 
 const ChangePasswordModal = ({ isOpen, onClose }) => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -31,25 +32,6 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
   const handleForgotPassword = () => {
     handleClose();
     navigate('/forgot-password');
-  };
-
-  const validatePassword = (password) => {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters long';
-    }
-    if (!/[A-Z]/.test(password)) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!/[a-z]/.test(password)) {
-      return 'Password must contain at least one lowercase letter';
-    }
-    if (!/[0-9]/.test(password)) {
-      return 'Password must contain at least one number';
-    }
-    if (!/[!@#$%^&*]/.test(password)) {
-      return 'Password must contain at least one special character (!@#$%^&*)';
-    }
-    return null;
   };
 
   const handleSubmit = async (e) => {
@@ -81,36 +63,22 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      // TODO: Replace with actual API call
-      // Mock API call for development
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulate checking current password (50% chance of failure for demo)
-      const isCurrentPasswordCorrect = Math.random() > 0.3; // 70% success rate for demo
-      
-      if (!isCurrentPasswordCorrect) {
-        setCurrentPasswordError(true);
-        showToast('Current password is incorrect', 'error');
-        return;
-      }
-
-      // Actual API call would be:
-      // await api.post('/auth/change-password', {
-      //   currentPassword,
-      //   newPassword
-      // });
+      await api.put('/auth/change-password', {
+        currentPassword,
+        newPassword
+      });
 
       showToast('Password changed successfully!', 'success');
       handleClose();
     } catch (error) {
       console.error('Error changing password:', error);
-      
+
       // Check if error is due to incorrect current password
-      if (error.response?.status === 401 || error.response?.data?.message?.includes('current password')) {
+      if (error.response?.status === 401 || error.response?.data?.message?.toLowerCase().includes('current password')) {
         setCurrentPasswordError(true);
         showToast('Current password is incorrect', 'error');
       } else {
-        showToast('Failed to change password. Please try again.', 'error');
+        showToast(error.response?.data?.message || 'Failed to change password. Please try again.', 'error');
       }
     } finally {
       setLoading(false);
@@ -169,15 +137,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
           required
         />
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-xs font-semibold text-blue-900 mb-2">Password Requirements:</p>
-          <ul className="text-xs text-blue-800 space-y-1">
-            <li>• At least 8 characters long</li>
-            <li>• Contains uppercase and lowercase letters</li>
-            <li>• Contains at least one number</li>
-            <li>• Contains at least one special character (!@#$%^&*)</li>
-          </ul>
-        </div>
+        <PasswordCriteria password={newPassword} />
 
         <div className="flex gap-3 pt-4">
           <Button

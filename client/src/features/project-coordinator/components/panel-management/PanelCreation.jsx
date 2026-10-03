@@ -11,6 +11,7 @@ import {
   ArrowUpTrayIcon,
   InformationCircleIcon,
   XMarkIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 import AcademicFilterSelector from "../shared/AcademicFilterSelector";
 import Card from "../../../../shared/components/Card";
@@ -60,12 +61,14 @@ const PanelCreation = () => {
   const [facultyListError, setFacultyListError] = useState(null);
   const [facultyList, setFacultyList] = useState([]);
   const [loadingFacultyList, setLoadingFacultyList] = useState(false);
+  const [fetchingAllFaculties, setFetchingAllFaculties] = useState(false);
 
   // Manual mode state
   const [manualForm, setManualForm] = useState({
     panelName: "",
     selectedFaculties: [],
     specializations: "",
+    venue: "",
   });
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
@@ -74,6 +77,7 @@ const PanelCreation = () => {
     panelSize: 3,
     specializations: "",
     panelType: "regular",
+    venue: "",
   });
   const [isCreatingAuto, setIsCreatingAuto] = useState(false);
 
@@ -93,11 +97,13 @@ const PanelCreation = () => {
     setManualForm({
       panelName: "",
       selectedFaculties: [],
+      venue: "",
     });
     setAutoForm({
       panelSize: 3,
       specializations: "",
       panelType: "regular",
+      venue: "",
     });
     setSelectedFile(null);
     setFileError(null);
@@ -174,6 +180,32 @@ const PanelCreation = () => {
     }
   }, [facultyListFile, showToast]);
 
+  const handleFetchAllFaculty = useCallback(async () => {
+    try {
+      setFetchingAllFaculties(true);
+      const response = await fetchFaculty({
+        school: filters.school || filters.schoolCode,
+        program: filters.programme || filters.programCode,
+        academicYear: filters.year || filters.academicYear,
+      });
+
+      if (response.success && response.faculty?.length > 0) {
+        setFacultyList(response.faculty);
+        setFacultyListError(null);
+        showToast(`Loaded ${response.faculty.length} faculty members`, "success");
+      } else {
+        setFacultyListError("No active faculty found for this academic context");
+        showToast("No active faculty found for this context", "warning");
+      }
+    } catch (error) {
+      console.error("Error fetching all faculty:", error);
+      setFacultyListError(error.message || "Failed to fetch faculty");
+      showToast("Failed to fetch all faculty", "error");
+    } finally {
+      setFetchingAllFaculties(false);
+    }
+  }, [filters, showToast]);
+
   // ==================== MANUAL MODE ====================
   const handleAddFacultyToSelection = (empId) => {
     if (manualForm.selectedFaculties.includes(empId)) {
@@ -211,6 +243,7 @@ const PanelCreation = () => {
         semester: filters.semester,
         panelType: "regular",
         specializations: manualForm.specializations ? [manualForm.specializations] : [],
+        venue: manualForm.venue ? manualForm.venue.replace(/<[^>]*>/g, '').trim() : undefined,
       };
 
       const response = await createPanel(payload);
@@ -225,6 +258,7 @@ const PanelCreation = () => {
         panelName: "",
         selectedFaculties: [],
         specializations: "",
+        venue: "",
       });
 
       showToast("Panel created successfully", "success");
@@ -256,6 +290,7 @@ const PanelCreation = () => {
           ? autoForm.specializations.split(",").map((s) => s.trim())
           : [],
         type: autoForm.panelType,
+        venue: autoForm.venue ? autoForm.venue.replace(/<[^>]*>/g, '').trim() : undefined,
       };
 
       const response = await autoCreatePanels(payload);
@@ -273,6 +308,7 @@ const PanelCreation = () => {
         panelSize: 3,
         specializations: "",
         panelType: "regular",
+        venue: "",
       });
 
       showToast(response.message || "Panels created successfully", "success");
@@ -513,11 +549,27 @@ const PanelCreation = () => {
 
               <Button
                 onClick={handleFacultyListUpload}
-                disabled={!facultyListFile || loadingFacultyList}
+                disabled={!facultyListFile || loadingFacultyList || fetchingAllFaculties}
                 className="w-full"
               >
                 <CloudArrowUpIcon className="w-5 h-5 mr-2" />
-                {loadingFacultyList ? "Loading..." : "Load Faculty List"}
+                {loadingFacultyList ? "Loading..." : "Load Faculty List from File"}
+              </Button>
+
+              <div className="flex items-center my-4">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="mx-4 text-sm text-gray-500 font-medium">OR</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+              </div>
+
+              <Button
+                onClick={handleFetchAllFaculty}
+                disabled={loadingFacultyList || fetchingAllFaculties}
+                variant="secondary"
+                className="w-full"
+              >
+                <UsersIcon className="w-5 h-5 mr-2" />
+                {fetchingAllFaculties ? "Fetching..." : "Fetch Available Faculty from Database"}
               </Button>
             </div>
           ) : (
@@ -565,6 +617,18 @@ const PanelCreation = () => {
                   setManualForm((prev) => ({
                     ...prev,
                     specializations: value,
+                  }))
+                }
+              />
+
+              <Input
+                label="Venue"
+                placeholder="e.g., AB1 - 101, Room 301, Seminar Hall"
+                value={manualForm.venue}
+                onChange={(e) =>
+                  setManualForm((prev) => ({
+                    ...prev,
+                    venue: e.target.value,
                   }))
                 }
               />
@@ -730,11 +794,27 @@ const PanelCreation = () => {
 
               <Button
                 onClick={handleFacultyListUpload}
-                disabled={!facultyListFile || loadingFacultyList}
+                disabled={!facultyListFile || loadingFacultyList || fetchingAllFaculties}
                 className="w-full"
               >
                 <CloudArrowUpIcon className="w-5 h-5 mr-2" />
-                {loadingFacultyList ? "Loading..." : "Load Faculty List"}
+                {loadingFacultyList ? "Loading..." : "Load Faculty List from File"}
+              </Button>
+
+              <div className="flex items-center my-4">
+                <div className="flex-grow border-t border-gray-300"></div>
+                <span className="mx-4 text-sm text-gray-500 font-medium">OR</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+              </div>
+
+              <Button
+                onClick={handleFetchAllFaculty}
+                disabled={loadingFacultyList || fetchingAllFaculties}
+                variant="secondary"
+                className="w-full"
+              >
+                <UsersIcon className="w-5 h-5 mr-2" />
+                {fetchingAllFaculties ? "Fetching..." : "Fetch Available Faculty from Database"}
               </Button>
             </div>
           ) : (
@@ -805,6 +885,18 @@ const PanelCreation = () => {
                 ]}
               />
 
+              <Input
+                label="Venue"
+                placeholder="e.g., AB1 - 101, Room 301, Seminar Hall"
+                value={autoForm.venue}
+                onChange={(e) =>
+                  setAutoForm((prev) => ({
+                    ...prev,
+                    venue: e.target.value,
+                  }))
+                }
+              />
+
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-900">
                   <span className="font-medium">Preview:</span>{" "}
@@ -839,9 +931,13 @@ const PanelCreation = () => {
                 <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside">
                   <li>Download the template Excel file below</li>
                   <li>
+                    The template includes Venue and Review Date & Time columns
+                  </li>
+                  <li>
                     Fill in faculty employee IDs for each panel (comma-separated
                     in one column)
                   </li>
+                  <li>Venue and review time should be filled for every panel</li>
                   <li>School and Department will be auto-filled</li>
                   <li>Upload the completed file</li>
                   <li>Maximum file size: 5MB</li>

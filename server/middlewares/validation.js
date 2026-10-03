@@ -12,7 +12,9 @@ export const validateRequired = (requiredFields, source = "body") => {
 
     const missingFields = requiredFields.filter((field) => {
       const value = data[field];
-      return value === undefined || value === null || value === "";
+      if (value === undefined || value === null || value === "") return true;
+      if (Array.isArray(value) && value.length === 0) return true;
+      return false;
     });
 
     if (missingFields.length > 0) {
@@ -104,6 +106,10 @@ export const validateAcademicContext = (req, res, next) => {
  */
 export const sanitizeInput = (req, res, next) => {
   const sanitize = (obj) => {
+    if (Array.isArray(obj)) {
+      // Handle array bodies (bulk upload endpoints)
+      return obj.map(sanitize);
+    }
     if (typeof obj !== "object" || obj === null) return obj;
 
     Object.keys(obj).forEach((key) => {

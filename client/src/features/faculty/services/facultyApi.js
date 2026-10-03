@@ -35,22 +35,27 @@ export const getComponentLibrary = async (params) => {
   return response.data;
 };
 
-export const getEvaluationMetadata = async () => {
-  const response = await api.get("/faculty/evaluation-metadata");
+export const getMasterData = async () => {
+  const response = await api.get("/faculty/master-data");
   return response.data;
 };
 
-export const getAcademicYears = async () => {
-  const response = await api.get("/faculty/academic-years");
-  return response.data;
-};
+
 
 export const submitMarks = async (payload) => {
   const response = await api.post("/faculty/marks", payload);
   return response.data;
 };
 
-export const approvePPT = async (studentId, reviewType) => {
-  const response = await api.post("/faculty/approvals/ppt", { studentId, reviewType });
+export const approvePPT = async (studentId, reviewType, sdgGoal) => {
+  const response = await api.post("/faculty/approvals/ppt", { studentId, reviewType, sdgGoal });
+  return response.data;
+};
+
+/**
+ * Guide accepts a project's consensus-reached title/abstract, locking it.
+ */
+export const acceptTitleAbstract = async (projectId) => {
+  const response = await api.put(`/project/${projectId}/accept-title-abstract`);
   return response.data;
 };

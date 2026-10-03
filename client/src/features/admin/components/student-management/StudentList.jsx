@@ -12,17 +12,30 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ClockIcon,
-  EyeIcon
+  EyeIcon,
+  PencilIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
-const StudentList = ({ students = [], loading = false, onViewDetails }) => {
+const StudentList = ({ students = [], loading = false, onViewDetails, onEdit, onDelete, onUndoPAT }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredStudents = students.filter(student =>
-    student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.regNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(student => {
+    const q = searchTerm.toLowerCase();
+    if (!q) return true;
+    if (student.name?.toLowerCase().includes(q)) return true;
+    if (student.regNo?.toLowerCase().includes(q)) return true;
+    if (student.email?.toLowerCase().includes(q)) return true;
+    if (student.emailId?.toLowerCase().includes(q)) return true;
+    if (student.phoneNumber?.toLowerCase().includes(q)) return true;
+    // guide can be string or object
+    const guideName = typeof student.guide === 'object' ? student.guide?.name : student.guide;
+    if (guideName?.toLowerCase().includes(q)) return true;
+    // panelMember can be string or object
+    const panelName = typeof student.panelMember === 'object' ? student.panelMember?.name : student.panelMember;
+    if (panelName?.toLowerCase().includes(q)) return true;
+    return false;
+  });
 
   const getPPTStatusBadge = (student) => {
     if (!student.reviewStatuses || student.reviewStatuses.length === 0) {
@@ -70,7 +83,7 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
           <UserGroupIcon className="w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name, registration number, or email..."
+            placeholder="Search by name, reg. no., email, guide, panel member, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -100,7 +113,14 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                   {/* Basic Info */}
                   <div>
                     <h3 className="font-semibold text-gray-900 text-base mb-1">{student.name}</h3>
-                    <p className="text-sm text-gray-600 font-mono">{student.regNo}</p>
+                    <p className="text-sm text-gray-600 font-mono mb-1">{student.regNo}</p>
+                    <div>
+                      {student.PAT ? (
+                        <Badge variant="purple">PAT</Badge>
+                      ) : (
+                        <Badge variant="default">NO PAT</Badge>
+                      )}
+                    </div>
                   </div>
 
                   {/* Contact */}
@@ -116,6 +136,20 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                   </div>
 
                   {/* PPT & Marks */}
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">PPT Approval</p>
+                      {getPPTStatusBadge(student)}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Total Marks</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {student.totalMarks !== null && student.totalMarks !== undefined
+                          ? `${student.totalMarks}/100`
+                          : 'Not Graded'}
+                      </p>
+                    </div>
+                  </div>
 
                   {/* Guide & Panel */}
                   <div className="space-y-2">
@@ -130,8 +164,43 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                   </div>
                 </div>
 
-                {/* Action Button */}
-                <div className="shrink-0">
+                {/* Action Buttons */}
+                <div className="shrink-0 flex gap-2">
+                  {student.PAT && onUndoPAT && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to undo the PAT status for ${student.name} (${student.regNo})?\nThis will remove the [PAT] tag from all existing evaluations.`)) {
+                          onUndoPAT(student);
+                        }
+                      }}
+                      className="gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      <XCircleIcon className="w-4 h-4" />
+                      Undo PAT
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => onDelete(student)}
+                      className="gap-2"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                      Delete
+                    </Button>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onEdit(student)}
+                    className="gap-2"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                    Edit
+                  </Button>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -161,20 +230,6 @@ const StudentList = ({ students = [], loading = false, onViewDetails }) => {
                   </div>
                 </div>
               )}
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">PPT Approval</p>
-                  {getPPTStatusBadge(student)}
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total Marks</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {student.totalMarks !== null && student.totalMarks !== undefined
-                      ? `${student.totalMarks}/100`
-                      : 'Not Graded'}
-                  </p>
-                </div>
-              </div>
             </Card>
           ))}
         </div>

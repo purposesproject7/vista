@@ -1,6 +1,5 @@
 // src/features/project-coordinator/components/faculty-management/FacultyList.jsx
-import React, { useState, useCallback, useEffect } from "react";
-import AcademicFilterSelector from "../shared/AcademicFilterSelector";
+import React, { useState, useMemo } from "react";
 import Card from "../../../../shared/components/Card";
 import Button from "../../../../shared/components/Button";
 import Badge from "../../../../shared/components/Badge";
@@ -9,9 +8,26 @@ import {
   TrashIcon,
   UserIcon,
   AcademicCapIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 
 const FacultyList = ({ faculty, onEdit, onDelete, isPrimary }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredFaculty = useMemo(() => {
+    if (!searchQuery) return faculty;
+    const query = searchQuery.toLowerCase();
+    return faculty.filter(
+      (member) =>
+        member.name?.toLowerCase().includes(query) ||
+        member.employeeId?.toLowerCase().includes(query) ||
+        member.email?.toLowerCase().includes(query) ||
+        member.department?.toLowerCase().includes(query) ||
+        member.specialization?.toLowerCase().includes(query) ||
+        member.phoneNumber?.toLowerCase().includes(query)
+    );
+  }, [faculty, searchQuery]);
+
   const getProjectCountBadge = (count) => {
     if (count === 0) return "secondary";
     if (count <= 3) return "success";
@@ -21,19 +37,32 @@ const FacultyList = ({ faculty, onEdit, onDelete, isPrimary }) => {
 
   return (
     <div className="space-y-6">
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          placeholder="Search faculty by name, ID, email, department, specialization, or phone..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
       <div className="space-y-4">
-        {faculty.length === 0 ? (
+        {filteredFaculty.length === 0 ? (
           <Card>
             <div className="p-12 text-center text-gray-500">
               <UserIcon className="h-16 w-16 mx-auto mb-4 text-gray-400" />
               <p className="text-lg font-medium">No faculty members found</p>
               <p className="text-sm mt-2">
-                Try adjusting your filters or add a new faculty member
+                Try adjusting your search or add a new faculty member
               </p>
             </div>
           </Card>
         ) : (
-          faculty.map((member) => (
+          filteredFaculty.map((member) => (
             <Card
               key={member._id || member.id}
               className="hover:shadow-md transition-shadow"

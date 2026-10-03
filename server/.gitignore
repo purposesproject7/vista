@@ -56,8 +56,7 @@ tmp/
 temp/
 *.tmp
 
-# Package manager locks (optional - comment out if you want to track them)
-# package-lock.json
+# Package manager locks (track these for reproducible builds)
 # yarn.lock
 # pnpm-lock.yaml
 

@@ -13,10 +13,12 @@ const facultySchema = new mongoose.Schema(
       type: String,
       enum: ["admin", "faculty"],
       default: "faculty",
+      lowercase: true,
+      trim: true,
     },
 
     school: { type: String, required: true },
-    program: [{ type: String }], 
+    program: { type: [String], default: [] }, // Now array of strings
     specialization: { type: String },
 
     // Project coordinator flag
@@ -26,6 +28,9 @@ const facultySchema = new mongoose.Schema(
     },
 
     isActive: { type: Boolean, default: true },
+
+    // Forces password change on first login (when admin creates the account)
+    isDefaultPassword: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

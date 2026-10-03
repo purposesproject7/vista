@@ -28,6 +28,11 @@ connectDB();
 
 const app = express();
 
+// Trust the first hop (nginx) so req.ip reflects the real client IP from
+// X-Forwarded-For instead of the proxy's own address — required for
+// per-IP rate limiting to work correctly behind the WAF.
+app.set("trust proxy", 1);
+
 // Security - Helmet
 if (process.env.NODE_ENV === "production") {
   app.use(
@@ -60,7 +65,7 @@ if (process.env.NODE_ENV === "production") {
 // CORS Configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
-  : ["http://localhost:5000", "http://localhost:5173"];
+  : ["http://localhost:3000", "http://localhost:5173", "http://localhost:5000"];
 
 app.use(
   cors({
@@ -123,7 +128,7 @@ app.get("/", (req, res) => {
 });
 
 // API Routes
-app.use("/api/auth", authRouter); 
+app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/coordinator", projectCoordinatorRouter);
 app.use("/api/faculty", facultyRouter);
@@ -200,6 +205,12 @@ const server = app.listen(PORT, HOST, () => {
   });
 });
 
+// Allow long-running bulk operations (5 minutes)
+server.timeout = 300000;
+server.keepAliveTimeout = 305000;
+server.headersTimeout = 310000;
+
+
 // Process error handlers
 process.on("unhandledRejection", (reason, promise) => {
   logger.error("unhandled_rejection", {
@@ -207,10 +218,8 @@ process.on("unhandledRejection", (reason, promise) => {
     reason: reason?.message || reason,
     stack: reason?.stack,
   });
-
-  if (process.env.NODE_ENV === "production") {
-    gracefulShutdown("UNHANDLED_REJECTION");
-  }
+  // Do NOT shutdown the server — Express's error handler covers most cases.
+  // Shutting down here causes 502s for every stray Promise rejection.
 });
 
 process.on("uncaughtException", (error) => {

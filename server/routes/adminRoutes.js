@@ -2,6 +2,8 @@ import express from "express";
 import * as adminController from "../controllers/adminController.js";
 import { authenticate } from "../middlewares/auth.js";
 import { requireRole } from "../middlewares/rbac.js";
+import { requireSudoAdmin } from "../middlewares/requireSudoAdmin.js";
+import { enforceAdminSchoolScope } from "../middlewares/enforceAdminSchoolScope.js";
 import { validateRequired } from "../middlewares/validation.js";
 import { validateAcademicContext } from "../middlewares/validation.js";
 import { validateTeamSize } from "../middlewares/featureLock.js";
@@ -12,6 +14,7 @@ const router = express.Router();
 // Global admin auth and role guard
 router.use(authenticate);
 router.use(requireRole("admin"));
+router.use(enforceAdminSchoolScope);
 
 /**
  * Master data management
@@ -111,6 +114,37 @@ router.post(
 router.put("/marking-schema/:id", adminController.updateMarkingSchema);
 
 /**
+ * Admin Management (SUDO ADMIN ONLY - ADMIN001)
+ */
+router.get("/admins", requireSudoAdmin, adminController.getAllAdmins);
+
+router.post(
+  "/admins",
+  requireSudoAdmin,
+  validateRequired(["name", "emailId", "employeeId", "password", "school", "phoneNumber"]),
+  adminController.createAdminUser
+);
+
+router.post(
+  "/admins/bulk",
+  requireSudoAdmin,
+  validateRequired(["adminList"]),
+  adminController.bulkCreateAdmins
+);
+
+router.put(
+  "/admins/:employeeId",
+  requireSudoAdmin,
+  adminController.updateAdminUser
+);
+
+router.delete(
+  "/admins/:employeeId",
+  requireSudoAdmin,
+  adminController.deleteAdminUser
+);
+
+/**
  * Faculty management
  */
 router.get("/faculty", adminController.getAllFaculty);
@@ -137,8 +171,10 @@ router.post(
   adminController.createFacultyBulk
 );
 
+// Legacy admin creation endpoint - now protected by requireSudoAdmin
 router.post(
   "/faculty/admin",
+  requireSudoAdmin,
   validateRequired(["name", "emailId", "employeeId", "password"]),
   adminController.createAdmin
 );
@@ -204,7 +240,22 @@ router.post(
   adminController.bulkUploadStudents
 );
 
+router.post(
+  "/student/notify-duplicate-guides",
+  validateRequired(["duplicates"]),
+  adminController.notifyDuplicateProjectGuides
+);
+
 router.put("/student/:regNo", adminController.updateStudent);
+
+router.patch("/student/:regNo/undo-pat", adminController.undoStudentPAT);
+
+// Update student marks (ADMIN001 only)
+router.put(
+  "/student/:regNo/marks",
+  requireSudoAdmin,
+  adminController.updateStudentMarks
+);
 
 router.delete("/student/:regNo", adminController.deleteStudent);
 
@@ -216,6 +267,8 @@ router.get("/student/:regNo", adminController.getStudentByRegNo);
 router.get("/projects", adminController.getAllProjects);
 
 router.get("/projects/guides", adminController.getAllGuideWithProjects);
+
+router.get("/projects/panels", adminController.getAllPanelsWithProjects);
 
 router.post(
   "/projects",
@@ -236,7 +289,7 @@ router.post(
   adminController.bulkCreateProjects
 );
 
-router.get("/projects/panels", adminController.getAllPanelsWithProjects);
+router.put("/projects/:id", adminController.updateProject);
 
 router.patch("/projects/:id/best-project", adminController.markAsBestProject);
 
@@ -245,17 +298,11 @@ router.patch("/projects/:id/best-project", adminController.markAsBestProject);
  */
 router.get("/panels", adminController.getAllPanels);
 
+// ⚠️ All literal /panels/* routes MUST come before /panels/:id
 router.get(
   "/panels/summary",
   validateRequired(["academicYear", "school", "program"], "query"),
   adminController.getPanelSummary
-);
-
-router.post(
-  "/panels",
-  validateRequired(["memberEmployeeIds", "academicYear", "school", "program"]),
-  validatePanelSize,
-  adminController.createPanelManually
 );
 
 router.post(
@@ -270,14 +317,16 @@ router.post(
   adminController.bulkCreatePanels
 );
 
-router.put("/panels/:id", adminController.updatePanel);
-
-router.delete("/panels/:id", adminController.deletePanel);
-
 router.post(
   "/panels/assign",
   validateRequired(["panelId", "projectId"]),
   adminController.assignPanelToProject
+);
+
+router.post(
+  "/panels/bulk-assign",
+  validateRequired(["assignments"]),
+  adminController.bulkAssignPanels
 );
 
 router.post(
@@ -286,10 +335,28 @@ router.post(
   adminController.autoAssignPanelsToProjects
 );
 
+// POST /panels after all literal sub-routes
+router.post(
+  "/panels",
+  validateRequired(["memberEmployeeIds", "academicYear", "school", "program"]),
+  validatePanelSize,
+  adminController.createPanelManually
+);
+
+// Parameterized /:id routes AFTER all literal /panels/* paths
+router.put("/panels/:id", adminController.updatePanel);
+
+router.delete("/panels/:id", adminController.deletePanel);
+
 /**
  * Faculty requests (unlock, extensions, etc.)
  */
 router.get("/requests", adminController.getAllRequests);
+
+router.put(
+  "/requests/approve-all",
+  adminController.approveAllRequests
+);
 
 router.put(
   "/requests/:id/status",
@@ -322,6 +389,16 @@ router.post(
 router.put("/broadcasts/:id", adminController.updateBroadcastMessage);
 
 router.delete("/broadcasts/:id", adminController.deleteBroadcastMessage);
+
+/**
+ * Force PPT Approval (SUPER ADMIN ONLY - ADMIN001)
+ */
+router.post(
+  "/force-ppt-approval",
+  requireSudoAdmin,
+  validateRequired(["school", "program", "academicYear", "reviewType"]),
+  adminController.forcePPTApproval
+);
 
 import { getReportData } from "../controllers/reportController.js";
 

@@ -13,10 +13,15 @@ export class ProjectService {
   static async getProjectList(filters = {}) {
     const query = {};
 
-    // Similar fix for projects to ensure visibility across slight context mismatches
-    if (filters.academicYear) delete filters.academicYear;
+    if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.program) {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
     if (filters.status) query.status = filters.status;
     if (filters.guideFaculty) query.guideFaculty = filters.guideFaculty;
     if (filters.panel) query.panel = filters.panel;
@@ -51,8 +56,15 @@ export class ProjectService {
     if (filters.academicYear) delete filters.academicYear;
 
     const query = {};
+    if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.program && filters.program !== 'all') {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
 
     const projects = await Project.find(query)
       .populate("students", "regNo name")
@@ -85,8 +97,15 @@ export class ProjectService {
     if (filters.academicYear) delete filters.academicYear;
 
     const query = {};
+    if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.program && filters.program !== 'all') {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
 
     const projects = await Project.find(query)
       .populate("students", "regNo name emailId")
@@ -156,20 +175,30 @@ export class ProjectService {
    */
   static async getFacultyProjects(facultyId, filters = {}) {
     // Base query for filters
+    // Use case-insensitive regex for program/school/academicYear to handle
+    // mismatches between stored values (e.g. "B.Tech") and query params (e.g. "B.TECH")
     const baseQuery = { status: "active" };
-
-    // Ensure visibility across slight context mismatches
-    if (filters.academicYear) delete filters.academicYear;
-
-    if (filters.school) baseQuery.school = filters.school;
-    if (filters.program) baseQuery.program = filters.program;
+    if (filters.academicYear) {
+      baseQuery.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+    }
+    if (filters.school) {
+      baseQuery.school = { $regex: new RegExp(`^${filters.school.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+    }
+    if (filters.program && filters.program !== 'All Programs') {
+      // Match by either the full program name OR its code (case-insensitive)
+      if (Array.isArray(filters.program)) {
+        baseQuery.program = { $in: filters.program.map(p => new RegExp(`^${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) };
+      } else {
+        baseQuery.program = { $regex: new RegExp(`^${filters.program.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+      }
+    }
 
     // Guide projects
     const guideProjects = await Project.find({
       ...baseQuery,
       guideFaculty: facultyId,
     })
-      .populate("students", "name regNo emailId")
+      .populate("students", "name regNo emailId PAT")
       .populate("guideFaculty", "name employeeId emailId")
       .populate({
         path: "panel",
@@ -205,7 +234,7 @@ export class ProjectService {
         { "reviewPanels.panel": { $in: panelIds } }
       ]
     })
-      .populate("students", "name regNo emailId")
+      .populate("students", "name regNo emailId PAT")
       .populate("guideFaculty", "name employeeId emailId")
       .populate({
         path: "panel",
@@ -360,8 +389,9 @@ export class ProjectService {
   /**
    * Create multiple projects
    */
-  static async bulkCreateProjects(data, createdBy) {
+  static async bulkCreateProjects(data, createdBy, options = {}) {
     let projectsToCreate = [];
+    let ignoreDepartmentMismatch = options.ignoreDepartmentMismatch === true || options.ignoreDepartmentMismatch === "true";
 
     if (Array.isArray(data)) {
       projectsToCreate = data;
@@ -372,6 +402,9 @@ export class ProjectService {
     ) {
       const { school, program, academicYear, guideFacultyEmpId, projects } =
         data;
+      if (data.ignoreDepartmentMismatch !== undefined) {
+        ignoreDepartmentMismatch = data.ignoreDepartmentMismatch;
+      }
       projectsToCreate = projects.map((p) => ({
         ...p,
         school: p.school || school,
@@ -393,9 +426,220 @@ export class ProjectService {
       projects: [],
     };
 
+    if (projectsToCreate.length === 0) return results;
+
+    // ── Batch prefetch ──────────────────────────────────────────────────────
+    // Collect all unique guide employee IDs
+    const uniqueGuideEmpIds = [
+      ...new Set(
+        projectsToCreate.map((p) => p.guideFacultyEmpId ? String(p.guideFacultyEmpId).trim() : null).filter(Boolean)
+      ),
+    ];
+
+    // Collect all unique student reg numbers across all projects
+    const allRegNos = [
+      ...new Set(
+        projectsToCreate.flatMap((p) => {
+          const members = p.students || p.teamMembers || [];
+          return members.map((s) =>
+            typeof s === "string" ? s.toUpperCase() : s.regNo.toUpperCase()
+          ).filter(Boolean);
+        })
+      ),
+    ];
+
+    // Use the first project's context to look up program config
+    // (all projects in a bulk upload share the same academic context)
+    const { academicYear, school, program } = projectsToCreate[0] || {};
+
+    // Run all prefetch queries in parallel
+    const [faculties, students, config, projectsWithStudents] =
+      await Promise.all([
+        Faculty.find({ employeeId: { $in: uniqueGuideEmpIds } }).lean(),
+        allRegNos.length
+          ? Student.find({ regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } }).lean()
+          : Promise.resolve([]),
+        ProgramConfig.findOne({ academicYear, school, program }).lean(),
+        // Fetch all active projects that contain any of these students
+        allRegNos.length
+          ? Student.find({ regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } })
+              .select("_id regNo")
+              .lean()
+              .then((foundStudents) => {
+                const ids = foundStudents.map((s) => s._id);
+                return ids.length
+                  ? Project.find({
+                      students: { $in: ids },
+                      status: "active",
+                    })
+                      .select("students name")
+                      .lean()
+                  : [];
+              })
+          : Promise.resolve([]),
+      ]);
+
+    // Build fast lookup Maps
+    const facultyByEmpId = new Map(
+      faculties.map((f) => [String(f.employeeId).trim(), f])
+    );
+    const studentByRegNo = new Map(
+      students.map((s) => [s.regNo.toUpperCase(), s])
+    );
+
+    // Build a set of student _ids already in an active project, mapped to project name
+    const studentIdToProjectName = new Map();
+    for (const proj of projectsWithStudents) {
+      for (const sid of proj.students) {
+        studentIdToProjectName.set(sid.toString(), proj.name);
+      }
+    }
+
+    // Track guide project counts for max-guide-projects validation
+    // (start with 0; increment as we successfully create projects this batch)
+    const guideProjectCountCache = new Map();
+    if (config?.maxProjectsPerGuide) {
+      const guideFacultyIds = faculties.map((f) => f._id);
+      const counts = await Project.aggregate([
+        {
+          $match: {
+            guideFaculty: { $in: guideFacultyIds },
+            status: "active",
+            academicYear,
+            school,
+            program,
+          },
+        },
+        { $group: { _id: "$guideFaculty", count: { $sum: 1 } } },
+      ]);
+      for (const { _id, count } of counts) {
+        guideProjectCountCache.set(_id.toString(), count);
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     for (const [index, projectData] of projectsToCreate.entries()) {
       try {
-        const project = await this.createProject(projectData, createdBy);
+        const {
+          name,
+          guideFacultyEmpId,
+          academicYear: pYear,
+          school: pSchool,
+          program: pProgram,
+          specialization,
+          type,
+        } = projectData;
+
+        const students_input = projectData.students || projectData.teamMembers || [];
+
+        // Resolve guide from cache
+        const normalizedGuideId = String(guideFacultyEmpId).trim();
+        const guide = facultyByEmpId.get(normalizedGuideId);
+        if (!guide) {
+          throw new Error(
+            `Guide faculty with ID ${guideFacultyEmpId} not found.`
+          );
+        }
+
+        if (!ignoreDepartmentMismatch && (
+          guide.school.toLowerCase() !== pSchool.toLowerCase() ||
+          !guide.program.some(p => p.toLowerCase().includes(pProgram.toLowerCase()) || pProgram.toLowerCase().includes(p.toLowerCase()))
+        )) {
+          throw new Error(
+            "Guide must belong to the same school and program as the project."
+          );
+        }
+
+        // Team size validation (use shared config; projects share one academic context)
+        if (config) {
+          if (students_input.length < config.minTeamSize) {
+            throw new Error(
+              `Team size (${students_input.length}) is below minimum (${config.minTeamSize}).`
+            );
+          }
+          if (students_input.length > config.maxTeamSize) {
+            throw new Error(
+              `Team size (${students_input.length}) exceeds maximum (${config.maxTeamSize}).`
+            );
+          }
+        }
+
+        // Max projects per guide validation (using cache)
+        if (config?.maxProjectsPerGuide) {
+          const currentCount =
+            guideProjectCountCache.get(guide._id.toString()) || 0;
+          if (currentCount >= config.maxProjectsPerGuide) {
+            throw new Error(
+              `Guide already has maximum ${config.maxProjectsPerGuide} projects assigned.`
+            );
+          }
+        }
+
+        // Resolve students from cache
+        const studentIds = [];
+        for (const studentData of students_input) {
+          const regNo =
+            typeof studentData === "string" ? studentData : studentData?.regNo;
+          if (!regNo) throw new Error("Invalid student data. Expected Reg No.");
+
+          const student = studentByRegNo.get(regNo.toUpperCase());
+          if (!student) {
+            throw new Error(`Student with Reg No ${regNo} not found.`);
+          }
+
+          // Check if already in an active project
+          const conflictProjectName = studentIdToProjectName.get(
+            student._id.toString()
+          );
+          if (conflictProjectName) {
+            throw new Error(
+              `Student ${regNo} is already assigned to project '${conflictProjectName}'.`
+            );
+          }
+
+          studentIds.push(student._id);
+        }
+
+        // Persist the project
+        const project = new Project({
+          name,
+          students: studentIds,
+          guideFaculty: guide._id,
+          academicYear: pYear,
+          school: pSchool,
+          program: pProgram,
+          specialization,
+          type,
+          teamSize: students_input.length,
+          status: "active",
+          history: [
+            {
+              action: "created",
+              performedBy: createdBy,
+              performedAt: new Date(),
+            },
+          ],
+        });
+
+        await project.save();
+
+        // Update in-memory caches so subsequent projects in the same batch
+        // see this project's students/guide counts correctly
+        for (const sid of studentIds) {
+          studentIdToProjectName.set(sid.toString(), name);
+        }
+        const guideKey = guide._id.toString();
+        guideProjectCountCache.set(
+          guideKey,
+          (guideProjectCountCache.get(guideKey) || 0) + 1
+        );
+
+        logger.info("project_created", {
+          projectId: project._id,
+          guide: guide.employeeId,
+          studentsCount: students_input.length,
+        });
+
         results.created++;
         results.projects.push(project);
       } catch (error) {
@@ -403,6 +647,11 @@ export class ProjectService {
         results.errors.push({
           index,
           name: projectData.name,
+          guideFacultyEmpId: projectData.guideFacultyEmpId,
+          teamMembers: (() => {
+            const m = projectData.students || projectData.teamMembers || [];
+            return m.map((s) => (typeof s === "string" ? s : s.regNo));
+          })(),
           error: error.message,
         });
       }
@@ -410,6 +659,7 @@ export class ProjectService {
 
     return results;
   }
+
 
   /**
    * Create single project
@@ -424,12 +674,23 @@ export class ProjectService {
       program,
       specialization,
       type,
+      ignoreDepartmentMismatch,
     } = data;
 
     // Validate guide faculty exists
-    const guide = await Faculty.findOne({ employeeId: guideFacultyEmpId });
+    const normalizedGuideId = String(guideFacultyEmpId).trim();
+    const guide = await Faculty.findOne({ employeeId: normalizedGuideId });
     if (!guide) {
       throw new Error(`Guide faculty with ID ${guideFacultyEmpId} not found.`);
+    }
+
+    if (!ignoreDepartmentMismatch && (
+      guide.school.toLowerCase() !== school.toLowerCase() ||
+      !guide.program.some(p => p.toLowerCase().includes(program.toLowerCase()) || program.toLowerCase().includes(p.toLowerCase()))
+    )) {
+      throw new Error(
+        "Guide must belong to the same school and program as the project."
+      );
     }
 
     // Validate specialization match
@@ -466,6 +727,9 @@ export class ProjectService {
       const guideProjectCount = await Project.countDocuments({
         guideFaculty: guide._id,
         status: "active",
+        academicYear,
+        school,
+        program,
       });
 
       if (guideProjectCount >= config.maxProjectsPerGuide) {
@@ -618,6 +882,15 @@ export class ProjectService {
       delete projectUpdates.ignoreSpecialization; // Remove flag
       delete projectUpdates.assignmentScope;
       delete projectUpdates.reviewType;
+
+      // Remove empty strings for required fields to prevent validation errors
+      if (projectUpdates.specialization === "") delete projectUpdates.specialization;
+      if (projectUpdates.name === "") delete projectUpdates.name;
+      if (projectUpdates.type === "") delete projectUpdates.type;
+      if (projectUpdates.school === "") delete projectUpdates.school;
+      if (projectUpdates.program === "") delete projectUpdates.program;
+      if (projectUpdates.academicYear === "") delete projectUpdates.academicYear;
+      if (projectUpdates.teamSize === "") delete projectUpdates.teamSize;
     }
 
     // ---------- Update project scalar fields ----------
@@ -719,19 +992,6 @@ export class ProjectService {
         throw new Error("New guide faculty not found.");
       }
 
-      // Ensure same academic context
-      // Skip check if ignoreSpecialization is true
-      if (
-        !ignoreSpecialization &&
-        (newGuide.school !== project.school ||
-          (Array.isArray(newGuide.program)
-            ? !newGuide.program.includes(project.program)
-            : newGuide.program !== project.program))
-      ) {
-        throw new Error(
-          "Guide must belong to the same school and program as the project."
-        );
-      }
 
       const previousGuide = project.guideFaculty;
 
@@ -739,6 +999,29 @@ export class ProjectService {
         !previousGuide ||
         previousGuide.toString() !== newGuide._id.toString()
       ) {
+        // Check max projects per guide using the LIVE config (same as panel capacity check below)
+        const guideConfig = await ProgramConfig.findOne({
+          academicYear: project.academicYear,
+          school: project.school,
+          program: project.program,
+        });
+
+        if (guideConfig?.maxProjectsPerGuide) {
+          const guideProjectCount = await Project.countDocuments({
+            guideFaculty: newGuide._id,
+            status: "active",
+            academicYear: project.academicYear,
+            school: project.school,
+            program: project.program,
+          });
+
+          if (guideProjectCount >= guideConfig.maxProjectsPerGuide) {
+            throw new Error(
+              `Guide already has maximum ${guideConfig.maxProjectsPerGuide} projects assigned.`
+            );
+          }
+        }
+
         project.history.push({
           action: "guide_reassigned",
           previousGuideFaculty: previousGuide || null,
@@ -784,6 +1067,33 @@ export class ProjectService {
           !previousPanel ||
           previousPanel.toString() !== newPanel._id.toString()
         ) {
+          // Check capacity using the LIVE config (not the potentially stale panel.maxProjects)
+          const panelConfig = await ProgramConfig.findOne({
+            academicYear: project.academicYear,
+            school: project.school,
+            program: project.program,
+          });
+          const effectiveMax = panelConfig?.maxProjectsPerPanel ?? newPanel.maxProjects ?? 10;
+
+          if (newPanel.assignedProjectsCount >= effectiveMax) {
+            throw new Error(
+              `Panel has reached maximum capacity (${effectiveMax} projects). Please choose a different panel or increase the limit in Team Settings.`
+            );
+          }
+
+          // Decrement old panel count and increment new panel count
+          if (previousPanel) {
+            await Panel.findByIdAndUpdate(previousPanel, {
+              $inc: { assignedProjectsCount: -1 },
+            });
+          }
+          newPanel.assignedProjectsCount += 1;
+          // Sync maxProjects on the panel doc with live config
+          if (newPanel.maxProjects !== effectiveMax) {
+            newPanel.maxProjects = effectiveMax;
+          }
+          await newPanel.save();
+
           project.history.push({
             action: "panel_reassigned",
             previousPanel: previousPanel || null,
@@ -1031,81 +1341,112 @@ export class ProjectService {
   /**
    * Merge multiple projects into one new project
    */
-  static async mergeProjects(projectIds, newName, facultyId) {
+  static async mergeProjects(studentIds, newName, facultyId, panelId = null) {
     // 1. Validate inputs
-    if (!projectIds || !Array.isArray(projectIds) || projectIds.length < 2) {
-      throw new Error("At least two projects are required to merge.");
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length < 1) {
+      throw new Error("At least one student is required to form a new team.");
     }
 
     if (!newName || typeof newName !== "string" || newName.trim().length === 0) {
       throw new Error("New project name is required.");
     }
 
-    // 2. Fetch all projects to be merged
-    const projects = await Project.find({
-      _id: { $in: projectIds },
-      status: "active",
+    // 2. Fetch all students to be merged
+    const students = await Student.find({
+      _id: { $in: studentIds }
     });
 
-    if (projects.length !== projectIds.length) {
-      throw new Error("One or more projects not found or not active.");
+    if (students.length !== studentIds.length) {
+      throw new Error("One or more selected students not found.");
     }
 
-    // 3. Verify all projects belong to the same faculty and context (optional but recommended)
-    const firstProject = projects[0];
+    // 3. Find active projects these students belong to
+    // We need this to verify ownership and context, and to update them later
+    const sourceProjects = await Project.find({
+      students: { $in: studentIds },
+      status: "active"
+    }).populate('students');
+
+    // 4. Verify context (School, Program, Academic Year, Guide)
+    // Use the first project found as the context baseline, OR use the faculty's context
+    // Since we are creating a NEW project under this faculty, the context should match the Faculty's context/responsibility.
+    // However, existing students might be from different "compatible" contexts?
+    // User requirement: "guide side team merging feature". Implies Guide is doing it for their own students.
+
+    // Check if Guide owns all source projects (security check)
+    // Note: If a student is NOT in a project (free pool), they won't be in `sourceProjects`.
+    // But `mergeProjects` typically assumes merging existing teams?
+    // "when we add a student, the whole teams gets added... fix that only that student... should be added"
+    // So students MIGHT be in existing teams.
+
+    const faculty = await Faculty.findById(facultyId);
     const commonContext = {
-      school: firstProject.school,
-      program: firstProject.program,
-      academicYear: firstProject.academicYear,
-      guide: firstProject.guideFaculty.toString(),
+      school: null,
+      program: null,
+      academicYear: null,
     };
 
-    for (const p of projects) {
-      if (p.guideFaculty.toString() !== facultyId.toString()) {
-        throw new Error(`Project '${p.name}' does not belong to you.`);
-      }
-      if (
-        p.school !== commonContext.school ||
-        p.program !== commonContext.program ||
-        p.academicYear !== commonContext.academicYear
-      ) {
-        throw new Error(
-          `Projects must belong to the same School, Program, and Academic Year to be merged.`
-        );
+    let referenceProject = sourceProjects[0];
+
+    // If no source project (e.g. all fresh students? Unlikely for "merge"), use defaults
+    if (!referenceProject) {
+      // Fallback if needed, but for "merge" we usually imply existing projects.
+      // If we allow creating new team from scratch here, we need academicYear.
+      // Let's assume consistent academicYear across selection.
+      const studentSample = students[0];
+      commonContext.academicYear = studentSample.academicYear;
+      commonContext.program = studentSample.program;
+      commonContext.school = studentSample.school || faculty.school;
+    } else {
+      commonContext.academicYear = referenceProject.academicYear;
+      commonContext.program = referenceProject.program;
+      commonContext.school = referenceProject.school;
+      // Verify ownership
+      for (const p of sourceProjects) {
+        if (p.guideFaculty.toString() !== facultyId.toString()) {
+          throw new Error(`Project '${p.name}' is not under your guidance.`);
+        }
+        if (p.academicYear !== commonContext.academicYear) {
+          throw new Error("Cannot merge students from different academic years.");
+        }
       }
     }
 
-    // 4. Collect all students
-    let allStudents = [];
-    projects.forEach((p) => {
-      allStudents = [...allStudents, ...p.students];
-    });
-
-    // Deduplicate students (just in case)
-    const uniqueStudentIds = [
-      ...new Set(allStudents.map((id) => id.toString())),
-    ];
-
     // 5. Create the new Merged Project
+    // Use unique student IDs (input might have duplicates if UI bug, but Set handles it)
+    const uniqueStudentIds = [...new Set(studentIds.map(id => id.toString()))];
+
+    // Resolve panel: prefer explicitly chosen panelId, fallback to reference project's panel
+    let resolvedPanelId = null;
+    if (panelId) {
+      const chosenPanel = await Panel.findById(panelId);
+      if (!chosenPanel) {
+        throw new Error("Selected panel not found.");
+      }
+      resolvedPanelId = chosenPanel._id;
+    } else if (referenceProject?.panel) {
+      resolvedPanelId = referenceProject.panel;
+    }
+
     const newProject = new Project({
       name: newName,
       students: uniqueStudentIds,
       guideFaculty: facultyId,
       academicYear: commonContext.academicYear,
       school: commonContext.school,
-      program: commonContext.program,
-      specialization: firstProject.specialization || 'General', // Fallback for legacy data
-      type: firstProject.type || 'software', // Inherit or default
+      program: (Array.isArray(commonContext.program)) ? commonContext.program[0] : commonContext.program, // Safe fallback
+      specialization: referenceProject?.specialization || 'General',
+      type: referenceProject?.type || 'software',
       teamSize: uniqueStudentIds.length,
       status: "active",
 
-      // Inherit panel info from first project to minimize data loss
-      panel: firstProject.panel,
-      reviewPanels: firstProject.reviewPanels,
+      // Use chosen panel or inherited panel from reference project
+      panel: resolvedPanelId,
+      reviewPanels: referenceProject?.reviewPanels || [],
 
       history: [
         {
-          action: "created", // Standard creation action
+          action: "created",
           performedBy: facultyId,
           performedAt: new Date(),
         },
@@ -1113,7 +1454,7 @@ export class ProjectService {
           action: "team_merged",
           performedBy: facultyId,
           performedAt: new Date(),
-          reason: `Merged from projects: ${projects.map(p => p.name).join(", ")}`
+          reason: `Formed by merging students: ${students.map(s => s.regNo).join(", ")}`
         },
       ],
     });
@@ -1121,35 +1462,51 @@ export class ProjectService {
     await newProject.save();
 
     // 6. Update Marks references
-    // Marks are linked to `project` and `student`.
-    // We need to update existing marks to point to the new project
     const Marks = (await import("../models/marksSchema.js")).default;
-    const updateResult = await Marks.updateMany(
+    await Marks.updateMany(
       {
-        project: { $in: projectIds },
         student: { $in: uniqueStudentIds },
+        project: { $in: sourceProjects.map(p => p._id) } // Only update marks linked to old projects
       },
       {
         $set: { project: newProject._id },
       }
     );
 
-    logger.info("marks_moved_on_merge", {
-      count: updateResult.modifiedCount,
-      newProjectId: newProject._id,
-    });
+    // 7. Update Source Projects
+    // "the project should only be deleted after creating a new project...
+    // when either there are not students in that project... or that project is selected completely"
 
-    // 7. Deactivate old projects
-    // We use 'team_merged' action which exists in schema
-    for (const p of projects) {
-      p.status = "archived";
-      p.history.push({
-        action: "team_merged",
-        performedBy: facultyId,
-        reason: `Merged into ${newProject.name}`,
-        mergedWithProject: newProject._id
-      });
-      await p.save();
+    // We iterate over source projects and remove the moved students.
+    for (const p of sourceProjects) {
+      // Filter out students who are moving to the new project
+      const remainingStudents = p.students.filter(
+        s => !uniqueStudentIds.includes(s._id.toString())
+      );
+
+      if (remainingStudents.length === 0) {
+        // Project is empty -> Delete/Archive
+        await Project.findByIdAndDelete(p._id);
+        logger.info("project_deleted_after_exhaustion", {
+          projectId: p._id,
+          mergedInto: newProject._id,
+        });
+      } else {
+        // Project has leftover students -> Update and Keep
+        p.students = remainingStudents;
+        p.teamSize = remainingStudents.length;
+        p.history.push({
+          action: "team_merged", // or "member_removed"
+          performedBy: facultyId,
+          performedAt: new Date(),
+          reason: `Students moved to new project ${newProject.name}`
+        });
+        await p.save();
+        logger.info("project_updated_after_partial_merge", {
+          projectId: p._id,
+          remainingTeamSize: p.teamSize,
+        });
+      }
     }
 
     return newProject;

@@ -6,12 +6,15 @@ import { AcademicCapIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { fetchMasterData } from "../../services/adminApi";
 import { useToast } from "../../../../shared/hooks/useToast";
 import { useAdminContext } from "../../context/AdminContext";
+import { useAuth } from "../../../../shared/hooks/useAuth";
 
 const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   const [loading, setLoading] = useState(false);
   const [masterData, setMasterData] = useState(null);
   const { showToast } = useToast();
   const { academicContext, updateAcademicContext } = useAdminContext();
+  const { user, isSudoAdmin } = useAuth();
+  const sudo = isSudoAdmin();
 
   const [options, setOptions] = useState({
     schools: [],
@@ -58,6 +61,11 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
           schools: schoolOptions,
           years: yearOptions,
         }));
+
+        // Force select the user's school if they are a regular admin
+        if (!sudo && user?.school) {
+          updateAcademicContext({ school: user.school });
+        }
       }
     } catch (error) {
       console.error("Error loading master data:", error);
@@ -70,35 +78,43 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   // Update programs when school changes (either from context or user selection)
   useEffect(() => {
     if (academicContext.school && masterData) {
-      const programsList = masterData.programs || masterData.departments;
-      // robustness: check both code and name
+      // Robust logic from student-management selector
       const schoolObj = masterData.schools?.find(s => s.code === academicContext.school);
-      const schoolName = schoolObj?.name;
-      const schoolCode = schoolObj?.code;
+      // const schoolName = schoolObj?.name; // Not strictly needed if we rely on code matching which is safer if data is consistent
 
-      const programs =
-        programsList
-          ?.filter((d) => {
-            return (
-              d.isActive !== false &&
-              (d.school === schoolCode || d.school === schoolName)
-            );
-          })
+      const deptPrograms =
+        masterData.departments
+          ?.filter((d) => d.isActive !== false && d.school === academicContext.school)
           ?.map((d) => ({
             value: d.name,
             label: d.name,
             code: d.code,
           })) || [];
 
+      const progPrograms =
+        masterData.programs
+          ?.filter((p) => p.isActive !== false && p.school === academicContext.school)
+          ?.map((p) => ({
+            value: p.name,
+            label: p.name,
+            code: p.code,
+          })) || [];
+
+      // Merge and deduplicate by value (program name)
+      const allPrograms = [...deptPrograms, ...progPrograms];
+      const uniquePrograms = Array.from(
+        new Map(allPrograms.map((item) => [item.value, item])).values()
+      );
+
       setOptions((prev) => ({
         ...prev,
-        programs,
+        programs: uniquePrograms,
       }));
 
       // If program in context is not valid for this school, clear it
       if (
         academicContext.program &&
-        !programs.some((p) => p.value === academicContext.program)
+        !uniquePrograms.some((p) => p.value === academicContext.program)
       ) {
         updateAcademicContext({ program: "" });
       }
@@ -149,7 +165,7 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   };
 
   const steps = [
-    { key: "school", label: "School", options: options.schools, enabled: true },
+    { key: "school", label: "School", options: options.schools, enabled: sudo, isLocked: !sudo },
     {
       key: "program",
       label: "Program",
@@ -207,9 +223,10 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
             onChange={(value) => handleChange(step.key, value)}
             options={step.options}
             placeholder={
-              step.enabled ? `Select ${step.label}` : "Select previous first"
+              step.isLocked ? `Locked to ${academicContext.school || user?.school}` :
+              (step.enabled || step.key === "school" ? `Select ${step.label}` : "Select previous first")
             }
-            className={!step.enabled ? "opacity-50 pointer-events-none" : ""}
+            disabled={!step.enabled || step.isLocked}
           />
         ))}
       </div>

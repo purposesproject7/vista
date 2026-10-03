@@ -1,7 +1,7 @@
 import ActivityLog from "../models/activityLogSchema.js";
 import Faculty from "../models/facultySchema.js";
 
-export class ActivityLogService {
+export default class ActivityLogService {
     /**
      * Log an activity
      * @param {string} facultyId - ID of the faculty performing action
@@ -24,6 +24,14 @@ export class ActivityLogService {
                 school = school || faculty?.school || "Unknown";
                 program = program || faculty?.program || "Unknown";
                 academicYear = academicYear || "Unknown"; // Caller should really provide this
+            }
+
+            if (Array.isArray(program)) {
+                program = program.join(", ");
+            } else if (program) {
+                program = String(program);
+            } else {
+                program = "Unknown";
             }
 
             const logEntry = new ActivityLog({

@@ -7,7 +7,8 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ExclamationCircleIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline';
 
 const DEFAULT_META = Object.freeze({
@@ -16,11 +17,32 @@ const DEFAULT_META = Object.freeze({
   comment: ''
 });
 
+const SDG_GOALS = [
+  "All",
+  "1. No Poverty",
+  "2. Zero Hunger",
+  "3. Good Health and Well-being",
+  "4. Quality Education",
+  "5. Gender Equality",
+  "6. Clean Water and Sanitation",
+  "7. Affordable and Clean Energy",
+  "8. Decent Work and Economic Growth",
+  "9. Industry, Innovation and Infrastructure",
+  "10. Reduced Inequality",
+  "11. Sustainable Cities and Communities",
+  "12. Responsible Consumption and Production",
+  "13. Climate Action",
+  "14. Life Below Water",
+  "15. Life on Land",
+  "16. Peace and Justice Strong Institutions",
+  "17. Partnerships to achieve the Goal"
+];
+
 const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
   // --- STATE ---
   const [marks, setMarks] = useState({});
   const [meta, setMeta] = useState({});
-  const [teamMeta, setTeamMeta] = useState({ pptApproved: false, teamComment: '' });
+  const [teamMeta, setTeamMeta] = useState({ pptApproved: false, teamComment: '', sdgGoal: '' });
 
   const [initialState, setInitialState] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -66,9 +88,9 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
 
       initMeta[s.student_id] = {
         ...DEFAULT_META,
-        comment: rawComment.replace(/^\[ABSENT\]\s*|^\[PAT\]\s*|\|\s*Team Feedback:.*|\|\s*PPT Approved/g, '').trim() || '',
+        comment: rawComment.replace(/\[ABSENT\]\s*|\[PAT\]\s*|\|\s*Team Feedback:.*|\|\s*PPT Approved/g, '').trim() || '',
         attendance: rawComment.includes('[ABSENT]') ? 'absent' : 'present',
-        pat: rawComment.includes('[PAT]') ? true : false
+        pat: rawComment.includes('[PAT]') || s.isGuidePAT ? true : false
       };
     });
 
@@ -77,7 +99,8 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
     setInitialState({ marks: JSON.stringify(initMarks), meta: JSON.stringify(initMeta) });
     setTeamMeta({
       pptApproved: foundPptApproved,
-      teamComment: foundTeamComment
+      teamComment: foundTeamComment,
+      sdgGoal: team.sdgGoal || ''
     });
   }, [isOpen, team]);
 
@@ -162,7 +185,8 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
     let patch = {};
     if (type === 'attendance') {
       const newVal = isActive ? 'absent' : 'present';
-      patch = { attendance: newVal, pat: newVal === 'absent' ? false : currentMeta.pat };
+      const isGuidePAT = team.students.find(st => st.student_id === sid)?.isGuidePAT;
+      patch = { attendance: newVal, pat: isGuidePAT ? true : (newVal === 'absent' ? false : currentMeta.pat) };
     } else if (type === 'pat') {
       patch = { pat: isActive, attendance: isActive ? 'present' : currentMeta.attendance };
     }
@@ -189,7 +213,7 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
         if (teamMeta.pptApproved) remarks += ` | PPT Approved`;
 
         const componentMarks = rubrics.map(rubric => {
-          const score = parseFloat(studentMarks[rubric.rubric_id] || 0);
+          const score = (studentMeta.pat || studentMeta.attendance === 'absent') ? 0 : parseFloat(studentMarks[rubric.rubric_id] || 0);
           const max = rubric.maxMarks || rubric.max_marks;
           return {
             componentId: rubric.rubricId || rubric.rubric_id,
@@ -205,128 +229,26 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
         const totalObtained = componentMarks.reduce((sum, c) => sum + c.componentTotal, 0);
         const maxTotal = componentMarks.reduce((sum, c) => sum + c.componentMaxTotal, 0);
 
-        // Check if marks exist for this student to determine Action (POST vs PUT)
-        const payloadProject = team.id || team.project_id || team.team_id;
-
-        // ROBUSTNESS: Determine if this is an update.
-        // If we have a markId, definitely update.
-        // If we have existingMarks populated in the UI, it SHOULD be an update, but we need an ID.
-        // If markId is missing but existingMarks present, use Backend Upsert (POST) which now handles it.
-        // BUT, user requested explicit PUT if possible.
-        // Let's rely on markId. If missing, we fallback to POST (which now upserts).
-
-        const isUpdate = !!student.markId;
-
-        console.log('[MarkEntry] Submission Payload Data:', {
-          studentId: sid,
-          markId: student.markId,
-          hasMarkId: !!student.markId,
-          project: payloadProject,
+        const payload = {
+          student: sid,
+          project: team.id || team.project_id || team.team_id,
           reviewType: review.id || review.reviewName,
-          isUpdate: isUpdate
-        });
+          facultyType: review.type || 'guide',
+          componentMarks,
+          totalMarks: totalObtained,
+          maxTotalMarks: maxTotal,
+          remarks: remarks,
+          pptApproved: teamMeta.pptApproved,
+          sdgGoal: teamMeta.sdgGoal,
+          isSubmitted: true
+        };
 
-        // DEBUG: Dump keys to see if markId is misnamed or missing
-        // console.log('[MarkEntry] Student Keys:', Object.keys(student));
-
-        if (student.markId) {
-          // --- UPDATE (PUT) ---
-          console.log(`[MarkEntry] Updating existing marks for student ${sid} (Mark ID: ${student.markId})`);
-          return api.put(`/faculty/marks/${student.markId}`, {
-            student: sid, // Required for validation/logging
-            project: team.id || team.project_id || team.team_id,
-            reviewType: review.id || review.reviewName,
-            facultyType: review.type || 'guide',
-            componentMarks,
-            totalMarks: totalObtained,
-            maxTotalMarks: maxTotal,
-            remarks: remarks,
-            isSubmitted: true
-          });
+        // If we have a marksId (from existing marks), use PUT to update
+        if (student.marksId) {
+          return api.put(`/faculty/marks/${student.marksId}`, payload);
         } else {
-          // --- JIT FETCH & PUT  (FAILSAFE FOR PROD) ---
-          // If we are here, frontend *thinks* it's a POST.
-          // But if the User gets "Already Submitted", it means Backend HAS marks.
-          // Let's TRY to find the mark ID one last time before POSTing.
-
-          // This async check inside the map needs careful handling.
-          // We return the PROMISE of the check + action.
-
-          return (async () => {
-            try {
-              // 1. Broadest JIT Check: Fetch ALL marks for this faculty (no filters)
-              // This avoids backend query parsing issues (e.g. ObjectId casting)
-              console.log(`[MarkEntry] Broad JIT Check: Fetching ALL marks for faculty to find match for ${sid}...`);
-
-              const checkRes = await api.get('/faculty/marks'); // NO PARAMS
-
-              // Normalize current review ID for comparison
-              const currentReviewId = (review.id || review.reviewName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-              const reviewNum = (currentReviewId.match(/\d+/) || [])[0];
-
-              const candidates = checkRes.data?.data || checkRes.data || [];
-
-              // Find matching mark from the list
-              const existingRemote = candidates.find(m => {
-                // 1. Match Student (String comparison to handle ObjectId differences)
-                const mSid = String(m.student?._id || m.student || '').trim();
-                if (mSid !== String(sid).trim()) return false;
-
-                const mType = (m.reviewType || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                const mNum = (mType.match(/\d+/) || [])[0];
-
-                // Match 2: Review Type
-                if (mType === currentReviewId) return true;
-                if (mType.includes(currentReviewId) || currentReviewId.includes(mType)) return true;
-                if (reviewNum && mNum && reviewNum === mNum) return true;
-
-                return false;
-              });
-
-              if (existingRemote && existingRemote._id) {
-                console.log(`[MarkEntry] JIT FOUND Mark ID: ${existingRemote._id} (via fuzzy match on ${existingRemote.reviewType}). Switching to PUT.`);
-                return api.put(`/faculty/marks/${existingRemote._id}`, {
-                  student: sid,
-                  project: team.id || team.project_id || team.team_id,
-                  reviewType: review.id || review.reviewName,
-                  facultyType: review.type || 'guide',
-                  componentMarks,
-                  totalMarks: totalObtained,
-                  maxTotalMarks: maxTotal,
-                  remarks: remarks,
-                  isSubmitted: true
-                });
-              } else {
-                // 2. Really New? POST.
-                console.log(`[MarkEntry] No matching marks found even after broad search. Proceeding with POST.`);
-                return api.post('/faculty/marks', {
-                  student: sid,
-                  project: team.id || team.project_id || team.team_id,
-                  reviewType: review.id || review.reviewName,
-                  facultyType: review.type || 'guide',
-                  componentMarks,
-                  totalMarks: totalObtained,
-                  maxTotalMarks: maxTotal,
-                  remarks: remarks,
-                  isSubmitted: true
-                });
-              }
-            } catch (e) {
-              // Fallback to POST on error
-              console.warn('[MarkEntry] JIT Check Failed (Broad), falling back to POST', e);
-              return api.post('/faculty/marks', {
-                student: sid,
-                project: team.id || team.project_id || team.team_id,
-                reviewType: review.id || review.reviewName,
-                facultyType: review.type || 'guide',
-                componentMarks,
-                totalMarks: totalObtained,
-                maxTotalMarks: maxTotal,
-                remarks: remarks,
-                isSubmitted: true
-              });
-            }
-          })();
+          // Otherwise use POST to create
+          return api.post('/faculty/marks', payload);
         }
       });
 
@@ -353,6 +275,17 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
             <div>
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Reviewing Team</h2>
               <h1 className="text-xl font-black text-slate-900 leading-tight">{team.team_name}</h1>
+              {team.venue && (
+                <div className="flex items-center gap-1.5 mt-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-sm font-semibold px-3 py-1.5 rounded-lg inline-flex mr-2">
+                  <MapPinIcon className="w-4 h-4 text-amber-600" />
+                  {team.venue}
+                </div>
+              )}
+              {team.sdgGoal && (review?.type === 'panel' || team.role === 'panel') && (
+                <div className="flex items-center gap-1.5 mt-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold px-3 py-1.5 rounded-lg inline-flex">
+                  SDG: {team.sdgGoal}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-slate-500 hidden md:block">All changes are local until submitted.</span>
@@ -437,16 +370,19 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                               >
                                 Absent
                               </button>
-                              <button
-                                onClick={() => initiateAttendanceChange(sid, 'pat')}
-                                className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border
-                                                          ${m.pat
-                                    ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
-                                    : 'bg-white text-slate-400 border-slate-200 hover:text-orange-500'}
-                                                        `}
-                              >
-                                PAT
-                              </button>
+                              
+                              {!student.isGuidePAT && (
+                                <button
+                                  onClick={() => initiateAttendanceChange(sid, 'pat')}
+                                  className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border
+                                                            ${m.pat
+                                      ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                                      : 'bg-white text-slate-400 border-slate-200 hover:text-orange-500'}
+                                                          `}
+                                >
+                                  PAT
+                                </button>
+                              )}
                             </div>
 
                             {/* RIGHT: INPUT */}
@@ -462,7 +398,13 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                                   max={max}
                                   value={currentScore !== undefined ? currentScore : ''}
                                   onChange={(e) => handleScoreChange(sid, rubric.rubric_id, e.target.value)}
-                                  className="w-24 bg-white border border-slate-300 rounded-lg py-2 text-center text-xl font-black text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all placeholder-slate-200"
+                                  onWheel={(e) => e.target.blur()}
+                                  onKeyDown={(e) => {
+                                    if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+                                      e.preventDefault();
+                                    }
+                                  }}
+                                  className="w-24 bg-white border border-slate-300 rounded-lg py-2 text-center text-xl font-black text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all placeholder-slate-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   placeholder="-"
                                 />
                               )}
@@ -476,13 +418,47 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                 );
               })}
 
+              {/* SDG GOAL SECTION (Full Width, Above Feedback) */}
+              {review?.type !== 'panel' && team?.role !== 'panel' && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 mb-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-slate-900">Sustainable Development Goal (SDG)</h2>
+                      <p className="text-sm text-slate-500 font-medium">Select the primary SDG this project aligns with.</p>
+                    </div>
+                  </div>
+                  
+                  <select
+                    value={teamMeta.sdgGoal}
+                    onChange={(e) => {
+                      setTeamMeta(prev => ({ ...prev, sdgGoal: e.target.value }));
+                      if (!e.target.value) {
+                        // Auto uncheck PPT Approved if SDG is removed
+                        setTeamMeta(prev => ({ ...prev, pptApproved: false }));
+                      }
+                    }}
+                    className="w-full p-4 text-lg border-2 border-emerald-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-600 bg-emerald-50 text-emerald-900 font-semibold transition-all shadow-sm"
+                  >
+                    <option value="">-- Select SDG Goal --</option>
+                    {SDG_GOALS.map((goal, idx) => (
+                      <option key={idx} value={goal}>{goal}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* TEAM FEEDBACK SECTION */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600"><UserGroupIcon className="w-6 h-6" /></div>
                   <div>
                     <h2 className="text-xl font-black text-slate-900">Final Team Feedback</h2>
-                    <p className="text-sm text-slate-500 font-medium">This feedback applies to the entire team.</p>
+                    <p className="text-sm text-slate-500 font-medium">This feedback applies to the entire team. <span className="text-purple-600 font-bold">Minimum 10 characters required.</span></p>
                   </div>
                 </div>
 
@@ -494,7 +470,16 @@ const MarkEntryModal = ({ isOpen, onClose, review, team, onSuccess }) => {
                     className="flex-1 w-full p-4 text-base border-2 border-slate-100 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-50 transition-all resize-none min-h-[120px]"
                   />
                   <div className="w-full md:w-72 shrink-0 flex flex-col gap-4">
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 cursor-pointer hover:bg-blue-100 transition-colors" onClick={() => setTeamMeta(prev => ({ ...prev, pptApproved: !prev.pptApproved }))}>
+                    <div 
+                      className={`border rounded-xl p-4 transition-colors ${!teamMeta.sdgGoal && review?.type !== 'panel' && team?.role !== 'panel' ? 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed' : 'bg-blue-50 border-blue-100 cursor-pointer hover:bg-blue-100'}`} 
+                      onClick={() => {
+                        if (review?.type !== 'panel' && team?.role !== 'panel' && !teamMeta.sdgGoal) {
+                          setToast({ type: 'error', message: 'Please select an SDG Goal first.' });
+                          return;
+                        }
+                        setTeamMeta(prev => ({ ...prev, pptApproved: !prev.pptApproved }));
+                      }}
+                    >
                       <label className="flex items-center gap-3 cursor-pointer pointer-events-none">
                         <input type="checkbox" checked={teamMeta.pptApproved} onChange={() => { }} className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
                         <span className="text-base font-bold text-slate-800">PPT Approved</span>

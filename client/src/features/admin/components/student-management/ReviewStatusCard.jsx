@@ -2,44 +2,44 @@
 import React from 'react';
 import Card from '../../../../shared/components/Card';
 import Badge from '../../../../shared/components/Badge';
-import { 
-  DocumentTextIcon, 
-  CheckCircleIcon, 
+import {
+  DocumentTextIcon,
+  CheckCircleIcon,
   ClockIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
 
 const ReviewStatusCard = ({ reviewStatuses }) => {
   const hasReviews = reviewStatuses && reviewStatuses.length > 0;
-  const approvedCount = hasReviews 
-    ? reviewStatuses.filter(r => r.status === 'approved').length 
+  const approvedCount = hasReviews
+    ? reviewStatuses.filter(r => r.status === 'approved').length
     : 0;
 
   const getStatusConfig = (status) => {
     const configs = {
-      approved: { 
-        variant: 'success', 
-        label: 'Done', 
-        icon: CheckCircleIcon, 
-        color: 'text-green-600' 
+      approved: {
+        variant: 'success',
+        label: 'Done',
+        icon: CheckCircleIcon,
+        color: 'text-green-600'
       },
-      pending: { 
-        variant: 'warning', 
-        label: 'Pending', 
-        icon: ClockIcon, 
-        color: 'text-yellow-600' 
+      pending: {
+        variant: 'warning',
+        label: 'Pending',
+        icon: ClockIcon,
+        color: 'text-yellow-600'
       },
-      rejected: { 
-        variant: 'danger', 
-        label: 'Rejected', 
-        icon: XCircleIcon, 
-        color: 'text-red-600' 
+      rejected: {
+        variant: 'danger',
+        label: 'Rejected',
+        icon: XCircleIcon,
+        color: 'text-red-600'
       },
-      'not-submitted': { 
-        variant: 'default', 
-        label: 'Pending', 
-        icon: ClockIcon, 
-        color: 'text-gray-400' 
+      'not-submitted': {
+        variant: 'default',
+        label: 'Pending',
+        icon: ClockIcon,
+        color: 'text-gray-400'
       }
     };
     return configs[status] || configs['not-submitted'];
@@ -54,24 +54,24 @@ const ReviewStatusCard = ({ reviewStatuses }) => {
         </h3>
         {hasReviews && (
           <span className="text-xs text-gray-600">
-            {approvedCount} / {reviewStatuses.length} reviews pending approval
+            {approvedCount} / {reviewStatuses.length} Approved
           </span>
         )}
       </div>
-      
+
       {hasReviews ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between py-2 px-3 bg-orange-50 rounded-lg border border-orange-200 mb-3">
             <span className="text-xs font-medium text-orange-700">Approval Status</span>
-            <span className="text-xs text-orange-600">{approvedCount} reviews pending approval</span>
+            <span className="text-xs text-orange-600">{approvedCount} reviews Approved</span>
           </div>
-          
+
           {reviewStatuses.map((review, index) => {
             const config = getStatusConfig(review.status);
             const Icon = config.icon;
-            
+
             return (
-              <div 
+              <div
                 key={index}
                 className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-lg border border-gray-200"
               >
@@ -90,9 +90,9 @@ const ReviewStatusCard = ({ reviewStatuses }) => {
             <span className="text-xs font-medium text-orange-700">Approval Status</span>
             <span className="text-xs text-orange-600">6 reviews pending approval</span>
           </div>
-          
+
           {['Review 1', 'Review 2', 'Review 3', 'Review 4', 'Review 5', 'Final Review'].map((reviewName, index) => (
-            <div 
+            <div
               key={index}
               className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-lg border border-gray-200"
             >

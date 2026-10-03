@@ -12,7 +12,8 @@ import {
   UserGroupIcon,
   ClipboardDocumentCheckIcon,
   TableCellsIcon,
-  ClockIcon
+  ClockIcon,
+  PresentationChartBarIcon
 } from '@heroicons/react/24/outline';
 import { processTimeSheetData } from '../utils/reportHelpers';
 import { YEARS } from '../../../shared/constants/config';
@@ -175,6 +176,22 @@ const AdminReports = () => {
       icon: ChartBarIcon, // Debug: ClockIcon might be missing?
       filters: ['year', 'school', 'programme'], // Programme optional, but useful context
       color: 'cyan'
+    },
+    {
+      id: 'team-details',
+      name: 'Team Details Report',
+      description: 'Detailed list of project teams, students, guides, and panels',
+      icon: UserGroupIcon,
+      filters: ['school', 'programme', 'year'],
+      color: 'indigo'
+    },
+    {
+      id: 'ppt-approval-status',
+      name: 'PPT Approval Status (Panel Reviews)',
+      description: 'Shows whether the guide has approved the PPT for each project per review type — essential for verifying panel review readiness',
+      icon: PresentationChartBarIcon,
+      filters: ['school', 'programme', 'year'],
+      color: 'violet'
     }
   ];
 
@@ -259,42 +276,33 @@ const AdminReports = () => {
       // Handle Excel Generation
       const wb = XLSX.utils.book_new();
 
+      const appendSheet = (sheetName, data) => {
+        let worksheet;
+        if (Array.isArray(data)) {
+          worksheet = data.length
+            ? XLSX.utils.json_to_sheet(data)
+            : XLSX.utils.aoa_to_sheet([['No records found']]);
+        } else if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          worksheet = XLSX.utils.json_to_sheet([data]);
+        } else {
+          worksheet = XLSX.utils.aoa_to_sheet([['No records found']]);
+        }
+        XLSX.utils.book_append_sheet(wb, worksheet, sheetName);
+      };
+
       if (report.isMaster) {
-        // Master Report: Multiple Sheets
-        if (reportData.students) {
-          const wsStudents = XLSX.utils.json_to_sheet(reportData.students);
-          XLSX.utils.book_append_sheet(wb, wsStudents, "Students");
-        }
-        if (reportData.faculty) {
-          const wsFaculty = XLSX.utils.json_to_sheet(reportData.faculty);
-          XLSX.utils.book_append_sheet(wb, wsFaculty, "Faculty");
-        }
-        if (reportData.projects) {
-          const wsProjects = XLSX.utils.json_to_sheet(reportData.projects);
-          XLSX.utils.book_append_sheet(wb, wsProjects, "Projects");
-        }
-        if (reportData.marks) {
-          const wsMarks = XLSX.utils.json_to_sheet(reportData.marks);
-          XLSX.utils.book_append_sheet(wb, wsMarks, "Marks");
-        }
-        if (reportData.panels) {
-          const wsPanels = XLSX.utils.json_to_sheet(reportData.panels);
-          XLSX.utils.book_append_sheet(wb, wsPanels, "Panels");
-        }
+        appendSheet('Students', reportData.students);
+        appendSheet('Faculty', reportData.faculty);
+        appendSheet('Projects', reportData.projects);
+        appendSheet('Marks', reportData.marks);
+        appendSheet('Panels', reportData.panels);
       } else if (selectedReport === 'faculty-time-sheet') {
         processTimeSheetData(reportData, wb, XLSX.utils);
       } else {
-        // Standard Report: Single Sheet
-        // Flatten data if needed? Backend sends flat JSON usually.
-        // If data is array
         if (Array.isArray(reportData)) {
-          const ws = XLSX.utils.json_to_sheet(reportData);
-          XLSX.utils.book_append_sheet(wb, ws, "Report Data");
+          appendSheet('Report Data', reportData);
         } else {
-          // If object (e.g. { summary: ..., details: ... }) - complex handling
-          // For now assuming backend returns array for specific reports
-          const ws = XLSX.utils.json_to_sheet([reportData]); // Fallback
-          XLSX.utils.book_append_sheet(wb, ws, "Data");
+          appendSheet('Data', reportData);
         }
       }
 

@@ -62,7 +62,21 @@ const FacultyViewTab = () => {
       if (member.name?.toLowerCase().includes(query)) return true;
       if (member.employeeId?.toLowerCase().includes(query)) return true;
       if (member.email?.toLowerCase().includes(query)) return true;
-      if (member.specialization?.some(s => s.toLowerCase().includes(query))) return true;
+      if (member.emailId?.toLowerCase().includes(query)) return true;
+      if (member.phoneNumber?.toLowerCase().includes(query)) return true;
+      if (member.department) {
+        const dept = Array.isArray(member.department)
+          ? member.department.join(' ')
+          : member.department;
+        if (dept.toLowerCase().includes(query)) return true;
+      }
+      if (member.specialization) {
+        if (Array.isArray(member.specialization)) {
+          if (member.specialization.some(s => s.toLowerCase().includes(query))) return true;
+        } else if (typeof member.specialization === 'string') {
+          if (member.specialization.toLowerCase().includes(query)) return true;
+        }
+      }
 
       return false;
     });
@@ -122,29 +136,36 @@ const FacultyViewTab = () => {
       <AcademicFilterSelector
         onFilterComplete={handleFilterComplete}
         showYear={false}
+        allowAllPrograms={true}
       />
 
       {/* Faculty Content - only show when filters are complete */}
       {filters && (
         <>
-          {/* Search Bar */}
-          {allFaculty.length > 0 && !loading && (
-            <div className="mb-6">
-              <div className="relative">
+          {/* Controls */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            {/* Search Bar */}
+            {allFaculty.length > 0 && !loading && (
+              <form
+                className="relative flex-1 w-full"
+                onSubmit={(e) => e.preventDefault()}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder="Search by name, employee ID, or projects..."
+                  placeholder="Search by name, employee ID, email, department, specialization, or phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 w-full"
                 />
-              </div>
-              <p className="mt-2 text-sm text-gray-600">
-                Showing {filteredFaculty.length} of {allFaculty.length} faculty members
-              </p>
-            </div>
-          )}
+              </form>
+            )}
+          </div>
+
+          <p className="mb-4 text-sm text-gray-600">
+            Showing {filteredFaculty.length} of {allFaculty.length} faculty members
+          </p>
 
           {/* Faculty List */}
           {loading ? (

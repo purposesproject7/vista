@@ -57,8 +57,10 @@ const RequestList = () => {
       }
     };
 
-    if (user?.school && user?.department) {
+    if (user?.school && user?.program) {
       loadRequests();
+    } else if (user && (!user.school || !user.program)) {
+      setLoading(false); // Stop loading if user exists but lacks required context
     }
   }, [user, showToast]);
 

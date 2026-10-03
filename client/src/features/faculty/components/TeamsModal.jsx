@@ -5,10 +5,24 @@ import RequestEditModal from './RequestEditModal';
 import { MapPinIcon, CheckCircleIcon, UserGroupIcon, LockClosedIcon, LockOpenIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { isDeadlinePassed } from '../../../shared/utils/dateHelpers';
 import Toast from '../../../shared/components/Toast';
+import { findPPTApproval } from '../../../shared/utils/reviewHelpers';
 
 const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
   const [requestTeam, setRequestTeam] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const formatReviewDateTime = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   if (!isOpen || !review) return null;
 
@@ -55,12 +69,15 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
               const isLocked = isExpired && !team.isUnlocked;
               const isPending = team.requestStatus === 'pending';
 
-              // PPT Approval Logic
+              // PPT Approval Logic (using flexible matching for review names)
               const isPanelRole = team.role === 'panel' || (team.roleLabel && team.roleLabel.toLowerCase().includes('panel'));
-              // review.id maps to reviewType in backend
-              const pptApproval = team.pptApprovals?.find(a => a.reviewType === review.id);
+              // review.id maps to reviewType in backend - use flexible matching
+              const pptApprovalsArray = Array.isArray(team.pptApprovals) ? team.pptApprovals : [];
+              const pptApproval = findPPTApproval(pptApprovalsArray, review.id);
               const isPPTApproved = pptApproval && pptApproval.isApproved;
               const isBlockedByPPT = isPanelRole && !isPPTApproved;
+
+              const effectivelyLocked = !team.isUnlocked && (isLocked || team.marksEntered || (team.existingMeta && team.existingMeta.isSubmitted));
 
               return (
                 <div
@@ -105,9 +122,14 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                             {team.roleLabel || team.role}
                           </span>
                         )}
-                        {team.isUnlocked && isExpired && (
+                        {team.isUnlocked && (
                           <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wide rounded border border-green-200 flex items-center gap-1">
                             <LockOpenIcon className="w-3 h-3" /> Unlocked
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold uppercase tracking-wide rounded border border-yellow-200 flex items-center gap-1">
+                            <ClockIcon className="w-3 h-3" /> Request Pending
                           </span>
                         )}
                         {isBlockedByPPT && (
@@ -116,7 +138,6 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                           </span>
                         )}
                       </div>
-                      
                       {team.projectTitle && 
                        team.name.toLowerCase().replace(/\s+/g, '') !== team.projectTitle.toLowerCase().replace(/\s+/g, '') && 
                        !team.name.toLowerCase().includes(team.projectTitle.toLowerCase().substring(0, 15)) && (
@@ -127,14 +148,24 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                         <div className="text-[11px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 font-medium">
                           Panel: {team.panelName}
                         </div>
-                        {team.venue && (
+                        {team.venue && team.role !== 'guide' && (
                           <div className="text-[11px] text-slate-500 flex items-center gap-1">
                             <MapPinIcon className="w-3 h-3" /> {team.venue}
+                          </div>
+                        )}
+                        {formatReviewDateTime(team.reviewDateTime) && (
+                          <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <ClockIcon className="w-3 h-3" /> {formatReviewDateTime(team.reviewDateTime)}
                           </div>
                         )}
                         <div className="text-[11px] text-gray-400">
                           {team.students?.length} member{team.students?.length !== 1 ? 's' : ''}
                         </div>
+                        {team.sdgGoal && (
+                          <div className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded font-medium flex gap-1 title={team.sdgGoal}">
+                            SDG: {team.sdgGoal.length > 20 ? team.sdgGoal.substring(0, 17) + '...' : team.sdgGoal}
+                          </div>
+                        )}
                       </div>
 
                       {/* Display marks if entered */}
@@ -147,7 +178,15 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                                 {s.student_name}
                               </span>
-                              {team.marksEntered ? (
+                              {s.existingMeta?.pat || s.isGuidePAT ? (
+                                <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md border border-orange-100 font-bold text-[10px] uppercase">
+                                  PAT
+                                </span>
+                              ) : s.existingMeta?.attendance === 'absent' ? (
+                                <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md border border-red-100 font-bold text-[10px] uppercase">
+                                  ABSENT
+                                </span>
+                              ) : team.marksEntered ? (
                                 <span className="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-100 font-bold">
                                   {s.totalMarks} / {s.maxTotalMarks}
                                 </span>
@@ -166,25 +205,25 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                     variant={
                       isPending ? 'secondary' :
                         isBlockedByPPT ? 'secondary' :
-                          isLocked ? 'secondary' :
+                          effectivelyLocked ? 'secondary' :
                             (team.marksEntered ? 'secondary' : 'primary')
                     }
                     className={
                       isPending ? 'text-yellow-700 border-yellow-200 bg-yellow-50 opacity-100 cursor-not-allowed' :
                         isBlockedByPPT ? 'text-orange-700 border-orange-200 bg-orange-50 opacity-100 cursor-not-allowed' :
-                          isLocked ? 'text-orange-600 border-orange-200 hover:bg-orange-50' : ''
+                          effectivelyLocked ? 'text-orange-600 border-orange-200 hover:bg-orange-50' : ''
                     }
                     disabled={isPending || isBlockedByPPT}
                     title={isBlockedByPPT ? 'Guide must approve PPT first' : ''}
                     onClick={() => {
                       if (!isPending && !isBlockedByPPT) {
-                        isLocked ? setRequestTeam(team) : onEnterMarks(team);
+                        effectivelyLocked ? setRequestTeam(team) : onEnterMarks(team);
                       }
                     }}
                   >
                     {isPending ? 'Request Pending' :
                       isBlockedByPPT ? 'PPT Pending' :
-                        (isLocked ? 'Request Edit' : (team.marksEntered ? 'Edit Marks' : 'Enter Marks'))}
+                        (effectivelyLocked ? 'Request Edit' : (team.marksEntered ? 'Edit Marks' : 'Enter Marks'))}
                   </Button>
                 </div>
               );
@@ -198,7 +237,41 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
           isOpen={true}
           onClose={() => setRequestTeam(null)}
           teamName={requestTeam.name}
-          onConfirm={handleRequestConfirm}
+          onConfirm={async (reason) => {
+            try {
+              if (!requestTeam.students || requestTeam.students.length === 0) {
+                setToast({ type: 'error', message: 'No students in team to request edit for.' });
+                return;
+              }
+
+              // Import API here or assume it's available in scope. 
+              // Since 'api' is not imported in original snippet, we need to ensure it is available.
+              // We will use dynamic import or ensure it is imported at top.
+              const api = (await import('../../../services/api')).default;
+
+              // Iterate and send request for EACH student
+              const promises = requestTeam.students.map(student => {
+                return api.post('/faculty/requests', {
+                  student: student.student_id,
+                  project: requestTeam.id,
+                  reviewType: review.id,
+                  requestType: 'mark_edit',
+                  reason: reason
+                });
+              });
+
+              await Promise.all(promises);
+
+              setToast({ type: 'success', message: `Request sent for ${requestTeam.name}` });
+
+              // Optimistically update
+              requestTeam.requestStatus = 'pending';
+              setRequestTeam(null);
+            } catch (err) {
+              console.error("Failed to send requests", err);
+              setToast({ type: 'error', message: 'Failed to send request. ' + (err.response?.data?.message || err.message) });
+            }
+          }}
         />
       )}
 

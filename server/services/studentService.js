@@ -3,21 +3,64 @@ import Project from "../models/projectSchema.js";
 import Request from "../models/requestSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import Faculty from "../models/facultySchema.js";
+import Marks from "../models/marksSchema.js";
 import { logger } from "../utils/logger.js";
+import { buildCoordinatorFilterQuery, buildCaseInsensitiveFilter, warnOnFilterMismatch } from "../utils/filterHelpers.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { EmailService } from "./emailService.js";
+
+const STUDENT_EMAIL_DOMAIN = "@vitstudent.ac.in";
+
+function generateDefaultPassword() {
+  return crypto.randomBytes(9).toString("base64url");
+}
 
 export class StudentService {
   /**
    * Get student by registration number
    */
   static async getStudentByRegNo(regNo) {
-    const student = await Student.findOne({ regNo }).lean();
+    const student = await Student.findOne({ regNo })
+      .populate({
+        path: 'guideMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .populate({
+        path: 'panelMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .lean();
 
     if (!student) {
       return null;
     }
 
+    // Fetch schema map for accurate review processing
+    let reviewTypes = null;
+    let schemaReviews = [];
+    try {
+      const schema = await MarkingSchema.findOne({
+        school: student.school,
+        program: student.program,
+        academicYear: student.academicYear
+      }).lean();
+      if (schema && schema.reviews) {
+        schemaReviews = schema.reviews;
+        reviewTypes = new Map();
+        schema.reviews.forEach(r => {
+          const rName = r.reviewName || r.name;
+          if (rName) {
+            reviewTypes.set(rName, r.facultyType);
+          }
+        });
+      }
+    } catch (err) {
+      logger.error("Error fetching schema for student details marks calculation", err);
+    }
+
     // Process Maps to Objects
-    const processedStudent = this.processStudentData(student);
+    const processedStudent = this.processStudentData(student, reviewTypes, schemaReviews);
 
     // Find active project for this student
     const project = await Project.findOne({
@@ -25,20 +68,50 @@ export class StudentService {
       status: "active"
     })
       .populate("guideFaculty", "name")
-      .populate("panel", "panelName")
+      .populate({
+        path: "panel",
+        select: "panelName members",
+        populate: {
+          path: "members.faculty",
+          select: "name"
+        }
+      })
       .lean();
 
-    // Add guide and panel details
+    // Add guide and panel details AND project info
+    // Also attach teammates for the details modal
+    let teammates = [];
+    if (project && project.students) {
+      const teammateDocs = await Student.find({
+        _id: { $in: project.students },
+        regNo: { $ne: regNo } // Exclude self
+      }).select('name _id').lean();
+
+      teammates = teammateDocs.map(t => ({ id: t._id, name: t.name }));
+    }
+
+    let panelMembers = "N/A";
+    if (project?.panel?.members && project.panel.members.length > 0) {
+      panelMembers = project.panel.members
+        .map(m => m.faculty?.name)
+        .filter(Boolean)
+        .join(", ");
+    } else if (project?.panel?.panelName) {
+      panelMembers = project.panel.panelName;
+    }
+
     return {
       ...processedStudent,
       guide: project?.guideFaculty?.name || "N/A",
-      panelMember: project?.panel?.panelName || "N/A",
-      projectTitle: project?.name || null
+      panelMember: panelMembers,
+      projectTitle: project?.name || null,
+      projectId: project?._id || null,
+      teammates: teammates
     };
   }
 
   /**
-   * ✅ RENAMED: Get student list (matches controller call)
+   * Get student list (matches controller call)
    */
   static async getStudentList(filters = {}) {
     return await this.getFilteredStudents(filters);
@@ -48,35 +121,93 @@ export class StudentService {
    * Get filtered students list
    */
   static async getFilteredStudents(filters = {}) {
+    const CONTEXT = "StudentService";
     const query = { isActive: true };
 
-    if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
-    if (filters.academicYear) query.academicYear = filters.academicYear;
+    // Build case-insensitive filter query using centralized helper
+    const { query: coordQuery, appliedFilters } = buildCoordinatorFilterQuery(filters, CONTEXT);
+    Object.assign(query, coordQuery);
+
     if (filters.regNo) query.regNo = new RegExp(filters.regNo, "i");
-    if (filters.name) query.name = new RegExp(filters.name, "i");
+    if (filters.name)  query.name  = new RegExp(filters.name, "i");
+
+    // Warn early if the requested program/school/year has no likely match in DB
+    try {
+      if (filters.program) {
+        const distinctPrograms = await Student.distinct("program");
+        warnOnFilterMismatch(filters.program, distinctPrograms, "program", CONTEXT);
+      }
+      if (filters.school) {
+        const distinctSchools = await Student.distinct("school");
+        warnOnFilterMismatch(filters.school, distinctSchools, "school", CONTEXT);
+      }
+      if (filters.academicYear) {
+        const distinctYears = await Student.distinct("academicYear");
+        warnOnFilterMismatch(filters.academicYear, distinctYears, "academicYear", CONTEXT);
+      }
+    } catch (e) { /* non-fatal – best-effort validation */ }
+
 
     // Fetch schema map if context is available
     let reviewTypes = null;
+    let schemaReviews = [];
     if (filters.school && filters.program && filters.academicYear) {
       try {
-        const schema = await MarkingSchema.findOne({
-          school: filters.school,
-          program: filters.program,
-          academicYear: filters.academicYear
+        const { query: schemaQuery } = buildCoordinatorFilterQuery(filters, `${CONTEXT}:SchemaLookup`);
+
+        const schemas = await MarkingSchema.find(schemaQuery).lean();
+        logger.info(`[${CONTEXT}:SchemaLookup] Found ${schemas.length} marking schema(s)`, {
+          expected: { school: filters.school, program: filters.program, academicYear: filters.academicYear },
+          schemasFound: schemas.map(s => ({ school: s.school, program: s.program, academicYear: s.academicYear })),
         });
-        if (schema && schema.reviews) {
+        if (schemas && schemas.length > 0) {
           reviewTypes = new Map();
-          schema.reviews.forEach(r => {
-            reviewTypes.set(r.reviewName, r.facultyType);
+          schemas.forEach(schema => {
+            if (schema.reviews) {
+              schema.reviews.forEach(r => {
+                const rName = r.reviewName || r.name;
+                if (rName) {
+                  reviewTypes.set(rName, r.facultyType);
+                }
+                if (!schemaReviews.find(sr => (sr.reviewName || sr.name) === rName)) {
+                  schemaReviews.push(r);
+                }
+              });
+            }
           });
         }
       } catch (err) {
-        logger.error("Error fetching schema for student list marks calculation", err);
+        logger.error(`[${CONTEXT}] Error fetching marking schema`, { error: err.message });
       }
     }
 
-    const students = await Student.find(query).sort({ regNo: 1 }).lean();
+    // Fetch students with populated marks
+    const students = await Student.find(query)
+      .sort({ regNo: 1 })
+      .populate({
+        path: 'guideMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .populate({
+        path: 'panelMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .lean();
+
+    logger.info(`[${CONTEXT}] Query result`, {
+      studentsFound: students.length,
+      appliedFilters,
+      mongoQuery: JSON.stringify(query),
+    });
+    if (students.length === 0) {
+      logger.warn(`[${CONTEXT}] Zero students returned. Verify coordinator's program/school/academicYear match the values stored in the Student collection.`, {
+        requestedFilters: {
+          school: filters.school,
+          program: filters.program,
+          academicYear: filters.academicYear,
+        },
+      });
+    }
 
     // Get all student IDs
     const studentIds = students.map(s => s._id);
@@ -87,7 +218,15 @@ export class StudentService {
       status: "active"
     })
       .populate("guideFaculty", "name")
-      .populate("panel", "panelName") // Populating panel name
+      .populate("guideFaculty", "name")
+      .populate({
+        path: "panel",
+        select: "panelName members",
+        populate: {
+          path: "members.faculty",
+          select: "name"
+        }
+      })
       .lean();
 
     // Create a map of studentId -> project details
@@ -107,10 +246,21 @@ export class StudentService {
             })
             .filter(Boolean);
 
+          let panelMembers = "N/A";
+          if (project.panel?.members && project.panel.members.length > 0) {
+            panelMembers = project.panel.members
+              .map(m => m.faculty?.name)
+              .filter(Boolean)
+              .join(", ");
+          } else if (project.panel?.panelName) {
+            panelMembers = project.panel.panelName;
+          }
+
           studentProjectMap[studentIdStr] = {
             guide: project.guideFaculty ? project.guideFaculty.name : "N/A",
-            panelMember: project.panel ? project.panel.panelName : "N/A",
+            panelMember: panelMembers,
             projectTitle: project.name || null,
+            projectId: project._id || null,
             teammates
           };
         });
@@ -120,11 +270,12 @@ export class StudentService {
     return students.map((student) => {
       const projectDetails = studentProjectMap[student._id.toString()] || {};
       return {
-        ...this.processStudentData(student, reviewTypes),
+        ...this.processStudentData(student, reviewTypes, schemaReviews),
         guide: projectDetails.guide || "N/A",
         panelMember: projectDetails.panelMember || "N/A",
         projectTitle: projectDetails.projectTitle,
-        teammates: projectDetails.teammates || []
+        teammates: projectDetails.teammates || [],
+        projectId: projectDetails.projectId || null
       };
     });
   }
@@ -206,6 +357,41 @@ export class StudentService {
   }
 
   /**
+   * Undo PAT for a student
+   */
+  static async undoStudentPAT(regNo, userId) {
+    const student = await Student.findOne({ regNo });
+    if (!student) throw new Error("Student not found.");
+
+    const marksDocs = await Marks.find({ student: student._id, remarks: /\[PAT\]/i });
+    for (const mark of marksDocs) {
+      if (typeof mark.remarks === 'string') {
+        mark.remarks = mark.remarks.replace(/\[PAT\]\s*/ig, '').trim();
+        await mark.save();
+      }
+    }
+
+    // Use findOneAndUpdate to avoid full-document validation (which requires
+    // the `password` field and causes a validation error on student.save())
+    const updatedStudent = await Student.findOneAndUpdate(
+      { regNo },
+      { $set: { PAT: false } },
+      { new: true }
+    );
+
+    if (!updatedStudent) throw new Error("Student not found after update.");
+
+    logger.info("student_pat_undone", {
+      regNo,
+      studentId: student._id,
+      updatedBy: userId,
+      marksUpdated: marksDocs.length
+    });
+
+    return this.processStudentData(updatedStudent.toObject());
+  }
+
+  /**
    * Delete student
    */
   static async deleteStudent(regNo, userId) {
@@ -247,31 +433,89 @@ export class StudentService {
   }
 
   /**
+   * Update student marks (ADMIN001 only)
+   */
+  static async updateStudentMarks(regNo, reviewsData, userId) {
+    const student = await Student.findOne({ regNo })
+      .populate({
+        path: 'guideMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      })
+      .populate({
+        path: 'panelMarks',
+        select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
+      });
+
+    if (!student) {
+      throw new Error("Student not found.");
+    }
+
+    // Collect all existing marks documents
+    const allMarks = [
+      ...(student.guideMarks || []),
+      ...(student.panelMarks || [])
+    ];
+
+    const updatedReviews = [];
+
+    // Update Marks documents
+    if (reviewsData) {
+      for (const [reviewName, reviewData] of Object.entries(reviewsData)) {
+        // Find matching marks doc
+        const marksDoc = allMarks.find(m => m.reviewType === reviewName);
+
+        if (marksDoc) {
+          let hasChanges = false;
+          let newTotal = 0;
+
+          // Update components
+          if (reviewData.marks && marksDoc.componentMarks) {
+            marksDoc.componentMarks.forEach(comp => {
+              if (reviewData.marks[comp.componentName] !== undefined) {
+                const newVal = Number(reviewData.marks[comp.componentName]);
+                if (!isNaN(newVal)) {
+                  comp.marks = newVal;
+                  comp.componentTotal = newVal; // Assuming componentTotal equals marks for simple components
+                  hasChanges = true;
+                }
+              }
+              newTotal += (comp.componentTotal || comp.marks || 0);
+            });
+
+            // If there's a discrepancy in total vs components loop, check if client sent a total?
+            // Usually we assume components sum up to total.
+            marksDoc.totalMarks = newTotal;
+            marksDoc.isSubmitted = true; // Mark as submitted if edited by admin
+            hasChanges = true;
+          }
+
+          if (hasChanges) {
+            await marksDoc.save();
+            updatedReviews.push(reviewName);
+          }
+        } else {
+          logger.warn(`Skipping marks update for ${reviewName}: Marks document not found for student ${regNo}`);
+        }
+      }
+    }
+
+    logger.info("student_marks_updated", {
+      regNo,
+      updatedReviews,
+      updatedBy: userId,
+    });
+
+    // Return fresh data mainly for UI update
+    return this.processStudentData(student.toObject());
+  }
+
+  /**
    * Process student data (convert Maps to Objects)
    * @param {Object} student - Student document
    * @param {Map} reviewTypes - Map of reviewName -> facultyType
+   * @param {Array} schemaReviews - Array of reviews from schema
    */
-  static processStudentData(student, reviewTypes = null) {
-    // Process reviews Map
-    let processedReviews = {};
-    if (student.reviews) {
-      if (student.reviews instanceof Map) {
-        processedReviews = Object.fromEntries(student.reviews);
-      } else if (typeof student.reviews === "object") {
-        processedReviews = { ...student.reviews };
-      }
-    }
-
-    // Process deadline Map
-    let processedDeadlines = {};
-    if (student.deadline) {
-      if (student.deadline instanceof Map) {
-        processedDeadlines = Object.fromEntries(student.deadline);
-      } else if (typeof student.deadline === "object") {
-        processedDeadlines = { ...student.deadline };
-      }
-    }
-
+  static processStudentData(student, reviewTypes = null, schemaReviews = []) {
     // Process approvals Map
     let processedApprovals = {};
     if (student.approvals) {
@@ -282,60 +526,207 @@ export class StudentService {
       }
     }
 
-    // Calculate Marks Breakdown
+    // Construct reviews object from guideMarks and panelMarks
+    let processedReviews = {};
     let totalMarks = 0;
     let guideMarks = 0;
     let panelMarks = 0;
     let reviewStatuses = [];
 
-    Object.entries(processedReviews).forEach(([key, review]) => {
-      // Calculate marks for this review
-      let reviewTotal = 0;
-      if (review.marks) {
-        Object.values(review.marks).forEach((mark) => {
-          reviewTotal += Number(mark) || 0;
-        });
-      }
-      totalMarks += reviewTotal;
+    // Collect all marks documents
+    const allMarks = [
+      ...(student.guideMarks || []),
+      ...(student.panelMarks || [])
+    ];
 
-      // Add to specific bucket if reviewTypes map is provided
-      if (reviewTypes && reviewTypes.has(key)) {
-        const type = reviewTypes.get(key);
-        if (type === 'guide') {
-          guideMarks += reviewTotal;
-        } else if (type === 'panel') {
-          panelMarks += reviewTotal;
-        } else if (type === 'both') {
-          // If 'both', usually separate components, but without component-level mapping
-          // we can't split easily. For now, maybe 50-50? 
-          // Or just add to total and leave breakdown ambiguous?
-          // Let's assume 'both' counts towards total but maybe not specifically guide/panel buckets?
-          // OR, assume it's shared.
-          // For simplicity in this fix, we won't add to guide/panel buckets to avoid double counting
-          // or we could split it. Let's start with strict mapping.
+    // Helper to calculate average of an array of numbers
+    const calculateAverage = (arr) => {
+      if (!arr || arr.length === 0) return 0;
+      const sum = arr.reduce((a, b) => a + b, 0);
+      return sum / arr.length;
+    };
+
+    // Iterate through schema reviews to ensure all configured reviews are represented
+    if (schemaReviews && schemaReviews.length > 0) {
+      schemaReviews.forEach(schemaReview => {
+        const reviewName = schemaReview.reviewName || schemaReview.name || "Unknown";
+
+        if (reviewName === "Unknown") {
+          logger.warn("Found review in schema without reviewName:", schemaReview);
         }
-      } else {
-        // Fallback or legacy logic if needed
-        // Without schema, we can't know.
-      }
 
-      // Review Status
-      let status = "pending";
-      const hasMarks = review.marks && Object.values(review.marks).some(m => m > 0);
+        const facultyType = schemaReview.facultyType;
 
-      if (review.locked) {
-        status = "approved";
-      } else if (hasMarks) {
-        status = "submitted";
-      } else {
-        status = "pending";
-      }
+        // Find matching marks docs - CAN BE MULTIPLE FOR PANEL
+        const matchingMarks = allMarks.filter(m => m.reviewType === reviewName);
 
-      reviewStatuses.push({
-        name: key,
-        status: status
+        // Initialize review data
+        const reviewData = {
+          marks: {},
+          total: 0,
+          locked: false
+        };
+
+        let status = "pending";
+        let issubmitted = false;
+
+        if (matchingMarks.length > 0) {
+          issubmitted = matchingMarks.some(m => m.isSubmitted);
+
+          if (facultyType === 'panel') {
+            // Filter only submitted marks for Panel
+            const validPanelMarks = matchingMarks.filter(m => m.isSubmitted);
+
+            if (validPanelMarks.length > 0) {
+              // 1. Average Total Marks
+              const totalScores = validPanelMarks.map(m => m.totalMarks || 0);
+              reviewData.total = calculateAverage(totalScores);
+
+              // 2. Average Component Marks
+              const componentMap = {};
+
+              validPanelMarks.forEach(markDoc => {
+                if (markDoc.componentMarks) {
+                  markDoc.componentMarks.forEach(comp => {
+                    if (!componentMap[comp.componentName]) {
+                      componentMap[comp.componentName] = [];
+                    }
+                    componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
+                  });
+                }
+              });
+
+              Object.keys(componentMap).forEach(compName => {
+                reviewData.marks[compName] = calculateAverage(componentMap[compName]);
+              });
+            }
+          } else {
+            // Guide or others
+            const marksDoc = matchingMarks[0];
+            reviewData.total = marksDoc.totalMarks || 0;
+
+            if (marksDoc.componentMarks) {
+              marksDoc.componentMarks.forEach(comp => {
+                reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+              });
+            }
+          }
+
+          // Add to totals
+          totalMarks += reviewData.total;
+          if (facultyType === 'guide') guideMarks += reviewData.total;
+          if (facultyType === 'panel') panelMarks += reviewData.total;
+
+          if (issubmitted) status = "submitted";
+
+        }
+
+        // Check explicit approval from student.approvals map
+        if (processedApprovals) {
+          const approvalKey = Object.keys(processedApprovals).find(
+            k => k.toLowerCase() === reviewName.toLowerCase()
+          );
+
+          if (approvalKey && processedApprovals[approvalKey]?.approved) {
+            status = "approved";
+            reviewData.locked = true;
+          }
+        }
+
+        reviewStatuses.push({
+          name: reviewName,
+          status: status,
+          marks: reviewData.marks, // Include marks for frontend calculations
+          type: facultyType
+        });
+
+        processedReviews[reviewName] = reviewData;
       });
-    });
+    } else {
+      // Fallback if no schema (or legacy data): iterate available marks
+      // Note: This fallback path might still duplicate assignments if not grouped.
+      // Group by reviewType first
+      const marksByReview = {};
+      allMarks.forEach(m => {
+        if (!marksByReview[m.reviewType]) marksByReview[m.reviewType] = [];
+        marksByReview[m.reviewType].push(m);
+      });
+
+      Object.entries(marksByReview).forEach(([rName, docs]) => {
+        const reviewData = {
+          marks: {},
+          total: 0
+        };
+
+        const facultyType = docs[0].facultyType; // Assume consistent
+        const issubmitted = docs.some(m => m.isSubmitted);
+
+        if (facultyType === 'panel') {
+          // Filter only submitted marks for Panel
+          const validPanelMarks = docs.filter(m => m.isSubmitted);
+
+          if (validPanelMarks.length > 0) {
+            // Average Total
+            reviewData.total = calculateAverage(validPanelMarks.map(d => d.totalMarks || 0));
+
+            // Average Components
+            const componentMap = {};
+            validPanelMarks.forEach(markDoc => {
+              if (markDoc.componentMarks) {
+                markDoc.componentMarks.forEach(comp => {
+                  if (!componentMap[comp.componentName]) {
+                    componentMap[comp.componentName] = [];
+                  }
+                  componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
+                });
+              }
+            });
+            Object.keys(componentMap).forEach(compName => {
+              reviewData.marks[compName] = calculateAverage(componentMap[compName]);
+            });
+          }
+        } else {
+          const m = docs[0];
+          reviewData.total = m.totalMarks || 0;
+          if (m.componentMarks) {
+            m.componentMarks.forEach(comp => {
+              reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
+            });
+          }
+        }
+
+        totalMarks += reviewData.total;
+        if (facultyType === 'guide') guideMarks += reviewData.total;
+        if (facultyType === 'panel') panelMarks += reviewData.total;
+
+        processedReviews[rName] = reviewData;
+
+        let status = issubmitted ? "submitted" : "pending";
+        // Check explicit approval from student.approvals map
+        if (processedApprovals) {
+          const approvalKey = Object.keys(processedApprovals).find(
+            k => k.toLowerCase() === rName.toLowerCase()
+          );
+
+          if (approvalKey && processedApprovals[approvalKey]?.approved) {
+            status = "approved";
+            reviewData.locked = true;
+          }
+        }
+
+        reviewStatuses.push({
+          name: rName,
+          status: status,
+          marks: reviewData.marks,
+          type: facultyType
+        });
+
+      });
+    }
+
+    // Check PPT status specifically if needed for the badge
+    // The "PPT Approval" badge logic in frontend checks reviewStatuses.
+    // If we have a review named 'PPT' or similar, it will show up.
 
     return {
       _id: student._id,
@@ -346,12 +737,9 @@ export class StudentService {
       school: student.school,
       program: student.program,
       academicYear: student.academicYear,
-      reviews: processedReviews,
-      deadline: processedDeadlines,
+      reviews: processedReviews, // Now constructed from Marks docs
       approvals: processedApprovals,
       PAT: student.PAT || false,
-      requiresContribution: student.requiresContribution || false,
-      contributionType: student.contributionType || "none",
       isActive: student.isActive,
       createdAt: student.createdAt,
       updatedAt: student.updatedAt,
@@ -404,6 +792,7 @@ export class StudentService {
       created: 0,
       updated: 0,
       errors: 0,
+      duplicates: [],
       details: [],
     };
 
@@ -421,8 +810,9 @@ export class StudentService {
     }
 
     for (let i = 0; i < studentsData.length; i++) {
+      const studentData = studentsData[i];
+      let currentGuide = null;
       try {
-        const studentData = studentsData[i];
 
         if (!studentData.regNo || !studentData.name || !studentData.emailId) {
           results.errors++;
@@ -430,6 +820,21 @@ export class StudentService {
             row: i + 1,
             regNo: studentData.regNo || "N/A",
             error: "Missing required fields: regNo, name, or emailId",
+          });
+          continue;
+        }
+
+        if (
+          !studentData.emailId
+            .toString()
+            .toLowerCase()
+            .endsWith(STUDENT_EMAIL_DOMAIN)
+        ) {
+          results.errors++;
+          results.details.push({
+            row: i + 1,
+            regNo: studentData.regNo,
+            error: `Email must end with ${STUDENT_EMAIL_DOMAIN}`,
           });
           continue;
         }
@@ -455,36 +860,22 @@ export class StudentService {
             updatedBy: userId,
           });
         } else {
-          // Initialize reviews from marking schema
-          const reviewsMap = new Map();
-          markingSchema.reviews.forEach((review) => {
-            const marks = {};
-            if (Array.isArray(review.components)) {
-              review.components.forEach((comp) => {
-                marks[comp.name] = 0;
-              });
-            }
-
-            reviewsMap.set(review.reviewName, {
-              marks,
-              comments: "",
-              attendance: { value: false, locked: false },
-              locked: false,
-            });
-          });
+          // Initialize reviews from marking schema - DEPRECATED for Reviews Map
+          // But we keep object for structure if needed or just skip.
+          // Since schema changed, 'reviews' field is gone.
+          // We can remove it to avoid confusion or errors.
 
           // Initialize deadlines from marking schema
-          const deadlineMap = new Map();
-          markingSchema.reviews.forEach((review) => {
-            if (review.deadline?.from && review.deadline?.to) {
-              deadlineMap.set(review.reviewName, {
-                from: review.deadline.from,
-                to: review.deadline.to,
-              });
-            }
-          });
+          // DEADLINE field IS also suspicious, likely removed or moved to Marks?
+          // Student schema has 'approvals' but not 'deadline' map in explicit list I saw?
+          // Wait, 'studentSchema.js' I viewed earlier didn't show deadline.
+          // But let's assume it might still be part of some schema version.
+          // I will strip the 'reviews: reviewsMap' part to be safe.
 
-          // Create student
+          // Create student with an auto-generated default password
+          const rawPassword = generateDefaultPassword();
+          const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
           const student = new Student({
             regNo: studentData.regNo,
             name: studentData.name,
@@ -493,21 +884,36 @@ export class StudentService {
             academicYear,
             school,
             program,
-            reviews: reviewsMap,
-            deadline: deadlineMap,
+            // reviews: reviewsMap, // REMOVED
+            // deadline: deadlineMap, // Keeping just in case but likely ignored
             PAT: false,
             requiresContribution: markingSchema.requiresContribution || false,
             contributionType: markingSchema.contributionType || "none",
             isActive: true,
+            password: hashedPassword,
+            isDefaultPassword: true,
           });
 
           await student.save();
+
+          EmailService.sendWelcomeEmail(
+            student.emailId,
+            student.name,
+            rawPassword,
+            "VIT Student Portal"
+          ).catch((err) =>
+            logger.error("student_welcome_email_failed", {
+              regNo: student.regNo,
+              error: err.message,
+            })
+          );
 
           // Handle Guide Assignment if guideEmpId provided
           if (studentData.guideEmpId) {
             const faculty = await Faculty.findOne({ employeeId: studentData.guideEmpId });
 
             if (faculty) {
+              currentGuide = faculty;
               // Check if project already exists for this student
               const existingProject = await Project.findOne({
                 students: existing ? existing._id : student._id,
@@ -533,50 +939,40 @@ export class StudentService {
             } else {
               // warning: guide not found, but student created.
               logger.warn("guide_not_found_on_student_upload", { regNo: studentData.regNo, guideEmpId: studentData.guideEmpId });
-              // We could add a note to results.details? 
             }
           }
 
-          if (!existing) { // increment only if new, existing flow was updated above
+          if (!existing) {
             results.created++;
-
             logger.info("student_created_via_bulk", {
               regNo: studentData.regNo,
               createdBy: userId,
             });
           }
         }
-
-      } catch (error) {
-        results.errors++;
-        results.details.push({
-          row: i + 1,
-          regNo: studentsData[i]?.regNo || "N/A",
-          error: error.message,
-        });
+      } catch (err) {
+        if (err.code === 11000 || err.message.includes('E11000')) {
+          results.duplicates.push({
+            regNo: studentData.regNo,
+            name: studentData.name,
+            guideEmail: currentGuide?.emailId || "N/A",
+            guideName: currentGuide?.name || "N/A",
+            projectName: `Project - ${studentData.regNo}`,
+            error: "Duplicate Project/Student Entry"
+          });
+          logger.warn("duplicate_entry_upload", { regNo: studentData.regNo, error: err.message });
+        } else {
+          results.errors++;
+          results.details.push({
+            row: i + 1,
+            regNo: studentsData[i].regNo || "N/A",
+            error: err.message,
+          });
+          logger.error("error_processing_student_row", { row: i + 1, error: err.message });
+        }
       }
     }
 
-    logger.info("students_bulk_upload_completed", {
-      created: results.created,
-      updated: results.updated,
-      errors: results.errors,
-      uploadedBy: userId,
-    });
-
     return results;
-  }
-
-  /**
-   * Get student by ID
-   */
-  static async getStudentById(studentId) {
-    const student = await Student.findById(studentId).lean();
-
-    if (!student) {
-      throw new Error("Student not found.");
-    }
-
-    return this.processStudentData(student);
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fetchRequests, updateRequestStatus } from "../../services/adminApi";
+import { fetchRequests, updateRequestStatus, approveAllRequests } from "../../services/adminApi";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -107,6 +107,31 @@ const RequestList = () => {
     }
   };
 
+  const handleApproveAll = async () => {
+    const pendingCount = requests.filter(r => r.status === 'pending').length;
+    if (pendingCount === 0) return;
+    
+    if (!window.confirm(`Are you sure you want to approve ALL ${pendingCount} pending request(s)?`)) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await approveAllRequests();
+      
+      if (response.success) {
+        alert(response.message || "All pending requests approved successfully.");
+        loadRequests();
+      } else {
+        alert(response.message || "Failed to approve all requests.");
+      }
+    } catch (err) {
+      alert(err.message || "An error occurred.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case "approved":
@@ -147,26 +172,41 @@ const RequestList = () => {
   return (
     <div className="space-y-6">
       {/* Tabs */}
+      {/* Tabs */}
       <Card padding="sm">
-        <div className="flex gap-2">
-          <Button
-            variant={activeTab === "faculty" ? "primary" : "secondary"}
-            size="sm"
-            onClick={() => setActiveTab("faculty")}
-            className="gap-2"
-          >
-            <UserIcon className="h-4 w-4" />
-            Faculty Requests
-          </Button>
-          <Button
-            variant={activeTab === "access" ? "primary" : "secondary"}
-            size="sm"
-            onClick={() => setActiveTab("access")}
-            className="gap-2"
-          >
-            <ShieldCheckIcon className="h-4 w-4" />
-            Access Requests
-          </Button>
+        <div className="flex justify-between items-center w-full gap-4">
+          <div className="flex gap-2">
+            <Button
+              variant={activeTab === "faculty" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setActiveTab("faculty")}
+              className="gap-2 shrink-0"
+            >
+              <UserIcon className="h-4 w-4" />
+              Faculty Requests
+            </Button>
+            <Button
+              variant={activeTab === "access" ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setActiveTab("access")}
+              className="gap-2 shrink-0"
+            >
+              <ShieldCheckIcon className="h-4 w-4" />
+              Access Requests
+            </Button>
+          </div>
+
+          {activeTab === "faculty" && (
+            <Button
+              variant="primary"
+              className="bg-green-600 hover:bg-green-700 whitespace-nowrap shrink-0 flex items-center gap-1"
+              onClick={handleApproveAll}
+              disabled={submitting}
+            >
+              <CheckCircleIcon className="h-4 w-4" />
+              Approve Request All
+            </Button>
+          )}
         </div>
       </Card>
 

@@ -90,7 +90,7 @@ const marksSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-marksSchema.index({ student: 1, reviewType: 1, faculty: 1 }, { unique: true });
+marksSchema.index({ student: 1, project: 1, reviewType: 1, faculty: 1 }, { unique: true });
 marksSchema.index({ project: 1, reviewType: 1 });
 marksSchema.index({ faculty: 1, academicYear: 1, isSubmitted: 1 });
 marksSchema.index({ student: 1, academicYear: 1 });
@@ -101,6 +101,7 @@ marksSchema.pre("save", async function () {
   if (this.facultyType === "guide" && this.isNew) {
     const existingGuideMark = await this.constructor.findOne({
       student: this.student,
+      project: this.project,
       reviewType: this.reviewType,
       facultyType: "guide",
       _id: { $ne: this._id },

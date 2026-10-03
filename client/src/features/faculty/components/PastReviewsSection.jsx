@@ -92,10 +92,11 @@ const PastReviewsSection = ({ reviews, onEnterMarks }) => {
 
                                             <Button
                                                 size="sm"
-                                                variant="secondary"
+                                                variant="primary"
+                                                className="font-bold shadow-sm"
                                                 onClick={() => handleViewTeams(review)}
                                             >
-                                                View & Edit
+                                                Show Teams
                                             </Button>
                                         </div>
                                     </div>

@@ -5,7 +5,8 @@ import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
 import { ReportService } from "../services/reportService.js";
-import { ActivityLogService } from "../services/activityLogService.js";
+import { EmailService } from "../services/emailService.js";
+import ActivityLogService from "../services/activityLogService.js";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
@@ -25,11 +26,55 @@ import { logger } from "../utils/logger.js";
  * Helper: Get coordinator context filter
  */
 function getCoordinatorContext(req) {
-  return {
-    academicYear: req.coordinator.academicYear,
+  let targetProgram = req.coordinator.program;
+
+  if (req.coordinators && req.coordinators.length > 0) {
+    const authorizedPrograms = req.coordinators.map(c => c.program);
+    
+    if (req.query.program) {
+      const requested = Array.isArray(req.query.program) ? req.query.program : [req.query.program];
+      const validRequested = requested.filter(p => 
+        authorizedPrograms.some(authP => authP.toLowerCase() === p.toLowerCase())
+      );
+      
+      if (validRequested.length > 0) {
+        targetProgram = validRequested;
+      } else {
+        // Log when requested program doesn't match any authorized program
+        logger.warn("[CoordinatorContext] Requested program not in authorized list — falling back to coordinator default", {
+          requestedPrograms: requested,
+          authorizedPrograms,
+          coordinatorId: req.coordinator._id,
+          hint: "Coordinator's stored program name may differ from what the frontend sent (case or spelling mismatch).",
+        });
+      }
+    } else if (req.coordinator.isPrimary && authorizedPrograms.length > 1) {
+      targetProgram = authorizedPrograms;
+    }
+  }
+
+  const context = {
+    academicYear: req.query.academicYear || req.coordinator.academicYear,
     school: req.coordinator.school,
-    program: req.coordinator.program,
+    program: targetProgram,
   };
+
+  logger.debug("[CoordinatorContext] Resolved context", {
+    coordinatorId: req.coordinator._id,
+    storedValues: {
+      school: req.coordinator.school,
+      program: req.coordinator.program,
+      academicYear: req.coordinator.academicYear,
+    },
+    resolvedContext: context,
+    queryParams: {
+      school: req.query.school,
+      program: req.query.program,
+      academicYear: req.query.academicYear,
+    },
+  });
+
+  return context;
 }
 
 /**
@@ -37,13 +82,18 @@ function getCoordinatorContext(req) {
  */
 function verifyContext(item, coordinator) {
   // If item has an academicYear field, it must match
-  if (item.academicYear && item.academicYear !== coordinator.academicYear) {
+  if (item.academicYear && String(item.academicYear).toLowerCase() !== String(coordinator.academicYear).toLowerCase()) {
     return false;
   }
 
-  return (
-    item.school === coordinator.school && item.program === coordinator.program
-  );
+  // item.program may be a single String (Project/Panel/ProjectCoordinator/etc.)
+  // or an array of Strings (Faculty, who can belong to multiple programs).
+  const coordProgram = String(coordinator.program).toLowerCase();
+  const programMatches = Array.isArray(item.program)
+    ? item.program.some(p => String(p).toLowerCase() === coordProgram)
+    : String(item.program).toLowerCase() === coordProgram;
+
+  return String(item.school).toLowerCase() === String(coordinator.school).toLowerCase() && programMatches;
 }
 
 // ==================== Profile & Permissions ====================
@@ -152,9 +202,26 @@ export async function createFacultyBulk(req, res) {
       details: [],
     };
 
+    const context = getCoordinatorContext(req);
+
     for (let i = 0; i < facultyList.length; i++) {
       try {
-        await FacultyService.createFaculty(facultyList[i], req.user._id);
+        const facultyData = {
+          ...facultyList[i],
+          // Enforce coordinator context
+          school: context.school,
+          program: context.program,
+          // Enforce role and prevent coordinator creation
+          role: "faculty",
+          isProjectCoordinator: false,
+        };
+        // Default password from employeeId if not provided
+        if (!facultyData.password) {
+          const empId = String(facultyData.employeeId || "").trim();
+          facultyData.password = `Vit${empId}@123`;
+        }
+
+        await FacultyService.createFaculty(facultyData, req.user._id);
         results.created++;
       } catch (error) {
         results.errors++;
@@ -183,6 +250,12 @@ export async function getFacultyList(req, res) {
     const context = getCoordinatorContext(req);
     const filters = { ...req.query, ...context };
 
+    // Support showing all faculties in the school (ignore program filter)
+    if (req.query.showAllPrograms === 'true') {
+      delete filters.program;
+    }
+    delete filters.showAllPrograms; // Remove non-DB field
+
     // Faculty are not bound by academic year, so remove it from filters
     if (filters.academicYear) delete filters.academicYear;
 
@@ -191,10 +264,7 @@ export async function getFacultyList(req, res) {
       filters.name = new RegExp(req.query.name, 'i');
     }
 
-    const faculties = await Faculty.find(filters)
-      .select("-password")
-      .sort({ name: 1 })
-      .lean();
+    const faculties = await FacultyService.getFacultyList(filters);
 
     res.status(200).json({
       success: true,
@@ -320,16 +390,54 @@ export async function deleteFaculty(req, res) {
 
 export async function getRequests(req, res) {
   try {
-    const context = getCoordinatorContext(req);
-    const filters = { ...req.query, ...context };
+    // 1. Get Context from Middleware (Source of Truth)
+    const coordinator = req.coordinator;
 
-    // Support categorization
-    if (req.query.category) {
-      if (req.query.category === "guide") {
-        filters.requestType = "guide_reassignment"; // Example mapping
-      }
-      // Add other mappings as per schema
+    // DEBUG: Log Raw Inputs
+    console.log("DEBUG: getRequests [Unfiltered] query:", JSON.stringify(req.query, null, 2));
+    console.log("DEBUG: getRequests [Coordinator] context:", JSON.stringify({
+      id: coordinator._id,
+      school: coordinator.school,
+      program: coordinator.program,
+      academicYear: coordinator.academicYear
+    }, null, 2));
+
+    // 2. Disable Caching (Critical for debugging 304s)
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    // 3. Construct Filters EXPLICITLY (Do not spread req.query)
+    const filters = {
+      school: coordinator.school,
+      program: coordinator.program,
+      academicYear: coordinator.academicYear,
+    };
+
+    // 4. Handle Optional Filters
+    const { status, category } = req.query;
+
+    if (status && status !== 'All' && status !== '') {
+      filters.status = status;
     }
+
+    if (category && category !== 'All' && category !== '') {
+      const typeMap = {
+        'Marks': 'mark_edit',
+        'Attendance': 'attendance_condonation',
+        'Extension': 'deadline_extension',
+      };
+
+      if (typeMap[category]) {
+        filters.requestType = typeMap[category];
+      } else if (category === 'guide' || category === 'panel') {
+        filters.facultyType = category;
+      } else {
+        filters.requestType = category;
+      }
+    }
+
+    console.log("DEBUG: getRequests [Final Mongoose Filter]:", JSON.stringify(filters, null, 2));
 
     const requests = await Request.find(filters)
       .populate("student", "name regNo emailId")
@@ -338,24 +446,27 @@ export async function getRequests(req, res) {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Transform for frontend if needed (adapting to RequestList expectation)
+    console.log(`DEBUG: Found ${requests.length} requests matching criteria.`);
+
+    // Transform for frontend
     const transformedRequests = requests.map((req) => ({
       _id: req._id,
-      id: req._id, // Frontend uses both
+      id: req._id,
       facultyId: req.faculty?._id,
       faculty: req.faculty,
-      facultyName: req.faculty?.name,
+      facultyName: req.faculty?.name || "Unknown Faculty",
       studentId: req.student?._id,
       student: req.student,
-      studentName: req.student?.name,
-      category: req.requestType, // Assuming requestType maps to category
-      projectTitle: req.project?.name,
+      studentName: req.student?.name || "Unknown Student",
+      category: req.requestType,
+      facultyType: req.facultyType, // EXPOSE FACULTY TYPE
+      projectTitle: req.project?.name || "Unknown Project",
       message: req.reason,
       status: req.status,
       date: req.createdAt,
-      school: req.school || context.school,
-      program: req.program || context.program,
-      approvalReason: req.remarks, // Map remarks to approval/rejection reason
+      school: req.school,
+      program: req.program,
+      approvalReason: req.remarks,
       rejectionReason: req.remarks,
     }));
 
@@ -365,6 +476,7 @@ export async function getRequests(req, res) {
       count: transformedRequests.length,
     });
   } catch (error) {
+    console.error("ERROR in getRequests:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -400,22 +512,53 @@ export async function handleRequest(req, res) {
       });
     }
 
-    request.status = status;
-    request.remarks = remarks;
-    request.processedBy = req.user._id;
-    request.processedAt = new Date();
+    // --- CASCADING UPDATE START ---
+    // If we are approving/rejecting a mark_edit request, apply to ALL pending requests
+    // for this Project + ReviewType. This satisfies the "One Project One Request" mental model.
+    let updatedCount = 0;
 
-    await request.save();
+    // Define query for "sibling" requests (same project, review, type, and currently pending)
+    // We include the original request ID in this update as well for simplicity
+    const siblingQuery = {
+      project: request.project,
+      reviewType: request.reviewType,
+      requestType: request.requestType,
+      status: "pending",
+      // Ensure we stay within authorized context
+      school: req.coordinator.school,
+      program: req.coordinator.program
+    };
 
-    logger.info("request_handled", {
-      requestId: request._id,
+    const updatePayload = {
+      status: status,
+      remarks: remarks,
+      processedBy: req.user._id,
+      processedAt: new Date()
+    };
+
+    const updateResult = await Request.updateMany(siblingQuery, { $set: updatePayload });
+    updatedCount = updateResult.modifiedCount;
+
+    // If for some reason the original request wasn't pending (e.g. race condition), ensure strict update on it
+    if (request.status !== 'pending') {
+      request.status = status;
+      request.remarks = remarks;
+      request.processedBy = req.user._id;
+      request.processedAt = new Date();
+      await request.save();
+    }
+    // --- CASCADING UPDATE END ---
+
+    logger.info("request_handled_cascaded", {
+      originalRequestId: request._id,
       status,
       processedBy: req.user._id,
+      affectedCount: updatedCount
     });
 
     res.status(200).json({
       success: true,
-      message: `Request ${status} successfully.`,
+      message: `Request ${status} successfully. (${updatedCount} requests updated)`,
       data: request,
     });
 
@@ -430,7 +573,7 @@ export async function handleRequest(req, res) {
       {
         targetId: request._id,
         targetModel: "Request",
-        description: `Request ${status}: ${request.requestType} for ${request.student?.regNo || "student"}`,
+        description: `Request ${status}: ${request.requestType} for Team (Cascaded to ${updatedCount} students)`,
       },
       req
     );
@@ -499,10 +642,12 @@ export async function getStudentList(req, res) {
   try {
     const coordinator = req.coordinator; // From requireProjectCoordinator middleware
 
+    const context = getCoordinatorContext(req);
+
     const filters = {
-      academicYear: req.query.academicYear || coordinator.academicYear,
-      school: coordinator.school,
-      program: coordinator.program,
+      academicYear: context.academicYear,
+      school: context.school,
+      program: context.program,
       regNo: req.query.regNo,
       name: req.query.name,
       specialization: req.query.specialization,
@@ -780,8 +925,9 @@ export async function createProject(req, res) {
     req.body.program = context.program;
 
     // Validate guide faculty exists and belongs to same dept
+    const normalizedGuideId = req.body.guideFacultyEmpId ? String(req.body.guideFacultyEmpId).trim() : null;
     const guide = await Faculty.findOne({
-      employeeId: req.body.guideFacultyEmpId,
+      employeeId: normalizedGuideId,
     });
 
     if (!guide) {
@@ -791,12 +937,6 @@ export async function createProject(req, res) {
       });
     }
 
-    if (!verifyContext(guide, req.coordinator)) {
-      return res.status(400).json({
-        success: false,
-        message: "Guide faculty must be from the same program.",
-      });
-    }
 
     // Validate specialization match
     /*
@@ -830,7 +970,7 @@ export async function createProject(req, res) {
 
 export async function createProjectsBulk(req, res) {
   try {
-    const { projects } = req.body;
+    const { projects, ignoreDepartmentMismatch } = req.body;
 
     if (!Array.isArray(projects) || projects.length === 0) {
       return res.status(400).json({
@@ -845,17 +985,92 @@ export async function createProjectsBulk(req, res) {
     const enrichedProjects = projects.map(p => ({
       ...p,
       academicYear: context.academicYear,
-      school: context.school,
-      program: context.program
+      school: p.school || context.school,
+      program: p.program || context.program
     }));
 
-    const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id);
+    const result = await ProjectService.bulkCreateProjects(enrichedProjects, req.user._id, {
+      ignoreDepartmentMismatch: ignoreDepartmentMismatch === true || ignoreDepartmentMismatch === "true"
+    });
 
+    // Send response immediately — don't block on email notifications
     res.status(200).json({
       success: true,
       message: `Bulk creation complete: ${result.created} created, ${result.failed} errors.`,
       data: result,
     });
+
+    // Fire-and-forget: send email notifications to guides for failed projects
+    // This runs AFTER the response has been sent to the client
+    if (result.errors && result.errors.length > 0) {
+      const uploaderEmail = req.user.emailId;
+      const uploaderName = req.user.name;
+
+      // Use an async IIFE so errors don't crash the process
+      (async () => {
+        try {
+          const emailResults = { sent: 0, failed: 0 };
+
+          // Group errors by guide faculty employee ID
+          const errorsByGuide = {};
+          for (const error of result.errors) {
+            const guideEmpId = error.guideFacultyEmpId;
+            if (guideEmpId) {
+              if (!errorsByGuide[guideEmpId]) {
+                errorsByGuide[guideEmpId] = [];
+              }
+              errorsByGuide[guideEmpId].push(error);
+            }
+          }
+
+          // Fetch all guides in one query instead of one-by-one
+          const guideEmpIds = Object.keys(errorsByGuide);
+          const guides = await Faculty.find({ employeeId: { $in: guideEmpIds } }).lean();
+          const guideByEmpId = new Map(guides.map(g => [g.employeeId, g]));
+
+          for (const [guideEmpId, errors] of Object.entries(errorsByGuide)) {
+            try {
+              const guide = guideByEmpId.get(guideEmpId);
+              if (guide && guide.emailId) {
+                const uploadContext = {
+                  school: context.school,
+                  program: context.program,
+                  year: context.academicYear,
+                };
+
+                const emailSent = await EmailService.sendProjectUploadErrorNotification(
+                  guide.emailId,
+                  guide.name,
+                  uploaderEmail,
+                  uploaderName,
+                  errors,
+                  uploadContext
+                );
+
+                if (emailSent) emailResults.sent++;
+                else emailResults.failed++;
+              }
+            } catch (emailError) {
+              logger.error("bulk_upload_email_notification_error", {
+                guideEmpId,
+                error: emailError.message,
+              });
+              emailResults.failed++;
+            }
+          }
+
+          logger.info("bulk_upload_email_notifications_sent", {
+            totalErrors: result.errors.length,
+            emailsSent: emailResults.sent,
+            emailsFailed: emailResults.failed,
+          });
+        } catch (bgError) {
+          logger.error("bulk_upload_background_email_error", {
+            error: bgError.message,
+          });
+        }
+      })();
+    }
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -890,13 +1105,17 @@ export async function updateProject(req, res) {
       });
     }
 
-    Object.assign(project, req.body);
-    await project.save();
+    const updated = await ProjectService.updateProjectDetails(
+      id,
+      req.body,
+      null,
+      req.user._id
+    );
 
     res.status(200).json({
       success: true,
       message: "Project updated successfully.",
-      data: project,
+      data: updated.project,
     });
   } catch (error) {
     res.status(400).json({
@@ -960,7 +1179,8 @@ export async function assignGuide(req, res) {
     }
 
     // Validate guide faculty
-    const guide = await Faculty.findOne({ employeeId: guideFacultyEmpId });
+    const normalizedGuideId = guideFacultyEmpId ? String(guideFacultyEmpId).trim() : null;
+    const guide = await Faculty.findOne({ employeeId: normalizedGuideId });
 
     if (!guide) {
       return res.status(404).json({
@@ -969,12 +1189,6 @@ export async function assignGuide(req, res) {
       });
     }
 
-    if (!verifyContext(guide, req.coordinator)) {
-      return res.status(400).json({
-        success: false,
-        message: "Guide must be from the same program.",
-      });
-    }
 
     // Validate specialization match
     /*
@@ -992,6 +1206,7 @@ export async function assignGuide(req, res) {
       const projectCount = await Project.countDocuments({
         guideFaculty: guide._id,
         status: "active",
+        ...getCoordinatorContext(req),
       });
 
       if (projectCount >= config.maxProjectsPerGuide) {
@@ -1062,12 +1277,6 @@ export async function reassignGuide(req, res) {
       });
     }
 
-    if (!verifyContext(newGuide, req.coordinator)) {
-      return res.status(400).json({
-        success: false,
-        message: "New guide must be from the same program.",
-      });
-    }
 
     // Validate specialization match
     /*
@@ -1078,6 +1287,23 @@ export async function reassignGuide(req, res) {
       });
     }
     */
+
+    // Check max projects per guide using LIVE config (same as assignGuide)
+    const config = await ProgramConfig.findOne(getCoordinatorContext(req));
+    if (config?.maxProjectsPerGuide) {
+      const projectCount = await Project.countDocuments({
+        guideFaculty: newGuide._id,
+        status: "active",
+        ...getCoordinatorContext(req),
+      });
+
+      if (projectCount >= config.maxProjectsPerGuide) {
+        return res.status(400).json({
+          success: false,
+          message: `Guide already has the maximum allowed projects (${config.maxProjectsPerGuide}). Please increase the limit in Team Settings or choose a different guide.`,
+        });
+      }
+    }
 
     const oldGuideFacultyId = project.guideFaculty;
 
@@ -1200,7 +1426,7 @@ export async function createPanel(req, res) {
 export async function autoCreatePanels(req, res) {
   try {
     const context = getCoordinatorContext(req);
-    const { panelSize, facultyList } = req.body;
+    const { panelSize, facultyList, venue } = req.body;
 
     const result = await PanelService.autoCreatePanels(
       context.academicYear,
@@ -1208,7 +1434,8 @@ export async function autoCreatePanels(req, res) {
       context.program,
       panelSize || null,
       req.user._id,
-      facultyList
+      facultyList,
+      venue
     );
 
     res.status(200).json({
@@ -1593,6 +1820,28 @@ export async function assignPanel(req, res) {
     res.status(400).json({
       success: false,
       message: error.message,
+    });
+  }
+}
+
+export async function bulkAssignPanels(req, res) {
+  try {
+    const { assignments } = req.body;
+    if (!Array.isArray(assignments) || assignments.length === 0) {
+      return res.status(400).json({ success: false, message: "No assignments provided." });
+    }
+
+    const result = await PanelService.bulkAssignPanelsToProjects(assignments, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk assignment completed. ${result.assignedCount} assigned, ${result.errors} failed.`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to bulk assign panels."
     });
   }
 }
@@ -2510,11 +2759,114 @@ export async function getProjectMarks(req, res) {
     const marks = await Marks.find({ project: id })
       .populate("faculty", "name employeeId")
       .populate("student", "regNo name")
+      .sort({ student: 1, reviewType: 1 })
       .lean();
+
+    // Group by student and Review Type
+    const byStudentReview = {};
+
+    marks.forEach((mark) => {
+      if (!mark.student) return; // robustness check
+      const studentId = mark.student._id.toString();
+      const reviewType = mark.reviewType;
+      const key = `${studentId}-${reviewType}`;
+
+      if (!byStudentReview[key]) {
+        byStudentReview[key] = {
+          student: mark.student,
+          reviewType: reviewType,
+          guideExposed: null,
+          panelMarksList: [],
+        };
+      }
+
+      if (mark.facultyType === 'guide') {
+        byStudentReview[key].guideExposed = {
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks
+        };
+      } else if (mark.facultyType === 'panel') {
+        byStudentReview[key].panelMarksList.push({
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks
+        });
+      }
+    });
+
+    const results = [];
+    Object.values(byStudentReview).forEach(group => {
+      // Add Guide Marks
+      if (group.guideExposed) {
+        results.push({
+          student: group.student,
+          reviewType: group.reviewType,
+          facultyType: 'guide',
+          faculty: group.guideExposed.faculty,
+          totalMarks: group.guideExposed.totalMarks,
+          maxTotalMarks: group.guideExposed.maxTotalMarks,
+          isSubmitted: group.guideExposed.isSubmitted,
+          componentMarks: group.guideExposed.componentMarks
+        });
+      }
+
+      // Add Panel Marks (Aggregated)
+      if (group.panelMarksList.length > 0) {
+        const submittedPanelMarks = group.panelMarksList.filter(m => m.isSubmitted);
+        let panelAvg = 0;
+        let panelMax = group.panelMarksList[0].maxTotalMarks;
+        let isPanelSubmitted = false;
+        let averagedComponents = [];
+
+        if (submittedPanelMarks.length > 0) {
+          isPanelSubmitted = true;
+          const sum = submittedPanelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
+          panelAvg = sum / submittedPanelMarks.length;
+          panelMax = submittedPanelMarks[0].maxTotalMarks;
+
+          // Average Components
+          if (submittedPanelMarks[0].componentMarks && submittedPanelMarks[0].componentMarks.length > 0) {
+            averagedComponents = submittedPanelMarks[0].componentMarks.map(refComp => {
+              const compName = refComp.componentName;
+              let compSum = 0;
+              submittedPanelMarks.forEach(memberMark => {
+                const memberComp = memberMark.componentMarks?.find(c => c.componentName === compName);
+                if (memberComp) {
+                  compSum += (memberComp.componentTotal || 0);
+                }
+              });
+              const compAvg = compSum / submittedPanelMarks.length;
+              return {
+                ...refComp,
+                marks: parseFloat(compAvg.toFixed(2)),
+                componentTotal: parseFloat(compAvg.toFixed(2)),
+                subComponents: []
+              };
+            });
+          }
+        }
+
+        results.push({
+          student: group.student,
+          reviewType: group.reviewType,
+          facultyType: 'panel',
+          faculty: { name: "Panel Average" },
+          totalMarks: isPanelSubmitted ? parseFloat(panelAvg.toFixed(2)) : 0,
+          maxTotalMarks: isPanelSubmitted ? panelMax : (group.panelMarksList[0]?.maxTotalMarks || 100),
+          isSubmitted: isPanelSubmitted,
+          componentMarks: averagedComponents
+        });
+      }
+    });
 
     res.status(200).json({
       success: true,
-      data: marks,
+      data: results,
     });
   } catch (error) {
     res.status(500).json({
@@ -2564,10 +2916,16 @@ export async function getReportData(req, res) {
     const { type } = req.query;
     const context = getCoordinatorContext(req);
 
-    // Merge query filters with context (context overrides to ensure security)
-    const filters = { ...req.query, ...context };
+    // Map 'program' to 'programme' for ReportService compatibility
+    // ReportService._buildMatchQuery expects 'programme', not 'program'
+    const filters = {
+      ...req.query,
+      school: context.school,
+      programme: context.program,  // Note: changing 'program' to 'programme'
+      year: context.academicYear
+    };
 
-    console.log(`Generating report ${type} for context:`, context);
+    console.log(`[COORDINATOR REPORT] Generating report ${type} for context:`, filters);
 
     const reportData = await ReportService.generateReport(type, filters);
 
@@ -2642,17 +3000,26 @@ export const requestAccess = async (req, res) => {
   try {
     const { reason, featureName, priority } = req.body;
     const coordinatorId = req.user._id;
+    const coordinatorContext = req.coordinator || {
+      school: req.user?.school || "Unknown",
+      program: Array.isArray(req.user?.program)
+        ? req.user.program[0] || "Unknown"
+        : req.user?.program || "Unknown",
+    };
 
-    // Create a new Access Request record
+    const normalizedProgram = Array.isArray(coordinatorContext.program)
+      ? coordinatorContext.program[0] || "Unknown"
+      : coordinatorContext.program || "Unknown";
+
+    // Create a new Access Request record using the actual coordinator assignment context.
     const newRequest = await AccessRequest.create({
       featureName,
       reason,
       priority: priority || "medium",
-      // Default deadline to 7 days from now
       requiredDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       requestedBy: coordinatorId,
-      school: req.user.school || "Unknown",
-      program: req.user.program || "Unknown",
+      school: coordinatorContext.school || "Unknown",
+      program: normalizedProgram,
       status: "pending",
     });
 

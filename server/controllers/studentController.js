@@ -3,6 +3,7 @@ import Project from "../models/projectSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import BroadcastMessage from "../models/broadcastMessageSchema.js";
 import { StudentService } from "../services/studentService.js";
+import { TitleAbstractService } from "../services/titleAbstractService.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -165,6 +166,49 @@ export async function getApprovals(req, res) {
     res.status(500).json({
       success: false,
       message: "Error fetching student approvals.",
+    });
+  }
+}
+
+/**
+ * Submit the logged-in student's proposed title/abstract for their project
+ */
+export async function submitTitleAbstract(req, res) {
+  try {
+    const { title, abstract } = req.body;
+
+    const result = await TitleAbstractService.submitTitleAbstract(
+      req.user._id,
+      { title, abstract }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Error submitting title/abstract.",
+    });
+  }
+}
+
+/**
+ * Get the title/abstract workflow status for the logged-in student's project
+ */
+export async function getTitleAbstractStatus(req, res) {
+  try {
+    const result = await TitleAbstractService.getStatus(req.user._id);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Error fetching title/abstract status.",
     });
   }
 }

@@ -1,6 +1,7 @@
 import Faculty from "../models/facultySchema.js";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
+import { buildCoordinatorFilterQuery, warnOnFilterMismatch } from "../utils/filterHelpers.js";
 
 export class FacultyService {
   /**
@@ -26,9 +27,10 @@ export class FacultyService {
       }
     }
 
-    if (!data.school || typeof data.school !== "string") {
+    if (data.school && typeof data.school !== "string") {
       errors.push("School must be a string.");
     }
+
 
     if (
       data.role === "faculty" &&
@@ -52,7 +54,7 @@ export class FacultyService {
     const query = {
       $or: [
         { emailId: emailId?.trim().toLowerCase() },
-        { employeeId: employeeId?.trim().toUpperCase() },
+        { employeeId: employeeId != null ? String(employeeId).trim().toUpperCase() : undefined },
         { phoneNumber: phoneNumber?.toString().trim() },
       ],
     };
@@ -84,7 +86,10 @@ export class FacultyService {
       data.employeeId,
       data.phoneNumber
     );
-    
+    const incomingPrograms = Array.isArray(data.program)
+      ? data.program.map(p => p.trim())
+      : data.program ? [data.program.trim()] : [];
+
     if (existing) {
       // If faculty already exists, append new programs instead of throwing error
       let updated = false;
@@ -124,14 +129,13 @@ export class FacultyService {
       name: data.name.trim(),
       emailId: data.emailId.trim().toLowerCase(),
       password: hashedPassword,
-      employeeId: data.employeeId.trim().toUpperCase(),
+      employeeId: String(data.employeeId).trim().toUpperCase(),
       phoneNumber: data.phoneNumber?.toString().trim(),
       role: data.role || "faculty",
-      school: data.school.trim(),
-      program: Array.isArray(data.program)
-        ? data.program.map(p => p.trim())
-        : data.program ? [data.program.trim()] : [],
+      school: data.school ? data.school.trim() : "",
+      program: Array.isArray(data.program) ? data.program : (data.program ? [data.program.trim()] : []),
       specialization: data.specialization ? data.specialization.trim() : "",
+      isDefaultPassword: true,
     });
 
     await newFaculty.save();
@@ -152,28 +156,75 @@ export class FacultyService {
    * Get faculty with filters
    */
   static async getFacultyList(filters = {}, sortOptions = {}) {
+    const CONTEXT = "FacultyService";
     const query = {};
+
+    // Always exclude admins from faculty list
+    query.role = "faculty";
+
+    if (filters.name) {
+      query.name = filters.name;
+    }
+
+    // Build case-insensitive coordinator dimension filters
+    const { query: coordQuery, appliedFilters } = buildCoordinatorFilterQuery(filters, CONTEXT);
+    // Faculty schema: 'school' is String, 'program' is [String] — $regex works for both
+    Object.assign(query, coordQuery);
+
+    if (filters.specialization && filters.specialization !== "all") {
+      query.specialization = { $in: [filters.specialization] };
+    }
+
+    if (filters.isProjectCoordinator !== undefined) {
+      query.isProjectCoordinator = filters.isProjectCoordinator === 'true' || filters.isProjectCoordinator === true;
+    }
+
+    // Warn on potential program/school mismatch against actual DB values
+    try {
+      if (filters.program && filters.program !== "all") {
+        const distinctPrograms = await Faculty.distinct("program");
+        warnOnFilterMismatch(filters.program, distinctPrograms, "program", CONTEXT);
+      }
+      if (filters.school && filters.school !== "all") {
+        const distinctSchools = await Faculty.distinct("school");
+        warnOnFilterMismatch(filters.school, distinctSchools, "school", CONTEXT);
+      }
+    } catch (e) { /* non-fatal */ }
+
+    const sort = sortOptions.sortBy
+      ? { [sortOptions.sortBy]: sortOptions.sortOrder === "desc" ? -1 : 1 }
+      : { name: 1 };
+
+    const faculties = await Faculty.find(query).sort(sort).select("-password").lean();
+
+    logger.info(`[${CONTEXT}] Query result`, {
+      facultiesFound: faculties.length,
+      appliedFilters,
+    });
+    if (faculties.length === 0) {
+      logger.warn(`[${CONTEXT}] Zero faculties returned. Check if coordinator's program/school matches the Faculty collection.`, {
+        requestedFilters: { school: filters.school, program: filters.program },
+      });
+    }
+
+    return faculties;
+  }
+
+  /**
+   * Get admin list (only for ADMIN001)
+   */
+  static async getAdminList(filters = {}, sortOptions = {}) {
+    const query = { role: "admin" };
 
     if (filters.school && filters.school !== "all") {
       query.school = { $in: [filters.school] };
     }
 
     if (filters.program && filters.program !== "all") {
-      query.program = { $in: [filters.program] };
-    }
-
-    if (filters.specialization && filters.specialization !== "all") {
-      query.specialization = { $in: [filters.specialization] };
-    }
-
-    if (filters.role) {
-      query.role = filters.role;
-    }
-
-    if (filters.academicYear) {
-      // This might be used to filter by academic year context
-      query.school = { $in: [filters.school] };
-      query.program = { $in: [filters.program] };
+      const progStr = Array.isArray(filters.program)
+        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
+        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
+      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
     }
 
     const sort = sortOptions.sortBy
@@ -182,6 +233,7 @@ export class FacultyService {
 
     return await Faculty.find(query).sort(sort).select("-password").lean();
   }
+
 
   /**
    * Update faculty
@@ -242,13 +294,10 @@ export class FacultyService {
     if (updates.phoneNumber) faculty.phoneNumber = updates.phoneNumber;
     if (updates.role) faculty.role = updates.role;
     if (updates.school) faculty.school = updates.school;
-    if (updates.program) {
-      faculty.program = Array.isArray(updates.program)
-        ? updates.program.map((p) => p.trim())
-        : [updates.program.trim()];
-    }
+    if (updates.program) faculty.program = Array.isArray(updates.program) ? updates.program : [updates.program];
     if (updates.specialization) faculty.specialization = updates.specialization;
     if (updates.imageUrl !== undefined) faculty.imageUrl = updates.imageUrl;
+    if (updates.isProjectCoordinator !== undefined) faculty.isProjectCoordinator = updates.isProjectCoordinator;
 
     await faculty.save();
 

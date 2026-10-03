@@ -6,6 +6,7 @@ import Panel from "../models/panelSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
 import Request from "../models/requestSchema.js";
 import { ProjectService } from "../services/projectService.js";
+import { TitleAbstractService } from "../services/titleAbstractService.js";
 import { logger } from "../utils/logger.js";
 
 /**
@@ -246,6 +247,36 @@ export async function updateProjectDetails(req, res) {
   }
 }
 
+
+/**
+ * Guide accepts the student-submitted title/abstract, locking it
+ */
+export async function acceptTitleAbstract(req, res) {
+  try {
+    const { id } = req.params;
+
+    const project = await TitleAbstractService.acceptTitleAbstract(
+      id,
+      req.user._id
+    );
+
+    logger.info("title_abstract_accepted_by_guide", {
+      projectId: id,
+      guideFacultyId: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Title and abstract accepted and locked.",
+      data: project,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Error accepting title/abstract.",
+    });
+  }
+}
 
 /**
  * Delete project

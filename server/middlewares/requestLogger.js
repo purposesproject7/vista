@@ -26,7 +26,9 @@ export default function requestLogger(req, res, next) {
       user,
       ip: req.ip || req.headers["x-forwarded-for"] || null,
       userAgent: req.get("user-agent") || null,
-      bodySummary: Object.keys(req.body || {}).length
+      bodySummary: Array.isArray(req.body)
+        ? [`[array: ${req.body.length} items]`]
+        : Object.keys(req.body || {}).length
         ? Object.keys(req.body).slice(0, 10)
         : [],
       queryParams: Object.keys(req.query || {}).length

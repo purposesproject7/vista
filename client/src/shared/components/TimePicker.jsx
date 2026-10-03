@@ -50,7 +50,7 @@ const TimePicker = ({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (pickerRef.current && !pickerRef.current.contains(event.target) &&
-          inputRef.current && !inputRef.current.contains(event.target)) {
+        inputRef.current && !inputRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
@@ -194,6 +194,7 @@ const TimePicker = ({
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Select time</h3>
             <button
+              type="button"
               onClick={() => setIsOpen(false)}
               className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
             >
@@ -205,18 +206,16 @@ const TimePicker = ({
           <div className="flex items-center justify-center mb-6">
             <div className="flex items-center gap-2 text-3xl font-bold">
               <div
-                className={`px-3 py-2 rounded-lg transition-all cursor-pointer ${
-                  mode === 'hour' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-3 py-2 rounded-lg transition-all cursor-pointer ${mode === 'hour' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 onClick={() => setMode('hour')}
               >
                 {selectedHour.toString().padStart(2, '0')}
               </div>
               <span className="text-gray-600">:</span>
               <div
-                className={`px-3 py-2 rounded-lg transition-all cursor-pointer ${
-                  mode === 'minute' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-3 py-2 rounded-lg transition-all cursor-pointer ${mode === 'minute' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
                 onClick={() => setMode('minute')}
               >
                 {selectedMinute.toString().padStart(2, '0')}
@@ -224,22 +223,22 @@ const TimePicker = ({
               {format === '12' && (
                 <div className="ml-3 flex flex-col gap-1">
                   <button
+                    type="button"
                     onClick={() => handlePeriodClick('AM')}
-                    className={`px-3 py-1 text-sm font-semibold rounded transition-all ${
-                      selectedPeriod === 'AM'
+                    className={`px-3 py-1 text-sm font-semibold rounded transition-all ${selectedPeriod === 'AM'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     AM
                   </button>
                   <button
+                    type="button"
                     onClick={() => handlePeriodClick('PM')}
-                    className={`px-3 py-1 text-sm font-semibold rounded transition-all ${
-                      selectedPeriod === 'PM'
+                    className={`px-3 py-1 text-sm font-semibold rounded transition-all ${selectedPeriod === 'PM'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     PM
                   </button>
@@ -260,13 +259,13 @@ const TimePicker = ({
 
                   return (
                     <button
+                      type="button"
                       key={hour}
                       onClick={() => handleHourClick(hour)}
-                      className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all transform -translate-x-1/2 -translate-y-1/2 ${
-                        selectedHour === hour
+                      className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all transform -translate-x-1/2 -translate-y-1/2 ${selectedHour === hour
                           ? 'bg-blue-600 text-white shadow-lg scale-110'
                           : 'bg-white text-gray-700 hover:bg-blue-100 hover:scale-105 border border-gray-200'
-                      }`}
+                        }`}
                       style={{
                         left: `calc(50% + ${position.x}px)`,
                         top: `calc(50% + ${position.y}px)`
@@ -282,13 +281,13 @@ const TimePicker = ({
 
                   return (
                     <button
+                      type="button"
                       key={minute}
                       onClick={() => handleMinuteClick(minute)}
-                      className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all transform -translate-x-1/2 -translate-y-1/2 ${
-                        selectedMinute === minute
+                      className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all transform -translate-x-1/2 -translate-y-1/2 ${selectedMinute === minute
                           ? 'bg-blue-600 text-white shadow-lg scale-110'
                           : 'bg-white text-gray-700 hover:bg-blue-100 hover:scale-105 border border-gray-200'
-                      }`}
+                        }`}
                       style={{
                         left: `calc(50% + ${position.x}px)`,
                         top: `calc(50% + ${position.y}px)`
@@ -331,12 +330,14 @@ const TimePicker = ({
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 mt-6">
             <button
+              type="button"
               onClick={() => setIsOpen(false)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => {
                 const timeValue = getTimeValue();
                 onChange?.(timeValue);

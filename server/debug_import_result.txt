@@ -1,0 +1,4 @@
+Type of ActivityLogService: function
+Keys: 
+Prop names: length, name, prototype, logActivity, getTimeSheetData
+Is logActivity a function? true

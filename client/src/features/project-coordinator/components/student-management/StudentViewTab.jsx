@@ -4,7 +4,7 @@ import AcademicFilterSelector from '../shared/AcademicFilterSelector';
 import StudentList from './StudentList';
 import StudentDetailsModal from './StudentDetailsModal';
 import { useToast } from '../../../../shared/hooks/useToast';
-import { fetchStudents, fetchStudentDetails } from '../../services/coordinatorApi';
+import { fetchStudents, fetchStudentDetails, deleteStudent } from '../../services/coordinatorApi';
 import { useAuth } from '../../../../shared/hooks/useAuth';
 
 const StudentViewTab = () => {
@@ -96,6 +96,26 @@ const StudentViewTab = () => {
         await handleViewDetails(student);
     };
 
+    const handleDelete = async (student) => {
+        if (window.confirm(`Are you sure you want to delete student ${student.name} (${student.regNo})?`)) {
+            try {
+                setLoading(true);
+                const response = await deleteStudent(student.regNo);
+                if (response.success) {
+                    showToast('Student deleted successfully', 'success');
+                    loadStudents();
+                } else {
+                    showToast(response.message || 'Failed to delete student', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting student:', error);
+                showToast(error.response?.data?.message || 'Failed to delete student', 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Academic Filter Selector */}
@@ -108,6 +128,7 @@ const StudentViewTab = () => {
                         students={students}
                         loading={loading}
                         onViewDetails={handleViewDetails}
+                        onDelete={handleDelete}
                     />
 
                     <StudentDetailsModal

@@ -22,7 +22,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 setLoading(true);
 
                 // Fetch Data in Parallel
-                const [schemaRes, projectsRes, marksRes] = await Promise.allSettled([
+                const [schemaRes, projectsRes, marksRes, requestsRes] = await Promise.allSettled([
                     // Only fetch schema if a valid program is selected
                     (filters.program && filters.program !== 'All Programs')
                         ? api.get('/faculty/marking-schema', {
@@ -42,7 +42,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         }
                     }),
 
-                    api.get('/faculty/marks', { params: { _t: Date.now() } })
+                    api.get('/faculty/marks', { params: { _t: Date.now() } }),
+
+                    api.get('/faculty/requests', { params: { _t: Date.now() } })
                 ]);
 
                 // Handle Schema
@@ -54,6 +56,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 }
                 const schema = schemaRes.value.data.data;
                 console.log(`[useFacultyReviews] Marking Schema reviews found: ${schema.reviews?.length || 0}`);
+
+                // Handle Requests
+                const myRequests = requestsRes.status === 'fulfilled' ? requestsRes.value.data.data : [];
 
                 // Handle Projects
                 let projects = [];
@@ -166,7 +171,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                         let matches = false;
                         if (roleFilter === 'guide') {
-                            matches = isGuide && canBeGuide;
+                            matches = isGuide;
                         } else if (roleFilter === 'panel') {
                             matches = isInPanel && canBePanel;
                         } else {
@@ -179,74 +184,16 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         const studentsWithMarks = project.students.map(student => {
                             const sId = String(student._id || student).trim();
 
-                            // LOOKUP MARK
-                            const studentMarksCandidates = marksByStudent.get(sId) || [];
-                            let studentMark = null;
-
-                            // Log candidates for debugging
-                            if (studentMarksCandidates.length > 0) {
-                                // console.log(`[ReviewHook] Candidates for ${student.name} (${sId}):`, studentMarksCandidates.map(c => `${c.raw} [${c.number}]`));
-                            } else {
-                                // Log missing candidates so we know if index failed
-                                console.log(`[ReviewHook] NO CANDIDATES for ${student.name} (${sId}). Check if marks were fetched.`);
-                            }
-
-                            // Strategy 1: Exact Number Match (Best for "Review 1" vs "review_1_3745")
-                            if (!studentMark && schemaKeys.number) {
-                                const found = studentMarksCandidates.find(c => c.number === schemaKeys.number);
-                                if (found) {
-                                    studentMark = found.mark;
-                                    // console.log(`[ReviewHook] MATCH: Number ${schemaKeys.number} (Schema: ${reviewId} | Match: ${found.raw})`);
-                                }
-                            }
-
-                            // Strategy 2: Normalized String Containment
-                            if (!studentMark) {
-                                const found = studentMarksCandidates.find(c =>
-                                    c.normalized.includes(schemaKeys.normalized) ||
-                                    schemaKeys.normalized.includes(c.normalized)
-                                );
-                                if (found) {
-                                    studentMark = found.mark;
-                                    console.log(`[ReviewHook] MATCH: Norm ${c.normalized} <-> ${schemaKeys.normalized}`);
-                                }
-                            }
-
-                            // Strategy 3: Try Display Name Match explicitly (User Request)
-                            if (!studentMark && displayName) {
-                                const normDisplay = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
-                                const found = studentMarksCandidates.find(c => c.normalized === normDisplay || c.normalized.includes(normDisplay) || normDisplay.includes(c.normalized));
-                                if (found) {
-                                    studentMark = found.mark;
-                                    console.log(`[ReviewHook] MATCH: DisplayName '${displayName}' matches '${found.raw}'`);
-                                }
-                            }
-
-                            if (studentMark) {
-                                // console.log(`[ReviewHook] Success Linking Student ${sId} to Mark ${studentMark._id}`);
-                                if (!studentMark._id) {
-                                    console.warn(`[ReviewHook] WARNING: Mark found for ${student.name} but has NO _id!`, studentMark);
-                                }
-                            } else {
-                                // ALWAYS LOG FAILURE now
-                                console.log(`[ReviewHook] FAILED TO MATCH for ${student.name} (${sId}). Schema: [${schemaKeys.raw}|${schemaKeys.normalized}|${schemaKeys.number}] vs Candidates:`, studentMarksCandidates.map(c => `[${c.raw}|${c.normalized}|${c.number}]`));
-                            }
-
-                            return {
-                                student_id: student._id || student,
-                                student_name: student.name,
-                                roll_no: student.regNo, // Ensure this exists
-                                email: student.emailId,
-                                profile_image: student.profileImage || null,
-                                existingMarks: studentMark?.componentMarks || [],
-                                existingMeta: {
-                                    comment: studentMark?.remarks || '',
-                                    isSubmitted: !!studentMark?.isSubmitted // Ensure boolean
-                                },
-                                markId: studentMark?._id, // Critical for PUT
-                                totalMarks: studentMark?.totalMarks || 0,
-                                maxTotalMarks: studentMark?.maxTotalMarks || 0
-                            };
+                        const activeStudents = project.students;
+                        
+                        const allStudentsMarked = activeStudents.length > 0 && activeStudents.every(student => {
+                            const sId = String(student._id || student);
+                            const currentRole = filters.role === 'panel' ? 'panel' : 'guide';
+                            return projectMarks.some(m =>
+                                String(m.student?._id || m.student) === sId &&
+                                m.isSubmitted &&
+                                m.facultyType === currentRole
+                            );
                         });
 
                         // 4. Determine Completion based on attached marks
@@ -271,18 +218,102 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         if (!isGuide) roleLabel = 'Panel';
 
 
+                        // Find Request Status
+                        // We need to see if ANY student in this team has a pending request for this review?
+                        // Or since we now do team-based requests (cascading), checking just one is enough but filtering by project/review is safer.
+                        const activeRequest = myRequests.find(r =>
+                            String(r.project?._id || r.project) === String(project._id) &&
+                            r.reviewType === reviewId &&
+                            r.requestType === 'mark_edit' // Only care about edit requests
+                        );
+
+                        // If multiple exist (legacy), take the latest. Backend sort is descending createdAt, so find() gets latest.
+                        const requestStatus = activeRequest ? activeRequest.status : null;
+
                         return {
                             id: project._id,
                             name: project.name,
                             projectTitle: project.name,
-                            students: studentsWithMarks, // Use the mapped students
+                            students: activeStudents.map(s => {
+                                const sId = String(s._id || s);
+                                const currentRole = filters.role === 'panel' ? 'panel' : 'guide';
+                                const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === currentRole);
+                                const guideMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === 'guide');
+
+                                const isGuidePAT = s.PAT || guideMark?.pat || guideMark?.remarks?.includes('[PAT]') || false;
+
+                                return {
+                                    student_id: s._id,
+                                    student_name: s.name,
+                                    roll_no: s.regNo,
+                                    email: s.emailId,
+                                    profile_image: s.profileImage || null,
+                                    existingMarks: studentMark?.componentMarks || [],
+                                    existingMeta: {
+                                        comment: studentMark?.remarks || '',
+                                        isSubmitted: studentMark?.isSubmitted || false,
+                                        attendance: studentMark?.attendance || (studentMark?.remarks?.includes('[ABSENT]') ? 'absent' : 'present'),
+                                        pat: studentMark?.pat || (studentMark?.remarks?.includes('[PAT]') ? true : false)
+                                    },
+                                    isGuidePAT: isGuidePAT,
+                                    marksId: studentMark?._id, // EXPOSE THE MARKS ID FOR UPDATES
+                                    totalMarks: studentMark?.totalMarks || 0,
+                                    maxTotalMarks: studentMark?.maxTotalMarks || 0
+                                };
+                            }),
                             marksEntered: allStudentsMarked,
                             guideId: project.guideFaculty?._id || project.guideFaculty,
                             panelName: activePanel?.panelName || activePanel?.name || 'TBD',
-                            venue: activePanel?.venue || 'TBD',
+                            venue: isGuide ? null : (activePanel?.venue || 'TBD'),
+                            reviewDateTime: activePanel?.dateTime || null,
                             role: isGuide ? 'guide' : 'panel',
-                            roleLabel: roleLabel,
-                            pptApprovals: project.pptApprovals || []
+                            roleLabel: roleLabel, // "Temporary Panel", "Panel", "Guide"
+                            sdgGoal: project.sdgGoal || null,
+                            pptApprovals: project.pptApprovals || [], // Pass PPT approvals to UI
+                            requestStatus: requestStatus, // 'pending', 'approved', 'rejected' or null
+                            activeRequest: activeRequest,
+                            isUnlocked: requestStatus === 'approved' // Unlock if request is approved
+                        };
+                    });
+
+                    console.log(`[useFacultyReviews] Review ${reviewId} - Relevant Teams: ${relevantTeams.length}`);
+
+                    // Adapt components/rubrics and generate levels
+                    const rubrics = reviewSchema.components.map(comp => {
+                        const maxMarks = comp.maxMarks || 20;
+                        const steps = 5;
+                        const levels = [];
+
+                        // Generate appropriate levels (0 to maxMarks)
+                        // Heuristic: 0, 25%, 50%, 75%, 100% of Max Marks
+                        for (let i = 0; i <= steps; i++) {
+                            const val = Math.round((i / steps) * maxMarks * 10) / 10;
+                            if (levels.length > 0 && levels[levels.length - 1].score === val) continue;
+
+                            let label = 'Fair';
+                            if (i === 0) label = 'Poor';
+                            else if (i === steps) label = 'Excellent';
+                            else if (i === Math.floor(steps / 2)) label = 'Average';
+                            else if (i > Math.floor(steps / 2)) label = 'Good';
+
+                            levels.push({
+                                score: val,
+                                label: label
+                            });
+                        }
+
+                        return {
+                            rubric_id: comp.componentId || comp._id || comp.name,
+                            component_name: comp.name,
+                            component_description: comp.description || '',
+                            max_marks: maxMarks,
+                            sub_components: comp.subComponents?.map(sub => ({
+                                sub_id: sub.name,
+                                name: sub.name,
+                                description: sub.description,
+                                max_marks: sub.weight
+                            })) || [],
+                            levels: levels
                         };
                     });
 
@@ -292,16 +323,10 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         startDate: reviewSchema.deadline.from,
                         endDate: reviewSchema.deadline.to,
                         type: filters.role && filters.role !== 'All Roles' ? filters.role.toLowerCase() : (reviewSchema.facultyType === 'both' ? 'both' : reviewSchema.facultyType),
-                        rubrics: [], // Fill later if needed or mapped below
-                        teams: relevantTeams,
-                        // Pass through rubric structure from schema
-                        rubric_structure: reviewSchema.components.map(comp => ({
-                            rubric_id: comp.componentId,
-                            component_name: comp.name,
-                            max_marks: comp.maxMarks,
-                            component_description: comp.description || '',
-                            sub_components: comp.subComponents || []
-                        }))
+                        facultyType: reviewSchema.facultyType,
+                        pptRequired: reviewSchema.pptRequired || false,
+                        rubrics: rubrics,
+                        teams: relevantTeams
                     };
                 }).filter(r => r.teams.length > 0);
 
@@ -339,19 +364,39 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
         fetchReviews();
     }, [facultyId, filters, refreshTrigger]);
 
-    const isAllTeamsMarked = (review) => {
-        return review.teams?.length > 0 && review.teams.every(team => team.marksEntered);
-    };
+    // ---------------------------------------------------------------------------
+    // Section classification is done at TEAM level, not review level.
+    // A review with mixed completion will have its teams split across sections:
+    //   - Teams with all marks submitted  → Completed
+    //   - Teams missing marks (past deadline) → Deadline Passed
+    //   - Teams missing marks (within window) → Active
+    // ---------------------------------------------------------------------------
 
-    const active = reviews.filter(r => isReviewActive(r.startDate, r.endDate) && !isAllTeamsMarked(r));
+    // Active: review window is currently open AND the team still has pending marks.
+    // Show all teams within active reviews so the faculty can track full progress.
+    const active = reviews
+        .filter(r => isReviewActive(r.startDate, r.endDate) && r.teams.some(t => !t.marksEntered))
+        .map(r => ({ ...r })); // keep all teams visible in active for progress tracking
 
-    const deadlinePassed = reviews.filter(r =>
-        isDeadlinePassed(r.endDate) && !isAllTeamsMarked(r)
-    );
+    // Deadline Passed: deadline is over AND the team is still missing marks.
+    // Marked teams from the same review will appear in Completed instead.
+    const deadlinePassed = reviews
+        .filter(r => isDeadlinePassed(r.endDate) && r.teams.some(t => !t.marksEntered))
+        .map(r => ({
+            ...r,
+            teams: r.teams.filter(t => !t.marksEntered) // only show the pending teams
+        }));
 
-    const past = reviews.filter(r =>
-        isAllTeamsMarked(r) || (isDeadlinePassed(r.endDate) && isAllTeamsMarked(r))
-    );
+    // Completed: any team whose every student has a submitted mark.
+    // Includes:
+    //   - All-marked teams from past-deadline reviews (split out of Deadline Passed)
+    //   - All-marked teams from active reviews that finished early
+    const past = reviews
+        .filter(r => r.teams.some(t => t.marksEntered))
+        .map(r => ({
+            ...r,
+            teams: r.teams.filter(t => t.marksEntered) // only show the completed teams
+        }));
 
     return {
         reviews,

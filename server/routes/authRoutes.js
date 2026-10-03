@@ -3,12 +3,14 @@ import * as authController from "../controllers/authController.js";
 import * as otpController from "../controllers/otpController.js";
 import { authenticate } from "../middlewares/auth.js";
 import { validateRequired } from "../middlewares/validation.js";
+import { loginLimiter, resendOtpLimiter } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
 
 // === Standard Auth ===
 router.post(
   "/login",
+  loginLimiter,
   validateRequired(["emailId", "password"]),
   authController.login,
 );
@@ -34,6 +36,7 @@ router.post(
 
 router.post(
   "/forgot-password/resend-otp",
+  resendOtpLimiter,
   validateRequired(["emailId"]),
   otpController.resendOTP,
 );
@@ -57,6 +60,14 @@ router.put(
   authenticate,
   validateRequired(["currentPassword", "newPassword"]),
   authController.changePassword,
+);
+
+// === First-time Password Setup (for faculty using admin-assigned default password) ===
+router.post(
+  "/setup-password",
+  authenticate,
+  validateRequired(["newPassword", "confirmPassword"]),
+  authController.setupPassword,
 );
 
 router.get("/verify-token", authenticate, authController.verifyToken);

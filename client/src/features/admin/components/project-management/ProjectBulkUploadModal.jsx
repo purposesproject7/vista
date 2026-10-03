@@ -20,13 +20,27 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
   const abortControllerRef = useRef(null);
   const timeoutRef = useRef(null);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort();
-      clearTimeout(timeoutRef.current);
-    };
-  }, []);
+  const handleDataParsed = (data) => {
+    // Transform and enrich data
+    const enrichedData = data.map(project => {
+      // Split teamMembers string into array
+      const teamMembers = project.teamMembers
+        ? String(project.teamMembers).split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      return {
+        ...project,
+        school: filters?.school,
+        department: filters?.programme,
+        academicYear: filters?.year,
+        semester: filters?.semester,
+        teamMembers
+      };
+    });
+
+    setParsedData(enrichedData);
+    setUploadStatus({ type: 'info', message: `Parsed ${data.length} project records` });
+  };
 
   const handleUpload = async () => {
     if (!parsedData || parsedData.length === 0) {
@@ -42,27 +56,39 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
     setUploadStatus({ type: 'info', message: 'Uploading...' });
 
     try {
-      // Pass signal to your onUpload function (see note below)
-      const result = await onUpload(parsedData, abortControllerRef.current.signal);
-      
-      setUploadStatus({ 
-        type: 'success', 
-        message: `Successfully uploaded ${parsedData.length} projects` 
-      });
-      
-      // Store timeout ref so we can clear it
-      timeoutRef.current = setTimeout(() => {
-        handleClose();
-      }, 2000);
+      const result = await onUpload(parsedData);
 
-    } catch (error) {
-      // Don't show error if it was intentionally aborted
-      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
-        return;
+      // Build success message with email notification info
+      let message = `Successfully uploaded ${result.data?.created || 0} projects`;
+
+      if (result.data?.errors?.length > 0) {
+        message += `, ${result.data.errors.length} failed`;
       }
-      setUploadStatus({ 
-        type: 'error', 
-        message: error.response?.data?.message || 'Failed to upload project data' 
+
+      // Add email notification status
+      if (result.emailNotifications) {
+        const { sent, failed } = result.emailNotifications;
+        if (sent > 0) {
+          message += `. Error notifications sent to ${sent} guide(s)`;
+        }
+        if (failed > 0) {
+          message += ` (${failed} email(s) failed to send)`;
+        }
+      }
+
+      setUploadStatus({
+        type: result.data?.errors?.length > 0 ? 'warning' : 'success',
+        message,
+        details: result.data
+      });
+
+      setTimeout(() => {
+        handleClose();
+      }, 3000);
+    } catch (error) {
+      setUploadStatus({
+        type: 'error',
+        message: error.response?.data?.message || 'Failed to upload project data'
       });
     } finally {
       setUploading(false);
@@ -147,21 +173,23 @@ const ProjectBulkUploadModal = ({ isOpen, onClose, onUpload, filters }) => {
 
         {/* Status Message */}
         {uploadStatus && (
-          <div className={`flex items-center space-x-2 p-3 rounded-lg ${
-            uploadStatus.type === 'success' ? 'bg-green-50 border border-green-200' :
-            uploadStatus.type === 'error' ? 'bg-red-50 border border-red-200' :
-            'bg-blue-50 border border-blue-200'
-          }`}>
+          <div className={`flex items-center space-x-2 p-3 rounded-lg ${uploadStatus.type === 'success' ? 'bg-green-50 border border-green-200' :
+            uploadStatus.type === 'warning' ? 'bg-yellow-50 border border-yellow-200' :
+              uploadStatus.type === 'error' ? 'bg-red-50 border border-red-200' :
+                'bg-blue-50 border border-blue-200'
+            }`}>
             {uploadStatus.type === 'success' ? (
               <CheckCircleIcon className="w-5 h-5 text-green-600" />
+            ) : uploadStatus.type === 'warning' ? (
+              <XCircleIcon className="w-5 h-5 text-yellow-600" />
             ) : uploadStatus.type === 'error' ? (
               <XCircleIcon className="w-5 h-5 text-red-600" />
             ) : null}
-            <p className={`text-sm ${
-              uploadStatus.type === 'success' ? 'text-green-800' :
-              uploadStatus.type === 'error' ? 'text-red-800' :
-              'text-blue-800'
-            }`}>
+            <p className={`text-sm ${uploadStatus.type === 'success' ? 'text-green-800' :
+              uploadStatus.type === 'warning' ? 'text-yellow-800' :
+                uploadStatus.type === 'error' ? 'text-red-800' :
+                  'text-blue-800'
+              }`}>
               {uploadStatus.message}
             </p>
           </div>

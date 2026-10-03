@@ -8,6 +8,7 @@ import Input from '../../../../shared/components/Input';
 import ExcelUpload from '../../../../shared/components/ExcelUpload';
 import * as adminApi from '../../services/adminApi';
 import { useToast } from '../../../../shared/hooks/useToast';
+import DuplicateProjectsModal from './DuplicateProjectsModal';
 
 const StudentUploadTab = () => {
   const [filters, setFilters] = useState(null);
@@ -21,9 +22,11 @@ const StudentUploadTab = () => {
     name: '',
     emailId: '',
     phoneNumber: '',
-    guideEmpId: '',
     PAT: false
   });
+  const [duplicateData, setDuplicateData] = useState([]);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
   const { showToast } = useToast();
 
   const templateColumns = ['regNo', 'name', 'emailId', 'phoneNumber', 'PAT'];
@@ -52,7 +55,6 @@ const StudentUploadTab = () => {
         PAT: student.PAT === 'true' || student.PAT === 'TRUE' || student.PAT === true || student.PAT === 1,
         schoolId: filters?.school,
         programmeId: filters?.programme,
-        programmeId: filters?.programme,
         yearId: filters?.academicYear,
         academicYear: filters?.academicYear,
         semesterId: filters?.semester,
@@ -62,8 +64,19 @@ const StudentUploadTab = () => {
         semesterName: filters?.semesterName
       }));
 
-      await adminApi.bulkUploadStudents(enrichedData, filters.school, filters.programme);
-      setUploadStatus({ success: true, message: `Successfully uploaded ${parsedData.length} students` });
+      const response = await adminApi.bulkUploadStudents(enrichedData, filters.school, filters.programme);
+
+      // Check for duplicates
+      const duplicates = response.duplicates || response.data?.duplicates || [];
+      if (duplicates.length > 0) {
+        setDuplicateData(duplicates);
+        setIsDuplicateModalOpen(true);
+      }
+
+      setUploadStatus({
+        success: true,
+        message: `Processed. Created: ${response.created || 0}, Updated: ${response.updated || 0}, Errors: ${response.errors || 0}. Duplicates: ${duplicates.length}`
+      });
       showToast('Students uploaded successfully', 'success');
       setParsedData([]);
     } catch (error) {
@@ -126,8 +139,34 @@ const StudentUploadTab = () => {
     }
   };
 
+  const handleNotifyGuides = async () => {
+    try {
+      setIsSendingEmails(true);
+      const result = await adminApi.notifyDuplicateProjectGuides(duplicateData);
+      if (result.success) {
+        showToast(`Emails sent to ${result.data?.sent || 0} guides.`, 'success');
+        setIsDuplicateModalOpen(false);
+        setDuplicateData([]);
+      } else {
+        showToast(result.message || 'Failed to send emails', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error sending emails', 'error');
+    } finally {
+      setIsSendingEmails(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <DuplicateProjectsModal
+        isOpen={isDuplicateModalOpen}
+        onClose={() => setIsDuplicateModalOpen(false)}
+        duplicates={duplicateData}
+        onNotify={handleNotifyGuides}
+        isSending={isSendingEmails}
+      />
       {/* Academic Filter Selector */}
       <AcademicFilterSelector onFilterComplete={handleFilterComplete} />
 
@@ -236,13 +275,7 @@ const StudentUploadTab = () => {
                       placeholder="e.g., 9876543210"
                     />
 
-                    <Input
-                      label="Guide Employee ID (Optional)"
-                      name="guideEmpId"
-                      value={formData.guideEmpId}
-                      onChange={handleInputChange}
-                      placeholder="e.g., 10023"
-                    />
+
                   </div>
 
                   <div className="flex items-center">
@@ -269,7 +302,6 @@ const StudentUploadTab = () => {
                         name: '',
                         emailId: '',
                         phoneNumber: '',
-                        guideEmpId: '',
                         PAT: false
                       })}
                     >

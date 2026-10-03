@@ -110,6 +110,15 @@ export const assignPanelToProject = async (assignmentData) => {
   }
 };
 
+export const bulkAssignPanelsToProjects = async (assignments) => {
+  try {
+    const response = await api.post("/admin/panels/bulk-assign", { assignments });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || "Failed to bulk assign panels");
+  }
+};
+
 export const autoAssignPanels = async (filters) => {
   try {
     const response = await api.post("/admin/panels/auto-assign", filters);

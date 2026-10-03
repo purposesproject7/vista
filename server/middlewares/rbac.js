@@ -32,6 +32,29 @@ export function requireRole(...roles) {
 }
 
 /**
+ * Require the authenticated user to be a student accessing their own
+ * regNo-scoped resource. Compares the route's :regNo param against the
+ * student's own regNo from the JWT-derived req.user (never trusts the URL alone).
+ */
+export function requireSelfStudent(req, res, next) {
+  if (!req.user || req.user.role !== "student") {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Student account required.",
+    });
+  }
+
+  if (req.params.regNo && req.params.regNo !== req.user.regNo) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. You may only access your own records.",
+    });
+  }
+
+  next();
+}
+
+/**
  * Check if user is a project coordinator
  */
 export async function requireProjectCoordinator(req, res, next) {
@@ -59,6 +82,18 @@ export async function requireProjectCoordinator(req, res, next) {
 
     // Attach to request
     req.coordinators = coordinators;
+
+    // Prefer the primary coordinator assignment when one exists; otherwise use the first active assignment.
+    const selectedCoordinator = coordinators.find((c) => c.isPrimary) || coordinators[0];
+    req.coordinator = selectedCoordinator;
+
+    // Keep the authenticated user context aligned with the actual coordinator assignment.
+    if (req.user && selectedCoordinator) {
+      req.user.school = selectedCoordinator.school;
+      req.user.program = selectedCoordinator.program;
+      req.user.academicYear = selectedCoordinator.academicYear;
+      req.user.isPrimary = selectedCoordinator.isPrimary;
+    }
 
     // Apply ProgramConfig deadlines dynamically
     for (const coordinator of coordinators) {
@@ -89,10 +124,12 @@ export async function requireProjectCoordinator(req, res, next) {
       }
     }
 
-    // If single assignment, attach directly
-    if (coordinators.length === 1) {
-      req.coordinator = coordinators[0];
-    }
+    // Prefer the primary coordinator context when multiple active assignments exist.
+    // This prevents a secondary assignment from overriding the user's primary school/program,
+    // which is the root cause of empty request lists for primary coordinators.
+    const primaryCoordinator =
+      coordinators.find((c) => c.isPrimary) || coordinators[0];
+    req.coordinator = primaryCoordinator;
 
     next();
   } catch (error) {

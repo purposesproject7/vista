@@ -6,6 +6,7 @@ const projectHistorySchema = new mongoose.Schema(
       type: String,
       enum: [
         "created",
+        "updated",
         "guide_reassigned",
         "panel_reassigned",
         "review_panel_assigned",
@@ -45,9 +46,47 @@ const reviewPanelAssignmentSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const contentCheckSchema = new mongoose.Schema(
+  {
+    plagiarismScore: { type: Number, default: null },
+    aiScore: { type: Number, default: null },
+    // Highest semantic similarity (0-100) to any other project's abstract
+    similarityScore: { type: Number, default: null },
+    similarProjects: [
+      {
+        _id: false,
+        project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
+        title: String,
+        academicYear: String,
+        score: Number,
+      },
+    ],
+    checkedAt: { type: Date, default: null },
+    flagged: { type: Boolean, default: false },
+    rejected: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const titleAbstractHistorySchema = new mongoose.Schema(
+  {
+    action: {
+      type: String,
+      enum: ["submitted", "discrepancy", "consensus_reached", "rejected", "accepted"],
+      required: true,
+    },
+    title: { type: String },
+    abstract: { type: String },
+    performedBy: { type: mongoose.Schema.Types.ObjectId, refPath: "titleAbstractHistory.performedByModel" },
+    performedByModel: { type: String, enum: ["Student", "Faculty"] },
+    performedAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
 const projectSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, maxlength: 200, trim: true },
 
     students: [
       {
@@ -86,18 +125,22 @@ const projectSchema = new mongoose.Schema(
     academicYear: { type: String, required: true },
     school: { type: String, required: true },
     program: { type: String, required: true },
-    specialization: { type: String, required: true },
+    specialization: { type: String, required: false },
 
     type: {
       type: String,
       required: true,
       enum: ["hardware", "software"],
+      lowercase: true,
+      trim: true,
     },
 
     status: {
       type: String,
       enum: ["active", "inactive", "completed", "archived"],
       default: "active",
+      lowercase: true,
+      trim: true,
     },
 
     bestProject: { type: Boolean, default: false },
@@ -111,6 +154,41 @@ const projectSchema = new mongoose.Schema(
       ref: "Project",
       default: null,
     },
+
+    sdgGoal: { type: String, default: null },
+
+    description: { type: String },
+
+    // Student-submitted, guide-locked title/abstract workflow
+    abstract: { type: String, default: null },
+    proposedTitle: { type: String, maxlength: 200, trim: true, default: null },
+    proposedAbstract: { type: String, default: null },
+    titleAbstractStatus: {
+      type: String,
+      enum: [
+        "not_started",
+        "pending_consensus",
+        "discrepancy",
+        "consensus_reached",
+        "rejected",
+        "pending_review",
+        "accepted",
+      ],
+      default: "not_started",
+    },
+    contentCheck: { type: contentCheckSchema, default: () => ({}) },
+    // Embedding of title + abstract for duplicate-project detection (see similarityService)
+    abstractEmbedding: { type: [Number], select: false, default: undefined },
+    // Model that produced abstractEmbedding. Vectors from different models are
+    // not comparable (even at equal length), so search and backfill key on it.
+    abstractEmbeddingModel: { type: String, default: undefined },
+    titleAbstractAcceptedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Faculty",
+      default: null,
+    },
+    titleAbstractAcceptedAt: { type: Date, default: null },
+    titleAbstractHistory: [titleAbstractHistorySchema],
   },
   { timestamps: true }
 );

@@ -22,7 +22,9 @@ export const fromServerUser = (serverUser) => {
     email: serverUser.emailId,
     role: serverUser.role,
     employeeId: serverUser.employeeId,
+    regNo: serverUser.regNo,
     department: serverUser.department,
-    school: serverUser.school
+    school: serverUser.school,
+    isDefaultPassword: serverUser.isDefaultPassword
   };
 };

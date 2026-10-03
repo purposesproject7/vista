@@ -23,6 +23,7 @@ const ProjectUploadTab = () => {
     type: '',
     specialization: ''
   });
+  const [ignoreDepartmentMismatch, setIgnoreDepartmentMismatch] = useState(false);
   const { showToast } = useToast();
   const abortControllerRef = useRef(null);
 
@@ -85,19 +86,51 @@ useEffect(() => {
     showToast('Projects uploaded successfully', 'success');
     setParsedData([]);
 
-  } catch (error) {
-    // Silently ignore intentional cancellations
-    if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') return;
+      const enrichedData = parsedData.map(project => {
+        const teamMembersArray = project.teamMembers
+          ? String(project.teamMembers).split(',').map(m => m.trim()).filter(Boolean)
+          : [];
 
-    console.error('Upload error:', error);
-    setUploadStatus({ 
-      success: false, 
-      message: error.response?.data?.message || error.message || 'Failed to upload projects' 
-    });
-  } finally {
-    setIsUploading(false);
-  }
-};
+        return {
+          name: project.name,
+          guideFacultyEmpId: project.guideFacultyEmpId,
+          teamMembers: teamMembersArray,
+          type: project.type || 'Capstone Project',
+          specialization: project.specialization || '',
+          school: filters.school,
+          department: filters.department,
+          academicYear: filters.academicYear
+        };
+      });
+
+      const response = await adminApi.bulkCreateProjects(enrichedData, { ignoreDepartmentMismatch });
+
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to upload projects');
+      }
+
+      const { created, failed, errors } = response.data || {};
+            
+      if (failed === 0) {
+          setUploadStatus({ type: 'success', message: `Successfully uploaded ${created} projects` });
+          showToast('Projects uploaded successfully', 'success');
+          setParsedData([]);
+      } else if (created > 0 && failed > 0) {
+          const errorLines = errors.map(e => `• ${e.name || `Row ${e.index + 1}`}: ${e.error}`).join('\n');
+          setUploadStatus({ type: 'partial', message: `${created} uploaded, ${failed} failed\n${errorLines}` });
+          showToast('Upload completed with errors', 'warning');
+      } else {
+          const errorLines = (errors || []).map(e => `• ${e.name || `Row ${e.index + 1}`}: ${e.error}`).join('\n');
+          setUploadStatus({ type: 'error', message: `All ${failed || parsedData.length} projects failed to upload\n${errorLines}` });
+          showToast('Upload failed', 'error');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadStatus({ type: 'error', message: error.response?.data?.message || error.message || 'Failed to upload projects' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({
@@ -134,7 +167,7 @@ useEffect(() => {
         academicYear: filters.academicYear
       };
 
-      const response = await adminApi.createProject(projectData);
+      const response = await adminApi.createProject(projectData, { ignoreDepartmentMismatch });
 
       if (!response.success) {
         throw new Error(response.message || 'Failed to create project');
@@ -187,6 +220,19 @@ useEffect(() => {
             </span> */}
           </div>
 
+          <div className="mb-4 flex items-center bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+            <input
+              type="checkbox"
+              id="ignoreDepartmentMismatch"
+              checked={ignoreDepartmentMismatch}
+              onChange={(e) => setIgnoreDepartmentMismatch(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+            />
+            <label htmlFor="ignoreDepartmentMismatch" className="ml-2 text-sm text-gray-800">
+              Ignore department mismatch between guide and project/students
+            </label>
+          </div>
+
           {/* Bulk Upload Section */}
           {activeUploadMode === 'bulk' && (
             <Card>
@@ -205,9 +251,13 @@ useEffect(() => {
                 </p>
 
                 {uploadStatus && (
-                  <div className={`p-3 rounded-lg flex items-center gap-2 ${uploadStatus.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                    {uploadStatus.success ? <CheckCircleIcon className="w-4 h-4" /> : <XCircleIcon className="w-4 h-4" />}
-                    <span className="text-sm">{uploadStatus.message}</span>
+                  <div className={`p-3 rounded-lg flex items-start gap-2 ${
+                    uploadStatus.type === 'success' ? 'bg-green-50 text-green-800' :
+                    uploadStatus.type === 'partial' ? 'bg-yellow-50 text-yellow-800' :
+                    'bg-red-50 text-red-800'
+                  }`}>
+                    {uploadStatus.type === 'success' ? <CheckCircleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" /> : <XCircleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" />}
+                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">{uploadStatus.message}</pre>
                   </div>
                 )}
 

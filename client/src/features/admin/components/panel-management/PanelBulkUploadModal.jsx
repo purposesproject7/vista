@@ -4,6 +4,16 @@ import Modal from "../../../../shared/components/Modal";
 import ExcelUpload from "../../../../shared/components/ExcelUpload";
 import { bulkCreatePanels } from "../../../../services/adminApi";
 
+const PANEL_TEMPLATE_COLUMNS = [
+  "Panel Name",
+  "Venue",
+  "Review Date & Time",
+  "Faculty Employee ID 1",
+  "Faculty Employee ID 2",
+  "Faculty Employee ID 3",
+  "Specializations",
+];
+
 const PanelBulkUploadModal = ({ isOpen, onClose, filters }) => {
   const [parsedData, setParsedData] = useState(null);
   const [uploadStatus, setUploadStatus] = useState(null);
@@ -74,6 +84,7 @@ const PanelBulkUploadModal = ({ isOpen, onClose, filters }) => {
           </h4>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
             <li>Download the template and fill in panel details</li>
+            <li>Include Venue and Review Date & Time for each panel</li>
             <li>Required field: memberEmployeeIds</li>
             <li>
               memberEmployeeIds: Enter comma-separated faculty employee IDs
@@ -113,6 +124,12 @@ const PanelBulkUploadModal = ({ isOpen, onClose, filters }) => {
                       Panel #
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
+                      Venue
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
+                      Review Time
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
                       Members
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
@@ -125,6 +142,12 @@ const PanelBulkUploadModal = ({ isOpen, onClose, filters }) => {
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm text-gray-900">
                         Panel {index + 1}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {panel.venue || "TBD"}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {panel.dateTime ? new Date(panel.dateTime).toLocaleString() : "TBD"}
                       </td>
                       <td className="px-4 py-2 text-sm text-gray-900">
                         {panel.memberEmployeeIds.join(", ")}

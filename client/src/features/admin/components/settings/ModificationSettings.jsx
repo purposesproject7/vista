@@ -59,6 +59,11 @@ const ModificationSettings = () => {
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [panelAssignType, setPanelAssignType] = useState('existing'); // 'existing' | 'faculty'
   const [ignoreSpecialization, setIgnoreSpecialization] = useState(false);
+  const [showAllPrograms, setShowAllPrograms] = useState(false);
+
+  // Search states for reassignment modal
+  const [reassignFacultySearch, setReassignFacultySearch] = useState('');
+  const [reassignPanelSearch, setReassignPanelSearch] = useState('');
 
   // New state for flexible panel assignment
   const [panelAssignmentScope, setPanelAssignmentScope] = useState('main'); // 'main' | 'review'
@@ -176,10 +181,11 @@ const ModificationSettings = () => {
   // Fetch faculty list when context is complete
   useEffect(() => {
     // Check if we have all necessary context (year instead of academicYear)
-    if (academicContext.school && academicContext.program && academicContext.year) {
+    const programValid = showAllPrograms || academicContext.program;
+    if (academicContext.school && programValid && academicContext.year) {
       fetchFacultyList();
     }
-  }, [academicContext.school, academicContext.program, academicContext.year]);
+  }, [academicContext.school, academicContext.program, academicContext.year, showAllPrograms]);
 
   // Fetch marking schema to get available reviews
   useEffect(() => {
@@ -219,7 +225,7 @@ const ModificationSettings = () => {
     try {
       const response = await apiFetchFacultyList(
         academicContext.school,
-        academicContext.program
+        showAllPrograms ? 'all' : academicContext.program
       );
 
       if (!response.data || response.data.length === 0) {
@@ -237,32 +243,42 @@ const ModificationSettings = () => {
           getGuideProjects(
             academicContext.year, // Use year from context
             academicContext.school,
-            academicContext.program
+            showAllPrograms ? 'all' : academicContext.program
           ),
           getPanelProjects(
             academicContext.year, // Use year from context
             academicContext.school,
-            academicContext.program
+            showAllPrograms ? 'all' : academicContext.program
           )
         ]);
 
         allGuideData = guideResponse.data || [];
         allPanelData = panelResponse.data || [];
+        console.log('ModificationSettings: Loaded project data', {
+          guideCount: allGuideData.length,
+          panelCount: allPanelData.length,
+          guideSample: allGuideData[0]
+        });
       } catch (err) {
         console.error('Error fetching project data:', err);
       }
 
-      // Transform faculty data with project counts
+      // Transform faculty data with project counts and project names
       const facultyWithCounts = response.data.map((faculty) => {
-        // Count guide projects
+        // Collect guide projects
         let guideCount = 0;
+        const guideProjectNames = [];
         const guideEntry = allGuideData.find(g => g.faculty?.employeeId === faculty.employeeId);
         if (guideEntry) {
           guideCount = guideEntry.guidedProjects?.length || 0;
+          guideEntry.guidedProjects?.forEach(proj => {
+            if (proj.name) guideProjectNames.push(proj.name);
+          });
         }
 
-        // Count panel projects
+        // Collect panel projects
         let panelCount = 0;
+        const panelProjectNames = [];
         allPanelData.forEach(panelGroup => {
           const isMember = panelGroup.members?.some(member => {
             const memberId = member.faculty?._id || member.faculty;
@@ -270,13 +286,19 @@ const ModificationSettings = () => {
           });
           if (isMember) {
             panelCount += panelGroup.projects?.length || 0;
+            panelGroup.projects?.forEach(proj => {
+              if (proj.name) panelProjectNames.push(proj.name);
+            });
           }
         });
 
         return {
           ...faculty,
           guideCount,
-          panelCount
+          panelCount,
+          guideProjectNames,
+          panelProjectNames,
+          allProjectNames: [...guideProjectNames, ...panelProjectNames]
         };
       });
 
@@ -310,14 +332,14 @@ const ModificationSettings = () => {
       const guideResponse = await getGuideProjects(
         academicContext.year, // Use year from context
         academicContext.school,
-        academicContext.program
+        showAllPrograms ? 'all' : academicContext.program
       );
 
       // Fetch all panel projects for the academic context
       const panelResponse = await getPanelProjects(
         academicContext.year, // Use year from context
         academicContext.school,
-        academicContext.program
+        showAllPrograms ? 'all' : academicContext.program
       );
 
       console.log('Guide response:', guideResponse);
@@ -385,20 +407,27 @@ const ModificationSettings = () => {
   };
 
   // Fetch available panels for reassignment
-  const fetchAvailablePanels = async () => {
+  const fetchAvailablePanels = async (ignoreRestrictions = false) => {
     try {
+      console.log('Fetching panels with ignoreRestrictions:', ignoreRestrictions);
+      console.log('Program parameter:', ignoreRestrictions ? 'all' : academicContext.program);
+
       const response = await getPanels(
         academicContext.year, // Use year from context
-        academicContext.school,
-        academicContext.program
+        ignoreRestrictions ? 'all' : academicContext.school, // Fetch all schools if ignoring restrictions
+        ignoreRestrictions ? 'all' : academicContext.program // Fetch all programs if ignoring restrictions
       );
+
+      console.log('Panels response:', response);
 
       const panels = (response.data || []).map(panel => ({
         _id: panel._id,
         name: panel.panelName || `Panel ${panel._id.slice(-4)}`,
-        members: panel.members?.map(m => m.faculty?.name || 'Unknown') || []
+        members: panel.members?.map(m => m.faculty?.name || 'Unknown') || [],
+        program: panel.program // Include program info for display
       }));
 
+      console.log('Mapped panels:', panels);
       setAvailablePanels(panels);
     } catch (error) {
       console.error('Error fetching panels:', error);
@@ -406,14 +435,15 @@ const ModificationSettings = () => {
     }
   };
 
-  // Filter faculty by search
+  // Filter faculty by search (including project names)
   const filteredFaculty = useMemo(() => {
     if (!facultySearch.trim()) return facultyList;
     const search = facultySearch.toLowerCase();
     return facultyList.filter(f =>
       f.name.toLowerCase().includes(search) ||
       f.employeeId.toLowerCase().includes(search) ||
-      (f.emailId && f.emailId.toLowerCase().includes(search))
+      (f.emailId && f.emailId.toLowerCase().includes(search)) ||
+      (f.allProjectNames && f.allProjectNames.some(projName => projName.toLowerCase().includes(search)))
     );
   }, [facultyList, facultySearch]);
 
@@ -436,10 +466,20 @@ const ModificationSettings = () => {
   const openReassignModal = async (mode) => {
     setReassignMode(mode);
     if (mode === 'panel') {
-      await fetchAvailablePanels();
+      await fetchAvailablePanels(ignoreSpecialization);
     }
     setShowReassignModal(true);
   };
+
+  // Re-fetch panels when ignoreSpecialization changes (for panel reassignment)
+  useEffect(() => {
+    console.log('useEffect triggered:', { showReassignModal, reassignMode, panelAssignType, ignoreSpecialization });
+    if (showReassignModal && reassignMode === 'panel' && panelAssignType === 'existing') {
+      console.log('Re-fetching panels due to ignoreSpecialization change');
+      fetchAvailablePanels(ignoreSpecialization);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ignoreSpecialization, showReassignModal, reassignMode, panelAssignType]);
 
   // Handle batch reassignment
   const handleBatchReassign = async () => {
@@ -518,13 +558,34 @@ const ModificationSettings = () => {
     return facultyList.filter(f => f.employeeId !== selectedFaculty?.employeeId);
   }, [facultyList, selectedFaculty]);
 
+  // Filtered faculty for reassignment modal with search
+  const filteredReassignFaculty = useMemo(() => {
+    if (!reassignFacultySearch.trim()) return availableFacultyForReassign;
+    const search = reassignFacultySearch.toLowerCase();
+    return availableFacultyForReassign.filter(f =>
+      f.name.toLowerCase().includes(search) ||
+      f.employeeId.toLowerCase().includes(search) ||
+      (f.emailId && f.emailId.toLowerCase().includes(search))
+    );
+  }, [availableFacultyForReassign, reassignFacultySearch]);
+
+  // Filtered panels for reassignment modal with search
+  const filteredReassignPanels = useMemo(() => {
+    if (!reassignPanelSearch.trim()) return availablePanels;
+    const search = reassignPanelSearch.toLowerCase();
+    return availablePanels.filter(p =>
+      p.name.toLowerCase().includes(search) ||
+      p.members.some(m => m.toLowerCase().includes(search))
+    );
+  }, [availablePanels, reassignPanelSearch]);
+
   // Filter programs based on selected school
   const filteredPrograms = useMemo(() => {
     if (!academicContext.school) return [];
     return contextOptions.programs.filter(prog => prog.school === academicContext.school);
   }, [academicContext.school, contextOptions.programs]);
 
-  const isContextComplete = academicContext.school && academicContext.program && academicContext.year; // Use year
+  const isContextComplete = academicContext.school && (showAllPrograms || academicContext.program) && academicContext.year; // Use year
 
   return (
     <div className="space-y-6">
@@ -569,8 +630,21 @@ const ModificationSettings = () => {
               value={academicContext.program}
               onChange={(value) => updateAcademicContext({ program: value })} // Use updateAcademicContext
               placeholder="Select program..."
-              disabled={!academicContext.school}
+              disabled={!academicContext.school || showAllPrograms}
             />
+
+            <div className="flex items-center mt-2 md:mt-0">
+              <input
+                type="checkbox"
+                id="showAllPrograms"
+                checked={showAllPrograms}
+                onChange={(e) => setShowAllPrograms(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="showAllPrograms" className="ml-2 block text-sm text-gray-900">
+                Show All Faculties
+              </label>
+            </div>
 
             <Select
               label="Academic Year"
@@ -599,7 +673,7 @@ const ModificationSettings = () => {
                 type="text"
                 value={facultySearch}
                 onChange={(e) => setFacultySearch(e.target.value)}
-                placeholder="Search faculty by name, ID, or email..."
+                placeholder="Search faculty by name, ID, email, or project name..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
@@ -787,6 +861,8 @@ const ModificationSettings = () => {
           setTargetPanel(null);
           setPanelAssignType('existing');
           setIgnoreSpecialization(false);
+          setReassignFacultySearch('');
+          setReassignPanelSearch('');
         }}
         title={`Reassign ${reassignMode === 'guide' ? 'Guide' : 'Panel'}`}
         size="md"
@@ -801,18 +877,33 @@ const ModificationSettings = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select New Guide Faculty
               </label>
+              {/* Search bar for faculty */}
+              <div className="relative mb-3">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={reassignFacultySearch}
+                  onChange={(e) => setReassignFacultySearch(e.target.value)}
+                  placeholder="Search faculty by name, ID, or email..."
+                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+              </div>
               <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-                {availableFacultyForReassign.map((faculty) => (
-                  <button
-                    key={faculty.employeeId}
-                    onClick={() => setTargetFaculty(faculty)}
-                    className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
-                      }`}
-                  >
-                    <p className="font-medium text-gray-900">{faculty.name}</p>
-                    <p className="text-xs text-gray-500">{faculty.employeeId}</p>
-                  </button>
-                ))}
+                {filteredReassignFaculty.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">No faculty found</div>
+                ) : (
+                  filteredReassignFaculty.map((faculty) => (
+                    <button
+                      key={faculty.employeeId}
+                      onClick={() => setTargetFaculty(faculty)}
+                      className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
+                        }`}
+                    >
+                      <p className="font-medium text-gray-900">{faculty.name}</p>
+                      <p className="text-xs text-gray-500">{faculty.employeeId} • {faculty.emailId}</p>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           ) : (
@@ -882,18 +973,50 @@ const ModificationSettings = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Target Panel
                   </label>
+                  {/* Info message when showing cross-program panels */}
+                  {ignoreSpecialization && (
+                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-700">
+                        ℹ️ Showing panels from all programs. Cross-program panels are marked.
+                      </p>
+                    </div>
+                  )}
+                  {/* Search bar for panels */}
+                  <div className="relative mb-3">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={reassignPanelSearch}
+                      onChange={(e) => setReassignPanelSearch(e.target.value)}
+                      placeholder="Search panels by name or members..."
+                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                  </div>
                   <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-                    {availablePanels.map((panel) => (
-                      <button
-                        key={panel._id}
-                        onClick={() => setTargetPanel(panel)}
-                        className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetPanel?._id === panel._id ? 'bg-blue-50' : ''
-                          }`}
-                      >
-                        <p className="font-medium text-gray-900">{panel.name}</p>
-                        <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
-                      </button>
-                    ))}
+                    {filteredReassignPanels.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No panels found</div>
+                    ) : (
+                      filteredReassignPanels.map((panel) => (
+                        <button
+                          key={panel._id}
+                          onClick={() => setTargetPanel(panel)}
+                          className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetPanel?._id === panel._id ? 'bg-blue-50' : ''
+                            }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">{panel.name}</p>
+                              <p className="text-xs text-gray-500">Members: {panel.members.join(', ')}</p>
+                              {ignoreSpecialization && panel.program && panel.program !== academicContext.program && (
+                                <p className="text-xs text-amber-600 font-medium mt-1">
+                                  📍 {panel.program} (Different Program)
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
               ) : (
@@ -901,35 +1024,67 @@ const ModificationSettings = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Faculty as Panel
                   </label>
+                  {/* Search bar for faculty */}
+                  <div className="relative mb-3">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={reassignFacultySearch}
+                      onChange={(e) => setReassignFacultySearch(e.target.value)}
+                      placeholder="Search faculty by name, ID, or email..."
+                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                  </div>
                   <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-                    {availableFacultyForReassign.map((faculty) => (
-                      <button
-                        key={faculty.employeeId}
-                        onClick={() => setTargetFaculty(faculty)}
-                        className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
-                          }`}
-                      >
-                        <p className="font-medium text-gray-900">{faculty.name}</p>
-                        <p className="text-xs text-gray-500">{faculty.employeeId} • Will be assigned as single-member panel</p>
-                      </button>
-                    ))}
+                    {filteredReassignFaculty.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">No faculty found</div>
+                    ) : (
+                      filteredReassignFaculty.map((faculty) => (
+                        <button
+                          key={faculty.employeeId}
+                          onClick={() => setTargetFaculty(faculty)}
+                          className={`w-full p-3 text-left hover:bg-gray-50 transition-colors ${targetFaculty?.employeeId === faculty.employeeId ? 'bg-blue-50' : ''
+                            }`}
+                        >
+                          <p className="font-medium text-gray-900">{faculty.name}</p>
+                          <p className="text-xs text-gray-500">{faculty.employeeId} • Will be assigned as single-member panel</p>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          <div className="flex items-center gap-2 pt-2">
-            <input
-              type="checkbox"
-              id="ignoreSpecialization"
-              checked={ignoreSpecialization}
-              onChange={(e) => setIgnoreSpecialization(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="ignoreSpecialization" className="text-sm text-gray-700">
-              Ignore Specialization Mismatch
-            </label>
+          {/* Enhanced Department Override UI */}
+          <div className="pt-2 border-t">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="ignoreSpecialization" className="text-sm font-medium text-amber-900">
+                    Override Department/Specialization Restrictions
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIgnoreSpecialization(!ignoreSpecialization)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${ignoreSpecialization ? 'bg-amber-600' : 'bg-gray-200'
+                      }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${ignoreSpecialization ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-xs text-amber-700">
+                  {ignoreSpecialization
+                    ? 'Warning: Projects will be reassigned even if the target faculty has a different department or specialization. Use with caution.'
+                    : 'Enable this to allow reassignment across different departments/specializations.'}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
@@ -941,6 +1096,8 @@ const ModificationSettings = () => {
                 setTargetFaculty(null);
                 setTargetPanel(null);
                 setIgnoreSpecialization(false);
+                setReassignFacultySearch('');
+                setReassignPanelSearch('');
               }}
             >
               Cancel

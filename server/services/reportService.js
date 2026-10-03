@@ -4,7 +4,7 @@ import Project from "../models/projectSchema.js";
 import Marks from "../models/marksSchema.js";
 import Panel from "../models/panelSchema.js";
 import mongoose from "mongoose";
-import { ActivityLogService } from "./activityLogService.js";
+import ActivityLogService from "./activityLogService.js";
 
 export class ReportService {
     /**
@@ -32,6 +32,10 @@ export class ReportService {
                 return this.generateStudentCompleteReport(filters);
             case "faculty-time-sheet":
                 return this.generateTimeSheetReport(filters);
+            case "team-details":
+                return this.generateTeamDetailsReport(filters);
+            case "ppt-approval-status":
+                return this.generatePPTApprovalReport(filters);
             default:
                 throw new Error("Invalid report type");
         }
@@ -43,22 +47,45 @@ export class ReportService {
      */
     static async generateMasterReport(filters) {
         // Determine query context if filters exist (e.g. for specific year)
-        const baseQuery = {};
-        if (filters.academicYear) baseQuery.academicYear = filters.academicYear;
+        const baseQuery = this._buildMatchQuery(filters);
 
         const [students, faculty, projects, marks, panels] = await Promise.all([
             Student.find(baseQuery).lean(),
             Faculty.find({}).lean(), // Faculty guidelines usually span years, but can filter if needed
             Project.find(baseQuery).populate("guideFaculty").populate("panel").lean(),
-            Marks.find(baseQuery).lean(),
+            Marks.find(baseQuery)
+                .populate("student", "name regNo")
+                .populate("project", "name")
+                .lean(),
             Panel.find(baseQuery).populate("members.faculty").lean(),
         ]);
+
+        const formattedMarks = marks.map(m => {
+            const markObj = { ...m };
+            markObj.studentName = m.student?.name || "Unknown";
+            markObj.studentRegNo = m.student?.regNo || "Unknown";
+            markObj.projectName = m.project?.name || "Unknown";
+            markObj.studentId = m.student?._id || m.student;
+            markObj.projectId = m.project?._id || m.project;
+            
+            // Delete the populated objects to avoid [object Object] in Excel
+            delete markObj.student;
+            delete markObj.project;
+
+            // Handle componentMarks to be readable in Excel
+            if (markObj.componentMarks) {
+                markObj.componentsDetail = markObj.componentMarks.map(c => `${c.componentName}: ${c.marks}/${c.maxMarks}`).join(", ");
+                delete markObj.componentMarks;
+            }
+
+            return markObj;
+        });
 
         return {
             students,
             faculty,
             projects,
-            marks,
+            marks: formattedMarks,
             panels,
         };
     }
@@ -71,56 +98,81 @@ export class ReportService {
         const min = parseFloat(minMarks) || 0;
         const max = parseFloat(maxMarks) || 100;
 
-        const query = { ...queryFilters };
-        if (filters.school) query.school = filters.school;
-        if (filters.programme) query.program = filters.programme;
-        if (filters.year) query.academicYear = filters.year;
-        // Note: 'year' in frontend might map to specific query field? Assuming academicYear.
-        // Actually typically 'year' filter in frontend often means 'academicYear' in DB, but sometimes 'batch'.
-        // Given previous context, let's assume valid fields are passed.
+        const query = this._buildMatchQuery(queryFilters);
 
-        // Calculate total marks per student
-        // Since Marks are stored per reviewer, we typically need the finalized total or list all
-        // Let's get students and their total marks.
-
-        // Aggregation to sum marks for students
-        const marksData = await Marks.aggregate([
-            { $match: { ...this._buildMatchQuery(query) } },
-            {
-                $group: {
-                    _id: "$student",
-                    totalScore: { $sum: "$totalMarks" }, // Simple sum? Or average? 
-                    // Usually final marks are a specific calculation.
-                    // For "Range", let's assume we are looking at individual submission marks OR average.
-                    // Let's return the marks entries themselves that fall in range
-                }
-            }
-            // This is tricky without knowing exact grading logic (average of guide+panel?).
-            // Let's assume we filter students whose *average* or *any* mark falls in range?
-            // Simpler approach: Find marks documents within range.
-        ]);
-
-        // Better Approach: Fetch Marks documents directly where totalMarks is within range
-        const markQuery = {
-            totalMarks: { $gte: min, $lte: max },
-            ...this._buildMatchQuery(query)
-        };
-
-        const marksList = await Marks.find(markQuery)
+        // Fetch all marks matching the criteria
+        const marks = await Marks.find(query)
             .populate("student", "name regNo")
             .populate("faculty", "name")
             .populate("project", "name")
             .lean();
 
-        return marksList.map(m => ({
-            regNo: m.student?.regNo,
-            studentName: m.student?.name,
-            projectName: m.project?.name,
-            facultyName: m.faculty?.name,
-            facultyType: m.facultyType,
-            marks: m.totalMarks,
-            maxMarks: m.maxTotalMarks
-        }));
+        // 1. Group marks by student
+        const studentMarksMap = {};
+        marks.forEach(m => {
+            if (!m.student) return;
+            const sid = m.student._id.toString();
+            if (!studentMarksMap[sid]) {
+                studentMarksMap[sid] = {
+                    student: m.student,
+                    project: m.project,
+                    reviews: {}
+                };
+            }
+            if (!studentMarksMap[sid].reviews[m.reviewType]) {
+                studentMarksMap[sid].reviews[m.reviewType] = [];
+            }
+            studentMarksMap[sid].reviews[m.reviewType].push(m);
+        });
+
+        const results = [];
+
+        // 2. Calculate Effective Score for each student
+        Object.values(studentMarksMap).forEach(data => {
+            let totalObtained = 0;
+            // let totalMax = 0;
+
+            // Iterate reviews (e.g., Review 1, Review 2, PPT)
+            Object.values(data.reviews).forEach(reviewMarks => {
+                // reviewMarks is array of Mark docs for ONE review type
+                // Separate Guide vs Panel
+                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
+                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel' && r.isSubmitted);
+
+                let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
+                // let guideMax = guideMarkParam ? (guideMarkParam.maxTotalMarks || 100) : 100;
+
+                let panelScore = 0;
+                // let panelMax = 0;
+                if (panelMarksParam.length > 0) {
+                    const nonZeroMarks = panelMarksParam.filter(m => (m.totalMarks || 0) > 0);
+                    const validForAvg = nonZeroMarks.length > 0 ? nonZeroMarks : panelMarksParam;
+                    const pSum = validForAvg.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
+                    panelScore = pSum / validForAvg.length; // Average
+                    // panelMax = panelMarksParam[0].maxTotalMarks || 100;
+                }
+
+                // Total for this review
+                totalObtained += (guideScore + panelScore);
+
+                // if(guideMarkParam) totalMax += guideMax;
+                // if(panelMarksParam.length > 0) totalMax += panelMax;
+            });
+
+            // 3. Filter by Range
+            if (totalObtained >= min && totalObtained <= max) {
+                results.push({
+                    regNo: data.student.regNo,
+                    studentName: data.student.name,
+                    projectName: data.project?.name,
+                    marks: parseFloat(totalObtained.toFixed(2)),
+                    facultyName: "Aggregated",
+                    facultyType: "Mixed"
+                });
+            }
+        });
+
+        return results;
     }
 
     /**
@@ -212,42 +264,121 @@ export class ReportService {
      */
     static async generateComprehensiveMarksReport(filters) {
         const query = this._buildMatchQuery(filters);
+        console.log('[COMPREHENSIVE MARKS] Query:', JSON.stringify(query));
 
         const students = await Student.find(query).sort({ regNo: 1 }).lean();
-        const results = [];
+        console.log('[COMPREHENSIVE MARKS] Found students:', students.length);
+        
+        const studentIds = students.map(s => s._id);
 
-        // Optimisation: Fetch all needed marks & projects in one go ideally, 
-        // but for simplicity loop or aggregation. Aggregation is better.
-
-        for (const student of students) {
-            // Find Project
-            const project = await Project.findOne({
-                students: student._id,
-                status: "active"
+        const [allProjects, allMarks] = await Promise.all([
+            Project.find({
+                students: { $in: studentIds },
+                status: { $in: ["active", "completed"] }
             })
                 .populate("guideFaculty", "name")
                 .populate("panel", "panelName")
-                .lean();
+                .lean(),
+            Marks.find({ student: { $in: studentIds } }).lean()
+        ]);
+        
+        console.log('[COMPREHENSIVE MARKS] Found projects:', allProjects.length);
+        console.log('[COMPREHENSIVE MARKS] Found marks:', allMarks.length);
 
-            if (!project) continue; // Skip if no active project
+        const projectsByStudentId = {};
+        for (const p of allProjects) {
+            for (const sId of p.students) {
+                projectsByStudentId[sId.toString()] = p;
+            }
+        }
 
-            // Find Marks
-            const marks = await Marks.find({ student: student._id }).lean();
+        const marksByStudentId = {};
+        for (const m of allMarks) {
+            const sId = m.student.toString();
+            if (!marksByStudentId[sId]) marksByStudentId[sId] = [];
+            marksByStudentId[sId].push(m);
+        }
 
-            const guideMark = marks.find(m => m.facultyType === 'guide');
-            const panelMark = marks.find(m => m.facultyType === 'panel');
+        const results = [];
 
-            results.push({
-                regNo: student.regNo,
-                name: student.name,
-                projectTitle: project.name,
-                guideName: project.guideFaculty?.name,
-                panelName: project.panel?.panelName,
-                guideMarks: guideMark ? guideMark.totalMarks : "Pending",
-                panelMarks: panelMark ? panelMark.totalMarks : "Pending",
-                total: (guideMark?.totalMarks || 0) + (panelMark?.totalMarks || 0)
-                // Note: Logic for total depends on weightage, assuming simple sum for now or just listing components
+        for (const student of students) {
+            const studentStrId = student._id.toString();
+            // Find Project
+            const project = projectsByStudentId[studentStrId];
+
+            // Include all students, even those without projects
+            // Removed: if (!project) { continue; }
+
+            // Find Marks for this student
+            const marks = marksByStudentId[studentStrId] || [];
+
+            // Group marks by reviewType
+            const marksByReview = {};
+            marks.forEach(m => {
+                if (!marksByReview[m.reviewType]) {
+                    marksByReview[m.reviewType] = {
+                        guideMark: null,
+                        panelMarks: []
+                    };
+                }
+                if (m.facultyType === 'guide') {
+                    marksByReview[m.reviewType].guideMark = m;
+                } else if (m.facultyType === 'panel') {
+                    marksByReview[m.reviewType].panelMarks.push(m);
+                }
             });
+
+            // Process marks by review type
+            if (Object.keys(marksByReview).length === 0) {
+                // No marks yet
+                results.push({
+                    regNo: student.regNo,
+                    name: student.name,
+                    projectTitle: project?.name || "Not Assigned",
+                    guideName: project?.guideFaculty?.name || "Unassigned",
+                    panelName: project?.panel?.panelName || "Unassigned",
+                    reviewType: "N/A",
+                    guideMarks: "Pending",
+                    panelMarks: "Pending",
+                    total: 0
+                });
+            } else {
+                for (const reviewType of Object.keys(marksByReview)) {
+                    const reviewData = marksByReview[reviewType];
+                    const guideMarkVal = reviewData.guideMark ? reviewData.guideMark.totalMarks : 0;
+                    const guideStatus = reviewData.guideMark ? "Submitted" : "Pending";
+
+                    // Calculate Panel Average
+                    let panelAvg = 0;
+                    let panelStatus = "Pending";
+                    let evaluatedByCount = 0;
+                    // Filter for submitted/assigned panel marks only
+                    const submittedPanelMarks = reviewData.panelMarks.filter(m => m.isSubmitted);
+                    
+                    const nonZeroMarks = submittedPanelMarks.filter(m => (m.totalMarks || 0) > 0);
+                    const validPanelMarks = nonZeroMarks.length > 0 ? nonZeroMarks : submittedPanelMarks;
+
+                    if (validPanelMarks.length > 0) {
+                        const sum = validPanelMarks.reduce((acc, curr) => acc + (curr.totalMarks || 0), 0);
+                        panelAvg = sum / validPanelMarks.length;
+                        panelStatus = "Submitted";
+                        evaluatedByCount = validPanelMarks.length;
+                    }
+
+                    results.push({
+                        regNo: student.regNo,
+                        name: student.name,
+                        projectTitle: project?.name || "Not Assigned",
+                        guideName: project?.guideFaculty?.name || "Unassigned",
+                        panelName: project?.panel?.panelName || "Unassigned",
+                        reviewType: reviewType,
+                        guideMarks: guideStatus === "Submitted" ? guideMarkVal : "Pending",
+                        panelMarks: panelStatus === "Submitted" ? Number(panelAvg.toFixed(2)) : "Pending",
+                        'Evaluated By (Count)': evaluatedByCount > 0 ? evaluatedByCount : "N/A",
+                        total: (guideStatus === "Submitted" ? guideMarkVal : 0) + (panelStatus === "Submitted" ? panelAvg : 0)
+                    });
+                }
+            }
         }
 
         return results;
@@ -257,25 +388,28 @@ export class ReportService {
      * 6. Faculty Workload Report
      */
     static async generateFacultyWorkloadReport(filters) {
-        const query = {};
-        if (filters.school) query.school = filters.school;
-        // Faculty school matching
+        const facultyQuery = {};
+        if (filters.school) facultyQuery.school = filters.school;
+        if (filters.programme) facultyQuery.program = filters.programme;
+        // Faculty school and program matching
 
-        const facultyList = await Faculty.find(query).lean();
+        const facultyList = await Faculty.find(facultyQuery).lean();
         const results = [];
+
+        const projectPanelQuery = this._buildMatchQuery(filters);
 
         for (const f of facultyList) {
             // Count projects as Guide
             const guideCount = await Project.countDocuments({
+                ...projectPanelQuery,
                 guideFaculty: f._id,
-                status: "active",
-                academicYear: filters.year || filters.academicYear
+                status: "active"
             });
 
             // Count panels they are part of
             const panelCount = await Panel.countDocuments({
-                "members.faculty": f._id,
-                academicYear: filters.year || filters.academicYear
+                ...projectPanelQuery,
+                "members.faculty": f._id
             });
 
             results.push({
@@ -300,15 +434,37 @@ export class ReportService {
         delete query.status; // Remove status from mongo query
 
         const students = await Student.find(query).lean();
+        const studentIds = students.map(s => s._id);
+
+        const [projects, marks] = await Promise.all([
+            Project.find({ students: { $in: studentIds } }).populate("guideFaculty").populate("panel").lean(),
+            Marks.find({ student: { $in: studentIds } }).lean()
+        ]);
+
+        const projectsByStudentId = {};
+        for (const p of projects) {
+            for (const sId of p.students) {
+                projectsByStudentId[sId.toString()] = p;
+            }
+        }
+
+        const marksByStudentId = {};
+        for (const m of marks) {
+            const sId = m.student.toString();
+            if (!marksByStudentId[sId]) marksByStudentId[sId] = [];
+            marksByStudentId[sId].push(m);
+        }
+
         const results = [];
 
         for (const student of students) {
-            const project = await Project.findOne({ students: student._id }).populate("guideFaculty").populate("panel").lean();
+            const studentStrId = student._id.toString();
+            const project = projectsByStudentId[studentStrId];
             if (!project) continue;
 
-            const marks = await Marks.find({ student: student._id }).lean();
-            const hasGuideMark = marks.some(m => m.facultyType === 'guide');
-            const hasPanelMark = marks.some(m => m.facultyType === 'panel');
+            const studentMarks = marksByStudentId[studentStrId] || [];
+            const hasGuideMark = studentMarks.some(m => m.facultyType === 'guide' && m.isSubmitted);
+            const hasPanelMark = studentMarks.some(m => m.facultyType === 'panel' && m.isSubmitted);
 
             let status = '';
             if (!hasGuideMark && !hasPanelMark) status = 'Both Pending';
@@ -342,9 +498,20 @@ export class ReportService {
      */
     static async generateMarksDistributionReport(filters) {
         const query = this._buildMatchQuery(filters);
-        const marks = await Marks.find(query).select('totalMarks maxTotalMarks facultyType').lean();
+        // We need effective scores per student, not raw marks
+        const marks = await Marks.find(query).lean();
 
-        // Buckets for Percentages
+        // Group by student to get effective total score
+        const studentScores = {};
+        marks.forEach(m => {
+            const sid = m.student.toString();
+            if (!studentScores[sid]) studentScores[sid] = { reviews: {} };
+
+            if (!studentScores[sid].reviews[m.reviewType]) studentScores[sid].reviews[m.reviewType] = [];
+            studentScores[sid].reviews[m.reviewType].push(m);
+        });
+
+        let totalStudentsProcessed = 0;
         const distribution = {
             '0-40%': 0,
             '41-60%': 0,
@@ -353,25 +520,49 @@ export class ReportService {
             '91-100%': 0
         };
 
-        marks.forEach(m => {
-            const obtained = m.totalMarks || 0;
-            const max = m.maxTotalMarks || 100; // Default to 100 if missing, though schema enforces it
+        Object.values(studentScores).forEach(studentData => {
+            let totalObtained = 0;
+            let grandMax = 0;
 
-            // Calculate percentage
-            const percentage = (obtained / max) * 100;
+            Object.values(studentData.reviews).forEach(reviewMarks => {
+                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
+                const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel' && r.isSubmitted);
 
-            if (percentage <= 40) distribution['0-40%']++;
-            else if (percentage <= 60) distribution['41-60%']++;
-            else if (percentage <= 80) distribution['61-80%']++;
-            else if (percentage <= 90) distribution['81-90%']++;
-            else distribution['91-100%']++;
+                let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
+                let guideMax = guideMarkParam ? (guideMarkParam.maxTotalMarks || 100) : 100;
+
+                let panelScore = 0;
+                let panelMax = 0;
+                if (panelMarksParam.length > 0) {
+                    const nonZeroMarks = panelMarksParam.filter(m => (m.totalMarks || 0) > 0);
+                    const validForAvg = nonZeroMarks.length > 0 ? nonZeroMarks : panelMarksParam;
+                    const pSum = validForAvg.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
+                    panelScore = pSum / validForAvg.length;
+                    panelMax = validForAvg[0].maxTotalMarks || 100;
+                }
+
+                totalObtained += (guideScore + panelScore);
+                if (guideMarkParam) grandMax += guideMax;
+                if (panelMarksParam.length > 0) grandMax += panelMax;
+            });
+
+            if (grandMax > 0) {
+                totalStudentsProcessed++;
+                const percentage = (totalObtained / grandMax) * 100;
+
+                if (percentage <= 40) distribution['0-40%']++;
+                else if (percentage <= 60) distribution['41-60%']++;
+                else if (percentage <= 80) distribution['61-80%']++;
+                else if (percentage <= 90) distribution['81-90%']++;
+                else distribution['91-100%']++;
+            }
         });
 
         // Transform for table
         return Object.entries(distribution).map(([range, count]) => ({
             range,
             count,
-            percentageOfStudents: marks.length ? ((count / marks.length) * 100).toFixed(2) + '%' : '0%'
+            percentageOfStudents: totalStudentsProcessed ? ((count / totalStudentsProcessed) * 100).toFixed(2) + '%' : '0%'
         }));
     }
 
@@ -387,9 +578,32 @@ export class ReportService {
     // Helper to standardise filters
     static _buildMatchQuery(filters) {
         const query = {};
-        if (filters.school) query.school = filters.school;
-        if (filters.programme) query.program = filters.programme;
-        if (filters.year) query.academicYear = filters.year;
+
+        if (filters.school) {
+            if (Array.isArray(filters.school)) {
+                query.school = { $in: filters.school.map(s => new RegExp(`^${String(s).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i')) };
+            } else {
+                query.school = { $regex: new RegExp(`^${String(filters.school).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+            }
+        }
+
+        const programValue = filters.programme ?? filters.program;
+        if (programValue) {
+            if (Array.isArray(programValue)) {
+                query.program = { $in: programValue.map(p => new RegExp(`^${String(p).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i')) };
+            } else {
+                query.program = { $regex: new RegExp(`^${String(programValue).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+            }
+        }
+
+        const yearValue = filters.year ?? filters.academicYear;
+        if (yearValue) {
+            query.academicYear = { $regex: new RegExp(`^${String(yearValue).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+        }
+
+        // Log the constructed query for debugging
+        console.log('[REPORT QUERY]', JSON.stringify(query));
+
         return query;
     }
 
@@ -417,5 +631,138 @@ export class ReportService {
             summary,
             logs
         };
+    }
+
+    /**
+     * 11. Team Details Report
+     */
+    static async generateTeamDetailsReport(filters) {
+        const query = this._buildMatchQuery(filters);
+
+        // Fetch projects with all necessary populates
+        // We need students, guide, and panel members
+        const projects = await Project.find(query)
+            .populate('students', 'name regNo emailId phoneNumber')
+            .populate('guideFaculty', 'name email employeeId')
+            .populate({
+                path: 'panel',
+                select: 'panelName members',
+                populate: {
+                    path: 'members.faculty',
+                    select: 'name employeeId'
+                }
+            })
+            .lean();
+
+        // Sort by Project Name
+        projects.sort((a, b) => a.name.localeCompare(b.name));
+
+        const results = [];
+
+        for (const p of projects) {
+            // Format panel info
+            let panelMembersList = [];
+            if (p.panel?.members && p.panel.members.length > 0) {
+                panelMembersList = p.panel.members
+                    .map(m => m.faculty?.name)
+                    .filter(Boolean);
+            }
+            const panelMembersStr = panelMembersList.join(", ") || "Unassigned";
+
+            const panelName = p.panel?.panelName || (p.panel ? "Unnamed Panel" : "Unassigned");
+
+            // Format Students - Create a string list
+            // For Excel, newline works well in a cell if wrap text is on. Or comma.
+            const studentDetails = p.students.map(s => `${s.name} (${s.regNo})`).join(", ");
+            const studentCount = p.students.length;
+
+            const sdgGoalsStr = p.sdgGoal ? p.sdgGoal : "None";
+
+            results.push({
+                "Project Title": p.name,
+                "Status": p.status,
+                "Academic Year": p.academicYear,
+                "Program": p.program,
+                "Guide Name": p.guideFaculty?.name || "Unassigned",
+                "Guide EmpID": p.guideFaculty?.employeeId || "N/A",
+                "Panel Name": panelName,
+                "Panel Members": panelMembersStr,
+                "Student Count": studentCount,
+                "Students": studentDetails,
+                "SDG Goals": sdgGoalsStr
+            });
+        }
+
+        return results;
+    }
+
+    /**
+     * 12. PPT Approval Status Report
+     * Lists every project with its PPT approval status per review type.
+     * Useful for verifying which projects have had their PPT approved by the guide
+     * before a panel review session.
+     */
+    static async generatePPTApprovalReport(filters) {
+        const query = this._buildMatchQuery(filters);
+
+        const projects = await Project.find(query)
+            .populate('students', 'name regNo')
+            .populate('guideFaculty', 'name employeeId')
+            .populate({
+                path: 'panel',
+                select: 'panelName members',
+                populate: {
+                    path: 'members.faculty',
+                    select: 'name'
+                }
+            })
+            .populate('pptApprovals.approvedBy', 'name employeeId')
+            .lean();
+
+        const results = [];
+
+        for (const project of projects) {
+            // Collect all review types referenced in pptApprovals
+            // If a project has no pptApprovals array we still want one row per project.
+            const approvals = project.pptApprovals && project.pptApprovals.length > 0
+                ? project.pptApprovals
+                : [{ reviewType: 'N/A', isApproved: false, approvedBy: null, approvedAt: null }];
+
+            const studentNames = (project.students || []).map(s => `${s.name} (${s.regNo})`).join(', ');
+            const panelName = project.panel?.panelName || 'Unassigned';
+            const panelMembers = (project.panel?.members || [])
+                .map(m => m.faculty?.name)
+                .filter(Boolean)
+                .join(', ') || 'Unassigned';
+
+            for (const approval of approvals) {
+                results.push({
+                    'Project Title': project.name,
+                    'Students': studentNames,
+                    'Academic Year': project.academicYear,
+                    'Program': project.program,
+                    'School': project.school,
+                    'Guide Name': project.guideFaculty?.name || 'Unassigned',
+                    'Guide EmpID': project.guideFaculty?.employeeId || 'N/A',
+                    'Panel Name': panelName,
+                    'Panel Members': panelMembers,
+                    'Review Type': approval.reviewType,
+                    'PPT Approved by Guide': approval.isApproved ? 'Yes' : 'No',
+                    'Approved By': approval.approvedBy?.name || (approval.isApproved ? 'Unknown' : 'Pending'),
+                    'Approved At': approval.approvedAt
+                        ? new Date(approval.approvedAt).toLocaleString()
+                        : 'N/A',
+                });
+            }
+        }
+
+        // Sort by Project Title then Review Type
+        results.sort((a, b) => {
+            const titleCmp = a['Project Title'].localeCompare(b['Project Title']);
+            if (titleCmp !== 0) return titleCmp;
+            return a['Review Type'].localeCompare(b['Review Type']);
+        });
+
+        return results;
     }
 }

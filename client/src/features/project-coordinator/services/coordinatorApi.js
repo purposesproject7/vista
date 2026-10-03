@@ -108,6 +108,7 @@ const adaptProject = (backendProject) => {
       assignedAt: rp.assignedAt,
       assignedBy: rp.assignedBy,
     })) || [],
+    sdgGoal: backendProject.sdgGoal || null,
   };
 };
 
@@ -122,6 +123,8 @@ const adaptPanel = (backendPanel) => {
     _id: backendPanel._id,
     panelName: backendPanel.panelName, // Added
     panelNumber: backendPanel.panelNumber || backendPanel.panelName.replace(/\D/g, ""), // try to extract number
+    venue: backendPanel.venue,
+    dateTime: backendPanel.dateTime,
     members:
       backendPanel.members?.map((m) => {
         // Member can be just an ID, or an object with faculty populated, or flat
@@ -293,7 +296,7 @@ export const fetchProjects = async (filters = {}) => {
 /**
  * Create a single project
  */
-export const createProject = async (projectData) => {
+export const createProject = async (projectData, options = {}) => {
   const payload = {
     name: projectData.name,
     students: projectData.teamMembers || [],
@@ -303,6 +306,7 @@ export const createProject = async (projectData) => {
     school: projectData.school,
     department: projectData.department,
     academicYear: projectData.academicYear,
+    ignoreDepartmentMismatch: options.ignoreDepartmentMismatch,
   };
 
   const response = await api.post("/coordinator/projects", payload);
@@ -312,7 +316,7 @@ export const createProject = async (projectData) => {
 /**
  * Bulk create projects
  */
-export const bulkCreateProjects = async (projectsList) => {
+export const bulkCreateProjects = async (projectsList, options = {}) => {
   const projects = projectsList.map((project) => ({
     name: project.name,
     students: project.teamMembers || [],
@@ -324,7 +328,12 @@ export const bulkCreateProjects = async (projectsList) => {
     academicYear: project.academicYear,
   }));
 
-  const response = await api.post("/coordinator/projects/bulk", { projects });
+  const response = await api.post("/coordinator/projects/bulk", { 
+    projects,
+    ignoreDepartmentMismatch: options.ignoreDepartmentMismatch
+  }, {
+    timeout: 120000, // 120s — bulk ops can be slow for large datasets
+  });
   return response.data;
 };
 
@@ -401,12 +410,30 @@ export const autoCreatePanels = async (data) => {
 };
 
 /**
+ * Delete panel
+ */
+export const deletePanel = async (panelId) => {
+  const response = await api.delete(`/coordinator/panels/${panelId}`);
+  return response.data;
+};
+
+/**
  * Assign panel to project
  */
 export const assignPanelToProject = async ({ projectId, panelId }) => {
   const response = await api.post("/coordinator/projects/assign-panel", {
     projectId,
     panelId,
+  });
+  return response.data;
+};
+
+/**
+ * Bulk assign panels to projects
+ */
+export const bulkAssignPanelsToProjects = async (assignments) => {
+  const response = await api.post("/coordinator/panels/bulk-assign", {
+    assignments,
   });
   return response.data;
 };
@@ -426,6 +453,14 @@ export const fetchPanelSummary = async (filters = {}) => {
   const response = await api.get("/coordinator/panels/summary", {
     params: filters,
   });
+  return response.data;
+};
+
+/**
+ * Update panel members only
+ */
+export const updatePanelMembers = async (panelId, data) => {
+  const response = await api.put(`/coordinator/panels/${panelId}/members`, data);
   return response.data;
 };
 
@@ -581,7 +616,10 @@ export default {
   createPanel,
   bulkCreatePanels,
   autoCreatePanels,
+  deletePanel,
+  updatePanelMembers,
   assignPanelToProject,
+  bulkAssignPanelsToProjects,
   autoAssignPanels,
   fetchPanelSummary,
   fetchFacultyDetailsBulk,

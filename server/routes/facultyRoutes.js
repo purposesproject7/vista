@@ -13,8 +13,6 @@ router.use(requireRole("faculty"));
 router.get("/profile", facultyController.getProfile);
 router.put("/profile", facultyController.updateProfile);
 router.get("/master-data", facultyController.getMasterData);
-router.get("/evaluation-metadata", facultyController.getEvaluationMetadata);
-router.get("/academic-years", facultyController.getAcademicYears);
 
 router.get(
   "/projects",
@@ -22,22 +20,25 @@ router.get(
   facultyController.getAssignedProjects,
 );
 
+// ⚠️ POST /projects/merge MUST be before GET /projects/:id
+// to prevent Express matching :id = "merge"
 router.post(
   "/projects/merge",
   broadcastBlockMiddleware,
-  validateRequired(["projectIds", "newName"]),
+  validateRequired(["studentIds", "newName"]),
   facultyController.mergeProjects
+);
+
+router.get(
+  "/projects/:id",
+  broadcastBlockMiddleware,
+  facultyController.getProjectDetails,
 );
 
 router.get(
   "/reviews",
   broadcastBlockMiddleware,
   facultyController.getFacultyReviews,
-);
-router.get(
-  "/projects/:id",
-  broadcastBlockMiddleware,
-  facultyController.getProjectDetails,
 );
 
 router.get(
@@ -102,6 +103,8 @@ router.post(
   ]),
   facultyController.createRequest,
 );
+
+router.get("/requests", broadcastBlockMiddleware, facultyController.getRequests);
 
 router.get(
   "/panels",

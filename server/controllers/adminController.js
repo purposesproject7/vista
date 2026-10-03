@@ -16,6 +16,7 @@ import { StudentService } from "../services/studentService.js";
 import { ProjectService } from "../services/projectService.js";
 import { MarkingSchemaService } from "../services/markingSchemaService.js";
 import { BroadcastService } from "../services/broadcastService.js";
+import { EmailService } from "../services/emailService.js";
 import { RequestService } from "../services/requestService.js";
 import { AccessRequestService } from "../services/accessRequestService.js";
 
@@ -301,11 +302,161 @@ export async function getFacultyDetailsBulk(req, res) {
   }
 }
 
+// ===== ADMIN MANAGEMENT (SUDO ADMIN ONLY) =====
+
+export async function getAllAdmins(req, res) {
+  try {
+    const admins = await FacultyService.getAdminList(req.query, {
+      sortBy: req.query.sortBy,
+      sortOrder: req.query.sortOrder,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: admins,
+      count: admins.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function createAdminUser(req, res) {
+  try {
+    const adminData = {
+      ...req.body,
+      role: "admin",
+      specialization: req.body.specialization || "",
+    };
+
+    const admin = await FacultyService.createFaculty(adminData, req.user._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Admin created successfully.",
+      data: { _id: admin._id, employeeId: admin.employeeId },
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateAdminUser(req, res) {
+  try {
+    const { employeeId } = req.params;
+
+    // Prevent modifying ADMIN001
+    if (employeeId === "ADMIN001" && req.user.employeeId !== "ADMIN001") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot modify ADMIN001.",
+      });
+    }
+
+    const admin = await FacultyService.updateFaculty(
+      employeeId,
+      req.body,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Admin updated successfully.",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function deleteAdminUser(req, res) {
+  try {
+    const { employeeId } = req.params;
+
+    // Prevent deleting ADMIN001
+    if (employeeId === "ADMIN001") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot delete ADMIN001.",
+      });
+    }
+
+    await FacultyService.deleteFaculty(employeeId, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Admin deleted successfully.",
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function bulkCreateAdmins(req, res) {
+  try {
+    const { adminList } = req.body;
+
+    if (!Array.isArray(adminList) || adminList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin list must be a non-empty array.",
+      });
+    }
+
+    const results = {
+      created: 0,
+      errors: 0,
+      details: [],
+    };
+
+    for (let i = 0; i < adminList.length; i++) {
+      try {
+        const adminData = {
+          ...adminList[i],
+          role: "admin",
+          specialization: adminList[i].specialization || "",
+        };
+        await FacultyService.createFaculty(adminData, req.user._id);
+        results.created++;
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          row: i + 1,
+          error: error.message,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk creation complete: ${results.created} created, ${results.errors} errors.`,
+      data: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+
 // ===== PANEL AUTO FUNCTIONS =====
 
 export async function autoCreatePanels(req, res) {
   try {
-    const { programs, school, academicYear, panelSize, facultyList } = req.body;
+    const { programs, school, academicYear, panelSize, facultyList, venue } = req.body;
 
     const allResults = {
       created: 0,
@@ -321,7 +472,8 @@ export async function autoCreatePanels(req, res) {
         program,
         panelSize || 2,
         req.user._id,
-        facultyList
+        facultyList,
+        venue
       );
 
       allResults.created += result.panelsCreated || 0;
@@ -543,6 +695,23 @@ export async function updateRequestStatus(req, res) {
   }
 }
 
+export async function approveAllRequests(req, res) {
+  try {
+    const result = await RequestService.approveAllRequests(req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully approved ${result.count} out of ${result.total} pending requests.`,
+      data: result,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 // ===== ACCESS REQUESTS (Project Coordinators) =====
 
 export async function getAllAccessRequests(req, res) {
@@ -627,6 +796,251 @@ export async function updateAccessRequestStatus(req, res) {
       success: true,
       message: `Access request ${status} successfully.`,
       data: request,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+// ===== PROJECT COORDINATOR MANAGEMENT =====
+
+
+export async function getProjectCoordinators(req, res) {
+  try {
+    const { school, program, academicYear, facultyId } = req.query;
+
+    const filter = { isActive: true };
+    if (school) filter.school = school;
+    if (program) filter.program = program;
+    if (academicYear) filter.academicYear = academicYear;
+    if (facultyId) filter.faculty = facultyId;
+
+    const coordinators = await ProjectCoordinator.find(filter)
+      .populate("faculty", "name emailId employeeId phoneNumber")
+      .sort({ academicYear: -1, school: 1, program: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: coordinators.length,
+      data: coordinators,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function assignProjectCoordinator(req, res) {
+  try {
+    const { facultyId, academicYear, school, program, isPrimary, permissions } = req.body;
+
+    const faculty = await Faculty.findById(facultyId);
+    if (!faculty) {
+      return res.status(404).json({
+        success: false,
+        message: "Faculty not found.",
+      });
+    }
+
+    // Check for duplicate assignment
+    const existingAssignment = await ProjectCoordinator.findOne({
+      faculty: facultyId,
+      school,
+      program,
+      academicYear,
+      isActive: true,
+    });
+
+    if (existingAssignment) {
+      return res.status(400).json({
+        success: false,
+        message: "This faculty is already assigned as coordinator for this context.",
+      });
+    }
+
+    // If setting as primary, remove primary flag from others in same context
+    if (isPrimary) {
+      await ProjectCoordinator.updateMany(
+        { school, program, academicYear, isPrimary: true },
+        { $set: { isPrimary: false } }
+      );
+    }
+
+    // Create default permissions if not provided
+    const defaultPermissions = permissions || {
+      student_management: { enabled: true },
+      faculty_management: { enabled: true },
+      project_management: { enabled: true },
+      panel_management: { enabled: true },
+    };
+
+    const coordinator = await ProjectCoordinator.create({
+      faculty: facultyId,
+      school,
+      program,
+      academicYear,
+      isPrimary: isPrimary || false,
+      permissions: defaultPermissions,
+      isActive: true,
+    });
+
+    // Login/RBAC gate on this flag, so assigning a coordinator implies it
+    if (!faculty.isProjectCoordinator) {
+      faculty.isProjectCoordinator = true;
+      await faculty.save();
+    }
+
+    const populatedCoordinator = await ProjectCoordinator.findById(coordinator._id)
+      .populate("faculty", "name emailId employeeId phoneNumber");
+
+    logger.info("coordinator_assigned", {
+      coordinatorId: coordinator._id,
+      facultyId,
+      school,
+      program,
+      academicYear,
+      assignedBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Project coordinator assigned successfully.",
+      data: populatedCoordinator,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateProjectCoordinator(req, res) {
+  try {
+    const { id } = req.params;
+    const { isPrimary, isActive } = req.body;
+
+    const coordinator = await ProjectCoordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({
+        success: false,
+        message: "Coordinator not found.",
+      });
+    }
+
+    // If setting as primary, remove primary flag from others in same context
+    if (isPrimary && !coordinator.isPrimary) {
+      await ProjectCoordinator.updateMany(
+        {
+          school: coordinator.school,
+          program: coordinator.program,
+          academicYear: coordinator.academicYear,
+          isPrimary: true,
+        },
+        { $set: { isPrimary: false } }
+      );
+    }
+
+    if (isPrimary !== undefined) coordinator.isPrimary = isPrimary;
+    if (isActive !== undefined) coordinator.isActive = isActive;
+
+    await coordinator.save();
+
+    const populatedCoordinator = await ProjectCoordinator.findById(id)
+      .populate("faculty", "name emailId employeeId phoneNumber");
+
+    logger.info("coordinator_updated", {
+      coordinatorId: id,
+      updates: { isPrimary, isActive },
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Coordinator updated successfully.",
+      data: populatedCoordinator,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateCoordinatorPermissions(req, res) {
+  try {
+    const { id } = req.params;
+    const { permissions } = req.body;
+
+    const coordinator = await ProjectCoordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({
+        success: false,
+        message: "Coordinator not found.",
+      });
+    }
+
+    // Update permissions
+    coordinator.permissions = {
+      ...coordinator.permissions,
+      ...permissions,
+    };
+
+    coordinator.markModified("permissions");
+    await coordinator.save();
+
+    const populatedCoordinator = await ProjectCoordinator.findById(id)
+      .populate("faculty", "name emailId employeeId phoneNumber");
+
+    logger.info("coordinator_permissions_updated", {
+      coordinatorId: id,
+      updatedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Coordinator permissions updated successfully.",
+      data: populatedCoordinator,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function removeProjectCoordinator(req, res) {
+  try {
+    const { id } = req.params;
+
+    const coordinator = await ProjectCoordinator.findById(id);
+    if (!coordinator) {
+      return res.status(404).json({
+        success: false,
+        message: "Coordinator not found.",
+      });
+    }
+
+    // Soft delete by setting isActive to false
+    coordinator.isActive = false;
+    await coordinator.save();
+
+    logger.info("coordinator_removed", {
+      coordinatorId: id,
+      facultyId: coordinator.faculty,
+      removedBy: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Coordinator removed successfully.",
     });
   } catch (error) {
     res.status(400).json({
@@ -814,6 +1228,7 @@ export async function createProject(req, res) {
       type,
       specialization,
       description,
+      ignoreDepartmentMismatch,
     } = req.body;
 
     const projectData = {
@@ -826,6 +1241,7 @@ export async function createProject(req, res) {
       type,
       specialization,
       description,
+      ignoreDepartmentMismatch: ignoreDepartmentMismatch === true || ignoreDepartmentMismatch === "true",
     };
 
     const project = await ProjectService.createProject(
@@ -851,7 +1267,7 @@ export async function createProject(req, res) {
  */
 export async function bulkCreateProjects(req, res) {
   try {
-    const { projects } = req.body;
+    const { projects, ignoreDepartmentMismatch } = req.body;
 
     if (!Array.isArray(projects) || projects.length === 0) {
       return res.status(400).json({
@@ -864,14 +1280,89 @@ export async function bulkCreateProjects(req, res) {
     // Assuming service expects array of project objects with same structure as createProject
     const result = await ProjectService.bulkCreateProjects(
       projects,
-      req.user._id
+      req.user._id,
+      { ignoreDepartmentMismatch: ignoreDepartmentMismatch === true || ignoreDepartmentMismatch === "true" }
     );
 
+    // Send response immediately — don't block on email notifications
     res.status(200).json({
       success: true,
       message: `Bulk creation completed. Created: ${result.created}, Errors: ${result.errors.length}`,
       data: result,
     });
+
+    // Fire-and-forget: send email notifications to guides for failed projects
+    // This runs AFTER the response has been sent to the client
+    if (result.errors && result.errors.length > 0) {
+      const uploaderEmail = req.user.emailId;
+      const uploaderName = req.user.name;
+
+      (async () => {
+        try {
+          const emailResults = { sent: 0, failed: 0 };
+
+          // Group errors by guide faculty employee ID
+          const errorsByGuide = {};
+          for (const error of result.errors) {
+            const guideEmpId = error.guideFacultyEmpId;
+            if (guideEmpId) {
+              if (!errorsByGuide[guideEmpId]) {
+                errorsByGuide[guideEmpId] = [];
+              }
+              errorsByGuide[guideEmpId].push(error);
+            }
+          }
+
+          // Fetch all guides in one query instead of one-by-one
+          const guideEmpIds = Object.keys(errorsByGuide);
+          const guides = await Faculty.find({ employeeId: { $in: guideEmpIds } }).lean();
+          const guideByEmpId = new Map(guides.map(g => [g.employeeId, g]));
+
+          for (const [guideEmpId, errors] of Object.entries(errorsByGuide)) {
+            try {
+              const guide = guideByEmpId.get(guideEmpId);
+              if (guide && guide.emailId) {
+                const uploadContext = projects[0] ? {
+                  school: projects[0].school,
+                  program: projects[0].program,
+                  year: projects[0].academicYear,
+                  schoolName: projects[0].schoolName,
+                  programmeName: projects[0].programmeName,
+                } : null;
+
+                const emailSent = await EmailService.sendProjectUploadErrorNotification(
+                  guide.emailId,
+                  guide.name,
+                  uploaderEmail,
+                  uploaderName,
+                  errors,
+                  uploadContext
+                );
+
+                if (emailSent) emailResults.sent++;
+                else emailResults.failed++;
+              }
+            } catch (emailError) {
+              logger.error("bulk_upload_email_notification_error", {
+                guideEmpId,
+                error: emailError.message,
+              });
+              emailResults.failed++;
+            }
+          }
+
+          logger.info("bulk_upload_email_notifications_sent", {
+            totalErrors: result.errors.length,
+            emailsSent: emailResults.sent,
+            emailsFailed: emailResults.failed,
+          });
+        } catch (bgError) {
+          logger.error("bulk_upload_background_email_error", {
+            error: bgError.message,
+          });
+        }
+      })();
+    }
   } catch (error) {
     res.status(400).json({
       success: false,
@@ -1021,6 +1512,59 @@ export async function bulkUploadStudents(req, res) {
 }
 
 /**
+ * Notify guides about duplicate projects
+ */
+export async function notifyDuplicateProjectGuides(req, res) {
+  try {
+    const { duplicates } = req.body;
+
+    if (!Array.isArray(duplicates) || duplicates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No duplicates provided.",
+      });
+    }
+
+    // Group duplicates by guide email
+    const guideMap = {};
+    duplicates.forEach((d) => {
+      if (d.guideEmail && d.guideEmail !== "N/A") {
+        if (!guideMap[d.guideEmail]) {
+          guideMap[d.guideEmail] = {
+            name: d.guideName,
+            projects: [],
+          };
+        }
+        guideMap[d.guideEmail].projects.push(d);
+      }
+    });
+
+    const results = { sent: 0, failed: 0 };
+
+    for (const [email, data] of Object.entries(guideMap)) {
+      const sent = await EmailService.sendDuplicateProjectNotification(
+        email,
+        data.name,
+        data.projects
+      );
+      if (sent) results.sent++;
+      else results.failed++;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Notifications sent to ${results.sent} guides. Failed: ${results.failed}`,
+      data: results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
  * Update student (admin)
  */
 export async function updateStudent(req, res) {
@@ -1034,6 +1578,53 @@ export async function updateStudent(req, res) {
     res.status(200).json({
       success: true,
       message: "Student updated successfully",
+      data: student,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Undo PAT status for a student (admin)
+ */
+export async function undoStudentPAT(req, res) {
+  try {
+    const student = await StudentService.undoStudentPAT(
+      req.params.regNo,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "PAT status undone successfully",
+      data: student,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Update student marks (ADMIN001 only)
+ */
+export async function updateStudentMarks(req, res) {
+  try {
+    const student = await StudentService.updateStudentMarks(
+      req.params.regNo,
+      req.body.reviews,
+      req.user._id
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Student marks updated successfully",
       data: student,
     });
   } catch (error) {
@@ -1063,288 +1654,33 @@ export async function deleteStudent(req, res) {
   }
 }
 
-// ===== PROJECT COORDINATOR MANAGEMENT =====
-// (Add these based on your ProjectCoordinator schema requirements)
-
-export async function getProjectCoordinators(req, res) {
+/**
+ * Update project details
+ */
+export async function updateProject(req, res) {
   try {
-    const { academicYear, school, program } = req.query;
+    const { id } = req.params;
+    const projectUpdates = req.body;
 
-    const coordinators = await ProjectCoordinator.find({
-      academicYear,
-      school,
-      program,
-      isActive: true,
-    })
-      .populate("faculty", "name employeeId emailId")
-      .lean();
-
-    res.status(200).json({
-      success: true,
-      data: coordinators,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-export async function assignProjectCoordinator(req, res) {
-  try {
-    const { facultyId, academicYear, school, program, isPrimary, permissions } =
-      req.body;
-
-    // Verify faculty exists
-    const faculty = await Faculty.findById(facultyId);
-    if (!faculty) {
-      return res.status(404).json({
-        success: false,
-        message: "Faculty not found",
-      });
-    }
-
-    // Check if already exists
-    const existing = await ProjectCoordinator.findOne({
-      faculty: facultyId,
-      academicYear,
-      school,
-      program,
-      isActive: true,
-    });
-
-    if (existing) {
+    // Validate ID
+    if (!id) {
       return res.status(400).json({
         success: false,
-        message:
-          "This faculty is already a project coordinator for this context.",
+        message: "Project ID is required",
       });
     }
 
-    // Fetch global deadlines
-    const programConfig = await ProgramConfig.findOne({
-      academicYear,
-      school,
-      program,
-    });
-
-    if (!programConfig) {
-      return res.status(404).json({
-        success: false,
-        message: "Program configuration not found. Please create it first.",
-      });
-    }
-
-    // Build deadline mapping
-    const globalDeadlines = {};
-    if (programConfig.featureLocks) {
-      programConfig.featureLocks.forEach((lock) => {
-        globalDeadlines[lock.featureName] = lock.deadline;
-      });
-    }
-
-    // Default permissions with global deadlines
-    const defaultPermissions = {
-      student_management: {
-        enabled: true,
-        deadline: globalDeadlines.student_management,
-      },
-      faculty_management: {
-        enabled: true,
-        deadline: globalDeadlines.faculty_management,
-      },
-      project_management: {
-        enabled: true,
-        deadline: globalDeadlines.project_management,
-      },
-      panel_management: {
-        enabled: true,
-        deadline: globalDeadlines.panel_management,
-      },
-    };
-
-    // Override defaults with provided permissions if any
-    const finalPermissions = permissions
-      ? { ...defaultPermissions, ...permissions }
-      : defaultPermissions;
-
-    // If primary, unset others
-    if (isPrimary) {
-      await ProjectCoordinator.updateMany(
-        { academicYear, school, program, isPrimary: true },
-        { $set: { isPrimary: false } }
-      );
-    }
-
-    // Create coordinator assignment
-    const coordinator = new ProjectCoordinator({
-      faculty: facultyId,
-      academicYear,
-      school,
-      program,
-      isPrimary: isPrimary || false,
-      permissions: finalPermissions,
-      isActive: true,
-    });
-
-    await coordinator.save();
-
-    // Set flag on faculty
-    faculty.isProjectCoordinator = true;
-    await faculty.save();
-
-    // Populate response
-    await coordinator.populate("faculty", "name emailId employeeId");
-
-    logger.info("project_coordinator_assigned", {
-      coordinatorId: coordinator._id,
-      facultyId,
-      academicYear,
-      school,
-      program,
-      isPrimary,
-      assignedBy: req.user._id,
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "Project coordinator assigned successfully.",
-      data: coordinator,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-// Helper: Merge permissions
-function mergePermissions(defaultPerms, customPerms) {
-  const merged = { ...defaultPerms };
-
-  for (const [key, value] of Object.entries(customPerms)) {
-    if (merged[key]) {
-      merged[key] = {
-        enabled:
-          value.enabled !== undefined ? value.enabled : merged[key].enabled,
-        deadline:
-          value.deadline !== undefined ? value.deadline : merged[key].deadline,
-      };
-    }
-  }
-
-  return merged;
-}
-
-export async function updateProjectCoordinator(req, res) {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    const coordinator = await ProjectCoordinator.findById(id);
-    if (!coordinator) {
-      return res.status(404).json({
-        success: false,
-        message: "Project coordinator not found.",
-      });
-    }
-
-    // If changing to primary, unset others
-    if (updates.isPrimary === true && !coordinator.isPrimary) {
-      await ProjectCoordinator.updateMany(
-        {
-          academicYear: coordinator.academicYear,
-          school: coordinator.school,
-          program: coordinator.program,
-          isPrimary: true,
-          _id: { $ne: id },
-        },
-        { $set: { isPrimary: false } }
-      );
-    }
-
-    Object.assign(coordinator, updates);
-    await coordinator.save();
-
-    logger.info("project_coordinator_updated", {
-      coordinatorId: id,
-      updatedBy: req.user._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Project coordinator updated successfully.",
-      data: coordinator,
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-export async function updateCoordinatorPermissions(req, res) {
-  try {
-    const { id } = req.params;
-    const { permissions } = req.body;
-
-    const coordinator = await ProjectCoordinator.findById(id);
-    if (!coordinator) {
-      return res.status(404).json({
-        success: false,
-        message: "Project coordinator not found.",
-      });
-    }
-
-    coordinator.permissions = { ...coordinator.permissions, ...permissions };
-    await coordinator.save();
-
-    logger.info("coordinator_permissions_updated", {
-      coordinatorId: id,
-      updatedBy: req.user._id,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Permissions updated successfully.",
-      data: coordinator,
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-export async function removeProjectCoordinator(req, res) {
-  try {
-    const { id } = req.params;
-
-    const coordinator = await ProjectCoordinator.findByIdAndUpdate(
+    const project = await ProjectService.updateProjectDetails(
       id,
-      { $set: { isActive: false } },
-      { new: true }
+      projectUpdates,
+      null,
+      req.user._id
     );
 
-    if (!coordinator) {
-      return res.status(404).json({
-        success: false,
-        message: "Project coordinator not found.",
-      });
-    }
-
-    logger.info("project_coordinator_removed", {
-      coordinatorId: id,
-      removedBy: req.user._id,
-    });
-
     res.status(200).json({
       success: true,
-      message: "Project coordinator removed successfully.",
+      message: "Project updated successfully",
+      data: project,
     });
   } catch (error) {
     res.status(400).json({
@@ -1353,6 +1689,7 @@ export async function removeProjectCoordinator(req, res) {
     });
   }
 }
+
 
 // ===== COMPONENT LIBRARY ===== (Referenced in routes but not implemented)
 export async function getComponentLibrary(req, res) {
@@ -1586,30 +1923,132 @@ export async function getMarksReport(req, res) {
       .sort({ student: 1, reviewType: 1 })
       .lean();
 
-    // Group by student
-    const byStudent = {};
+    // Group by student and Review Type
+    const byStudentReview = {};
+
     marks.forEach((mark) => {
       const studentId = mark.student._id.toString();
-      if (!byStudent[studentId]) {
-        byStudent[studentId] = {
+      const reviewType = mark.reviewType;
+      const key = `${studentId}-${reviewType}`;
+
+      if (!byStudentReview[key]) {
+        byStudentReview[key] = {
           student: mark.student,
           project: mark.project,
-          marks: [],
+          reviewType: reviewType,
+          guideExposed: null,
+          panelMarksList: [],
         };
       }
-      byStudent[studentId].marks.push({
-        reviewType: mark.reviewType,
-        facultyType: mark.facultyType,
-        faculty: mark.faculty,
-        totalMarks: mark.totalMarks,
-        maxTotalMarks: mark.maxTotalMarks,
-        isSubmitted: mark.isSubmitted,
-      });
+
+      if (mark.facultyType === 'guide') {
+        byStudentReview[key].guideExposed = {
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks // Include component breakdown
+        };
+      } else if (mark.facultyType === 'panel') {
+        byStudentReview[key].panelMarksList.push({
+          faculty: mark.faculty,
+          totalMarks: mark.totalMarks,
+          maxTotalMarks: mark.maxTotalMarks,
+          isSubmitted: mark.isSubmitted,
+          componentMarks: mark.componentMarks // Include component breakdown
+        });
+      }
+    });
+
+    const results = Object.values(byStudentReview).map(group => {
+      // Calculate Panel Average
+      let panelAvg = 0;
+      let panelMax = 0; // Assuming uniform max marks
+      let averagedComponents = [];
+      let isPanelSubmitted = false;
+
+      // Filter only submitted marks for aggregation
+      // If no marks are submitted, we can't calculate a meaningful average for "submitted" status.
+      // However, if we want to show "Pending" status, we can check if any exist.
+      const submittedPanelMarks = group.panelMarksList.filter(m => m.isSubmitted);
+      
+      const nonZeroMarks = submittedPanelMarks.filter(m => (m.totalMarks || 0) > 0);
+      const validPanelMarks = nonZeroMarks.length > 0 ? nonZeroMarks : submittedPanelMarks;
+
+      let validEvaluatorsCount = 0;
+
+      if (validPanelMarks.length > 0) {
+        isPanelSubmitted = true;
+        validEvaluatorsCount = validPanelMarks.length;
+        const sum = validPanelMarks.reduce((acc, curr) => acc + curr.totalMarks, 0);
+        panelAvg = sum / validPanelMarks.length;
+        panelMax = validPanelMarks[0].maxTotalMarks; // Take first member max
+
+        // Calculate Average for Components
+        // We assume all panel members follow the same schema structure for the review
+        if (validPanelMarks[0].componentMarks && validPanelMarks[0].componentMarks.length > 0) {
+          averagedComponents = validPanelMarks[0].componentMarks.map(refComp => {
+            const compName = refComp.componentName;
+
+            let compSum = 0;
+            // Iterate over all submitted marks to find matching component
+            validPanelMarks.forEach(memberMark => {
+              const memberComp = memberMark.componentMarks?.find(c => c.componentName === compName);
+              if (memberComp) {
+                // Use componentTotal which is the aggregated score for the component
+                compSum += (memberComp.componentTotal || 0);
+              }
+            });
+
+            const compAvg = compSum / validPanelMarks.length;
+
+            // Return a new component object with averaged marks
+            return {
+              ...refComp, // Copy structure (name, IDs)
+              // Update score fields
+              marks: parseFloat(compAvg.toFixed(2)),
+              componentTotal: parseFloat(compAvg.toFixed(2)),
+              // subComponents are hard to average deep, preserving structure but marks might be misleading if deep drilled.
+              // For now, top-level component average is what matters for the report/modal.
+              subComponents: [] // Clear subcomponents to avoid confusion or need complex deep averaging
+            };
+          });
+        }
+      }
+
+      return {
+        student: group.student,
+        project: group.project,
+        reviewType: group.reviewType,
+        marks: [
+          // Construct normalized mark objects
+          ...(group.guideExposed ? [{
+            reviewType: group.reviewType,
+            facultyType: 'guide',
+            faculty: group.guideExposed.faculty,
+            componentMarks: group.guideExposed.componentMarks,
+            totalMarks: group.guideExposed.totalMarks,
+            maxTotalMarks: group.guideExposed.maxTotalMarks,
+            isSubmitted: group.guideExposed.isSubmitted
+          }] : []),
+          ...(group.panelMarksList.length > 0 ? [{
+            reviewType: group.reviewType,
+            facultyType: 'panel', // Aggregate Object
+            faculty: { name: "Panel Average" }, // Pseudo faculty
+            componentMarks: averagedComponents,
+            totalMarks: isPanelSubmitted ? parseFloat(panelAvg.toFixed(2)) : 0,
+            maxTotalMarks: isPanelSubmitted ? panelMax : (group.panelMarksList[0]?.maxTotalMarks || 100),
+            isSubmitted: isPanelSubmitted, // Only true if at least one submitted
+            evaluatedBy: validEvaluatorsCount,
+            details: group.panelMarksList // Optional: keep details if frontend needs hover
+          }] : [])
+        ]
+      };
     });
 
     res.status(200).json({
       success: true,
-      data: Object.values(byStudent),
+      data: results,
     });
   } catch (error) {
     res.status(500).json({
@@ -1786,6 +2225,28 @@ export async function assignPanelToProject(req, res) {
 }
 
 // ===== UPDATE PANEL ===== (Missing wrapper)
+export async function bulkAssignPanels(req, res) {
+  try {
+    const { assignments } = req.body;
+    if (!Array.isArray(assignments) || assignments.length === 0) {
+      return res.status(400).json({ success: false, message: "No assignments provided." });
+    }
+
+    const result = await PanelService.bulkAssignPanelsToProjects(assignments, req.user._id);
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk assignment completed. ${result.assignedCount} assigned, ${result.errors} failed.`,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to bulk assign panels."
+    });
+  }
+}
+
 export async function updatePanel(req, res) {
   try {
     const { id } = req.params;
@@ -2493,6 +2954,10 @@ export async function createProgramConfig(req, res) {
       maxPanelSize,
       minPanelSize,
       featureLocks,
+      flagThreshold,
+      autoRejectThreshold,
+      plagiarismCheckEnabled,
+      similarityCheckEnabled,
     } = req.body;
 
     // Check if already exists
@@ -2518,6 +2983,10 @@ export async function createProgramConfig(req, res) {
 
       maxPanelSize: maxPanelSize || 5,
       minPanelSize: minPanelSize || 3,
+      flagThreshold: flagThreshold ?? 60,
+      autoRejectThreshold: autoRejectThreshold ?? 85,
+      plagiarismCheckEnabled: plagiarismCheckEnabled === true,
+      similarityCheckEnabled: similarityCheckEnabled !== false,
       featureLocks:
         featureLocks ||
         [
@@ -2669,3 +3138,132 @@ export async function updateFeatureLock(req, res) {
     });
   }
 }
+
+// ===== FORCE PPT APPROVAL (SUPER ADMIN ONLY) =====
+
+export async function forcePPTApproval(req, res) {
+  try {
+    // Verify super admin
+    if (req.user.employeeId !== "ADMIN001") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. This feature is only available to super admin.",
+      });
+    }
+
+    const { school, program, academicYear, reviewType } = req.body;
+
+    // Validate required fields
+    if (!school || !program || !academicYear || !reviewType) {
+      return res.status(400).json({
+        success: false,
+        message: "School, program, academicYear, and reviewType are required.",
+      });
+    }
+
+    // Find all projects matching the academic context
+    const projects = await Project.find({
+      school,
+      program,
+      academicYear,
+      status: "active",
+    });
+
+    if (projects.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No projects found for the specified context.",
+      });
+    }
+
+    // Filter projects that don't already have PPT approval for this review
+    const projectsToUpdate = projects.filter((project) => {
+      const existingApproval = project.pptApprovals?.find(
+        (a) => a.reviewType === reviewType
+      );
+      return !existingApproval || !existingApproval.isApproved;
+    });
+
+    if (projectsToUpdate.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "All projects already have PPT approval for this review.",
+        data: {
+          totalProjects: projects.length,
+          alreadyApproved: projects.length,
+          newlyApproved: 0,
+        },
+      });
+    }
+
+    // Bulk update projects
+    let updatedCount = 0;
+    const errors = [];
+
+    for (const project of projectsToUpdate) {
+      try {
+        const existingApprovalIndex = project.pptApprovals.findIndex(
+          (a) => a.reviewType === reviewType
+        );
+
+        if (existingApprovalIndex > -1) {
+          // Update existing approval
+          project.pptApprovals[existingApprovalIndex].isApproved = true;
+          project.pptApprovals[existingApprovalIndex].approvedBy = req.user._id;
+          project.pptApprovals[existingApprovalIndex].approvedAt = new Date();
+        } else {
+          // Add new approval
+          project.pptApprovals.push({
+            reviewType: reviewType,
+            isApproved: true,
+            approvedBy: req.user._id,
+            approvedAt: new Date(),
+          });
+        }
+
+        await project.save();
+        updatedCount++;
+      } catch (error) {
+        errors.push({
+          projectId: project._id,
+          projectName: project.name,
+          error: error.message,
+        });
+      }
+    }
+
+    // Log the bulk approval action
+    logger.info("force_ppt_approval", {
+      performedBy: req.user._id,
+      employeeId: req.user.employeeId,
+      school,
+      program,
+      academicYear,
+      reviewType,
+      projectsUpdated: updatedCount,
+      totalProjects: projects.length,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully approved PPT for ${updatedCount} project(s).`,
+      data: {
+        totalProjects: projects.length,
+        alreadyApproved: projects.length - projectsToUpdate.length,
+        newlyApproved: updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+      },
+    });
+  } catch (error) {
+    logger.error("force_ppt_approval_error", {
+      error: error.message,
+      performedBy: req.user._id,
+    });
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+

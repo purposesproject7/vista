@@ -11,6 +11,9 @@ import { CalendarIcon, AcademicCapIcon, UserGroupIcon } from '@heroicons/react/2
 import { useAuth } from '../../../shared/hooks/useAuth';
 import PPTApprovalSection from '../components/PPTApprovalSection';
 import MergeTeamsModal from '../components/MergeTeamsModal';
+import EditProjectModal from '../components/EditProjectModal';
+import TitleAbstractReviewSection from '../components/TitleAbstractReviewSection';
+import { PencilSquareIcon } from '@heroicons/react/24/outline'; // Add icon import
 
 
 const FacultyDashboard = () => {
@@ -72,7 +75,7 @@ const FacultyDashboard = () => {
                     ...prev,
                     year: years.find(y => y === '2024-2025') || years[0] || '',
                     school: initialSchool,
-                    program: initialPrograms[0]?.name || 'All Programs', // Default to first program
+                    program: initialPrograms[0]?.code || 'All Programs', // Default to first program (use code to match selector value)
                     role: 'guide'
                 }));
             } catch (err) {
@@ -96,7 +99,7 @@ const FacultyDashboard = () => {
 
             // Reset program selection if current selection is invalid for new school
             // Default to first program of the new school
-            const firstProgram = relevantPrograms[0]?.name || 'All Programs';
+            const firstProgram = relevantPrograms[0]?.code || 'All Programs';
             setFilters(prev => ({ ...prev, program: firstProgram }));
         }
     }, [filters.school, filterOptions.allPrograms]);
@@ -106,6 +109,15 @@ const FacultyDashboard = () => {
     const [isTeamsExpanded, setIsTeamsExpanded] = useState(false); // Default collapsed
     const [currentReview, setCurrentReview] = useState(null);
     const [currentTeam, setCurrentTeam] = useState(null);
+
+    // Edit Project State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [projectToEdit, setProjectToEdit] = useState(null);
+
+    const handleEditProject = (project) => {
+        setProjectToEdit(project);
+        setIsEditModalOpen(true);
+    };
 
     const handleEnterMarks = (review, team) => {
         setCurrentReview(review);
@@ -171,7 +183,7 @@ const FacultyDashboard = () => {
                     {/* NEW: PPT Approval Section */}
                     {filters.role === 'guide' && (
                         <PPTApprovalSection
-                            reviews={active}
+                            reviews={[...active, ...deadlinePassed]}
                             onRefresh={refreshReviews}
                         />
                     )}
@@ -194,10 +206,11 @@ const FacultyDashboard = () => {
                                     {/* Merge Button: Only show if specific program is selected */}
                                     {filters.school && filters.program && filters.program !== 'All Programs' && (
                                         <Button
-                                            variant="secondary"
+                                            variant="primary"
                                             onClick={() => setIsMergeModalOpen(true)}
-                                            className="!py-1.5 !px-3 !text-xs"
+                                            className="!py-2 !px-4 !text-sm font-bold shadow-md shadow-blue-200 flex items-center gap-2 hover:-translate-y-0.5 transition-transform"
                                         >
+                                            <UserGroupIcon className="w-4 h-4" />
                                             Merge Teams
                                         </Button>
                                     )}
@@ -221,7 +234,19 @@ const FacultyDashboard = () => {
                                                 <span className="text-[10px] font-black uppercase tracking-tighter text-slate-300"># GUIDE</span>
                                             </div>
 
-                                            <h3 className="text-base font-bold text-slate-800 mb-1 truncate">{project.name}</h3>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <h3 className="text-base font-bold text-slate-800 truncate flex-1" title={project.name}>{project.name}</h3>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEditProject(project);
+                                                    }}
+                                                    className="p-1 text-slate-400 hover:text-blue-600 rounded-full hover:bg-blue-50 transition-colors ml-2"
+                                                    title="Edit Project Name"
+                                                >
+                                                    <PencilSquareIcon className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                             <p className="text-xs text-slate-500 line-clamp-2 mb-4 h-8">{project.description || 'No description available for this project.'}</p>
 
                                             <div className="grid grid-cols-2 gap-2 mb-2">
@@ -234,6 +259,11 @@ const FacultyDashboard = () => {
                                                     <p className="text-xs font-bold text-slate-700">{project.academicYear}</p>
                                                 </div>
                                             </div>
+
+                                            <TitleAbstractReviewSection
+                                                project={project}
+                                                onAccepted={refreshReviews}
+                                            />
                                         </div>
                                     ))}
 
@@ -251,7 +281,11 @@ const FacultyDashboard = () => {
                     {/* Active Reviews (Always Open) */}
                     <section className="animate-slideUp">
                         <ActiveReviewsSection
-                            reviews={active}
+                            reviews={active.filter(r => {
+                                // If viewing as Guide, hide reviews that are STRICTLY Panel-only (no guide grading)
+                                if (filters.role === 'guide' && r.facultyType === 'panel') return false;
+                                return true;
+                            })}
                             onEnterMarks={(review, team) => handleEnterMarks(review, team)}
                         />
                     </section>
@@ -352,6 +386,19 @@ const FacultyDashboard = () => {
                     // Optional: Show success toast
                 }}
             />
+
+            {/* EDIT PROJECT MODAL */}
+            {isEditModalOpen && (
+                <EditProjectModal
+                    isOpen={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    project={projectToEdit}
+                    onSuccess={() => {
+                        refreshReviews();
+                        // Optional: Show success toast
+                    }}
+                />
+            )}
 
         </div>
     );

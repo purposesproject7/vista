@@ -6,6 +6,8 @@ import OrganizationSettings from "../components/settings/OrganizationSettings";
 import TeamSettings from "../components/settings/TeamSettings";
 import RubricSettings from "../components/settings/RubricSettings";
 import ModificationSettings from "../components/settings/ModificationSettings";
+import ForcePPTApproval from "../components/settings/ForcePPTApproval";
+import ContentCheckSettings from "../components/settings/ContentCheckSettings";
 import RoleManagement from "../components/RoleManagement";
 
 import { INITIAL_FACULTY } from "../components/faculty-management/facultyData";
@@ -26,6 +28,8 @@ import {
   ClockIcon,
   DocumentTextIcon,
   PencilSquareIcon,
+  CheckCircleIcon,
+  ShieldExclamationIcon,
 } from "@heroicons/react/24/outline";
 
 const AdminSettings = () => {
@@ -131,6 +135,18 @@ const AdminSettings = () => {
       icon: PencilSquareIcon,
       description: "Modify project assignments",
     },
+    {
+      id: "content-check",
+      label: "Content Check",
+      icon: ShieldExclamationIcon,
+      description: "Plagiarism & AI content-check thresholds",
+    },
+    {
+      id: "force-ppt",
+      label: "Force PPT",
+      icon: CheckCircleIcon,
+      description: "Bulk approve PPT for panel reviews",
+    },
   ];
 
   const handleUpdateSchools = async (updated) => {
@@ -192,10 +208,9 @@ const AdminSettings = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`
                     flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all
-                    ${
-                      isActive
-                        ? "bg-blue-600 text-white shadow-md"
-                        : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                    ${isActive
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                     }
                   `}
                   title={tab.description}
@@ -251,6 +266,22 @@ const AdminSettings = () => {
           )}
 
           {activeTab === "modification" && <ModificationSettings />}
+
+          {activeTab === "content-check" && (
+            <ContentCheckSettings
+              schools={schools}
+              programs={programs}
+              years={years}
+            />
+          )}
+
+          {activeTab === "force-ppt" && (
+            <ForcePPTApproval
+              schools={schools}
+              programs={programs}
+              years={years}
+            />
+          )}
         </div>
       </div>
     </div>

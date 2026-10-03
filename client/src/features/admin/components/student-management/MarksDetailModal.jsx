@@ -3,7 +3,7 @@ import React from 'react';
 import Modal from '../../../../shared/components/Modal';
 import Card from '../../../../shared/components/Card';
 import Badge from '../../../../shared/components/Badge';
-import { 
+import {
   ChartBarIcon,
   AcademicCapIcon,
   UserGroupIcon,
@@ -16,14 +16,11 @@ const MarksDetailModal = ({ isOpen, onClose, student }) => {
 
   const guideReviews = student.reviewStatuses?.filter(r => r.type === 'guide') || [];
   const panelReviews = student.reviewStatuses?.filter(r => r.type === 'panel') || [];
-  
+
   const calculateTotal = (reviews) => {
     return reviews.reduce((sum, review) => {
       if (review.marks) {
-        return sum + (review.marks.actionTaken || 0) + 
-               (review.marks.moduleProgress || 0) + 
-               (review.marks.quality || 0) + 
-               (review.marks.documentation || 0);
+        return sum + Object.values(review.marks).reduce((acc, val) => acc + (Number(val) || 0), 0);
       }
       return sum;
     }, 0);
@@ -34,12 +31,9 @@ const MarksDetailModal = ({ isOpen, onClose, student }) => {
   const totalMarks = guideTotal + panelTotal;
 
   const ReviewMarksCard = ({ review }) => {
-    const hasMarks = review.marks && review.status === 'approved';
-    const reviewTotal = hasMarks ? 
-      (review.marks.actionTaken || 0) + 
-      (review.marks.moduleProgress || 0) + 
-      (review.marks.quality || 0) + 
-      (review.marks.documentation || 0) : 0;
+    const hasMarks = review.marks && ['approved', 'submitted'].includes(review.status);
+    const reviewTotal = hasMarks ?
+      Object.values(review.marks).reduce((acc, val) => acc + (Number(val) || 0), 0) : 0;
 
     return (
       <div className="border border-gray-200 rounded-lg p-4 bg-white">
@@ -60,26 +54,16 @@ const MarksDetailModal = ({ isOpen, onClose, student }) => {
 
         {hasMarks ? (
           <div className="space-y-2">
-            <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-              <span className="text-xs text-gray-600">Action Taken on Review 2 Comments</span>
-              <span className="text-sm font-semibold text-gray-900">{review.marks.actionTaken || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-              <span className="text-xs text-gray-600">Module-wise Implementation Progress</span>
-              <span className="text-sm font-semibold text-gray-900">{review.marks.moduleProgress || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-              <span className="text-xs text-gray-600">Quality of Implementation</span>
-              <span className="text-sm font-semibold text-gray-900">{review.marks.quality || 0}</span>
-            </div>
-            <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
-              <span className="text-xs text-gray-600">Documentation Update</span>
-              <span className="text-sm font-semibold text-gray-900">{review.marks.documentation || 0}</span>
-            </div>
+            {Object.entries(review.marks).map(([compName, marks], idx) => (
+              <div key={idx} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded">
+                <span className="text-xs text-gray-600">{compName}</span>
+                <span className="text-sm font-semibold text-gray-900">{marks}</span>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="text-center py-4 text-xs text-gray-500">
-            {review.status === 'pending' ? 'Pending approval' : 'Not submitted'}
+            {['pending', 'not-submitted'].includes(review.status) ? 'Pending/Not Submitted' : 'Not submitted'}
           </div>
         )}
       </div>

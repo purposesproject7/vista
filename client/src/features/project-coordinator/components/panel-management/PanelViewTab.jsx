@@ -8,6 +8,8 @@ import {
   ChevronUpIcon,
   UserIcon,
   DocumentTextIcon,
+  TrashIcon,
+  PencilIcon,
 } from "@heroicons/react/24/outline";
 import AcademicFilterSelector from "../shared/AcademicFilterSelector";
 import Card from "../../../../shared/components/Card";
@@ -16,12 +18,13 @@ import EmptyState from "../../../../shared/components/EmptyState";
 import LoadingSpinner from "../../../../shared/components/LoadingSpinner";
 import { useToast } from "../../../../shared/hooks/useToast";
 import { useAuth } from "../../../../shared/hooks/useAuth";
-import { fetchPanels as apiFetchPanels, fetchProjects } from "../../services/coordinatorApi";
+import { fetchPanels as apiFetchPanels, fetchProjects, deletePanel } from "../../services/coordinatorApi";
 import {
   formatPanelName,
   getMarkingStatusColor,
   getMarkingStatusLabel,
 } from "../../utils/panelUtils";
+import EditPanelModal from "./EditPanelModal";
 
 const PanelViewTab = ({ isPrimary = false }) => {
   const [filters, setFilters] = useState(null);
@@ -32,6 +35,7 @@ const PanelViewTab = ({ isPrimary = false }) => {
   const [markingFilter, setMarkingFilter] = useState("all");
   const [panelProjects, setPanelProjects] = useState({});
   const [loadingProjects, setLoadingProjects] = useState({});
+  const [editingPanel, setEditingPanel] = useState(null);
   const { showToast } = useToast();
   const { user } = useAuth();
 
@@ -141,6 +145,23 @@ const PanelViewTab = ({ isPrimary = false }) => {
       return newExpandedPanel;
     });
   }, [panelProjects, fetchPanelProjects]);
+
+  const handleDeletePanel = async (e, panelId) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this panel?")) {
+      try {
+        await deletePanel(panelId);
+        showToast("Panel deleted successfully", "success");
+        fetchPanelsData(); // Refresh list
+      } catch (error) {
+        console.error("Error deleting panel:", error);
+        showToast(
+          error.response?.data?.message || "Failed to delete panel",
+          "error"
+        );
+      }
+    }
+  };
 
   // Filter panels
   const filteredPanels = panels.filter((panel) => {
@@ -254,6 +275,27 @@ const PanelViewTab = ({ isPrimary = false }) => {
                         >
                           {getMarkingStatusLabel(panel.markingStatus)}
                         </Badge>
+                        {isPrimary && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingPanel(panel);
+                              }}
+                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                              title="Edit Panel"
+                            >
+                              <PencilIcon className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeletePanel(e, panel.id)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                              title="Delete Panel"
+                            >
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          </>
+                        )}
                         {expandedPanel === panel.id ? (
                           <ChevronUpIcon className="w-5 h-5 text-gray-400" />
                         ) : (
@@ -409,6 +451,19 @@ const PanelViewTab = ({ isPrimary = false }) => {
             </div>
           )}
         </>
+      )}
+
+      {/* Edit Panel Modal */}
+      {editingPanel && (
+        <EditPanelModal
+          panel={editingPanel}
+          filters={filters}
+          onClose={() => setEditingPanel(null)}
+          onSuccess={() => {
+            setEditingPanel(null);
+            fetchPanelsData();
+          }}
+        />
       )}
     </div>
   );

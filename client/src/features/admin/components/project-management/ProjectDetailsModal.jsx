@@ -90,6 +90,11 @@ const ProjectDetailsModal = ({ isOpen, onClose, project }) => {
           <div className="text-xs font-semibold text-blue-600 mb-1">{project._id}</div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">{project.name}</h3>
           <p className="text-sm text-gray-600">{project.description || project.type || 'Capstone Project'}</p>
+          {project.sdgGoal && (
+            <div className="mt-2 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-2.5 py-1 rounded-md">
+              SDG: {project.sdgGoal}
+            </div>
+          )}
         </div>
 
         {/* Guide, Panel & Team Summary */}

@@ -123,6 +123,10 @@ const adaptPanel = (backendPanel) => {
   return {
     id: backendPanel._id,
     _id: backendPanel._id,
+    panelName: backendPanel.panelName,
+    panelNumber: backendPanel.panelNumber || (backendPanel.panelName ? backendPanel.panelName.replace(/\D/g, "") : ""),
+    venue: backendPanel.venue,
+    dateTime: backendPanel.dateTime,
     members:
       backendPanel.members?.map((m) => ({
         _id: m._id,
@@ -203,6 +207,7 @@ const adaptProject = (backendProject) => {
       assignedAt: rp.assignedAt,
       assignedBy: rp.assignedBy,
     })) || [],
+    sdgGoal: backendProject.sdgGoal || null,
     createdAt: backendProject.createdAt,
   };
 };
@@ -399,6 +404,14 @@ export const bulkUploadStudents = async (students, school, programme) => {
 };
 
 /**
+ * Notify guides about duplicate projects
+ */
+export const notifyDuplicateProjectGuides = async (duplicates) => {
+  const response = await api.post("/admin/student/notify-duplicate-guides", { duplicates });
+  return response.data;
+};
+
+/**
  * Update student information
  * @param {string} regNo - The student registration number
  * @param {Object} data - Updated student data
@@ -409,11 +422,30 @@ export const updateStudent = async (regNo, data) => {
 };
 
 /**
+ * Undo PAT status for a student
+ * @param {string} regNo - The student registration number
+ */
+export const undoStudentPAT = async (regNo) => {
+  const response = await api.patch(`/admin/student/${regNo}/undo-pat`);
+  return response.data;
+};
+
+/**
  * Delete student
  * @param {string} regNo - The student registration number
  */
 export const deleteStudent = async (regNo) => {
   const response = await api.delete(`/admin/student/${regNo}`);
+  return response.data;
+};
+
+/**
+ * Update student marks (ADMIN001 only)
+ * @param {string} regNo - The student registration number
+ * @param {Object} reviews - Updated reviews data with marks
+ */
+export const updateStudentMarks = async (regNo, reviews) => {
+  const response = await api.put(`/admin/student/${regNo}/marks`, { reviews });
   return response.data;
 };
 
@@ -483,6 +515,136 @@ export const updateFaculty = async (employeeId, data) => {
  */
 export const deleteFaculty = async (employeeId) => {
   const response = await api.delete(`/admin/faculty/${employeeId}`);
+  return response.data;
+};
+
+// ==================== Admin Management APIs (SUDO ADMIN ONLY) ====================
+
+/**
+ * Fetch all admins (ADMIN001 only)
+ */
+export const fetchAdmins = async (filters = {}) => {
+  const params = { ...filters };
+  if (params.department) {
+    params.program = params.department;
+    delete params.department;
+  }
+
+  const response = await api.get("/admin/admins", { params });
+  if (response.data.success) {
+    return {
+      success: true,
+      count: response.data.count,
+      admins: response.data.data.map(adaptFaculty),
+    };
+  }
+  return response.data;
+};
+
+/**
+ * Create admin (ADMIN001 only)
+ */
+export const createAdmin = async (adminData) => {
+  const payload = { ...adminData };
+  if (payload.department) {
+    payload.program = payload.department;
+  }
+  const response = await api.post("/admin/admins", payload);
+  return response.data;
+};
+
+/**
+ * Bulk create admins (ADMIN001 only)
+ */
+export const bulkCreateAdmins = async (adminList) => {
+  const admins = adminList.map(a => ({
+    ...a,
+    program: a.program || a.department
+  }));
+  const response = await api.post("/admin/admins/bulk", { adminList: admins });
+  return response.data;
+};
+
+/**
+ * Update admin (ADMIN001 only)
+ */
+export const updateAdmin = async (employeeId, data) => {
+  const payload = { ...data };
+  if (payload.department) {
+    payload.program = payload.department;
+  }
+  const response = await api.put(`/admin/admins/${employeeId}`, payload);
+  return response.data;
+};
+
+/**
+ * Delete admin (ADMIN001 only)
+ */
+export const deleteAdmin = async (employeeId) => {
+  const response = await api.delete(`/admin/admins/${employeeId}`);
+  return response.data;
+};
+
+
+// ==================== Project Coordinator Management APIs ====================
+
+/**
+ * Fetch all project coordinators with optional filters
+ */
+export const fetchCoordinators = async (filters = {}) => {
+  const params = { ...filters };
+  if (params.department) {
+    params.program = params.department;
+    delete params.department;
+  }
+
+  const response = await api.get("/admin/project-coordinators", { params });
+  if (response.data.success) {
+    return {
+      success: true,
+      count: response.data.count,
+      coordinators: response.data.data,
+    };
+  }
+  return response.data;
+};
+
+/**
+ * Assign a new project coordinator
+ */
+export const assignCoordinator = async (coordinatorData) => {
+  const payload = {
+    ...coordinatorData,
+    program: coordinatorData.programme || coordinatorData.program,
+  };
+  const response = await api.post("/admin/project-coordinators", payload);
+  return response.data;
+};
+
+/**
+ * Update coordinator details (isPrimary, isActive)
+ */
+export const updateCoordinator = async (id, updates) => {
+  const response = await api.put(`/admin/project-coordinators/${id}`, updates);
+  return response.data;
+};
+
+/**
+ * Update coordinator permissions
+ */
+export const updateCoordinatorPermissions = async (id, permissions) => {
+  const response = await api.patch(
+    `/admin/project-coordinators/${id}/permissions`,
+    { permissions }
+  );
+  return response.data;
+};
+
+/**
+ * Remove coordinator (soft delete)
+ */
+export const removeProjectCoordinator = async (id) => {
+  const response = await api.delete(`/admin/project-coordinators/${id}`);
   return response.data;
 };
 
@@ -557,6 +719,16 @@ export const assignPanelToProject = async ({ panelId, projectId, ignoreSpecializ
 };
 
 /**
+ * Bulk assign panels to projects
+ */
+export const bulkAssignPanelsToProjects = async (assignments) => {
+  const response = await api.post("/admin/panels/bulk-assign", {
+    assignments,
+  });
+  return response.data;
+};
+
+/**
  * Auto-assign panels to projects
  */
 export const autoAssignPanels = async ({
@@ -599,7 +771,7 @@ export const fetchProjects = async (filters = {}) => {
 /**
  * Create a single project
  */
-export const createProject = async (projectData) => {
+export const createProject = async (projectData, options = {}) => {
   try {
     // Transform field names for backend
     const payload = {
@@ -613,6 +785,7 @@ export const createProject = async (projectData) => {
       department: projectData.programme || projectData.department, // Keep for robustness
       academicYear: projectData.academicYear,
       description: projectData.description,
+      ignoreDepartmentMismatch: options.ignoreDepartmentMismatch,
     };
 
     const response = await api.post("/admin/projects", payload);
@@ -626,7 +799,7 @@ export const createProject = async (projectData) => {
 /**
  * Bulk create projects
  */
-export const bulkCreateProjects = async (projectsList, signal) => {
+export const bulkCreateProjects = async (projectsList, options = {}) => {
   try {
     // Validate before even hitting the API
     const invalid = projectsList.filter(p => !p.name || !p.guideFacultyEmpId);
@@ -660,6 +833,10 @@ export const bulkCreateProjects = async (projectsList, signal) => {
 
     const response = await api.post("/admin/projects/bulk", projects, { signal });
 
+    const response = await api.post("/admin/projects/bulk", { 
+      projects,
+      ignoreDepartmentMismatch: options.ignoreDepartmentMismatch,
+    });
     return response.data;
 
   } catch (error) {
@@ -671,6 +848,36 @@ export const bulkCreateProjects = async (projectsList, signal) => {
     throw error;
   }
 };
+
+/**
+ * Update project
+ */
+export const updateProject = async (id, projectData) => {
+  try {
+    const response = await api.put(`/admin/projects/${id}`, projectData);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating project:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get all guides with their projects
+ */
+export const fetchGuidesWithProjects = async (filters = {}) => {
+  const response = await api.get("/admin/projects/guides", { params: filters });
+  return response.data;
+};
+
+/**
+ * Get all panels with their projects
+ */
+export const fetchPanelsWithProjects = async (filters = {}) => {
+  const response = await api.get("/admin/projects/panels", { params: filters });
+  return response.data;
+};
+
 /**
  * Mark project as best project
  */
@@ -746,6 +953,14 @@ export const updateRequestStatus = async (
     remarks,
     newDeadline,
   });
+  return response.data;
+};
+
+/**
+ * Approve all pending faculty requests
+ */
+export const approveAllRequests = async () => {
+  const response = await api.put("/admin/requests/approve-all");
   return response.data;
 };
 
@@ -950,31 +1165,6 @@ export const updateProjectCoordinator = async (coordinatorId, data) => {
   return response.data;
 };
 
-/**
- * Update coordinator permissions
- */
-export const updateCoordinatorPermissions = async (
-  coordinatorId,
-  permissions
-) => {
-  const response = await api.patch(
-    `/admin/project-coordinators/${coordinatorId}/permissions`,
-    {
-      permissions,
-    }
-  );
-  return response.data;
-};
-
-/**
- * Remove project coordinator
- */
-export const removeProjectCoordinator = async (coordinatorId) => {
-  const response = await api.delete(
-    `/admin/project-coordinators/${coordinatorId}`
-  );
-  return response.data;
-};
 
 // ==================== Marking Schema APIs ====================
 
@@ -1100,6 +1290,24 @@ export const updateFeatureLock = async (configId, featureLocks) => {
   return response.data;
 };
 
+// ==================== Force PPT Approval (Super Admin Only) ====================
+
+/**
+ * Force approve PPT for all projects in a specific academic context
+ * @param {Object} context - { school, program, academicYear, reviewType }
+ */
+export const forcePPTApproval = async (context) => {
+  const payload = {
+    school: context.school,
+    program: context.program || context.programme || context.department,
+    academicYear: context.academicYear,
+    reviewType: context.reviewType,
+  };
+
+  const response = await api.post("/admin/force-ppt-approval", payload);
+  return response.data;
+};
+
 // Export all as default
 export default {
   // Master Data
@@ -1130,6 +1338,7 @@ export default {
   updatePanel,
   deletePanel,
   assignPanelToProject,
+  bulkAssignPanelsToProjects,
   autoAssignPanels,
 
   // Projects
@@ -1143,6 +1352,7 @@ export default {
   // Requests
   fetchRequests,
   updateRequestStatus,
+  approveAllRequests,
 
   // Broadcasts
   fetchBroadcasts,
@@ -1175,4 +1385,7 @@ export default {
   updateProgramConfig,
   saveProgramConfig,
   updateFeatureLock,
+
+  // Force PPT Approval (Super Admin Only)
+  forcePPTApproval,
 };

@@ -5,25 +5,14 @@ import Navbar from "../../../shared/components/Navbar";
 import AdminTabs from "../components/shared/AdminTabs";
 import StudentViewTab from "../components/student-management/StudentViewTab";
 import StudentUploadTab from "../components/student-management/StudentUploadTab";
-import { fetchStudents } from "../services/adminApi";
 
 const StudentManagement = () => {
   const [activeTab, setActiveTab] = useState("view");
   const [totalStudents, setTotalStudents] = useState(0);
 
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const response = await fetchStudents({});
-        if (response.success) {
-          setTotalStudents(response.count || 0);
-        }
-      } catch (error) {
-        console.error("Failed to load stats", error);
-      }
-    };
-    loadStats();
-  }, []);
+  const handleStudentsLoaded = (count) => {
+    setTotalStudents(count);
+  };
 
   const studentTabs = [
     {
@@ -66,11 +55,10 @@ const StudentManagement = () => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`
                     flex items-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all
-                    ${
-                      isActive
+                    ${isActive
                         ? "bg-blue-600 text-white shadow-md"
                         : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-                    }
+                      }
                   `}
                     title={tab.description}
                   >
@@ -92,7 +80,7 @@ const StudentManagement = () => {
 
         {/* Tab Content */}
         <div>
-          {activeTab === "view" && <StudentViewTab />}
+          {activeTab === "view" && <StudentViewTab onStudentsLoaded={handleStudentsLoaded} />}
           {activeTab === "upload" && <StudentUploadTab />}
         </div>
       </div>

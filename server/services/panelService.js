@@ -2,8 +2,8 @@ import Panel from "../models/panelSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
+import Student from "../models/studentSchema.js";
 import { logger } from "../utils/logger.js";
-
 export class PanelService {
   /**
    * Validate panel members
@@ -30,19 +30,18 @@ export class PanelService {
       throw new Error(`Faculty not found: ${missing.join(", ")}`);
     }
 
-    // Validate all faculties are from the same school and program
-    const invalidMembers = faculties.filter(
-      (f) => f.school !== school || 
-             (Array.isArray(f.program) ? !f.program.includes(program) : f.program !== program)
-    );
+    // // Validate all faculties are from the same school and program
+    // const invalidMembers = faculties.filter(
+    //   (f) => f.school !== school || f.program !== program
+    // );
 
-    if (invalidMembers.length > 0) {
-      throw new Error(
-        `All panel members must be from ${school} - ${program}. Invalid: ${invalidMembers
-          .map((f) => f.employeeId)
-          .join(", ")}`
-      );
-    }
+    // if (invalidMembers.length > 0) {
+    //   throw new Error(
+    //     `All panel members must be from ${school} - ${program}. Invalid: ${invalidMembers
+    //       .map((f) => f.employeeId)
+    //       .join(", ")}`
+    //   );
+    // }
 
     // Validate panel size
     const config = await ProgramConfig.findOne({
@@ -113,10 +112,12 @@ export class PanelService {
           : facultyNames;
     }
 
+    const sanitizedVenue = venue ? venue.replace(/<[^>]*>/g, '').trim() : null;
+
     const panel = new Panel({
       panelName,
       members,
-      venue: venue || "TBD",
+      venue: sanitizedVenue || "TBD",
       dateTime: dateTime || null,
       academicYear,
       school,
@@ -150,13 +151,24 @@ export class PanelService {
   static async getPanelList(filters = {}) {
     const query = { isActive: true };
 
-    // Panel are active across academic years or manage their own lifecycle
-    // Removing academicYear from strict filter if it causes issues, 
-    // or ensure it matches exactly what's in DB.
-    // Based on user request to fix like faculty, removing might be safer if DB has mixed data.
-    if (filters.academicYear) delete filters.academicYear;
-    if (filters.school) query.school = filters.school;
-    if (filters.program) query.program = filters.program;
+    if (filters.academicYear) {
+      query.academicYear = filters.academicYear;
+    }
+
+    // Handle 'all' as special case to fetch panels from all schools
+    if (filters.school && filters.school !== 'all') {
+      query.school = filters.school;
+    }
+
+    // Handle 'all' as special case to fetch panels from all programs
+    if (filters.program && filters.program !== 'all') {
+      if (Array.isArray(filters.program)) {
+        query.program = { $in: filters.program };
+      } else {
+        query.program = filters.program;
+      }
+    }
+
     if (filters.specialization) {
       query.specializations = { $in: [filters.specialization] };
     }
@@ -206,7 +218,11 @@ export class PanelService {
     const validUpdates = {};
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
-        validUpdates[field] = updates[field];
+        if (field === "venue") {
+          validUpdates[field] = String(updates[field]).replace(/<[^>]*>/g, '').trim();
+        } else {
+          validUpdates[field] = updates[field];
+        }
       }
     }
 
@@ -268,10 +284,24 @@ export class PanelService {
       );
     }
 
-    // Check capacity
-    if (panel.assignedProjectsCount >= panel.maxProjects) {
+    // Always fetch the LIVE config so that TeamSettings changes are reflected immediately.
+    // The panel.maxProjects stored at creation time can be stale if admin changed the config.
+    const liveConfig = await ProgramConfig.findOne({
+      academicYear: project.academicYear,
+      school: project.school,
+      program: project.program,
+    });
+    const effectiveMaxProjects = liveConfig?.maxProjectsPerPanel ?? panel.maxProjects ?? 10;
+
+    // Sync the panel's stored limit with the live config so future checks are also correct
+    if (panel.maxProjects !== effectiveMaxProjects) {
+      panel.maxProjects = effectiveMaxProjects;
+    }
+
+    // Check capacity against the live limit
+    if (panel.assignedProjectsCount >= effectiveMaxProjects) {
       throw new Error(
-        `Panel has reached maximum capacity (${panel.maxProjects} projects).`
+        `Panel has reached maximum capacity (${effectiveMaxProjects} projects).`
       );
     }
 
@@ -355,7 +385,8 @@ export class PanelService {
     program,
     panelSize = null,
     createdBy = null,
-    facultyList = null
+    facultyList = null,
+    venue = null
   ) {
     const results = {
       panelsCreated: 0,
@@ -460,7 +491,7 @@ export class PanelService {
                 school,
                 program,
                 specializations: [specialization],
-                venue: `Panel Room ${results.panelsCreated + 1}`,
+                venue: venue || `Panel Room ${results.panelsCreated + 1}`,
               },
               createdBy
             );
@@ -516,6 +547,7 @@ export class PanelService {
     const safeYear = academicYear?.trim();
 
     let allPanels = await Panel.find({
+      academicYear: safeYear,
       school: { $regex: new RegExp(`^${safeSchool}$`, "i") },
       program: { $regex: new RegExp(`^${safeProgram}$`, "i") },
       isActive: true,
@@ -562,12 +594,20 @@ export class PanelService {
       };
     }
 
+    // Fetch the live config once for effective max projects per panel
+    const liveConfig = await ProgramConfig.findOne({
+      academicYear: safeYear,
+      school: { $regex: new RegExp(`^${safeSchool}$`, "i") },
+      program: { $regex: new RegExp(`^${safeProgram}$`, "i") },
+    });
+    const effectiveMaxProjectsPerPanel = liveConfig?.maxProjectsPerPanel ?? 10;
+
     for (const project of projects) {
       try {
         // Filter candidates from activePanels
-        // Must have capacity
+        // Must have capacity — use live config limit for correct validation
         const candidates = activePanels.filter(
-          (p) => p.assignedProjectsCount < p.maxProjects
+          (p) => p.assignedProjectsCount < effectiveMaxProjectsPerPanel
         );
 
         if (candidates.length === 0) {
@@ -699,9 +739,22 @@ export class PanelService {
       );
     }
 
-    // Check capacity
-    if (newPanel.assignedProjectsCount >= newPanel.maxProjects) {
-      throw new Error(`Target panel is full (Max: ${newPanel.maxProjects}).`);
+    // Always fetch the LIVE config so that TeamSettings changes are reflected immediately.
+    const liveConfig = await ProgramConfig.findOne({
+      academicYear: project.academicYear,
+      school: project.school,
+      program: project.program,
+    });
+    const effectiveMaxProjects = liveConfig?.maxProjectsPerPanel ?? newPanel.maxProjects ?? 10;
+
+    // Sync the panel's stored limit with the live config
+    if (newPanel.maxProjects !== effectiveMaxProjects) {
+      newPanel.maxProjects = effectiveMaxProjects;
+    }
+
+    // Check capacity against the live limit
+    if (newPanel.assignedProjectsCount >= effectiveMaxProjects) {
+      throw new Error(`Target panel is full (Max: ${effectiveMaxProjects}).`);
     }
 
     // Specialization check
@@ -747,5 +800,74 @@ export class PanelService {
     await project.save();
 
     return { project, oldPanelId, newPanelId };
+  }
+
+  /**
+   * Bulk assign panels to projects based on Excel upload data
+   */
+  static async bulkAssignPanelsToProjects(assignments, assignedBy = null) {
+    const results = {
+      assignedCount: 0,
+      errors: 0,
+      details: [],
+    };
+
+    for (const [index, row] of assignments.entries()) {
+      try {
+        const projectName = row.ProjectTitle || row.projectName || row["Project Title"];
+        const studentRegNo = row.StudentRegNo || row.studentRegNo || row["Student RegNo"] || row.RegNo;
+        const panelName = row.PanelName || row.panelName || row["Panel Name"];
+
+        if (!panelName) {
+          throw new Error("Missing Panel Name");
+        }
+
+        if (!projectName && !studentRegNo) {
+          throw new Error("Missing Project Title or Student RegNo");
+        }
+
+        // Find Project
+        let project = null;
+        if (studentRegNo) {
+          const student = await Student.findOne({ regNo: { $regex: new RegExp(`^${studentRegNo}$`, "i") } });
+          if (!student) throw new Error(`Student ${studentRegNo} not found`);
+          project = await Project.findOne({ students: student._id, status: { $ne: "archived" } });
+        } else if (projectName) {
+          project = await Project.findOne({ 
+            name: { $regex: new RegExp(`^${projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
+            status: { $ne: "archived" }
+          });
+        }
+
+        if (!project) {
+          throw new Error(`Project not found for ${projectName || studentRegNo}`);
+        }
+
+        // Find Panel
+        const panel = await Panel.findOne({ 
+          panelName: { $regex: new RegExp(`^${panelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } 
+        });
+        
+        if (!panel) {
+          throw new Error(`Panel '${panelName}' not found`);
+        }
+
+        // Call the regular assign method (skip validation for specialization if bulk assigning)
+        await this.assignPanelToProject(panel._id, project._id, assignedBy, true);
+        results.assignedCount++;
+        
+      } catch (error) {
+        // If error is "Project already assigned", we might want to skip or record
+        results.errors++;
+        results.details.push({
+          row: index + 1,
+          panelName: row.PanelName || row.panelName || "Unknown",
+          projectRef: row.ProjectTitle || row.StudentRegNo || "Unknown",
+          error: error.message
+        });
+      }
+    }
+
+    return results;
   }
 }
