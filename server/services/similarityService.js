@@ -31,7 +31,8 @@ function dot(a, b) {
 }
 
 /**
- * Top matches among every other project that has an embedding, as
+ * Top matches among every other project that has an embedding (approved
+ * title/abstracts only, see acceptTitleAbstract and the backfill), as
  * { project, title, academicYear, score } with score 0-100.
  */
 export async function findSimilar(vector, excludeProjectId) {
@@ -41,14 +42,14 @@ export async function findSimilar(vector, excludeProjectId) {
     _id: { $ne: excludeProjectId },
     "abstractEmbedding.0": { $exists: true },
   })
-    .select("+abstractEmbedding name proposedTitle academicYear")
+    .select("+abstractEmbedding name academicYear")
     .lean();
 
   return candidates
     .filter((p) => p.abstractEmbedding.length === vector.length)
     .map((p) => ({
       project: p._id,
-      title: p.proposedTitle || p.name,
+      title: p.name,
       academicYear: p.academicYear,
       score: Math.max(0, Math.round(dot(vector, p.abstractEmbedding) * 100)),
     }))

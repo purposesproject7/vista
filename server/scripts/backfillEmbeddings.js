@@ -1,6 +1,11 @@
-// Embed every project that has a title/abstract but no embedding yet, so past
-// projects become the corpus new submissions are compared against.
-// Also downloads/warms the model, so run it once on deploy:
+// Sync the comparison corpus with approved title/abstracts:
+//  1. drop embeddings from projects mid-submission (pending, rejected, ...),
+//     which older versions stored at submit time;
+//  2. embed every project with an approved abstract but no embedding — past
+//     projects, imports, and any acceptance whose embedding failed.
+// Uses project.name + project.abstract, the fields a guide's acceptance locks;
+// never the proposed (unapproved) ones. Also downloads/warms the model, so it
+// runs on every deploy. Safe to re-run.
 //   node scripts/backfillEmbeddings.js
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -14,20 +19,27 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 
 await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
 
+// not_started/unset = never submitted, so any embedding came from an approved abstract.
+const { modifiedCount } = await Project.updateMany(
+  {
+    titleAbstractStatus: { $nin: ["accepted", "not_started", null] },
+    "abstractEmbedding.0": { $exists: true },
+  },
+  { $unset: { abstractEmbedding: 1 } }
+);
+console.log(`Removed ${modifiedCount} embeddings of unapproved submissions.`);
+
 const projects = await Project.find({
   "abstractEmbedding.0": { $exists: false },
-  $or: [
-    { proposedAbstract: { $nin: [null, ""] } },
-    { abstract: { $nin: [null, ""] } },
-  ],
+  abstract: { $nin: [null, ""] },
 })
-  .select("name proposedTitle proposedAbstract abstract")
+  .select("name abstract")
   .lean();
 
 console.log(`Embedding ${projects.length} projects...`);
 let done = 0;
 for (const p of projects) {
-  const text = embeddingText(p.proposedTitle || p.name, p.proposedAbstract || p.abstract);
+  const text = embeddingText(p.name, p.abstract);
   await Project.updateOne({ _id: p._id }, { abstractEmbedding: await embed(text) });
   if (++done % 100 === 0) console.log(`  ${done}/${projects.length}`);
 }

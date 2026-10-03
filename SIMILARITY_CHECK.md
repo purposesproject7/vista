@@ -6,8 +6,8 @@ When a team submits its title and abstract, the server checks whether a similar 
 
 1. One teammate submits the title and abstract for the whole team.
 2. A local model, `Xenova/bge-base-en-v1.5`, turns the title and abstract into a list of 768 numbers called an **embedding**. Abstracts with similar meaning get similar numbers, even when the wording is different.
-3. The embedding is saved on the project (the `abstractEmbedding` field).
-4. The new embedding is compared against every other project's embedding. The closest match gives the **similarity score**, from 0 to 100.
+3. The embedding is compared against every **approved** project's embedding. The closest match gives the **similarity score**, from 0 to 100. The submission itself is not stored for comparison yet.
+4. When the guide accepts the title and abstract, the approved text is embedded and saved on the project (the `abstractEmbedding` field). From then on, later submissions are compared against it. Pending and rejected submissions are never in the comparison set.
 5. The score decides what happens next:
 
 | Similarity | Result |
@@ -34,7 +34,7 @@ If the model fails for any reason, the submission still goes through without a s
 
 The check can only compare against projects that already have an embedding. Projects created before this feature have none, so new submissions would never be matched against them.
 
-**Backfill** is a one-time script that goes through those existing projects and creates their embeddings. It processes only projects that have an abstract but no embedding yet. Running it again is safe: it skips projects that are already done.
+**Backfill** goes through existing projects and creates their embeddings from the approved title and abstract (`name` + `abstract`, never the unapproved proposal). It processes only projects that have an abstract but no embedding yet. It also removes embeddings that older versions stored for submissions still in progress (pending, rejected), so only approved work is compared against. Running it again is safe: it skips projects that are already done.
 
 The first run also downloads the model (about 110 MB) to the server's cache. Without it, the first student to submit would wait for that download.
 
@@ -59,13 +59,14 @@ The backfill reads `MONGO_URI` from `server/.env`, so it runs against whatever d
 Example output:
 
 ```
+Removed 3 embeddings of unapproved submissions.
 Embedding 2841 projects...
   100/2841
   ...
 Done: 2841 projects embedded.
 ```
 
-Run it again whenever projects are bulk-imported with abstracts, for example from Excel. Normal student submissions embed themselves automatically.
+Run it again whenever projects are bulk-imported with abstracts, for example from Excel. Projects a guide accepts are embedded automatically at acceptance.
 
 ## Checking that it works
 
@@ -105,7 +106,7 @@ sudo ./deploy/provision.sh    # re-runs the backfill with the new model
 | File | What it does |
 |---|---|
 | `server/services/similarityService.js` | Loads the model, creates embeddings, finds the closest projects |
-| `server/services/titleAbstractService.js` | Runs the check on submission and applies the thresholds |
+| `server/services/titleAbstractService.js` | Runs the check on submission and applies the thresholds; embeds the approved text on acceptance |
 | `server/models/projectSchema.js` | `abstractEmbedding`, `contentCheck.similarityScore`, `contentCheck.similarProjects` |
-| `server/scripts/backfillEmbeddings.js` | The one-time backfill |
+| `server/scripts/backfillEmbeddings.js` | The backfill (runs on every deploy) |
 | `server/scripts/similarityCheck.js` | Self-check |

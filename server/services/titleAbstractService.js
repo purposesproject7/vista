@@ -1,7 +1,7 @@
 import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { PlagiarismService } from "./plagiarismService.js";
-import { checkSimilarity } from "./similarityService.js";
+import { checkSimilarity, embed, embeddingText } from "./similarityService.js";
 import { logger } from "../utils/logger.js";
 
 // Similarity to an existing project (0-100). Embedding cosine scores sit high
@@ -112,15 +112,12 @@ export class TitleAbstractService {
       performedByModel: "Student",
     });
 
-    // Duplicate-project check. A model failure must not block submission, so
-    // it degrades to "not checked" and the guide reviews as before.
+    // Duplicate-project check against approved projects only. The submission
+    // itself is not stored for comparison until the guide accepts it. A model
+    // failure must not block submission: it degrades to "not checked".
     let similarity = { similarityScore: null, similarProjects: [] };
     try {
       similarity = await checkSimilarity(confirmedTitle, confirmedAbstract, project._id);
-      await Project.updateOne(
-        { _id: project._id },
-        { abstractEmbedding: similarity.vector }
-      );
     } catch (error) {
       logger.error("similarity_check_failed", {
         projectId: project._id,
@@ -296,6 +293,17 @@ export class TitleAbstractService {
     });
 
     await project.save();
+
+    // Approved title/abstract joins the corpus later submissions are compared
+    // against. Not fatal: the backfill embeds any project left without one.
+    try {
+      await Project.updateOne(
+        { _id: project._id },
+        { abstractEmbedding: await embed(embeddingText(project.name, project.abstract)) }
+      );
+    } catch (error) {
+      logger.error("accept_embedding_failed", { projectId: project._id, error: error.message });
+    }
 
     logger.info("title_abstract_accepted", {
       projectId: project._id,
