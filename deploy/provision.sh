@@ -109,12 +109,93 @@ if [ ! -f "$SECRETS" ]; then
 fi
 . "$SECRETS"
 
-# TLS material. Defaults live in /etc/certs; override SSL_CERT / SSL_KEY in
-# $CONF if your issued cert uses different filenames (e.g. vista.crt /
-# vista.key), or point them at /etc/letsencrypt/live/<domain>/ for certbot.
+# TLS material, normally in /etc/certs. SSL_CERT / SSL_KEY in $CONF win when
+# those files exist; otherwise the files a CA actually hands over are found
+# and used as they are: the private key (*.key or privkey.pem) plus either a
+# ready full chain (fullchain.crt / .pem) or the server certificate and its
+# intermediate(s), which are joined into fullchain.crt (server cert first, as
+# nginx requires). Or point SSL_CERT / SSL_KEY at /etc/letsencrypt/live/<domain>/.
 SSL_DIR="${SSL_DIR:-/etc/certs}"
 SSL_CERT="${SSL_CERT:-$SSL_DIR/fullchain.pem}"
 SSL_KEY="${SSL_KEY:-$SSL_DIR/privkey.pem}"
+
+# Fingerprint of the public key in a certificate / private key: equal means
+# they belong together. (No `| grep -q` here: with pipefail it can misfire.)
+cert_pub() { openssl x509 -in "$1" -noout -pubkey 2>/dev/null | openssl sha256; }
+key_pub()  { openssl pkey -in "$1" -pubout 2>/dev/null | openssl sha256; }
+set_conf() { # set_conf VAR value: update or add a line in $CONF
+  if grep -q "^$1=" "$CONF"; then sed -i "s|^$1=.*|$1='$2'|" "$CONF"; else echo "$1='$2'" >> "$CONF"; fi
+}
+
+if [ ! -s "$SSL_KEY" ] || [ ! -s "$SSL_CERT" ]; then
+  shopt -s nullglob
+  keys=()
+  for f in "$SSL_DIR"/*.key "$SSL_DIR"/privkey.pem; do
+    if [ -s "$f" ]; then keys+=("$f"); fi # privkey.pem is literal, not a glob
+  done
+  certs=("$SSL_DIR"/*.crt "$SSL_DIR"/*.pem "$SSL_DIR"/*.cer)
+  shopt -u nullglob
+  # Only guess the key when there is exactly one.
+  [ ! -s "$SSL_KEY" ] && [ "${#keys[@]}" -eq 1 ] && SSL_KEY="${keys[0]}"
+
+  if [ ! -s "$SSL_CERT" ] && [ -s "$SSL_KEY" ]; then
+    KEY_PUB=$(key_pub "$SSL_KEY")
+    for f in "$SSL_DIR/fullchain.crt" "$SSL_DIR/fullchain.pem"; do
+      if [ -s "$f" ] && [ "$(cert_pub "$f")" = "$KEY_PUB" ]; then SSL_CERT="$f"; break; fi
+    done
+  fi
+
+  if [ ! -s "$SSL_CERT" ] && [ -s "$SSL_KEY" ]; then
+    # The server cert is the one matching the key; intermediates are the other
+    # CA certificates that are not self-signed roots.
+    leaf=""; inter=()
+    for f in "${certs[@]}"; do
+      case "$f" in */fullchain.*|*/privkey.pem) continue ;; esac
+      info=$(openssl x509 -in "$f" -noout -text 2>/dev/null) || continue
+      if [ "$(cert_pub "$f")" = "$KEY_PUB" ]; then
+        leaf="$f"
+      elif [[ $info == *"CA:TRUE"* ]] && \
+           [ "$(openssl x509 -in "$f" -noout -subject -nameopt RFC2253 | cut -d= -f2-)" != \
+             "$(openssl x509 -in "$f" -noout -issuer -nameopt RFC2253 | cut -d= -f2-)" ]; then
+        inter+=("$f")
+      fi
+    done
+    if [ -n "$leaf" ]; then
+      # ponytail: intermediates in filename order; fine for the usual single
+      # intermediate, order them by issuer if a CA ever ships a longer chain.
+      cat "$leaf" "${inter[@]}" > "$SSL_DIR/fullchain.crt"
+      SSL_CERT="$SSL_DIR/fullchain.crt"
+      ok "assembled $SSL_CERT from $(basename "$leaf") + ${#inter[@]} intermediate(s)"
+    fi
+  fi
+
+  if [ -s "$SSL_CERT" ] && [ -s "$SSL_KEY" ]; then
+    set_conf SSL_CERT "$SSL_CERT"
+    set_conf SSL_KEY "$SSL_KEY"
+    ok "TLS files: $SSL_CERT + $SSL_KEY (saved in $CONF)"
+  fi
+fi
+
+# Check the certificate before nginx is pointed at it. Warnings only: the
+# deploy carries on, and the verify step at the end reports the result.
+TLS_OK=no
+if [ -s "$SSL_CERT" ] && [ -s "$SSL_KEY" ]; then
+  chmod 600 "$SSL_KEY"
+  tls_warn=0
+  [ "$(cert_pub "$SSL_CERT")" = "$(key_pub "$SSL_KEY")" ] \
+    || { echo "    TLS: $SSL_KEY does not belong to $SSL_CERT"; tls_warn=1; }
+  openssl x509 -in "$SSL_CERT" -noout -checkend 0 >/dev/null 2>&1 \
+    || { echo "    TLS: $SSL_CERT has EXPIRED"; tls_warn=1; }
+  host_check=$(openssl x509 -in "$SSL_CERT" -noout -checkhost "$DOMAIN" 2>/dev/null || true)
+  [[ $host_check == *"does match"* ]] \
+    || { echo "    TLS: $SSL_CERT does not cover $DOMAIN"; tls_warn=1; }
+  [ "$(grep -c "BEGIN CERTIFICATE" "$SSL_CERT" || true)" -ge 2 ] \
+    || { echo "    TLS: $SSL_CERT has no intermediate certificate; phones and some browsers will reject it"; tls_warn=1; }
+  if [ "$tls_warn" = 0 ]; then
+    TLS_OK=yes
+    ok "TLS certificate valid for $DOMAIN until $(openssl x509 -in "$SSL_CERT" -noout -enddate | cut -d= -f2)"
+  fi
+fi
 
 # Hosts served over plain HTTP with no redirect to https — space separated,
 # normally the LAN IP, so the app is usable before TLS works. Everything on
@@ -765,6 +846,8 @@ fail=0
 [ -L /etc/nginx/sites-enabled/vista ] && ok "sites-enabled/vista linked" || { echo "    sites-enabled/vista MISSING"; fail=1; }
 grep -q "ssl_certificate  *${SSL_CERT};" /etc/nginx/sites-available/vista \
   && ok "nginx points at ${SSL_CERT}" || { echo "    cert path NOT in site config"; fail=1; }
+[ "$TLS_OK" = yes ] && ok "TLS certificate checks out for ${DOMAIN}" \
+  || echo "    TLS certificate not usable yet (see the TLS lines earlier in this run)"
 if nginx -t >/dev/null 2>&1; then
   ok "nginx config valid"
   nginx -T 2>/dev/null | grep -q "server_name ${DOMAIN}" \
@@ -815,7 +898,12 @@ if [ ! -s "$SSL_CERT" ]; then
   echo "  ${SSL_CERT}   <- full chain (server cert + intermediates)"
   echo "  ${SSL_KEY}   <- private key"
   echo "  then: nginx -t && systemctl reload nginx"
-  echo "  Different filenames? Set SSL_CERT / SSL_KEY in ${CONF} and re-run."
+  echo "  Or drop the CA's files (server .crt, intermediate .crt, .key) in ${SSL_DIR} and re-run:"
+  echo "  they are found, assembled and checked automatically."
+fi
+if [ "$TLS_OK" = yes ] && [ "${ENABLE_HSTS:-no}" != yes ]; then
+  echo "NEXT — the certificate checks out. Once the site loads without warnings in a"
+  echo "  browser, turn on HSTS: set ENABLE_HSTS='yes' in ${CONF} and re-run."
 fi
 echo "Deployed branch: $(git -C "$APP_DIR" rev-parse --abbrev-ref HEAD) @ $(git -C "$APP_DIR" rev-parse --short HEAD)"
 if grep -q '"setup-admin"' "$APP_DIR/server/package.json"; then
