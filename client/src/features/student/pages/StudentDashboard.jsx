@@ -47,8 +47,7 @@ const StudentDashboard = () => {
   const handleSubmit = async ({ title, abstract }) => {
     setSubmitting(true);
     try {
-      const result = await submitTitleAbstract({ title, abstract });
-      setStatusData((prev) => ({ ...prev, ...result, mySubmission: { title, abstract } }));
+      await submitTitleAbstract({ title, abstract });
       showToast("Title and abstract submitted.", "success");
     } catch (err) {
       showToast(
@@ -56,6 +55,8 @@ const StudentDashboard = () => {
         "error"
       );
     } finally {
+      // Refetch either way: a teammate may have submitted first (409).
+      await loadData();
       setSubmitting(false);
     }
   };

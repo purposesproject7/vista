@@ -1,5 +1,4 @@
 import Project from "../models/projectSchema.js";
-import Student from "../models/studentSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { PlagiarismService } from "./plagiarismService.js";
 import { checkSimilarity } from "./similarityService.js";
@@ -15,14 +14,6 @@ const TITLE_MAX_LENGTH = 200;
 const ABSTRACT_MIN_WORDS = 250;
 const ABSTRACT_MAX_WORDS = 500;
 
-function normalize(text) {
-  return text
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
 function wordCount(text) {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -37,7 +28,7 @@ function forStudent(contentCheck) {
 async function findStudentProject(studentId) {
   const project = await Project.findOne({ students: studentId }).populate(
     "students",
-    "name regNo emailId titleAbstractSubmission"
+    "name regNo emailId"
   );
 
   if (!project) {
@@ -50,13 +41,10 @@ async function findStudentProject(studentId) {
 }
 
 export class TitleAbstractService {
-  static normalize = normalize;
-
   /**
-   * Submit (or re-submit) a student's proposed title/abstract. Once every
-   * teammate has submitted, compares the normalized values across the team:
-   * a match advances the project to plagiarism/AI review, a mismatch surfaces
-   * a discrepancy for the team to resolve.
+   * Submit (or re-submit) the team's title/abstract. Any one teammate submits
+   * for the whole team: it goes straight to the plagiarism/AI/similarity check,
+   * then to guide review. Blocked while under review or once accepted.
    */
   static async submitTitleAbstract(studentId, { title, abstract }) {
     if (!title || !title.trim()) {
@@ -104,74 +92,25 @@ export class TitleAbstractService {
       throw err;
     }
 
-    await Student.findByIdAndUpdate(studentId, {
-      titleAbstractSubmission: {
-        title: title.trim(),
-        abstract: abstract.trim(),
-        submittedAt: new Date(),
-      },
-    });
+    if (project.titleAbstractStatus === "pending_review") {
+      const err = new Error(
+        "Your team has already submitted a title and abstract; it is awaiting your guide's review."
+      );
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // One teammate submits for the whole team; it goes straight to the content check.
+    const confirmedTitle = title.trim();
+    const confirmedAbstract = abstract.trim();
 
     project.titleAbstractHistory.push({
       action: "submitted",
-      title: title.trim(),
-      abstract: abstract.trim(),
+      title: confirmedTitle,
+      abstract: confirmedAbstract,
       performedBy: studentId,
       performedByModel: "Student",
     });
-
-    // Reload teammates' submissions (including the one just written)
-    const teammates = await Student.find({
-      _id: { $in: project.students.map((s) => s._id) },
-    }).select("titleAbstractSubmission name regNo");
-
-    const allSubmitted = teammates.every((s) => s.titleAbstractSubmission?.title);
-
-    if (!allSubmitted) {
-      project.titleAbstractStatus = "pending_consensus";
-      await project.save();
-      return {
-        status: project.titleAbstractStatus,
-        waitingOn: teammates
-          .filter((s) => !s.titleAbstractSubmission?.title)
-          .map((s) => ({ name: s.name, regNo: s.regNo })),
-      };
-    }
-
-    const normalizedTitles = teammates.map((s) =>
-      normalize(s.titleAbstractSubmission.title)
-    );
-    const normalizedAbstracts = teammates.map((s) =>
-      normalize(s.titleAbstractSubmission.abstract)
-    );
-
-    const titlesMatch = normalizedTitles.every((t) => t === normalizedTitles[0]);
-    const abstractsMatch = normalizedAbstracts.every(
-      (a) => a === normalizedAbstracts[0]
-    );
-
-    if (!titlesMatch || !abstractsMatch) {
-      project.titleAbstractStatus = "discrepancy";
-      project.titleAbstractHistory.push({
-        action: "discrepancy",
-        performedBy: studentId,
-        performedByModel: "Student",
-      });
-      await project.save();
-      return {
-        status: project.titleAbstractStatus,
-        submissions: teammates.map((s) => ({
-          name: s.name,
-          regNo: s.regNo,
-          title: s.titleAbstractSubmission.title,
-          abstract: s.titleAbstractSubmission.abstract,
-        })),
-      };
-    }
-
-    // Consensus reached — run the content check before handing off to the guide
-    const confirmedTitle = teammates[0].titleAbstractSubmission.title;
-    const confirmedAbstract = teammates[0].titleAbstractSubmission.abstract;
 
     const { plagiarismScore, aiScore } = await PlagiarismService.checkContent(
       confirmedAbstract
@@ -220,8 +159,8 @@ export class TitleAbstractService {
 
     if (rejected) {
       // Auto-rejected: do not advance to guide review. Students see the scores
-      // and rejection reason, and must revise + resubmit (their individual
-      // submissions are left in place so they can edit rather than start over).
+      // and rejection reason, and any teammate may revise + resubmit (the form
+      // is prefilled from the last submission, see getStatus).
       project.titleAbstractStatus = "rejected";
       project.titleAbstractHistory.push({
         action: "rejected",
@@ -281,13 +220,22 @@ export class TitleAbstractService {
    */
   static async getStatus(studentId) {
     const project = await findStudentProject(studentId);
-    const student = await Student.findById(studentId).select(
-      "titleAbstractSubmission"
-    );
+
+    // The team's latest submission, whoever made it — prefills the form for
+    // every teammate and shows who submitted.
+    const last = project.titleAbstractHistory.findLast((h) => h.action === "submitted");
+    const submitter = last && project.students.find((s) => s._id.equals(last.performedBy));
 
     return {
       status: project.titleAbstractStatus,
-      mySubmission: student.titleAbstractSubmission || null,
+      mySubmission: last
+        ? {
+            title: last.title,
+            abstract: last.abstract,
+            submittedAt: last.performedAt,
+            submittedBy: submitter ? { name: submitter.name, regNo: submitter.regNo } : null,
+          }
+        : null,
       proposedTitle: project.proposedTitle,
       proposedAbstract: project.proposedAbstract,
       title: project.name,

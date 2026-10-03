@@ -31,6 +31,16 @@ const ConsensusStatus = ({
         <Badge variant={meta.variant}>{meta.label}</Badge>
       </div>
 
+      {mySubmission?.submittedBy && status !== "not_started" && (
+        <p className="text-xs text-gray-500">
+          Submitted for your team by {mySubmission.submittedBy.name} (
+          {mySubmission.submittedBy.regNo})
+          {mySubmission.submittedAt
+            ? ` on ${new Date(mySubmission.submittedAt).toLocaleString()}`
+            : ""}
+        </p>
+      )}
+
       {status === "pending_consensus" && waitingOn?.length > 0 && (
         <Card padding="sm" className="bg-yellow-50 border-yellow-200">
           <p className="text-sm text-yellow-800">

@@ -4,7 +4,7 @@ When a team submits its title and abstract, the server checks whether a similar 
 
 ## How it works
 
-1. All teammates submit matching titles and abstracts, and consensus is reached.
+1. One teammate submits the title and abstract for the whole team.
 2. A local model, `Xenova/bge-base-en-v1.5`, turns the title and abstract into a list of 768 numbers called an **embedding**. Abstracts with similar meaning get similar numbers, even when the wording is different.
 3. The embedding is saved on the project (the `abstractEmbedding` field).
 4. The new embedding is compared against every other project's embedding. The closest match gives the **similarity score**, from 0 to 100.
