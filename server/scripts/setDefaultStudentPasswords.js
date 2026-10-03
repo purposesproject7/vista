@@ -37,6 +37,7 @@ for (const s of students) {
     }
   }
   updated++;
+  if (apply && updated % 250 === 0) console.log(`  ${updated}/${students.length}`);
 }
 
 const skipped = await Student.collection.countDocuments({ isDefaultPassword: false });
