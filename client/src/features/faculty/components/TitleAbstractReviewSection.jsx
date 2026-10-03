@@ -4,6 +4,14 @@ import Button from "../../../shared/components/Button";
 import { useToast } from "../../../shared/hooks/useToast";
 import { acceptTitleAbstract } from "../services/facultyApi";
 
+// Plagiarism/AI scores are null when the program has those checks turned off.
+function scoreLine(c) {
+  const parts = [];
+  if (c.plagiarismScore != null) parts.push(`Plagiarism: ${c.plagiarismScore}%`, `AI Content: ${c.aiScore}%`);
+  if (c.similarityScore != null) parts.push(`Similarity: ${c.similarityScore}%`);
+  return parts.join(" · ") || "Not checked";
+}
+
 const STATUS_LABELS = {
   not_started: { label: "Not Started", variant: "default" },
   pending_consensus: { label: "Waiting on Students", variant: "warning" },
@@ -96,10 +104,7 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
           </p>
           {project.contentCheck && (
             <p className="text-gray-600">
-              Plagiarism: {project.contentCheck.plagiarismScore}% &middot; AI
-              Content: {project.contentCheck.aiScore}%
-              {project.contentCheck.similarityScore != null &&
-                ` · Similarity: ${project.contentCheck.similarityScore}%`}
+              {scoreLine(project.contentCheck)}
             </p>
           )}
           <SimilarProjects contentCheck={project.contentCheck} />
@@ -118,10 +123,7 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
           {project.contentCheck && (
             <div className="pt-2 border-t border-gray-200 space-y-1">
               <p className="text-xs text-gray-500">
-                Plagiarism: {project.contentCheck.plagiarismScore}% &middot; AI
-                Content: {project.contentCheck.aiScore}%
-                {project.contentCheck.similarityScore != null &&
-                  ` · Similarity: ${project.contentCheck.similarityScore}%`}
+                {scoreLine(project.contentCheck)}
               </p>
               <SimilarProjects contentCheck={project.contentCheck} />
               {project.contentCheck.flagged && (

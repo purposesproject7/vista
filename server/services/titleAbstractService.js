@@ -112,10 +112,6 @@ export class TitleAbstractService {
       performedByModel: "Student",
     });
 
-    const { plagiarismScore, aiScore } = await PlagiarismService.checkContent(
-      confirmedAbstract
-    );
-
     // Duplicate-project check. A model failure must not block submission, so
     // it degrades to "not checked" and the guide reviews as before.
     let similarity = { similarityScore: null, similarProjects: [] };
@@ -141,11 +137,19 @@ export class TitleAbstractService {
       program: project.program,
     }).lean();
 
+    // Plagiarism/AI scoring is opt-in per program (admin > Content Check):
+    // when off, both scores stay null and play no part in flag/reject.
+    const { plagiarismScore, aiScore } = config?.plagiarismCheckEnabled
+      ? await PlagiarismService.checkContent(confirmedAbstract)
+      : { plagiarismScore: null, aiScore: null };
+
     const flagThreshold = config?.flagThreshold ?? 60;
     const autoRejectThreshold = config?.autoRejectThreshold ?? 85;
-    const highestScore = Math.max(plagiarismScore, aiScore);
-    const rejected = highestScore > autoRejectThreshold || similarityRejected;
-    const flagged = !rejected && (highestScore > flagThreshold || similarityFlagged);
+    const highestScore = plagiarismScore === null ? null : Math.max(plagiarismScore, aiScore);
+    const rejected =
+      (highestScore !== null && highestScore > autoRejectThreshold) || similarityRejected;
+    const flagged =
+      !rejected && ((highestScore !== null && highestScore > flagThreshold) || similarityFlagged);
 
     project.contentCheck = {
       plagiarismScore,

@@ -86,16 +86,20 @@ const ConsensusStatus = ({
           )}
           {contentCheck && (
             <div className="pt-2 border-t border-red-100 space-y-1">
-              <p className="text-xs text-gray-600">
-                Plagiarism Score:{" "}
-                <span className="font-medium text-gray-800">
-                  {contentCheck.plagiarismScore}%
-                </span>
-              </p>
-              <p className="text-xs text-gray-600">
-                AI-Generated Content Score:{" "}
-                <span className="font-medium text-gray-800">{contentCheck.aiScore}%</span>
-              </p>
+              {contentCheck.plagiarismScore != null && (
+                <>
+                  <p className="text-xs text-gray-600">
+                    Plagiarism Score:{" "}
+                    <span className="font-medium text-gray-800">
+                      {contentCheck.plagiarismScore}%
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    AI-Generated Content Score:{" "}
+                    <span className="font-medium text-gray-800">{contentCheck.aiScore}%</span>
+                  </p>
+                </>
+              )}
               {contentCheck.similarityScore != null && (
                 <p className="text-xs text-gray-600">
                   Similarity to an Existing Project:{" "}
@@ -116,16 +120,20 @@ const ConsensusStatus = ({
 
           {contentCheck && (
             <div className="pt-2 border-t border-gray-100 space-y-1">
-              <p className="text-xs text-gray-500">
-                Plagiarism Score:{" "}
-                <span className="font-medium text-gray-700">
-                  {contentCheck.plagiarismScore}%
-                </span>
-              </p>
-              <p className="text-xs text-gray-500">
-                AI-Generated Content Score:{" "}
-                <span className="font-medium text-gray-700">{contentCheck.aiScore}%</span>
-              </p>
+              {contentCheck.plagiarismScore != null && (
+                <>
+                  <p className="text-xs text-gray-500">
+                    Plagiarism Score:{" "}
+                    <span className="font-medium text-gray-700">
+                      {contentCheck.plagiarismScore}%
+                    </span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    AI-Generated Content Score:{" "}
+                    <span className="font-medium text-gray-700">{contentCheck.aiScore}%</span>
+                  </p>
+                </>
+              )}
               {contentCheck.similarityScore != null && (
                 <p className="text-xs text-gray-500">
                   Similarity to an Existing Project:{" "}

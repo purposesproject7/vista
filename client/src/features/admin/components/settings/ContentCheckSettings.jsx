@@ -8,6 +8,7 @@ import { useToast } from "../../../../shared/hooks/useToast";
 import { fetchProgramConfig, saveProgramConfig } from "../../services/adminApi";
 
 const DEFAULT_SETTINGS = {
+  plagiarismCheckEnabled: false,
   flagThreshold: 60,
   autoRejectThreshold: 85,
 };
@@ -49,6 +50,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         );
         if (response.success && response.data) {
           setSettings({
+            plagiarismCheckEnabled: response.data.plagiarismCheckEnabled === true,
             flagThreshold: response.data.flagThreshold ?? 60,
             autoRejectThreshold: response.data.autoRejectThreshold ?? 85,
           });
@@ -95,6 +97,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         academicYear: selectedYear,
         school: selectedSchool,
         program: selectedProgram,
+        plagiarismCheckEnabled: settings.plagiarismCheckEnabled,
         flagThreshold: settings.flagThreshold,
         autoRejectThreshold: settings.autoRejectThreshold,
       });
@@ -106,7 +109,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
           availablePrograms.find((p) => p.code === selectedProgram)?.name ||
           selectedProgram;
         showToast(
-          `Content check thresholds saved for ${schoolName} - ${programName}`,
+          `Content check settings saved for ${schoolName} - ${programName}`,
           "success"
         );
       } else {
@@ -205,7 +208,37 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
                 isLoading ? "opacity-50 pointer-events-none" : ""
               }`}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="flex items-start gap-3 mb-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={settings.plagiarismCheckEnabled}
+                  disabled={isLoading}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      plagiarismCheckEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-900">
+                    Enable plagiarism & AI-content checks
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-1">
+                    Leave off until a plagiarism/AI detection service is
+                    connected. When off, these two scores are not computed and
+                    never flag or reject a submission; the duplicate-project
+                    similarity check still runs.
+                  </span>
+                </span>
+              </label>
+
+              <div
+                className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${
+                  settings.plagiarismCheckEnabled ? "" : "opacity-50"
+                }`}
+              >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Flag Threshold (%)
