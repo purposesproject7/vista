@@ -1,14 +1,16 @@
 import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { PlagiarismService } from "./plagiarismService.js";
-import { checkSimilarity, embed, embeddingText } from "./similarityService.js";
+import { checkSimilarity, embed, embeddingText, MODEL } from "./similarityService.js";
 import { logger } from "../utils/logger.js";
 
 // Similarity to an existing project (0-100). Embedding cosine scores sit high
 // even for unrelated abstracts, so these are separate from the plagiarism/AI
-// thresholds in ProgramConfig. Tune via env once real scores are visible.
-const SIMILARITY_FLAG = Number(process.env.SIMILARITY_FLAG_THRESHOLD ?? 85);
-const SIMILARITY_REJECT = Number(process.env.SIMILARITY_REJECT_THRESHOLD ?? 95);
+// thresholds in ProgramConfig. Calibrated for arctic-embed-m-v2.0: light
+// edits ~97, heavy rewrites 80-88, same idea/different approach 55-65,
+// different projects below 56. Re-calibrate if EMBEDDING_MODEL changes.
+const SIMILARITY_FLAG = Number(process.env.SIMILARITY_FLAG_THRESHOLD ?? 75);
+const SIMILARITY_REJECT = Number(process.env.SIMILARITY_REJECT_THRESHOLD ?? 93);
 
 const TITLE_MAX_LENGTH = 200;
 const ABSTRACT_MIN_WORDS = 250;
@@ -299,7 +301,10 @@ export class TitleAbstractService {
     try {
       await Project.updateOne(
         { _id: project._id },
-        { abstractEmbedding: await embed(embeddingText(project.name, project.abstract)) }
+        {
+          abstractEmbedding: await embed(embeddingText(project.name, project.abstract)),
+          abstractEmbeddingModel: MODEL,
+        }
       );
     } catch (error) {
       logger.error("accept_embedding_failed", { projectId: project._id, error: error.message });

@@ -179,6 +179,9 @@ const projectSchema = new mongoose.Schema(
     contentCheck: { type: contentCheckSchema, default: () => ({}) },
     // Embedding of title + abstract for duplicate-project detection (see similarityService)
     abstractEmbedding: { type: [Number], select: false, default: undefined },
+    // Model that produced abstractEmbedding. Vectors from different models are
+    // not comparable (even at equal length), so search and backfill key on it.
+    abstractEmbeddingModel: { type: String, default: undefined },
     titleAbstractAcceptedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Faculty",

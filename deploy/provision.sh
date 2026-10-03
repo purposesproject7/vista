@@ -129,9 +129,9 @@ SIEM_UPSTREAM="${SIEM_UPSTREAM:-https://127.0.0.1:8443}"
 
 # Duplicate-project check (see SIMILARITY_CHECK.md). The embedding model runs
 # locally on CPU; override any of these in $CONF.
-SIMILARITY_FLAG_THRESHOLD="${SIMILARITY_FLAG_THRESHOLD:-85}"
-SIMILARITY_REJECT_THRESHOLD="${SIMILARITY_REJECT_THRESHOLD:-95}"
-EMBEDDING_MODEL="${EMBEDDING_MODEL:-Xenova/bge-base-en-v1.5}"
+SIMILARITY_FLAG_THRESHOLD="${SIMILARITY_FLAG_THRESHOLD:-75}"
+SIMILARITY_REJECT_THRESHOLD="${SIMILARITY_REJECT_THRESHOLD:-93}"
+EMBEDDING_MODEL="${EMBEDDING_MODEL:-Snowflake/snowflake-arctic-embed-m-v2.0}"
 # Outside node_modules, so `npm ci` doesn't throw away the ~110 MB download.
 MODEL_CACHE=/var/cache/vista/models
 

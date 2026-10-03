@@ -5,16 +5,16 @@ When a team submits its title and abstract, the server checks whether a similar 
 ## How it works
 
 1. One teammate submits the title and abstract for the whole team.
-2. A local model, `Xenova/bge-base-en-v1.5`, turns the title and abstract into a list of 768 numbers called an **embedding**. Abstracts with similar meaning get similar numbers, even when the wording is different.
+2. A local model, `Snowflake/snowflake-arctic-embed-m-v2.0`, turns the title and abstract into a list of 768 numbers called an **embedding**. Abstracts with similar meaning get similar numbers, even when the wording is different. The model reads up to 8192 tokens, so the whole abstract counts, even at the 500-word limit.
 3. The embedding is compared against every **approved** project's embedding. The closest match gives the **similarity score**, from 0 to 100. The submission itself is not stored for comparison yet.
 4. When the guide accepts the title and abstract, the approved text is embedded and saved on the project (the `abstractEmbedding` field). From then on, later submissions are compared against it. Pending and rejected submissions are never in the comparison set.
 5. The score decides what happens next:
 
 | Similarity | Result |
 |---|---|
-| below 85 | Normal: goes to the guide for review |
-| 85–94 | **Flagged**: goes to the guide, with a warning |
-| 95 or above | **Auto-rejected**: the team must revise and resubmit |
+| below 75 | Normal: goes to the guide for review |
+| 75–92 | **Flagged**: goes to the guide, with a warning |
+| 93 or above | **Auto-rejected**: the team must revise and resubmit |
 
 Guides see the 3 closest projects with their title, year and score. Students only see their own score, never other teams' titles.
 
@@ -22,11 +22,11 @@ Typical scores:
 
 | Pair of abstracts | Score |
 |---|---|
-| A reworded copy of an existing project | ~90+ |
-| A different project in the same field | ~60–70 |
-| A completely unrelated project | ~55–60 |
-
-Unrelated abstracts never score near 0. That is normal for this kind of model.
+| The same abstract with a few words changed | ~97 |
+| A heavily reworded copy of an existing project | ~80–88 |
+| The same problem solved a different way (e.g. sensor glove vs camera for sign language) | ~55–65 |
+| A different project in the same field | ~35–55 |
+| A completely unrelated project | ~15–35 |
 
 If the model fails for any reason, the submission still goes through without a similarity score, and the guide reviews it as usual.
 
@@ -36,7 +36,9 @@ The check can only compare against projects that already have an embedding. Proj
 
 **Backfill** goes through existing projects and creates their embeddings from the approved title and abstract (`name` + `abstract`, never the unapproved proposal). It processes only projects that have an abstract but no embedding yet. It also removes embeddings that older versions stored for submissions still in progress (pending, rejected), so only approved work is compared against. Running it again is safe: it skips projects that are already done.
 
-The first run also downloads the model (about 110 MB) to the server's cache. Without it, the first student to submit would wait for that download.
+The first run also downloads the model (about 300 MB) to the server's cache. Without it, the first student to submit would wait for that download.
+
+Each embedding records which model made it (`abstractEmbeddingModel`). Embeddings from different models can't be compared, even when they have the same length, so the search only uses embeddings from the current model, and the backfill re-embeds any project whose embedding came from a different one. Changing the model therefore needs nothing more than a re-run of the backfill.
 
 ## Running it on the VM
 
@@ -54,13 +56,13 @@ To run the backfill by hand, for example after a bulk import:
 sudo -u <app user> bash -c 'cd /path/to/vista/server && node scripts/backfillEmbeddings.js'
 ```
 
-The backfill reads `MONGO_URI` from `server/.env`, so it runs against whatever database the app uses. Expect roughly 0.1–0.2 seconds per project, which is a few minutes for a few thousand projects.
+The backfill reads `MONGO_URI` from `server/.env`, so it runs against whatever database the app uses. Expect roughly 0.1–0.3 seconds per project, which is a few minutes to a quarter of an hour for a few thousand projects.
 
 Example output:
 
 ```
 Removed 3 embeddings of unapproved submissions.
-Embedding 2841 projects...
+Embedding 2841 projects with Snowflake/snowflake-arctic-embed-m-v2.0...
   100/2841
   ...
 Done: 2841 projects embedded.
@@ -78,7 +80,7 @@ node scripts/similarityCheck.js
 This needs no database. It embeds a few sample abstracts, prints their scores and checks them. The last line should be `ok`.
 
 ```
-{ paraphrase: 92, sameDomain: 65, unrelated: 60 }
+{ paraphrase: 86, sameDomain: 38, unrelated: 20 }
 ok
 ```
 
@@ -88,18 +90,22 @@ Add these to `/etc/vista/deploy.conf` only if you want to change the defaults, t
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SIMILARITY_FLAG_THRESHOLD` | `85` | Score at which a submission is flagged for the guide |
-| `SIMILARITY_REJECT_THRESHOLD` | `95` | Score at which a submission is auto-rejected |
-| `EMBEDDING_MODEL` | `Xenova/bge-base-en-v1.5` | Model used for embeddings |
+| `SIMILARITY_FLAG_THRESHOLD` | `75` | Score at which a submission is flagged for the guide |
+| `SIMILARITY_REJECT_THRESHOLD` | `93` | Score at which a submission is auto-rejected |
+| `EMBEDDING_MODEL` | `Snowflake/snowflake-arctic-embed-m-v2.0` | Model used for embeddings |
 
 If too many normal projects get flagged, raise the flag threshold. If copies slip through, lower it.
 
-**If you change `EMBEDDING_MODEL`:** old embeddings don't match the new model, and the check silently skips projects whose embedding length differs. Clear them and run the backfill again:
+**If you change `EMBEDDING_MODEL`:** re-run the deploy, which re-runs the backfill; it re-embeds every project with the new model. Until it finishes, projects not yet re-embedded are left out of the comparison. Each model has its own score range, so re-calibrate both thresholds (see below).
 
-```bash
-sudo vdb --eval 'db.projects.updateMany({}, {$unset: {abstractEmbedding: 1}})'
-sudo ./deploy/provision.sh    # re-runs the backfill with the new model
-```
+## Why this model
+
+It was picked by benchmark on 7 project topics, each with an original abstract, a reworded copy, the same idea done a different way, and a different project in the same field. The models tried were bge-base-en-v1.5 (previous), nomic-embed-text-v1.5, gte-base-en-v1.5, mxbai-embed-large-v1, snowflake-arctic-embed-m-v2.0, and three cross-encoder rerankers.
+
+- Every embedding model ranked all 7 copies above the alternatives. Bigger models did not separate them better.
+- The rerankers did worse (3–6 of 7 ranked correctly). They are trained to match a search query to a passage, not to compare two documents.
+- The deciding test: two abstracts with the same first ~390 words and completely different second halves. bge-base scored them **99**, because it stops reading at 512 tokens and never sees the second half. That is a false auto-reject. arctic-embed scored them **83**.
+- arctic-embed spreads scores more widely (different projects as low as 13), which leaves more room between "same idea" and "copy" for the thresholds.
 
 ## Where the code is
 
@@ -107,6 +113,6 @@ sudo ./deploy/provision.sh    # re-runs the backfill with the new model
 |---|---|
 | `server/services/similarityService.js` | Loads the model, creates embeddings, finds the closest projects |
 | `server/services/titleAbstractService.js` | Runs the check on submission and applies the thresholds; embeds the approved text on acceptance |
-| `server/models/projectSchema.js` | `abstractEmbedding`, `contentCheck.similarityScore`, `contentCheck.similarProjects` |
+| `server/models/projectSchema.js` | `abstractEmbedding`, `abstractEmbeddingModel`, `contentCheck.similarityScore`, `contentCheck.similarProjects` |
 | `server/scripts/backfillEmbeddings.js` | The backfill (runs on every deploy) |
 | `server/scripts/similarityCheck.js` | Self-check |

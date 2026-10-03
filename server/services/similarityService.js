@@ -3,7 +3,9 @@ import Project from "../models/projectSchema.js";
 import { logger } from "../utils/logger.js";
 
 // Runs locally on CPU; the model downloads once to the transformers cache.
-const MODEL = process.env.EMBEDDING_MODEL || "Xenova/bge-base-en-v1.5";
+// Chosen by benchmark (see SIMILARITY_CHECK.md): reads up to 8192 tokens, so a
+// full 500-word abstract counts; 512-token models silently drop the tail.
+export const MODEL = process.env.EMBEDDING_MODEL || "Snowflake/snowflake-arctic-embed-m-v2.0";
 const TOP_K = 3;
 
 let extractorPromise = null;
@@ -20,7 +22,8 @@ export function embeddingText(title, abstract) {
 /** Normalized embedding vector (plain array), so cosine similarity = dot product. */
 export async function embed(text) {
   const extractor = await getExtractor();
-  const output = await extractor(text, { pooling: "mean", normalize: true });
+  // CLS pooling: what arctic-embed (and BGE) are trained with.
+  const output = await extractor(text, { pooling: "cls", normalize: true });
   return Array.from(output.data);
 }
 
@@ -40,13 +43,12 @@ export async function findSimilar(vector, excludeProjectId) {
   // thousands of projects, switch to a vector index beyond that.
   const candidates = await Project.find({
     _id: { $ne: excludeProjectId },
-    "abstractEmbedding.0": { $exists: true },
+    abstractEmbeddingModel: MODEL,
   })
     .select("+abstractEmbedding name academicYear")
     .lean();
 
   return candidates
-    .filter((p) => p.abstractEmbedding.length === vector.length)
     .map((p) => ({
       project: p._id,
       title: p.name,

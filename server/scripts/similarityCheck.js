@@ -27,6 +27,7 @@ issue degree certificates as hashes stored on an Ethereum smart contract. Employ
 verify a certificate by uploading the PDF, whose hash is checked against the chain,
 preventing forgery without contacting the university.`;
 
+const FLAG = Number(process.env.SIMILARITY_FLAG_THRESHOLD ?? 75);
 const score = (a, b) => Math.round(a.reduce((s, x, i) => s + x * b[i], 0) * 100);
 
 const [vBase, vPara, vSame, vUnrel] = await Promise.all(
@@ -41,6 +42,6 @@ console.log(scores);
 
 assert(scores.paraphrase > scores.sameDomain, "paraphrase must beat same-domain");
 assert(scores.sameDomain > scores.unrelated, "same-domain must beat unrelated");
-assert(scores.paraphrase >= 85, "paraphrase must reach the default flag threshold");
-assert(scores.sameDomain < 85, "a different project must stay under the flag threshold");
+assert(scores.paraphrase >= FLAG, `paraphrase must reach the flag threshold (${FLAG})`);
+assert(scores.sameDomain < FLAG, `a different project must stay under the flag threshold (${FLAG})`);
 console.log("ok");
