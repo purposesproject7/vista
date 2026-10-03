@@ -13,6 +13,7 @@ import PPTApprovalSection from '../components/PPTApprovalSection';
 import MergeTeamsModal from '../components/MergeTeamsModal';
 import EditProjectModal from '../components/EditProjectModal';
 import TitleAbstractReviewSection from '../components/TitleAbstractReviewSection';
+import TitleAbstractApprovals from '../components/TitleAbstractApprovals';
 import { PencilSquareIcon } from '@heroicons/react/24/outline'; // Add icon import
 
 
@@ -179,6 +180,14 @@ const FacultyDashboard = () => {
                     </div>
 
 
+
+                    {/* Title/abstract submissions awaiting the guide, with similarity scores */}
+                    {filters.role === 'guide' && (
+                        <TitleAbstractApprovals
+                            guideAssignments={guideAssignments}
+                            onAccepted={refreshReviews}
+                        />
+                    )}
 
                     {/* NEW: PPT Approval Section */}
                     {filters.role === 'guide' && (
