@@ -46,7 +46,8 @@ export class TitleAbstractService {
   /**
    * Submit (or re-submit) the team's title/abstract. Any one teammate submits
    * for the whole team: it goes straight to the plagiarism/AI/similarity check,
-   * then to guide review. Blocked while under review or once accepted.
+   * then to guide review. Can be updated until the guide accepts; each update
+   * is re-checked and replaces what the guide sees.
    */
   static async submitTitleAbstract(studentId, { title, abstract }) {
     if (!title || !title.trim()) {
@@ -94,15 +95,8 @@ export class TitleAbstractService {
       throw err;
     }
 
-    if (project.titleAbstractStatus === "pending_review") {
-      const err = new Error(
-        "Your team has already submitted a title and abstract; it is awaiting your guide's review."
-      );
-      err.statusCode = 409;
-      throw err;
-    }
-
-    // One teammate submits for the whole team; it goes straight to the content check.
+    // One teammate submits for the whole team; it goes straight to the content
+    // check. Any teammate may update it (re-checked) until the guide accepts.
     const confirmedTitle = title.trim();
     const confirmedAbstract = abstract.trim();
 

@@ -61,7 +61,7 @@ const TitleAbstractForm = ({ initialTitle = "", initialAbstract = "", onSubmit, 
       </div>
 
       <Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
-        {submitting ? "Submitting..." : "Submit Title & Abstract"}
+        {submitting ? "Submitting..." : initialTitle ? "Update Title & Abstract" : "Submit Title & Abstract"}
       </Button>
     </form>
   );

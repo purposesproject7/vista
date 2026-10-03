@@ -159,7 +159,9 @@ const ConsensusStatus = ({
           )}
           {status === "pending_review" && (
             <p className="text-xs text-blue-700 font-medium pt-2 border-t border-gray-100">
-              Your team's submission is awaiting your guide's approval.
+              Your team's submission is awaiting your guide's approval. Any
+              teammate can still update it below until the guide accepts it;
+              an update is re-checked for similarity.
             </p>
           )}
         </Card>
