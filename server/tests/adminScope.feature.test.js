@@ -80,3 +80,42 @@ test("school admin still manages its own school", async () => {
   assert.ok((await save("scopeadmin", SCOPE, { maxTeamSize: 5 })).body.success);
   assert.equal((await get("scopeadmin", SCOPE)).body.data.maxTeamSize, 5);
 });
+
+// Master data, done the way the Settings screens do it (adminApi.js).
+const masterData = async () => (await call("sudo", "GET", "/admin/master-data")).body.data;
+const idOf = (list, code) => String(list.find((x) => x.code === code)._id);
+
+test("sudo admin deletes a school: it is hidden, its record kept intact", async () => {
+  for (const [name, code] of [["School of CSE", "SCOPE"], ["School of ECE", "SENSE"], ["Old School", "OLD"]]) {
+    assert.ok((await call("sudo", "POST", "/admin/master-data/schools", { name, code })).body.success);
+  }
+  const del = await call("sudo", "PUT", `/admin/master-data/schools/${idOf((await masterData()).schools, "OLD")}`, { isActive: false });
+  assert.equal(del.status, 200, del.body.message);
+
+  const old = (await masterData()).schools.find((s) => s.code === "OLD");
+  assert.deepEqual([old.name, old.isActive], ["Old School", false]);
+});
+
+test("school admin cannot add, rename or delete schools", async () => {
+  const senseId = idOf((await masterData()).schools, "SENSE");
+  assert.equal((await call("scopeadmin", "POST", "/admin/master-data/schools", { name: "X", code: "X" })).status, 403);
+  assert.equal((await call("scopeadmin", "PUT", `/admin/master-data/schools/${senseId}`, { name: "Hacked", code: "SENSE" })).status, 403);
+  assert.equal((await call("scopeadmin", "PUT", `/admin/master-data/schools/${senseId}`, { isActive: false })).status, 403);
+  const sense = (await masterData()).schools.find((s) => s.code === "SENSE");
+  assert.deepEqual([sense.name, sense.isActive], ["School of ECE", true]);
+});
+
+test("programs: each admin deletes only its own school's", async () => {
+  await call("sudo", "POST", "/admin/master-data/programs", { name: "BTech ECE", code: "ECE", school: "SENSE" });
+  await call("scopeadmin", "POST", "/admin/master-data/programs", { name: "BTech CSE", code: "CSE", school: "SCOPE" });
+  const programs = (await masterData()).programs;
+
+  assert.equal((await call("scopeadmin", "PUT", `/admin/master-data/programs/${idOf(programs, "ECE")}`, { isActive: false })).status, 403);
+  const own = await call("scopeadmin", "PUT", `/admin/master-data/programs/${idOf(programs, "CSE")}`, { isActive: false });
+  assert.equal(own.status, 200, own.body.message);
+
+  const after = (await masterData()).programs;
+  const cse = after.find((p) => p.code === "CSE");
+  assert.deepEqual([cse.name, cse.isActive], ["BTech CSE", false]);
+  assert.equal(after.find((p) => p.code === "ECE").isActive, true);
+});
