@@ -3,12 +3,6 @@ import { CalendarDaysIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import Card from "../../../shared/components/Card";
 import { formatDate } from "../../../shared/utils/dateHelpers";
 
-const formatSlot = (date) =>
-  new Date(date).toLocaleString("en-IN", {
-    weekday: "short", day: "numeric", month: "short", year: "numeric",
-    hour: "numeric", minute: "2-digit",
-  });
-
 /** When and where each of the team's reviews happens. */
 const ReviewSchedule = ({ reviews = [] }) => {
   if (reviews.length === 0) return null;
@@ -25,7 +19,7 @@ const ReviewSchedule = ({ reviews = [] }) => {
                 <p className="flex items-center gap-2">
                   <CalendarDaysIcon className="w-4 h-4 shrink-0 text-gray-400" />
                   {r.dateTime
-                    ? formatSlot(r.dateTime)
+                    ? formatDate(r.dateTime)
                     : r.window?.from && r.window?.to
                       ? `Between ${formatDate(r.window.from)} and ${formatDate(r.window.to)}${withGuide ? "" : " (slot not yet scheduled)"}`
                       : "Not yet scheduled"}
