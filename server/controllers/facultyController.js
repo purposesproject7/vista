@@ -619,9 +619,10 @@ export async function getFacultyReviews(req, res) {
       req.query
     );
 
-    // Combine and simplify for external pages like GuideReviews/PanelReviews
-    const guideProjects = data.guideProjects || [];
-    const panelProjects = data.panelProjects || [];
+    // Combine and simplify for external pages like GuideReviews/PanelReviews.
+    // Teams awaiting title & abstract acceptance are held out of reviews.
+    const guideProjects = (data.guideProjects || []).filter((p) => !p.reviewsLocked);
+    const panelProjects = (data.panelProjects || []).filter((p) => !p.reviewsLocked);
 
     // --- FIX: Fetch Approved Requests to determine "Unlocked" status ---
     const approvedRequests = await Request.find({

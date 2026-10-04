@@ -2958,6 +2958,7 @@ export async function createProgramConfig(req, res) {
       autoRejectThreshold,
       plagiarismCheckEnabled,
       similarityCheckEnabled,
+      requireTitleAbstractApproval,
     } = req.body;
 
     // Check if already exists
@@ -2987,6 +2988,7 @@ export async function createProgramConfig(req, res) {
       autoRejectThreshold: autoRejectThreshold ?? 85,
       plagiarismCheckEnabled: plagiarismCheckEnabled === true,
       similarityCheckEnabled: similarityCheckEnabled !== false,
+      requireTitleAbstractApproval: requireTitleAbstractApproval === true,
       featureLocks:
         featureLocks ||
         [

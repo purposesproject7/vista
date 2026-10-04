@@ -252,10 +252,30 @@ export class ProjectService {
       })
       .lean();
 
+    await ProjectService.markReviewsLocked([...guideProjects, ...panelProjects]);
+
     return {
       guideProjects,
       panelProjects,
     };
+  }
+
+  /**
+   * Sets `reviewsLocked` on each project whose program requires an accepted
+   * title & abstract before reviews and whose guide has not accepted it yet.
+   * Projects stay in the list (the guide's approval section needs them);
+   * review views drop the locked ones.
+   */
+  static async markReviewsLocked(projects) {
+    const configs = await ProgramConfig.find({ requireTitleAbstractApproval: true })
+      .select("academicYear school program")
+      .lean();
+    const gated = new Set(configs.map((c) => `${c.academicYear}|${c.school}|${c.program}`));
+    for (const p of projects) {
+      p.reviewsLocked =
+        gated.has(`${p.academicYear}|${p.school}|${p.program}`) &&
+        p.titleAbstractStatus !== "accepted";
+    }
   }
 
   /**

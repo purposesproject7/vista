@@ -102,6 +102,9 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                     // Filter teams relevant to this review
                     const relevantTeams = projects.filter(project => {
+                        // Held out until the guide accepts the title & abstract (admin setting)
+                        if (project.reviewsLocked) return false;
+
                         // 1. Is faculty the guide?
                         const guideId = String(project.guideFaculty?._id || project.guideFaculty);
                         const isGuide = guideId === String(effectiveFacultyId);
