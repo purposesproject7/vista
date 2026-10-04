@@ -3,6 +3,7 @@ import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
 import {
+  assertReviewable,
   getFacultyTypeForProject,
   extractPrimaryContext,
 } from "../utils/facultyHelpers.js";
@@ -31,6 +32,8 @@ export class MarksService {
       project,
       reviewType
     );
+
+    await assertReviewable(projectDoc);
 
     // Check for existing marks
     let existingMarks;

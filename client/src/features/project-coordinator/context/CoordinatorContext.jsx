@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useAuth } from "../../../shared/hooks/useAuth";
 
 const CoordinatorContext = createContext();
 
@@ -10,6 +11,21 @@ export const useCoordinatorContext = () => {
         );
     }
     return context;
+};
+
+/**
+ * School + program the coordinator is working in: the one picked in the
+ * Program dropdown (one of their own assignments), falling back to the login
+ * (primary) assignment until something is picked. Send these with every
+ * coordinator API call; the server acts as the matching assignment.
+ */
+export const useCoordinatorScope = () => {
+    const { academicContext } = useCoordinatorContext();
+    const { user } = useAuth();
+    return {
+        school: academicContext.school || user?.school,
+        program: academicContext.program || user?.program,
+    };
 };
 
 export const CoordinatorProvider = ({ children }) => {

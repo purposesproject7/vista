@@ -86,9 +86,6 @@ export class FacultyService {
       data.employeeId,
       data.phoneNumber
     );
-    const incomingPrograms = Array.isArray(data.program)
-      ? data.program.map(p => p.trim())
-      : data.program ? [data.program.trim()] : [];
 
     if (existing) {
       // If faculty already exists, append new programs instead of throwing error

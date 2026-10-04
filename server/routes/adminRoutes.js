@@ -30,13 +30,14 @@ router.post(
 
 router.post(
   "/master-data/schools",
+  requireSudoAdmin, // schools span every admin's scope
   validateRequired(["name", "code"]),
   adminController.createSchool
 );
 
-router.put("/master-data/schools/:id", adminController.updateSchool);
+router.put("/master-data/schools/:id", requireSudoAdmin, adminController.updateSchool);
 
-router.delete("/master-data/schools/:id", adminController.deleteSchool);
+router.delete("/master-data/schools/:id", requireSudoAdmin, adminController.deleteSchool);
 
 router.post(
   "/master-data/programs",

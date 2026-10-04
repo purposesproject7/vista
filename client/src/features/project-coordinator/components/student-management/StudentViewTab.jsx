@@ -5,7 +5,7 @@ import StudentList from './StudentList';
 import StudentDetailsModal from './StudentDetailsModal';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { fetchStudents, fetchStudentDetails, deleteStudent } from '../../services/coordinatorApi';
-import { useAuth } from '../../../../shared/hooks/useAuth';
+import { useCoordinatorScope } from "../../context/CoordinatorContext";
 
 const StudentViewTab = () => {
     const [filters, setFilters] = useState(null);
@@ -14,7 +14,7 @@ const StudentViewTab = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const { showToast } = useToast();
-    const { user } = useAuth();
+    const scope = useCoordinatorScope();
 
     const handleFilterComplete = useCallback((selectedFilters) => {
         setFilters(selectedFilters);
@@ -35,8 +35,8 @@ const StudentViewTab = () => {
             // Mix user context into filters for Coordinator API
             const apiFilters = {
                 ...filters,
-                school: user?.school,
-                program: user?.program,
+                school: scope.school,
+                program: scope.program,
                 academicYear: filters.year // PC API expects 'academicYear' usually, verify if it expects 'year' or 'academicYear'
             };
             // In StudentManagement.jsx it was calling: school, program, academicYear: filters.year

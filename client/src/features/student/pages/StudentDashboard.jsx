@@ -7,6 +7,7 @@ import Navbar from "../../../shared/components/Navbar";
 import TitleAbstractForm from "../components/TitleAbstractForm";
 import ConsensusStatus from "../components/ConsensusStatus";
 import GuidePanelInfo from "../components/GuidePanelInfo";
+import ReviewSchedule from "../components/ReviewSchedule";
 import { getMyProject, getTitleAbstractStatus, submitTitleAbstract } from "../services/studentApi";
 
 // Editable until the guide accepts.
@@ -117,6 +118,15 @@ const StudentDashboard = () => {
           </h2>
           <GuidePanelInfo project={project} />
         </div>
+
+        {project?.reviewSchedule?.length > 0 && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Your Reviews
+            </h2>
+            <ReviewSchedule reviews={project.reviewSchedule} />
+          </div>
+        )}
       </div>
     </div>
   );

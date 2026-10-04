@@ -3,12 +3,14 @@ import React, { useState, useEffect } from "react";
 import Select from "../../../../shared/components/Select";
 import Card from "../../../../shared/components/Card";
 import { AcademicCapIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
-import { fetchFacultyMasterData } from "../../services/coordinatorApi";
+import { fetchFacultyMasterData, fetchProfile } from "../../services/coordinatorApi";
 import { useCoordinatorContext } from "../../context/CoordinatorContext";
 
 const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
   const [loading, setLoading] = useState(false);
-  const [masterData, setMasterData] = useState({ programs: [], academicYears: [] });
+  // Programs come from the coordinator's own assignments, as stored: the
+  // server matches the requested program against exactly these values.
+  const [assignments, setAssignments] = useState([]);
   const [academicYearOptions, setAcademicYearOptions] = useState([]);
   const [programOptions, setProgramOptions] = useState([]);
   const [localFilters, setLocalFilters] = useState({
@@ -23,11 +25,15 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const response = await fetchFacultyMasterData();
+        const [response, profile] = await Promise.all([
+          fetchFacultyMasterData(),
+          fetchProfile(),
+        ]);
+        const myAssignments = profile?.data?.assignments || [];
+        setAssignments(myAssignments);
 
         if (response.success && response.data) {
-          const { programs = [], academicYears = [] } = response.data;
-          setMasterData({ programs, academicYears });
+          const { academicYears = [] } = response.data;
 
           // Format Academic Year Options
           const yearOptions = academicYears
@@ -40,16 +46,22 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
 
           setAcademicYearOptions(yearOptions);
 
-          // Format Program Options
-          const progOptions = programs
-            .filter(p => p.isActive)
-            .map(p => ({
-              value: p.code,
-              label: p.name,
-              school: p.school // Store school code for context derivation
-            }));
+          // One option per assigned program (primary first).
+          const seen = new Set();
+          const progOptions = [...myAssignments]
+            .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+            .filter(a => !seen.has(a.program) && seen.add(a.program))
+            .map(a => ({ value: a.program, label: a.program }));
 
           setProgramOptions(progOptions);
+
+          // Restore the last selection if it is still one of the coordinator's programs.
+          // A coordinator with a single program gets it pre-selected.
+          if (progOptions.some(o => o.value === academicContext.program)) {
+            setLocalFilters(prev => ({ ...prev, program: academicContext.program }));
+          } else if (progOptions.length === 1) {
+            setLocalFilters(prev => ({ ...prev, program: progOptions[0].value }));
+          }
 
           // Auto-select defaults derived from context or first available
           if (academicContext.academicYearSemester) {
@@ -67,6 +79,8 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
     };
 
     loadData();
+    // Load once on mount; later context changes are synced by the effects below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle local filter changes
@@ -88,19 +102,21 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
     const { program, academicYear } = localFilters;
 
     if (program && academicYear) {
-      // Find selected program to get school code
-      const selectedProgram = masterData.programs.find(p => p.code === program);
+      const assignment = assignments.find(a => a.program === program);
 
-      if (selectedProgram) {
+      if (assignment) {
+        // Shared with every coordinator screen (useCoordinatorScope).
+        updateAcademicContext({ school: assignment.school, program: assignment.program });
         onFilterComplete({
-          school: selectedProgram.school, // Derived school
-          program: selectedProgram.code,
+          school: assignment.school,
+          program: assignment.program,
           year: academicYear,
           academicYearSemester: academicYear // Legacy field alias
         });
       }
     }
-  }, [localFilters, masterData.programs, onFilterComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localFilters, assignments, onFilterComplete]);
 
   // Sync with context updates if they happen externally
   useEffect(() => {

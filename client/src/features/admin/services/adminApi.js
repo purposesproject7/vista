@@ -831,12 +831,13 @@ export const bulkCreateProjects = async (projectsList, options = {}) => {
       };
     });
 
-    const response = await api.post("/admin/projects/bulk", projects, { signal });
-
-    const response = await api.post("/admin/projects/bulk", { 
-      projects,
-      ignoreDepartmentMismatch: options.ignoreDepartmentMismatch,
-    });
+    // Body shape the server reads: { projects, ignoreDepartmentMismatch }.
+    // options.signal lets the caller cancel the upload.
+    const response = await api.post(
+      "/admin/projects/bulk",
+      { projects, ignoreDepartmentMismatch: options.ignoreDepartmentMismatch },
+      { signal: options.signal }
+    );
     return response.data;
 
   } catch (error) {
@@ -1012,7 +1013,8 @@ export const createBroadcast = async (
   title = "",
   action = "notice",
   priority = "medium",
-  sendEmail = false
+  sendEmail = false,
+  audience = "faculty"
 ) => {
   const response = await api.post("/admin/broadcasts", {
     message,
@@ -1023,6 +1025,7 @@ export const createBroadcast = async (
     action,
     priority,
     sendEmail,
+    audience,
   });
   return response.data;
 };

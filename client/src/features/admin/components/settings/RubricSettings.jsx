@@ -291,7 +291,7 @@ const RubricSettings = ({
                   setSelectedContext({ ...selectedContext, program: val })
                 }
                 options={(programs[selectedContext.school] || []).map((p) => ({
-                  value: p.code,
+                  value: p.name, // programs are stored by name
                   label: p.name,
                 }))}
                 placeholder="Select Department"

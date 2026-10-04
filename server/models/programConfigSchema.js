@@ -83,6 +83,9 @@ const programConfigSchema = new mongoose.Schema(
     // never flags/rejects. Approved projects are still embedded on acceptance,
     // so turning it back on compares against the complete set.
     similarityCheckEnabled: { type: Boolean, default: true },
+    // On = a team stays out of every guide/panel review until its guide accepts
+    // the title & abstract. Off (default) = reviews behave as before.
+    requireTitleAbstractApproval: { type: Boolean, default: false },
 
     // Title/abstract content-check thresholds, applied to both the plagiarism
     // and AI-generated-content scores. A score above flagThreshold is flagged

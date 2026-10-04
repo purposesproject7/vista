@@ -13,9 +13,9 @@ import ActivityLogService from "../services/activityLogService.js";
 import {
   extractPrimaryContext,
   getFacultyTypeForProject,
-  getFacultyAudience,
 } from "../utils/facultyHelpers.js";
 import { logger } from "../utils/logger.js";
+import { audienceOf, activeBroadcastsFilter } from "../utils/broadcastAudience.js";
 import MasterData from "../models/masterDataSchema.js";
 
 /**
@@ -578,38 +578,21 @@ export async function getAssignedPanels(req, res) {
  */
 export async function getBroadcasts(req, res) {
   try {
-    const faculty = await Faculty.findById(req.user._id).select(
-      "school program"
-    );
+    // Notifications are for faculty and coordinators; admins send them.
+    if (req.user.role === "admin") {
+      return res.status(200).json({ success: true, data: [], count: 0 });
+    }
 
-    if (!faculty) {
+    const audience = await audienceOf(req.user._id, "faculty");
+    if (!audience) {
       return res.status(404).json({
         success: false,
         message: "Faculty not found.",
       });
     }
 
-    const { schools, programs } = getFacultyAudience(faculty);
-    const now = new Date();
-
-    const broadcasts = await BroadcastMessage.find({
-      isActive: true,
-      expiresAt: { $gt: now },
-      $and: [
-        {
-          $or: [
-            { targetSchools: { $size: 0 } },
-            { targetSchools: { $in: schools } },
-          ],
-        },
-        {
-          $or: [
-            { targetPrograms: { $size: 0 } },
-            { targetPrograms: { $in: programs } },
-          ],
-        },
-      ],
-    })
+    const broadcasts = await BroadcastMessage.find(await activeBroadcastsFilter(audience))
+      .select("title message priority action expiresAt createdAt createdByName")
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
@@ -636,9 +619,10 @@ export async function getFacultyReviews(req, res) {
       req.query
     );
 
-    // Combine and simplify for external pages like GuideReviews/PanelReviews
-    const guideProjects = data.guideProjects || [];
-    const panelProjects = data.panelProjects || [];
+    // Combine and simplify for external pages like GuideReviews/PanelReviews.
+    // Teams awaiting title & abstract acceptance are held out of reviews.
+    const guideProjects = (data.guideProjects || []).filter((p) => !p.reviewsLocked);
+    const panelProjects = (data.panelProjects || []).filter((p) => !p.reviewsLocked);
 
     // --- FIX: Fetch Approved Requests to determine "Unlocked" status ---
     const approvedRequests = await Request.find({

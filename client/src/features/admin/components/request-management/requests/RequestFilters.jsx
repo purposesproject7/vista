@@ -49,7 +49,7 @@ const RequestFilters = ({ filters, onFilterChange, onReset }) => {
     return [
       { value: "", label: "All Programs" },
       ...availablePrograms.map((program) => ({
-        value: program.code,
+        value: program.name, // programs are stored by name
         label: program.name,
       })),
     ];

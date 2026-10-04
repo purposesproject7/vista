@@ -8,7 +8,7 @@ import Input from '../../../../shared/components/Input';
 import ExcelUpload from '../../../../shared/components/ExcelUpload';
 import * as coordinatorApi from '../../services/coordinatorApi';
 import { useToast } from '../../../../shared/hooks/useToast';
-import { useAuth } from '../../../../shared/hooks/useAuth';
+import { useCoordinatorScope } from "../../context/CoordinatorContext";
 
 const StudentUploadTab = () => {
     const [filters, setFilters] = useState(null);
@@ -26,7 +26,7 @@ const StudentUploadTab = () => {
         PAT: false
     });
     const { showToast } = useToast();
-    const { user } = useAuth();
+    const scope = useCoordinatorScope();
 
     const templateColumns = ['regNo', 'name', 'emailId', 'phoneNumber', 'PAT'];
 
@@ -52,12 +52,12 @@ const StudentUploadTab = () => {
             const enrichedData = parsedData.map(student => ({
                 ...student,
                 PAT: student.PAT === 'true' || student.PAT === 'TRUE' || student.PAT === true || student.PAT === 1,
-                school: user?.school,
-                program: user?.program,
+                school: scope.school,
+                program: scope.program,
                 academicYear: filters?.year,
                 // Additional fields if needed by backend
-                schoolId: user?.school,
-                programmeId: user?.program,
+                schoolId: scope.school,
+                programmeId: scope.program,
                 yearId: filters?.year,
             }));
 
@@ -107,8 +107,8 @@ const StudentUploadTab = () => {
             setIsAddingStudent(true);
             const studentData = {
                 ...formData,
-                school: user?.school,
-                program: user?.program,
+                school: scope.school,
+                program: scope.program,
                 academicYear: filters.year,
             };
 
@@ -157,7 +157,7 @@ const StudentUploadTab = () => {
                             Single Entry
                         </Button>
                         <span className="text-xs text-gray-500 self-center ml-2">
-                            {user?.school} → {user?.program} → {filters.year}
+                            {scope.school} → {scope.program} → {filters.year}
                         </span>
                     </div>
 

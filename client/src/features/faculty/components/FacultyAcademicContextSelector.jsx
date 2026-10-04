@@ -76,7 +76,7 @@ const FacultyAcademicContextSelector = ({ currentFilters, onFilterChange, classN
             const programs = masterData.programs
                 ?.filter(p => p.school === activeSchool)
                 ?.map(p => ({
-                    value: p.code,
+                    value: p.name, // programs are stored by name
                     label: p.name,
                 })) || [];
 

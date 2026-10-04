@@ -12,6 +12,19 @@ function scoreLine(c) {
   return parts.join(" · ") || "Not checked";
 }
 
+// Why a submission was flagged or rejected, from what the content check stored.
+// Matches against the common-project baseline come back labelled "Common project".
+function checkReason(c) {
+  const top = c?.similarProjects?.[0];
+  if (top && c.similarityScore != null && top.score === c.similarityScore) {
+    return top.academicYear === "Common project"
+      ? `It closely matches a commonly done project ("${top.title}", ${top.score}%). Check the team's plan is their own work.`
+      : `It closely matches an approved project ("${top.title}", ${top.score}%).`;
+  }
+  if (c?.plagiarismScore != null) return "Its plagiarism / AI-generated content score exceeds this program's threshold.";
+  return "It exceeds the content check threshold.";
+}
+
 const STATUS_LABELS = {
   not_started: { label: "Not Started", variant: "default" },
   pending_consensus: { label: "Waiting on Students", variant: "warning" },
@@ -28,7 +41,7 @@ const SimilarProjects = ({ contentCheck }) =>
       <p>Most similar existing projects:</p>
       <ul className="list-disc pl-4">
         {contentCheck.similarProjects.map((p) => (
-          <li key={p.project}>
+          <li key={p.project || p.title}>
             {p.title}
             {p.academicYear ? ` (${p.academicYear})` : ""} — {p.score}%
           </li>
@@ -96,11 +109,9 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
       {status === "rejected" && (
         <div className="text-xs text-red-600 space-y-1">
           <p>
-            The team's submission was automatically rejected by the content
-            check (plagiarism/AI score exceeded the auto-reject threshold, or
-            it nearly duplicates an existing project) and
-            never reached your review queue. Students must revise and
-            resubmit.
+            The team's submission was automatically rejected and never reached
+            your review queue. {checkReason(project.contentCheck)} Students must
+            revise and resubmit.
           </p>
           {project.contentCheck && (
             <p className="text-gray-600">
@@ -128,8 +139,7 @@ const TitleAbstractReviewSection = ({ project, onAccepted }) => {
               <SimilarProjects contentCheck={project.contentCheck} />
               {project.contentCheck.flagged && (
                 <p className="text-xs text-orange-600 font-medium">
-                  ⚠ Flagged for review — scores exceed the configured
-                  threshold for this program.
+                  ⚠ Flagged: {checkReason(project.contentCheck)}
                 </p>
               )}
             </div>

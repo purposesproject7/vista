@@ -10,6 +10,7 @@ import { fetchProgramConfig, saveProgramConfig } from "../../services/adminApi";
 const DEFAULT_SETTINGS = {
   plagiarismCheckEnabled: false,
   similarityCheckEnabled: true,
+  requireTitleAbstractApproval: false,
   flagThreshold: 60,
   autoRejectThreshold: 85,
 };
@@ -31,7 +32,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
 
   useEffect(() => {
     if (selectedProgram && availablePrograms.length > 0) {
-      const exists = availablePrograms.find((p) => p.code === selectedProgram);
+      const exists = availablePrograms.find((p) => p.name === selectedProgram);
       if (!exists) setSelectedProgram("");
     } else if (availablePrograms.length === 0) {
       setSelectedProgram("");
@@ -53,6 +54,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
           setSettings({
             plagiarismCheckEnabled: response.data.plagiarismCheckEnabled === true,
             similarityCheckEnabled: response.data.similarityCheckEnabled !== false,
+            requireTitleAbstractApproval: response.data.requireTitleAbstractApproval === true,
             flagThreshold: response.data.flagThreshold ?? 60,
             autoRejectThreshold: response.data.autoRejectThreshold ?? 85,
           });
@@ -101,6 +103,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         program: selectedProgram,
         plagiarismCheckEnabled: settings.plagiarismCheckEnabled,
         similarityCheckEnabled: settings.similarityCheckEnabled,
+        requireTitleAbstractApproval: settings.requireTitleAbstractApproval,
         flagThreshold: settings.flagThreshold,
         autoRejectThreshold: settings.autoRejectThreshold,
       });
@@ -109,7 +112,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
         const schoolName =
           schools.find((s) => s.code === selectedSchool)?.name || selectedSchool;
         const programName =
-          availablePrograms.find((p) => p.code === selectedProgram)?.name ||
+          availablePrograms.find((p) => p.name === selectedProgram)?.name ||
           selectedProgram;
         showToast(
           `Content check settings saved for ${schoolName} - ${programName}`,
@@ -130,7 +133,7 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
 
   const schoolOptions = schools.map((s) => ({ value: s.code, label: s.name }));
   const programOptions = availablePrograms.map((p) => ({
-    value: p.code,
+    value: p.name, // programs are stored by name
     label: p.name,
   }));
   const yearOptions = years.map((y) => ({
@@ -234,6 +237,32 @@ const ContentCheckSettings = ({ schools, programs, years }) => {
                     auto-rejecting near-copies. When off, submissions get no
                     similarity score; approved projects are still recorded, so
                     turning it back on compares against all of them.
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  checked={settings.requireTitleAbstractApproval}
+                  disabled={isLoading}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      requireTitleAbstractApproval: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-medium text-gray-900">
+                    Hold teams out of reviews until the guide accepts the title &amp; abstract
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-1">
+                    When on, a team does not appear in any guide or panel review
+                    until its guide accepts the title &amp; abstract. Guides still
+                    see it under Title &amp; Abstract Reviews. Marks already
+                    entered are kept and become visible again once accepted.
                   </span>
                 </span>
               </label>

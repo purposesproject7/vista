@@ -5,6 +5,7 @@ import BroadcastMessage from "../models/broadcastMessageSchema.js";
 import { StudentService } from "../services/studentService.js";
 import { TitleAbstractService } from "../services/titleAbstractService.js";
 import { logger } from "../utils/logger.js";
+import { audienceOf, activeBroadcastsFilter } from "../utils/broadcastAudience.js";
 
 /**
  * Get student profile
@@ -60,6 +61,7 @@ export async function getProject(req, res) {
           select: "name employeeId",
         },
       })
+      .populate("reviewPanels.panel", "panelName venue dateTime")
       .lean();
 
     if (!project) {
@@ -68,6 +70,8 @@ export async function getProject(req, res) {
         message: "No project found for this student.",
       });
     }
+
+    project.reviewSchedule = await reviewScheduleFor(project);
 
     res.status(200).json({
       success: true,
@@ -79,6 +83,38 @@ export async function getProject(req, res) {
       message: "Error fetching student project.",
     });
   }
+}
+
+/**
+ * The team's reviews in order, with when and where each happens. Panel
+ * reviews use the panel assigned to that review (else the main panel); guide
+ * reviews have no venue or slot, only the review window.
+ */
+async function reviewScheduleFor(project) {
+  const schema = await MarkingSchema.findOne({
+    academicYear: project.academicYear,
+    school: project.school,
+    program: project.program,
+  }).lean();
+
+  return (schema?.reviews || [])
+    .filter((r) => r.isActive !== false)
+    .sort((a, b) => a.order - b.order)
+    .map((r) => {
+      const panel =
+        r.facultyType === "guide"
+          ? null
+          : project.reviewPanels?.find((rp) => rp.reviewType === r.reviewName)?.panel || project.panel;
+      return {
+        reviewName: r.reviewName,
+        displayName: r.displayName,
+        facultyType: r.facultyType,
+        window: r.deadline,
+        venue: panel?.venue || null,
+        dateTime: panel?.dateTime || null,
+        panelName: panel?.panelName || null,
+      };
+    });
 }
 
 /**
@@ -218,29 +254,15 @@ export async function getTitleAbstractStatus(req, res) {
  */
 export async function getBroadcasts(req, res) {
   try {
-    const { school, program } = req.query;
-
-    if (!school || !program) {
-      return res.status(400).json({
-        success: false,
-        message: "School and program are required.",
-      });
+    // From the student's own record, never the query: a client-chosen school
+    // or program would show other cohorts' (or faculty-only) broadcasts.
+    const audience = await audienceOf(req.user._id, "student");
+    if (!audience) {
+      return res.status(404).json({ success: false, message: "Student not found." });
     }
 
-    const now = new Date();
-
-    const broadcasts = await BroadcastMessage.find({
-      isActive: true,
-      expiresAt: { $gt: now },
-      $and: [
-        {
-          $or: [{ targetSchools: { $size: 0 } }, { targetSchools: school }],
-        },
-        {
-          $or: [{ targetPrograms: { $size: 0 } }, { targetPrograms: program }],
-        },
-      ],
-    })
+    const broadcasts = await BroadcastMessage.find(await activeBroadcastsFilter(audience))
+      .select("title message priority action expiresAt createdAt createdByName")
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();

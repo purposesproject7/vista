@@ -8,7 +8,7 @@ import ProjectViewTab from "../components/project-management/ProjectViewTab";
 import ProjectUploadTab from "../components/project-management/ProjectUploadTab";
 import Card from "../../../shared/components/Card";
 import { useToast } from "../../../shared/hooks/useToast";
-import { useAuth } from "../../../shared/hooks/useAuth";
+import { useCoordinatorScope } from "../context/CoordinatorContext";
 import {
   fetchProjects as apiFetchProjects,
   fetchPermissions as apiFetchPermissions,
@@ -27,7 +27,7 @@ const ProjectManagement = () => {
     bestProjects: 0,
   });
   const { showToast } = useToast();
-  const { user } = useAuth();
+  const scope = useCoordinatorScope();
 
   // 1. Fetch coordinator permissions on mount
   useEffect(() => {
@@ -64,8 +64,8 @@ const ProjectManagement = () => {
     try {
       setLoading(true);
       const response = await apiFetchProjects({
-        school: user?.school,
-        program: user?.program,
+        school: scope.school,
+        program: scope.program,
         academicYear: filters?.year, // Assuming filter.year maps to academicYear
       });
 
@@ -87,7 +87,7 @@ const ProjectManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, showToast]);
+  }, [filters, scope.school, scope.program, showToast]);
 
   // 4. Trigger data fetch when filters or tab changes
   useEffect(() => {

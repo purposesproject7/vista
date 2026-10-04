@@ -13,6 +13,7 @@ import PPTApprovalSection from '../components/PPTApprovalSection';
 import MergeTeamsModal from '../components/MergeTeamsModal';
 import EditProjectModal from '../components/EditProjectModal';
 import TitleAbstractReviewSection from '../components/TitleAbstractReviewSection';
+import TitleAbstractApprovals from '../components/TitleAbstractApprovals';
 import { PencilSquareIcon } from '@heroicons/react/24/outline'; // Add icon import
 
 
@@ -75,7 +76,7 @@ const FacultyDashboard = () => {
                     ...prev,
                     year: years.find(y => y === '2024-2025') || years[0] || '',
                     school: initialSchool,
-                    program: initialPrograms[0]?.code || 'All Programs', // Default to first program (use code to match selector value)
+                    program: initialPrograms[0]?.name || 'All Programs', // Default to first program (by name, matching the selector value)
                     role: 'guide'
                 }));
             } catch (err) {
@@ -99,7 +100,7 @@ const FacultyDashboard = () => {
 
             // Reset program selection if current selection is invalid for new school
             // Default to first program of the new school
-            const firstProgram = relevantPrograms[0]?.code || 'All Programs';
+            const firstProgram = relevantPrograms[0]?.name || 'All Programs';
             setFilters(prev => ({ ...prev, program: firstProgram }));
         }
     }, [filters.school, filterOptions.allPrograms]);
@@ -179,6 +180,14 @@ const FacultyDashboard = () => {
                     </div>
 
 
+
+                    {/* Title/abstract submissions awaiting the guide, with similarity scores */}
+                    {filters.role === 'guide' && (
+                        <TitleAbstractApprovals
+                            guideAssignments={guideAssignments}
+                            onAccepted={refreshReviews}
+                        />
+                    )}
 
                     {/* NEW: PPT Approval Section */}
                     {filters.role === 'guide' && (

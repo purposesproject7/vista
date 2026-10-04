@@ -108,7 +108,7 @@ const ModificationSettings = () => {
         const allPrograms = (masterData.programs || masterData.departments || [])
           .filter(prog => prog.isActive !== false)
           .map(prog => ({
-            value: prog.code || prog.name,
+            value: prog.name, // programs are stored by name
             label: prog.name,
             school: prog.school
           }));

@@ -9,6 +9,7 @@ import MarkingSchema from "../models/markingSchema.js";
 import Marks from "../models/marksSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
+import { canAdminSchool } from "../utils/facultyHelpers.js";
 import MasterData from "../models/masterDataSchema.js";
 import { FacultyService } from "../services/facultyService.js";
 import { PanelService } from "../services/panelService.js";
@@ -2531,7 +2532,7 @@ export async function createSchool(req, res) {
 export async function updateSchool(req, res) {
   try {
     const { id } = req.params;
-    const { name, code } = req.body;
+    const { name, code, isActive } = req.body;
 
     const masterData = await getOrCreateMasterData();
 
@@ -2542,6 +2543,18 @@ export async function updateSchool(req, res) {
         success: false,
         message: "School not found.",
       });
+    }
+
+    // Soft delete / restore (the UI's Delete sends only isActive)
+    if (isActive !== undefined) {
+      school.isActive = isActive;
+      await masterData.save();
+      logger.info("school_active_changed", { schoolId: id, isActive, updatedBy: req.user._id });
+      return res.status(200).json({ success: true, message: "School updated successfully.", data: school });
+    }
+
+    if (!name || !code) {
+      return res.status(400).json({ success: false, message: "School name and code are required." });
     }
 
     // Check for duplicates (excluding current school)
@@ -2712,7 +2725,7 @@ export async function createProgram(req, res) {
 export async function updateProgram(req, res) {
   try {
     const { id } = req.params;
-    const { name, code, school, specializations } = req.body;
+    const { name, code, school, specializations, isActive } = req.body;
 
     const masterData = await getOrCreateMasterData();
 
@@ -2723,6 +2736,23 @@ export async function updateProgram(req, res) {
         success: false,
         message: "Program not found.",
       });
+    }
+
+    // By id, so the school-scope middleware never sees the program's school.
+    if (!canAdminSchool(req.user, program.school)) {
+      return res.status(403).json({ success: false, message: "You can only manage your own school's programs." });
+    }
+
+    // Soft delete / restore (the UI's Delete sends only isActive)
+    if (isActive !== undefined) {
+      program.isActive = isActive;
+      await masterData.save();
+      logger.info("program_active_changed", { programId: id, isActive, updatedBy: req.user._id });
+      return res.status(200).json({ success: true, message: "Program updated successfully.", data: program });
+    }
+
+    if (!name || !code) {
+      return res.status(400).json({ success: false, message: "Program name and code are required." });
     }
 
     // Check if school exists
@@ -2958,6 +2988,7 @@ export async function createProgramConfig(req, res) {
       autoRejectThreshold,
       plagiarismCheckEnabled,
       similarityCheckEnabled,
+      requireTitleAbstractApproval,
     } = req.body;
 
     // Check if already exists
@@ -2987,6 +3018,7 @@ export async function createProgramConfig(req, res) {
       autoRejectThreshold: autoRejectThreshold ?? 85,
       plagiarismCheckEnabled: plagiarismCheckEnabled === true,
       similarityCheckEnabled: similarityCheckEnabled !== false,
+      requireTitleAbstractApproval: requireTitleAbstractApproval === true,
       featureLocks:
         featureLocks ||
         [
@@ -3024,10 +3056,16 @@ export async function createProgramConfig(req, res) {
   }
 }
 
+const PROGRAM_CONFIG_SETTINGS = [
+  "minTeamSize", "maxTeamSize", "minPanelSize", "maxPanelSize",
+  "maxProjectsPerGuide", "maxProjectsPerPanel", "featureLocks",
+  "plagiarismCheckEnabled", "similarityCheckEnabled", "requireTitleAbstractApproval",
+  "flagThreshold", "autoRejectThreshold",
+];
+
 export async function updateProgramConfig(req, res) {
   try {
     const { id } = req.params;
-    const updates = req.body;
 
     const config = await ProgramConfig.findById(id);
 
@@ -3038,10 +3076,20 @@ export async function updateProgramConfig(req, res) {
       });
     }
 
-    // Apply updates
-    Object.keys(updates).forEach((key) => {
-      config[key] = updates[key];
-    });
+    // By id, so the school-scope middleware never sees the config's school.
+    if (!canAdminSchool(req.user, config.school)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only configure your own school.",
+      });
+    }
+
+    // Settings only: academicYear/school/program identify the config and
+    // never change (the middleware would otherwise rewrite a sub-admin's
+    // request onto their own school).
+    for (const key of PROGRAM_CONFIG_SETTINGS) {
+      if (req.body[key] !== undefined) config[key] = req.body[key];
+    }
 
     await config.save();
 
@@ -3073,6 +3121,13 @@ export async function updateFeatureLock(req, res) {
       return res.status(404).json({
         success: false,
         message: "Program config not found.",
+      });
+    }
+
+    if (!canAdminSchool(req.user, config.school)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only configure your own school.",
       });
     }
 

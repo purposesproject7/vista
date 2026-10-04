@@ -1,5 +1,25 @@
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
+
+/**
+ * Throws if the project's program holds teams out of reviews until the guide
+ * accepts the title & abstract (admin setting) and it is not accepted yet.
+ */
+export async function assertReviewable(project) {
+  if (project.titleAbstractStatus === "accepted") return;
+  const gated = await ProgramConfig.exists({
+    academicYear: project.academicYear,
+    school: project.school,
+    program: project.program,
+    requireTitleAbstractApproval: true,
+  });
+  if (gated) {
+    throw new Error(
+      "This team's title & abstract must be accepted by the guide before it can be reviewed."
+    );
+  }
+}
 
 /**
  * Extract primary school and program from faculty
@@ -86,27 +106,19 @@ export async function getFacultyTypeForProject(
 }
 
 /**
- * Extract school/program arrays from faculty for broadcast matching
- */
-export function getFacultyAudience(faculty) {
-  const schools = Array.isArray(faculty.school)
-    ? faculty.school
-    : [faculty.school];
-
-  const programs = Array.isArray(faculty.program)
-    ? faculty.program
-    : [faculty.program];
-
-  return { schools, programs };
-}
-
-/**
  * Employee id of the master ("sudo") admin, who is exempt from school
  * scoping. Normalized the way employee ids are stored (trimmed, uppercased),
  * so "admin001" or a stray space in deploy.conf still matches.
  */
 export function masterAdminId() {
   return String(process.env.ADMIN_EMPLOYEE_ID || "ADMIN001").trim().toUpperCase();
+}
+
+/** Sudo admin manages every school; any other admin only their own. */
+export function canAdminSchool(user, school) {
+  if (isMasterAdmin(user)) return true;
+  const own = String(user?.school ?? "").trim().toLowerCase();
+  return own !== "" && own === String(school ?? "").trim().toLowerCase();
 }
 
 export function isMasterAdmin(user) {

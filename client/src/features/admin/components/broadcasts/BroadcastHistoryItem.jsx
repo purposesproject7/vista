@@ -35,6 +35,7 @@ const BroadcastHistoryItem = ({ broadcast, onEdit, onDelete }) => {
             )}
             <div>Status: <strong>{broadcast.isActive ? 'Active' : 'Inactive'}</strong></div>
             <div>Action: <strong>{broadcast.action || 'notice'}</strong></div>
+            <div>To: <strong>{{ students: 'students', all: 'faculty & students' }[broadcast.audience] || 'faculty'}</strong></div>
           </div>
           {isExpired && (
             <Badge variant="secondary" className="mt-2">Expired</Badge>

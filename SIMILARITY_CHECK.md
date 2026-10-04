@@ -6,7 +6,7 @@ When a team submits its title and abstract, the server checks whether a similar 
 
 1. One teammate submits the title and abstract for the whole team.
 2. A local model, `Snowflake/snowflake-arctic-embed-m-v2.0`, turns the title and abstract into a list of 768 numbers called an **embedding**. Abstracts with similar meaning get similar numbers, even when the wording is different. The model reads up to 8192 tokens, so the whole abstract counts, even at the 500-word limit.
-3. The embedding is compared against every **approved** project's embedding. The closest match gives the **similarity score**, from 0 to 100. The submission itself is not stored for comparison yet.
+3. The embedding is compared against every **approved** project and against **100 commonly done projects** (see below). The closest match gives the **similarity score**, from 0 to 100. The submission itself is not stored for comparison yet.
 4. When the guide accepts the title and abstract, the approved text is embedded and saved on the project (the `abstractEmbedding` field). From then on, later submissions are compared against it. Pending and rejected submissions are never in the comparison set.
 5. The score decides what happens next:
 
@@ -16,7 +16,17 @@ When a team submits its title and abstract, the server checks whether a similar 
 | 75–92 | **Flagged**: goes to the guide, with a warning |
 | 93 or above | **Auto-rejected**: the team must revise and resubmit |
 
-Guides see the 3 closest projects with their title, year and score. Students only see their own score, never other teams' titles.
+These thresholds apply to matches with **approved projects**. Matches with a **common project** only ever flag, never reject, at 70 or above: doing a common project is allowed, copying another team's is not.
+
+Guides see the 3 closest matches with their title, year and score; common projects show as "(Common project)". Students only see their own score, never other teams' titles.
+
+## Common projects (the baseline)
+
+Without approved projects there would be nothing to compare against, so the check ships with 100 commonly done student projects in `server/data/referenceProjects.json`: IoT (light-sensing dimmer, smart irrigation, home automation...), computer vision, healthcare AI, NLP, web/app, blockchain, security and robotics. Each has a title and a short abstract. They are stored in their own `referenceprojects` collection, never as real projects, so they don't appear in project lists or reports.
+
+The backfill (which runs on every deploy) adds new entries from the file, updates changed ones and embeds them. To add more, append `{"domain", "title", "abstract"}` objects to the file and redeploy. As guides approve projects, those join the comparison set too, so the baseline matters less over time.
+
+Reference abstracts are short (~80 words) next to full submissions (250–500 words), which lowers scores against them: a full submission of the same common project scores about 72–94, and the same problem done a different way about 51–69. Hence their own flag line of 70 (`SIMILARITY_REFERENCE_FLAG_THRESHOLD`).
 
 Typical scores:
 
@@ -29,6 +39,8 @@ Typical scores:
 | A completely unrelated project | ~15–35 |
 
 If the model fails for any reason, the submission still goes through without a similarity score, and the guide reviews it as usual.
+
+**Speed.** The app keeps every comparison vector in memory, so a check costs one embedding (about 0.1–0.3 s) plus a few milliseconds of scoring, however many abstracts are stored. The copy loads on the first check, refreshes in the background every 10 minutes (picking up deletions, renamed titles or a manual backfill), and a project a guide accepts is added immediately. Memory use is about 3 KB per stored abstract (30 MB for 10,000). `node scripts/similarityCacheCheck.js` tests this without a database.
 
 ## What is the backfill?
 
@@ -92,6 +104,7 @@ Add these to `/etc/vista/deploy.conf` only if you want to change the defaults, t
 |---|---|---|
 | `SIMILARITY_FLAG_THRESHOLD` | `75` | Score at which a submission is flagged for the guide |
 | `SIMILARITY_REJECT_THRESHOLD` | `93` | Score at which a submission is auto-rejected |
+| `SIMILARITY_REFERENCE_FLAG_THRESHOLD` | `70` | Score against a common project at which a submission is flagged (never rejected) |
 | `EMBEDDING_MODEL` | `Snowflake/snowflake-arctic-embed-m-v2.0` | Model used for embeddings |
 
 If too many normal projects get flagged, raise the flag threshold. If copies slip through, lower it.
@@ -114,5 +127,8 @@ It was picked by benchmark on 7 project topics, each with an original abstract, 
 | `server/services/similarityService.js` | Loads the model, creates embeddings, finds the closest projects |
 | `server/services/titleAbstractService.js` | Runs the check on submission and applies the thresholds; embeds the approved text on acceptance |
 | `server/models/projectSchema.js` | `abstractEmbedding`, `abstractEmbeddingModel`, `contentCheck.similarityScore`, `contentCheck.similarProjects` |
-| `server/scripts/backfillEmbeddings.js` | The backfill (runs on every deploy) |
-| `server/scripts/similarityCheck.js` | Self-check |
+| `server/scripts/backfillEmbeddings.js` | The backfill (runs on every deploy); also seeds the common projects |
+| `server/data/referenceProjects.json` | The 100 common projects |
+| `server/models/referenceProjectSchema.js` | Where they are stored |
+| `server/scripts/similarityCheck.js` | Self-check of the model |
+| `server/scripts/similarityCacheCheck.js` | Self-check of the in-memory vector cache |
