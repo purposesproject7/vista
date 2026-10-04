@@ -60,6 +60,7 @@ export async function getProject(req, res) {
           select: "name employeeId",
         },
       })
+      .populate("reviewPanels.panel", "panelName venue dateTime")
       .lean();
 
     if (!project) {
@@ -68,6 +69,8 @@ export async function getProject(req, res) {
         message: "No project found for this student.",
       });
     }
+
+    project.reviewSchedule = await reviewScheduleFor(project);
 
     res.status(200).json({
       success: true,
@@ -79,6 +82,38 @@ export async function getProject(req, res) {
       message: "Error fetching student project.",
     });
   }
+}
+
+/**
+ * The team's reviews in order, with when and where each happens. Panel
+ * reviews use the panel assigned to that review (else the main panel); guide
+ * reviews have no venue or slot, only the review window.
+ */
+async function reviewScheduleFor(project) {
+  const schema = await MarkingSchema.findOne({
+    academicYear: project.academicYear,
+    school: project.school,
+    program: project.program,
+  }).lean();
+
+  return (schema?.reviews || [])
+    .filter((r) => r.isActive !== false)
+    .sort((a, b) => a.order - b.order)
+    .map((r) => {
+      const panel =
+        r.facultyType === "guide"
+          ? null
+          : project.reviewPanels?.find((rp) => rp.reviewType === r.reviewName)?.panel || project.panel;
+      return {
+        reviewName: r.reviewName,
+        displayName: r.displayName,
+        facultyType: r.facultyType,
+        window: r.deadline,
+        venue: panel?.venue || null,
+        dateTime: panel?.dateTime || null,
+        panelName: panel?.panelName || null,
+      };
+    });
 }
 
 /**
