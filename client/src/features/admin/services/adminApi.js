@@ -1013,7 +1013,8 @@ export const createBroadcast = async (
   title = "",
   action = "notice",
   priority = "medium",
-  sendEmail = false
+  sendEmail = false,
+  audience = "faculty"
 ) => {
   const response = await api.post("/admin/broadcasts", {
     message,
@@ -1024,6 +1025,7 @@ export const createBroadcast = async (
     action,
     priority,
     sendEmail,
+    audience,
   });
   return response.data;
 };

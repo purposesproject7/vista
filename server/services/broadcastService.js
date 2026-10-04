@@ -16,9 +16,14 @@ export class BroadcastService {
       targetAcademicYears = [],
       expiresAt,
       action = "notice",
+      audience = "faculty",
       priority = "medium",
       sendEmail = false,
     } = data;
+
+    if (!["faculty", "students", "all"].includes(audience)) {
+      throw new Error("Audience must be 'faculty', 'students' or 'all'.");
+    }
 
     if (!message || !expiresAt) {
       throw new Error("Message and expiration date are required.");
@@ -44,6 +49,7 @@ export class BroadcastService {
       expiresAt: new Date(expiresAt),
       isActive: true,
       action,
+      audience,
       priority,
     });
 
@@ -58,8 +64,9 @@ export class BroadcastService {
       createdBy: createdBy._id,
     });
 
-    // Send email if requested
-    if (sendEmail) {
+    // Send email if requested. Faculty only: mailing every student would blow
+    // through the sending account's daily limit.
+    if (sendEmail && audience !== "students") {
       try {
         const query = { isActive: true };
 
@@ -167,6 +174,7 @@ export class BroadcastService {
       broadcast.expiresAt = new Date(updates.expiresAt);
     if (updates.isActive !== undefined) broadcast.isActive = updates.isActive;
     if (updates.action !== undefined) broadcast.action = updates.action;
+    if (updates.audience !== undefined) broadcast.audience = updates.audience; // schema enum validates
     if (updates.priority !== undefined) broadcast.priority = updates.priority;
 
     await broadcast.save();

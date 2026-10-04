@@ -117,6 +117,42 @@ const BroadcastForm = ({
             timeFormat="12"
           />
 
+          {/* Who receives it */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Send to
+            </label>
+            <div className="flex flex-wrap gap-4">
+              {[
+                ["faculty", "Faculty"],
+                ["students", "Students"],
+                ["all", "Faculty & students"],
+              ].map(([value, label]) => (
+                <label
+                  key={value}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border cursor-pointer ${(formData.audience || "faculty") === value
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-200 bg-white"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="audience"
+                    value={value}
+                    checked={(formData.audience || "faculty") === value}
+                    onChange={onInputChange}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium">{label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Target schools and programs narrow it down for both faculty and
+              students.
+            </p>
+          </div>
+
           {/* Action */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -156,13 +192,13 @@ const BroadcastForm = ({
                   className="text-red-600 focus:ring-red-500"
                 />
                 <span className="text-sm font-medium">
-                  Block faculty access
+                  Block access
                 </span>
               </label>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              Choose 'Block faculty access' to temporarily prevent faculty from
-              using the portal.
+              Choose 'Block access' to temporarily keep the selected audience
+              out of the portal until the broadcast expires.
             </p>
           </div>
 
@@ -198,6 +234,7 @@ const BroadcastForm = ({
               className="text-sm font-medium text-gray-700"
             >
               Send as email to selected audience
+              {formData.audience === "students" ? " (not sent to students; they see it in the portal)" : formData.audience === "all" ? " (faculty only; students see it in the portal)" : ""}
             </label>
           </div>
 

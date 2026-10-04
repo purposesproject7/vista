@@ -50,6 +50,13 @@ const broadcastMessageSchema = new mongoose.Schema(
       enum: ["notice", "block"],
       default: "notice",
     },
+    // Who it reaches. Broadcasts saved before this field count as "faculty"
+    // (faculty includes project coordinators).
+    audience: {
+      type: String,
+      enum: ["faculty", "students", "all"],
+      default: "faculty",
+    },
     priority: {
       type: String,
       enum: ["low", "medium", "high", "urgent"],

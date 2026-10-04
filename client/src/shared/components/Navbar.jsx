@@ -87,8 +87,8 @@ const Navbar = () => {
               </div>
             )}
 
-            {/* Admin broadcasts as notifications: faculty and coordinators only */}
-            {user.role === "faculty" && <BroadcastBell user={user} />}
+            {/* Admin broadcasts as notifications: faculty, coordinators and students */}
+            {(user.role === "faculty" || user.role === "student") && <BroadcastBell user={user} />}
 
             <UserMenu
               user={user}

@@ -28,9 +28,9 @@ const saveRead = (user, ids) => {
 };
 
 /**
- * Admin broadcasts as notifications for faculty (coordinators included):
+ * Admin broadcasts as notifications for faculty (coordinators included) and students:
  * unread badge, a list of current announcements, and a popup when a new one
- * arrives (the app's toast hook only logs to the console). Re-checks every 2 minutes. Not rendered for admins or students.
+ * arrives (the app's toast hook only logs to the console). Re-checks every 2 minutes. Not rendered for admins.
  */
 const BroadcastBell = ({ user }) => {
   const [items, setItems] = useState([]);
@@ -49,7 +49,7 @@ const BroadcastBell = ({ user }) => {
     let cancelled = false;
     const load = () =>
       api
-        .get("/faculty/broadcasts")
+        .get(user.role === "student" ? "/student/broadcasts" : "/faculty/broadcasts")
         .then((res) => {
           if (cancelled) return;
           const list = res.data?.data || [];

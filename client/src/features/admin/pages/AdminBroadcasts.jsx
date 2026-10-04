@@ -30,6 +30,7 @@ const AdminBroadcasts = () => {
     targetPrograms: [], // Will store "SchoolName::ProgramName" format
     expiresAt: "",
     action: "notice",
+    audience: "faculty",
     isActive: true,
     sendEmail: false,
   });
@@ -86,6 +87,7 @@ const AdminBroadcasts = () => {
       targetPrograms: [],
       expiresAt: "",
       action: "notice",
+      audience: "faculty",
       isActive: true,
       sendEmail: false,
     });
@@ -224,6 +226,7 @@ const AdminBroadcasts = () => {
         targetPrograms: programNames,
         expiresAt: expiryIso,
         action: formData.action || "notice",
+        audience: formData.audience || "faculty",
         isActive: formData.isActive,
         sendEmail: formData.sendEmail,
       };
@@ -240,7 +243,8 @@ const AdminBroadcasts = () => {
           payload.title,
           payload.action,
           payload.priority,
-          payload.sendEmail
+          payload.sendEmail,
+          payload.audience
         );
       }
 
@@ -287,6 +291,7 @@ const AdminBroadcasts = () => {
         targetPrograms: programKeys,
         expiresAt: broadcast.expiresAt, // DateTimePicker expects ISO string
         action: broadcast.action || "notice",
+        audience: broadcast.audience || "faculty",
         isActive: broadcast.isActive ?? true,
       });
       window.scrollTo({ top: 0, behavior: "smooth" });

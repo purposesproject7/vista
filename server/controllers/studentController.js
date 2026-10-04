@@ -5,6 +5,7 @@ import BroadcastMessage from "../models/broadcastMessageSchema.js";
 import { StudentService } from "../services/studentService.js";
 import { TitleAbstractService } from "../services/titleAbstractService.js";
 import { logger } from "../utils/logger.js";
+import { audienceOf, activeBroadcastsFilter } from "../utils/broadcastAudience.js";
 
 /**
  * Get student profile
@@ -253,29 +254,15 @@ export async function getTitleAbstractStatus(req, res) {
  */
 export async function getBroadcasts(req, res) {
   try {
-    const { school, program } = req.query;
-
-    if (!school || !program) {
-      return res.status(400).json({
-        success: false,
-        message: "School and program are required.",
-      });
+    // From the student's own record, never the query: a client-chosen school
+    // or program would show other cohorts' (or faculty-only) broadcasts.
+    const audience = await audienceOf(req.user._id, "student");
+    if (!audience) {
+      return res.status(404).json({ success: false, message: "Student not found." });
     }
 
-    const now = new Date();
-
-    const broadcasts = await BroadcastMessage.find({
-      isActive: true,
-      expiresAt: { $gt: now },
-      $and: [
-        {
-          $or: [{ targetSchools: { $size: 0 } }, { targetSchools: school }],
-        },
-        {
-          $or: [{ targetPrograms: { $size: 0 } }, { targetPrograms: program }],
-        },
-      ],
-    })
+    const broadcasts = await BroadcastMessage.find(await activeBroadcastsFilter(audience))
+      .select("title message priority action expiresAt createdAt createdByName")
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();

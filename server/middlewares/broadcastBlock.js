@@ -3,7 +3,8 @@ import { audienceOf, activeBroadcastsFilter } from "../utils/broadcastAudience.j
 import { logger } from "../utils/logger.js";
 
 /**
- * Block faculty and project coordinator API access when an active blocking broadcast exists
+ * Block faculty, project coordinator and student API access when an active
+ * blocking broadcast addressed to them exists
  */
 export const broadcastBlockMiddleware = async (req, res, next) => {
   try {
@@ -19,8 +20,8 @@ export const broadcastBlockMiddleware = async (req, res, next) => {
       return next();
     }
 
-    // Only block faculty and project_coordinator roles
-    if (userRole !== "faculty" && userRole !== "project_coordinator") {
+    // Admins are never blocked
+    if (!["faculty", "project_coordinator", "student"].includes(userRole)) {
       return next();
     }
 
