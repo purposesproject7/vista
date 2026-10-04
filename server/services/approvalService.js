@@ -1,6 +1,7 @@
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import { logger } from "../utils/logger.js";
+import { assertReviewable } from "../utils/facultyHelpers.js";
 
 export class ApprovalService {
   /**
@@ -19,6 +20,8 @@ export class ApprovalService {
     if (!project || project.guideFaculty?.toString() !== facultyId.toString()) {
       throw new Error("Only the guide can approve PPT.");
     }
+
+    await assertReviewable(project);
 
     // Update Project PPT Approvals (Team-level)
     const existingApprovalIndex = project.pptApprovals.findIndex(

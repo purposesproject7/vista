@@ -169,6 +169,14 @@ test("on: the dashboard review list hides them too", async () => {
   assert.equal(panelView.find((p) => String(p._id) === ids.submitted).reviewsLocked, true);
 });
 
+test("on: the guide cannot approve an unapproved team's PPT", async () => {
+  const res = await call("guide", "POST", "/faculty/approvals/ppt", {
+    studentId: ids.legacyStudent, reviewType: "Review 2", sdgGoal: "All",
+  });
+  assert.notEqual(res.status, 200);
+  assert.match(res.body.message, /accepted by the guide/);
+});
+
 test("on: neither guide nor panel can enter marks for an unapproved team", async () => {
   const guide = await marks("guide", "submitted", "Review 1");
   const panel = await marks("panelist", "submitted", "Review 2");

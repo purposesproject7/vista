@@ -1,5 +1,25 @@
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
+import ProgramConfig from "../models/programConfigSchema.js";
+
+/**
+ * Throws if the project's program holds teams out of reviews until the guide
+ * accepts the title & abstract (admin setting) and it is not accepted yet.
+ */
+export async function assertReviewable(project) {
+  if (project.titleAbstractStatus === "accepted") return;
+  const gated = await ProgramConfig.exists({
+    academicYear: project.academicYear,
+    school: project.school,
+    program: project.program,
+    requireTitleAbstractApproval: true,
+  });
+  if (gated) {
+    throw new Error(
+      "This team's title & abstract must be accepted by the guide before it can be reviewed."
+    );
+  }
+}
 
 /**
  * Extract primary school and program from faculty

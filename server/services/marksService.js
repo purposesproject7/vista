@@ -2,8 +2,8 @@ import Marks from "../models/marksSchema.js";
 import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
-import ProgramConfig from "../models/programConfigSchema.js";
 import {
+  assertReviewable,
   getFacultyTypeForProject,
   extractPrimaryContext,
 } from "../utils/facultyHelpers.js";
@@ -33,19 +33,7 @@ export class MarksService {
       reviewType
     );
 
-    if (projectDoc.titleAbstractStatus !== "accepted") {
-      const gated = await ProgramConfig.exists({
-        academicYear: projectDoc.academicYear,
-        school: projectDoc.school,
-        program: projectDoc.program,
-        requireTitleAbstractApproval: true,
-      });
-      if (gated) {
-        throw new Error(
-          "This team's title & abstract must be accepted by the guide before it can be reviewed."
-        );
-      }
-    }
+    await assertReviewable(projectDoc);
 
     // Check for existing marks
     let existingMarks;
