@@ -9,6 +9,7 @@ import MarkingSchema from "../models/markingSchema.js";
 import Marks from "../models/marksSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
+import { canAdminSchool } from "../utils/facultyHelpers.js";
 import MasterData from "../models/masterDataSchema.js";
 import { FacultyService } from "../services/facultyService.js";
 import { PanelService } from "../services/panelService.js";
@@ -3026,10 +3027,16 @@ export async function createProgramConfig(req, res) {
   }
 }
 
+const PROGRAM_CONFIG_SETTINGS = [
+  "minTeamSize", "maxTeamSize", "minPanelSize", "maxPanelSize",
+  "maxProjectsPerGuide", "maxProjectsPerPanel", "featureLocks",
+  "plagiarismCheckEnabled", "similarityCheckEnabled", "requireTitleAbstractApproval",
+  "flagThreshold", "autoRejectThreshold",
+];
+
 export async function updateProgramConfig(req, res) {
   try {
     const { id } = req.params;
-    const updates = req.body;
 
     const config = await ProgramConfig.findById(id);
 
@@ -3040,10 +3047,20 @@ export async function updateProgramConfig(req, res) {
       });
     }
 
-    // Apply updates
-    Object.keys(updates).forEach((key) => {
-      config[key] = updates[key];
-    });
+    // By id, so the school-scope middleware never sees the config's school.
+    if (!canAdminSchool(req.user, config.school)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only configure your own school.",
+      });
+    }
+
+    // Settings only: academicYear/school/program identify the config and
+    // never change (the middleware would otherwise rewrite a sub-admin's
+    // request onto their own school).
+    for (const key of PROGRAM_CONFIG_SETTINGS) {
+      if (req.body[key] !== undefined) config[key] = req.body[key];
+    }
 
     await config.save();
 
@@ -3075,6 +3092,13 @@ export async function updateFeatureLock(req, res) {
       return res.status(404).json({
         success: false,
         message: "Program config not found.",
+      });
+    }
+
+    if (!canAdminSchool(req.user, config.school)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only configure your own school.",
       });
     }
 

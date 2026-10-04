@@ -4,37 +4,19 @@
 //
 //   TEST_MONGO_URI="mongodb+srv://.../vista_feature_test?..." npm test
 //
-// The database name must end in "_feature_test"; it is dropped before and after.
+// See harness.js for the database requirements.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import Panel from "../models/panelSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
+import { openDb, hashedPassword, startServer, call, shutdown } from "./harness.js";
 
-const URI = process.env.TEST_MONGO_URI;
-const PORT = 5099;
-const API = `http://127.0.0.1:${PORT}/api`;
 const CTX = { school: "GateTest School", program: "GateTest Program", academicYear: "2099-2100" };
-const PASSWORD = "gate-test-pass";
-
-let server;
 const ids = {};
-const tokens = {};
-
-async function call(who, method, path, body) {
-  const res = await fetch(API + path, {
-    method,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokens[who]}` },
-    body: body && JSON.stringify(body),
-  });
-  return { status: res.status, body: await res.json() };
-}
 
 const reviewTeamIds = async (who) =>
   (await call(who, "GET", "/faculty/reviews")).body.data.map((p) => String(p._id));
@@ -61,16 +43,8 @@ async function adminSetsHoldOut(on) {
 }
 
 before(async () => {
-  assert.ok(URI, "Set TEST_MONGO_URI to a throwaway database");
-  const dbName = new URL(URI.replace(/^mongodb(\+srv)?:/, "http:")).pathname.slice(1);
-  // Strict on purpose: a plain "test" database is what Atlas URIs without a
-  // name default to, i.e. likely real data.
-  assert.match(dbName, /_feature_test$/, `TEST_MONGO_URI database "${dbName}" must end in "_feature_test" (it gets dropped)`);
-
-  await mongoose.connect(URI);
-  await mongoose.connection.dropDatabase();
-
-  const password = await bcrypt.hash(PASSWORD, 10);
+  await openDb();
+  const password = await hashedPassword();
   const person = (key, role) => ({
     name: key, emailId: `${key}@gatetest.local`, employeeId: `GATE_${key.toUpperCase()}`,
     phoneNumber: "9000000000", password, role, ...CTX,
@@ -111,36 +85,10 @@ before(async () => {
     ids[`${team}Student`] = String(student._id);
   }
 
-  server = spawn(process.execPath, ["index.js"], {
-    cwd: fileURLToPath(new URL("..", import.meta.url)),
-    // A model that cannot load: accepting a title then skips the (non-fatal)
-    // embedding step instead of downloading a model.
-    env: { ...process.env, MONGO_URI: URI, PORT: String(PORT), HOST: "127.0.0.1", NODE_ENV: "test", EMBEDDING_MODEL: "none/none" },
-    stdio: "ignore",
-  });
-  for (let i = 0; ; i++) {
-    try { if ((await fetch(`http://127.0.0.1:${PORT}/health`)).ok) break; } catch {}
-    assert.ok(i < 60, "server did not start");
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  for (const who of ["admin", "guide", "panelist"]) {
-    const res = await fetch(`${API}/auth/login`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emailId: `${who}@gatetest.local`, password: PASSWORD }),
-    });
-    tokens[who] = (await res.json()).token;
-    assert.ok(tokens[who], `${who} could not log in`);
-  }
+  await startServer(5099, ["admin", "guide", "panelist"].map((w) => `${w}@gatetest.local`));
 });
 
-after(async () => {
-  server?.kill();
-  if (mongoose.connection.readyState === 1) {
-    await mongoose.connection.dropDatabase();
-    await mongoose.disconnect();
-  }
-});
+after(shutdown);
 
 // Tests run in order: each step is the next thing that happens in the semester.
 

@@ -114,6 +114,13 @@ export function masterAdminId() {
   return String(process.env.ADMIN_EMPLOYEE_ID || "ADMIN001").trim().toUpperCase();
 }
 
+/** Sudo admin manages every school; any other admin only their own. */
+export function canAdminSchool(user, school) {
+  if (isMasterAdmin(user)) return true;
+  const own = String(user?.school ?? "").trim().toLowerCase();
+  return own !== "" && own === String(school ?? "").trim().toLowerCase();
+}
+
 export function isMasterAdmin(user) {
   return String(user?.employeeId ?? "").trim().toUpperCase() === masterAdminId();
 }
