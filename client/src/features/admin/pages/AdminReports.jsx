@@ -93,6 +93,21 @@ const AdminReports = () => {
     fetchConfig();
   }, []);
 
+  React.useEffect(() => {
+    if (!filters.school || !filters.programme) return;
+
+    const selectedProgram = masterData.programs.find(
+      program =>
+        program.school === filters.school &&
+        (program.code === filters.programme || program.name === filters.programme)
+    );
+
+    if (selectedProgram && selectedProgram.name !== filters.programme) {
+      setFilters(prev => ({ ...prev, programme: selectedProgram.name }));
+      updateAcademicContext({ program: selectedProgram.name });
+    }
+  }, [filters.school, filters.programme, masterData.programs, updateAcademicContext]);
+
 
 
   const reportTypes = [
@@ -456,7 +471,7 @@ const AdminReports = () => {
                       >
                         <option value="">Select Programme</option>
                         {getProgrammes().map((prog) => (
-                          <option key={prog._id || prog.code} value={prog.code}>
+                          <option key={prog._id || prog.code} value={prog.name}>
                             {prog.name}
                           </option>
                         ))}
