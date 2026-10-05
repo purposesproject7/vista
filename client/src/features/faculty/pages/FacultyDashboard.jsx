@@ -1,4 +1,4 @@
-import { gradingReviewsForRole, reviewAvailabilityMessage } from "../../../shared/utils/facultyReviewState";
+import { gradingReviewsForRole, lockedTeamsMessage, reviewAvailabilityMessage } from "../../../shared/utils/facultyReviewState";
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../../shared/components/Navbar';
 import { useFacultyReviews } from '../hooks/useFacultyReviews';
@@ -150,7 +150,16 @@ const FacultyDashboard = () => {
     // --- DASHBOARD VIEW ---
     if (loadingFilters) return <div className="flex h-screen items-center justify-center p-8 text-slate-500">Loading Dashboard...</div>;
     const gradingReviews = items => gradingReviewsForRole(items, filters.role);
-    const emptyMessage = reviewAvailabilityMessage(configuredReviews, filters);
+    const roleAssignments = (filters.role === 'panel' ? panelAssignments : guideAssignments) || [];
+    // Held out of reviews by the Content Check title & abstract setting
+    const lockedCount = roleAssignments.filter(p => p.reviewsLocked).length;
+    const emptyMessage = reviewAvailabilityMessage(configuredReviews, filters, new Date(), {
+        // Review-specific panels count too, not just the project's main panel
+        assigned: roleAssignments.length > 0
+            || [active, deadlinePassed, past].some(list => gradingReviews(list).length > 0),
+        locked: lockedCount,
+        completed: gradingReviews(past).length > 0,
+    });
 
     return (
         <div className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans">
@@ -308,6 +317,12 @@ const FacultyDashboard = () => {
 
                     {/* Active Reviews (Always Open) */}
                     <section className="animate-slideUp">
+                        {/* Held-out teams, when other reviews are open (else the empty message says it) */}
+                        {lockedCount > 0 && gradingReviews(active).length > 0 && (
+                            <div role="status" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                                {lockedTeamsMessage(lockedCount, filters)}
+                            </div>
+                        )}
                         <ActiveReviewsSection
                             reviews={gradingReviews(active)}
                             emptyMessage={emptyMessage}
