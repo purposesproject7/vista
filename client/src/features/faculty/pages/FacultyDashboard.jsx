@@ -17,6 +17,17 @@ import TitleAbstractReviewSection from '../components/TitleAbstractReviewSection
 import TitleAbstractApprovals from '../components/TitleAbstractApprovals';
 import { PencilSquareIcon } from '@heroicons/react/24/outline'; // Add icon import
 
+const getDefaultProgram = (programs, facultyPrograms) => {
+    const facultyProgramValues = (Array.isArray(facultyPrograms) ? facultyPrograms : [facultyPrograms])
+        .filter(Boolean)
+        .map(value => String(value).trim().toLowerCase());
+
+    return programs.find(program =>
+        facultyProgramValues.some(value =>
+            [program.name, program.code].some(alias => String(alias).trim().toLowerCase() === value)
+        )
+    )?.name || programs[0]?.name || 'All Programs';
+};
 
 const FacultyDashboard = () => {
     const { user: authUser } = useAuth();
@@ -80,7 +91,7 @@ const FacultyDashboard = () => {
                     ...prev,
                     year: data.academicYears.find(y => y.isActive && y.isCurrent)?.year || years[0] || '',
                     school: initialSchool,
-                    program: initialPrograms[0]?.name || 'All Programs', // Default to first program (by name, matching the selector value)
+                    program: getDefaultProgram(initialPrograms, authUser?.program),
                     role: 'guide'
                 }));
             } catch (err) {
@@ -91,7 +102,7 @@ const FacultyDashboard = () => {
         };
 
         fetchFilters();
-    }, [authUser?.school]);
+    }, [authUser?.school, authUser?.program]);
 
     // Update programs when school changes
     useEffect(() => {
@@ -104,10 +115,10 @@ const FacultyDashboard = () => {
 
             // Reset program selection if current selection is invalid for new school
             // Default to first program of the new school
-            const firstProgram = relevantPrograms[0]?.name || 'All Programs';
-            setFilters(prev => relevantPrograms.some(p => p.name === prev.program) ? prev : ({ ...prev, program: firstProgram }));
+            const defaultProgram = getDefaultProgram(relevantPrograms, authUser?.program);
+            setFilters(prev => relevantPrograms.some(p => p.name === prev.program) ? prev : ({ ...prev, program: defaultProgram }));
         }
-    }, [filters.school, filterOptions.allPrograms]);
+    }, [filters.school, filterOptions.allPrograms, authUser?.program]);
 
     const [isMarkingOpen, setIsMarkingOpen] = useState(false);
     const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);

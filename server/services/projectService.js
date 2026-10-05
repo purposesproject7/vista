@@ -728,7 +728,10 @@ export class ProjectService {
 
     const master = await readMasterContext();
     const guideContext = canonicalContext(guide, master, { strict: false });
-    const projectContext = canonicalContext({ school, program }, master);
+    const projectContext = canonicalContext({ school, program, academicYear }, master);
+    const projectSchool = projectContext.school;
+    const projectProgram = projectContext.program;
+    const projectAcademicYear = projectContext.academicYear;
     if (!ignoreDepartmentMismatch && (guideContext.school !== projectContext.school || !guideContext.program.includes(projectContext.program))) {
       throw new Error("Guide must belong to the same school and program as the project.");
     }
@@ -744,9 +747,9 @@ export class ProjectService {
 
     // Check team size limits
     const config = await ProgramConfig.findOne({
-      academicYear,
-      school,
-      program,
+      academicYear: projectAcademicYear,
+      school: projectSchool,
+      program: projectProgram,
     });
 
     if (config) {
@@ -767,9 +770,9 @@ export class ProjectService {
       const guideProjectCount = await Project.countDocuments({
         guideFaculty: guide._id,
         status: "active",
-        academicYear,
-        school,
-        program,
+        academicYear: projectAcademicYear,
+        school: projectSchool,
+        program: projectProgram,
       });
 
       if (guideProjectCount >= config.maxProjectsPerGuide) {
@@ -793,7 +796,7 @@ export class ProjectService {
       }
 
       // 1. Check if student exists
-      let student = await Student.findOne({ regNo, academicYear });
+      let student = await Student.findOne({ regNo, academicYear: projectAcademicYear });
 
       // 2. If valid object provided and student not found, create them
       if (
@@ -805,9 +808,9 @@ export class ProjectService {
         try {
           const newStudentData = {
             ...studentData,
-            academicYear, // Inherit from project context if not in data
-            school,
-            program,
+            academicYear: projectAcademicYear,
+            school: projectSchool,
+            program: projectProgram,
           };
           // Use StudentService to reuse logic (uploadStudents creates/updates)
           // But for a single student creation, direct creation might be cleaner or calling uploadStudents logic
@@ -852,7 +855,7 @@ export class ProjectService {
       }
 
       const studentContext = canonicalContext(student, master);
-      if (studentContext.school !== projectContext.school || studentContext.program !== projectContext.program || contextValue(studentContext.academicYear) !== contextValue(academicYear)) throw new Error(`Student ${regNo} does not belong to the project's academic context.`);
+      if (studentContext.school !== projectSchool || studentContext.program !== projectProgram || contextValue(studentContext.academicYear) !== contextValue(projectAcademicYear)) throw new Error(`Student ${regNo} does not belong to the project's academic context.`);
       studentIds.push(student._id);
     }
 
@@ -861,9 +864,9 @@ export class ProjectService {
       name,
       students: studentIds,
       guideFaculty: guide._id,
-      academicYear,
-      school,
-      program,
+      academicYear: projectAcademicYear,
+      school: projectSchool,
+      program: projectProgram,
       specialization,
       type,
       teamSize: students.length,

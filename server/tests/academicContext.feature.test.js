@@ -64,6 +64,17 @@ test('record writes canonicalize school/programme strings and arrays', async () 
   assert.equal(s.program, 'B.Tech'); assert.equal(s.school, ctx.school);
   assert.equal((await Faculty.find({ school: 'SCOPE', program: { $in: ['idp'] } })).length, 3);
 });
+test('faculty project lookup accepts programme names and codes while projects store the name', async () => {
+  assert.equal((await Project.findById(team._id)).program, ctx.program);
+  for (const program of [ctx.program, 'B.TECH']) {
+    const assignments = await ProjectService.getFacultyProjects(guide._id, {
+      academicYear: ctx.academicYear,
+      school: 'SCOPE',
+      program,
+    });
+    assert.ok(assignments.guideProjects.some(project => String(project._id) === String(team._id)), program);
+  }
+});
 test('unknown and cross-school context writes are rejected', async () => {
   await assert.rejects(Student.create({ ...ctx, program: 'Unknown', regNo: 'BAD', name: 'Bad', emailId: 'bad@vitstudent.ac.in', password }), /Programme/);
   await assert.rejects(Student.updateOne({ _id: student._id }, { $set: { school: 'OTHER', program: 'IDP' } }), /does not belong/);
