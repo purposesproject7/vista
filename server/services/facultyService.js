@@ -1,5 +1,5 @@
 import Faculty from "../models/facultySchema.js";
-import MasterData from "../models/masterDataSchema.js";
+import { contextValue, expandContextQuery, readMasterContext } from "../utils/academicContext.js";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
 import { buildCoordinatorFilterQuery, warnOnFilterMismatch } from "../utils/filterHelpers.js";
@@ -8,11 +8,24 @@ export class FacultyService {
   /**
    * A faculty's programmes are every programme configured for their school.
    */
-  static async schoolPrograms(school) {
-    const masterData = await MasterData.findOne().select("programs").lean();
-    return (masterData?.programs || [])
-      .filter((p) => p.school === school)
+  static async schoolPrograms(school, master = null) {
+    master ??= await readMasterContext();
+    const own = (master.schools || []).find((s) => [s.code, s.name].some((v) => contextValue(v) === contextValue(school)));
+    if (!own) return [];
+    return (master.programs || [])
+      .filter((p) => [own.code, own.name].some((v) => contextValue(v) === contextValue(p.school)))
       .map((p) => p.name);
+  }
+
+  /**
+   * Reset every faculty of `school` to the school's programmes, after a
+   * programme is added, renamed or moved. A raw write: the academic-context
+   * plugin allows only one context per updateMany, and these lists differ.
+   */
+  static async syncSchoolPrograms(school) {
+    const master = await readMasterContext();
+    const program = await this.schoolPrograms(school, master);
+    await Faculty.collection.updateMany(expandContextQuery({ school }, master), { $set: { program } });
   }
 
   /**

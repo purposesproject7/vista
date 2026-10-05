@@ -88,6 +88,8 @@ masterDataSchema.pre("validate", async function() {
       }
       for (const model of Object.values(mongoose.models)) {
         if (model === this.constructor || !model.schema.path(field)) continue;
+        // Faculty programme lists mirror master data and are re-synced after the edit
+        if (field === 'program' && model.modelName === 'Faculty') continue;
         if (await model.collection.findOne(query, { projection: { _id: 1 } })) throw new Error(`${field} identifiers are in use. Deactivate the entry or migrate references before renaming/removing it.`);
       }
     }

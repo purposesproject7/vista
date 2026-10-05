@@ -2397,8 +2397,8 @@ export async function createMasterDataBulk(req, res) {
     await masterData.save();
 
     // Faculty belong to every programme of their school
-    for (const prog of createdPrograms) {
-      await Faculty.updateMany({ school: prog.school }, { $addToSet: { program: prog.name } });
+    for (const school of new Set(createdPrograms.map((p) => p.school))) {
+      await FacultyService.syncSchoolPrograms(school);
     }
 
     logger.info("master_data_bulk_created", {
@@ -2696,7 +2696,7 @@ export async function createProgram(req, res) {
     await masterData.save();
 
     // Faculty belong to every programme of their school
-    await Faculty.updateMany({ school }, { $addToSet: { program: name } });
+    await FacultyService.syncSchoolPrograms(school);
 
     logger.info("program_created", {
       name,
@@ -2789,7 +2789,6 @@ export async function updateProgram(req, res) {
       });
     }
 
-    const oldName = program.name;
     const oldSchool = program.school;
     program.name = name;
     program.code = code;
@@ -2798,12 +2797,8 @@ export async function updateProgram(req, res) {
     await masterData.save();
 
     // Keep faculty programme lists (= their school's programmes) in step
-    if (oldSchool !== school) {
-      await Faculty.updateMany({ school: oldSchool }, { $pull: { program: oldName } });
-      await Faculty.updateMany({ school }, { $addToSet: { program: name } });
-    } else if (oldName !== name) {
-      await Faculty.updateMany({ school, program: oldName }, { $set: { "program.$": name } });
-    }
+    await FacultyService.syncSchoolPrograms(school);
+    if (oldSchool !== program.school) await FacultyService.syncSchoolPrograms(oldSchool);
 
     logger.info("program_updated", {
       programId: id,

@@ -10,6 +10,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { exactContextRegex as exact } from "../utils/academicContext.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, "../.env") });
@@ -23,16 +24,20 @@ console.log(`db: ${db.databaseName}${apply ? "" : "   (dry run — pass --apply 
 const master = await db.collection("masterdatas").findOne({}, { projection: { schools: 1, programs: 1 } });
 const faculties = db.collection("faculties");
 
+// Schools and programme links may be stored by code or name, in any case
+const same = (a, b) => String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase();
+
 for (const school of master?.schools || []) {
-  const names = (master.programs || []).filter((p) => p.school === school.code).map((p) => p.name);
+  const aliases = [school.code, school.name];
+  const names = (master.programs || []).filter((p) => aliases.some((a) => same(a, p.school))).map((p) => p.name);
   // Faculty whose list isn't already exactly this set
-  const filter = { school: school.code, $nor: [{ program: { $all: names, $size: names.length } }] };
+  const filter = { school: { $in: aliases.map(exact) }, $nor: [{ program: { $all: names, $size: names.length } }] };
   const n = await faculties.countDocuments(filter);
   console.log(`${school.code}: ${n} faculty -> [${names.join(", ")}]`);
   if (apply && n) await faculties.updateMany(filter, { $set: { program: names } });
 }
 
-const orphans = await faculties.countDocuments({ school: { $nin: (master?.schools || []).map((s) => s.code) } });
+const orphans = await faculties.countDocuments({ school: { $nin: (master?.schools || []).flatMap((s) => [s.code, s.name].map(exact)) } });
 if (orphans) console.log(`\n${orphans} faculty have a school not in master data; left as is`);
 
 await mongoose.disconnect();
