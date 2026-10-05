@@ -81,7 +81,7 @@ const RoleManagement = ({ schools, programsBySchool, years }) => {
       const yearObj = years.find((y) => y.id == selectedYear);
       const schoolObj = schools.find((s) => s.code === selectedSchool);
       const programObj = programsBySchool[selectedSchool]?.find(
-        (p) => p.code === selectedProgramme
+        (p) => p.name === selectedProgramme
       );
 
       if (!yearObj || !schoolObj || !programObj) {
@@ -92,7 +92,7 @@ const RoleManagement = ({ schools, programsBySchool, years }) => {
       const coordResponse = await fetchProjectCoordinators({
         academicYear: yearObj.name,
         school: schoolObj.code,
-        program: programObj.code,
+        program: programObj.name,
       });
 
       if (coordResponse.success) {
@@ -186,7 +186,7 @@ const RoleManagement = ({ schools, programsBySchool, years }) => {
     const yearObj = years.find((y) => y.id == selectedYear);
     const schoolObj = schools.find((s) => s.code === selectedSchool);
     const programObj = programsBySchool[selectedSchool]?.find(
-      (p) => p.code === selectedProgramme
+      (p) => p.name === selectedProgramme
     );
 
 
@@ -204,7 +204,7 @@ const RoleManagement = ({ schools, programsBySchool, years }) => {
           facultyId,
           yearObj.name,
           schoolObj.code,
-          programObj.code,
+          programObj.name,
           false
         );
       }
@@ -340,7 +340,7 @@ const RoleManagement = ({ schools, programsBySchool, years }) => {
                 >
                   <option value="">Select Programme</option>
                   {availableProgrammes.map((prog) => (
-                    <option key={prog.code} value={prog.code}>
+                    <option key={prog.code} value={prog.name}>
                       {prog.name}
                     </option>
                   ))}
