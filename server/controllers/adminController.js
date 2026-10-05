@@ -20,6 +20,7 @@ import { BroadcastService } from "../services/broadcastService.js";
 import { EmailService } from "../services/emailService.js";
 import { RequestService } from "../services/requestService.js";
 import { AccessRequestService } from "../services/accessRequestService.js";
+import { ReportService } from "../services/reportService.js";
 
 // Faculty Management
 export async function createFaculty(req, res) {
@@ -1809,6 +1810,9 @@ export async function updateComponentLibrary(req, res) {
 export async function getOverviewReport(req, res) {
   try {
     const { academicYear, school, program } = req.query;
+    const filters = await ReportService._resolveProgramFilter({ academicYear, school, program });
+    const context = ReportService._buildMatchQuery(filters);
+    const facultyQuery = await ReportService._buildFacultyQuery(filters);
 
     const [
       totalProjects,
@@ -1818,33 +1822,22 @@ export async function getOverviewReport(req, res) {
       totalPanels,
       completedProjects,
     ] = await Promise.all([
-      Project.countDocuments({ academicYear, school, program }),
+      Project.countDocuments(context),
       Project.countDocuments({
-        academicYear,
-        school,
-        program,
+        ...context,
         status: "active",
       }),
       Student.countDocuments({
-        academicYear,
-        school,
-        program,
+        ...context,
         isActive: true,
       }),
-      Faculty.countDocuments({
-        school: { $in: [school] },
-        program: { $in: [program] },
-      }),
+      Faculty.countDocuments(facultyQuery),
       Panel.countDocuments({
-        academicYear,
-        school,
-        program,
+        ...context,
         isActive: true,
       }),
       Project.countDocuments({
-        academicYear,
-        school,
-        program,
+        ...context,
         status: "completed",
       }),
     ]);
@@ -1904,7 +1897,8 @@ export async function getMarksReport(req, res) {
   try {
     const { academicYear, school, program, reviewType, projectId } = req.query;
 
-    const query = { academicYear, school, program };
+    const filters = await ReportService._resolveProgramFilter({ academicYear, school, program });
+    const query = await ReportService._buildMarksQuery(filters);
     if (reviewType) query.reviewType = reviewType;
     if (projectId) query.project = projectId;
 
@@ -2063,11 +2057,11 @@ export async function getFacultyWorkloadReport(req, res) {
   try {
     const { academicYear, school, program } = req.query;
 
-    const faculties = await Faculty.find({
-      school: { $in: [school] },
-      program: { $in: [program] },
-      role: "faculty",
-    })
+    const filters = await ReportService._resolveProgramFilter({ academicYear, school, program });
+    const context = ReportService._buildMatchQuery(filters);
+    const facultyQuery = await ReportService._buildFacultyQuery(filters);
+    const marksQuery = await ReportService._buildMarksQuery(filters);
+    const faculties = await Faculty.find({ ...facultyQuery, role: "faculty" })
       .select("name employeeId emailId")
       .lean();
 
@@ -2075,19 +2069,19 @@ export async function getFacultyWorkloadReport(req, res) {
       faculties.map(async (faculty) => {
         const [guidedProjects, panelMemberships, marksSubmitted, marksPending] =
           await Promise.all([
-            Project.countDocuments({ academicYear, guideFaculty: faculty._id }),
+            Project.countDocuments({ ...context, guideFaculty: faculty._id }),
             Panel.countDocuments({
-              academicYear,
+              ...context,
               "members.faculty": faculty._id,
               isActive: true,
             }),
             Marks.countDocuments({
-              academicYear,
+              ...marksQuery,
               faculty: faculty._id,
               isSubmitted: true,
             }),
             Marks.countDocuments({
-              academicYear,
+              ...marksQuery,
               faculty: faculty._id,
               isSubmitted: false,
             }),
@@ -3321,4 +3315,3 @@ export async function forcePPTApproval(req, res) {
     });
   }
 }
-

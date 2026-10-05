@@ -4,7 +4,6 @@ import Project from "../models/projectSchema.js";
 import Marks from "../models/marksSchema.js";
 import Panel from "../models/panelSchema.js";
 import MasterData from "../models/masterDataSchema.js";
-import mongoose from "mongoose";
 import ActivityLogService from "./activityLogService.js";
 
 export class ReportService {
@@ -51,13 +50,15 @@ export class ReportService {
     static async generateMasterReport(filters) {
         // Determine query context if filters exist (e.g. for specific year)
         const baseQuery = this._buildMatchQuery(filters);
+        const marksQuery = await this._buildMarksQuery(filters);
+        const facultyQuery = await this._buildFacultyQuery(filters);
 
         const [students, faculty, projects, marks, panels] = await Promise.all([
             Student.find(baseQuery).lean(),
-            Faculty.find({}).lean(), // Faculty guidelines usually span years, but can filter if needed
+            Faculty.find(facultyQuery).lean(),
             Project.find(baseQuery).populate("guideFaculty").populate("panel").lean(),
-            Marks.find(baseQuery)
-                .populate("student", "name regNo")
+            Marks.find(marksQuery)
+                .populate("student", "name regNo school program academicYear")
                 .populate("project", "name")
                 .lean(),
             Panel.find(baseQuery).populate("members.faculty").lean(),
@@ -65,6 +66,9 @@ export class ReportService {
 
         const formattedMarks = marks.map(m => {
             const markObj = { ...m };
+            for (const field of ["school", "program", "academicYear"]) {
+                markObj[field] = m.student?.[field] ?? m[field];
+            }
             markObj.studentName = m.student?.name || "Unknown";
             markObj.studentRegNo = m.student?.regNo || "Unknown";
             markObj.projectName = m.project?.name || "Unknown";
@@ -101,7 +105,7 @@ export class ReportService {
         const min = parseFloat(minMarks) || 0;
         const max = parseFloat(maxMarks) || 100;
 
-        const query = this._buildMatchQuery(queryFilters);
+        const query = await this._buildMarksQuery(queryFilters);
 
         // Fetch all marks matching the criteria
         const marks = await Marks.find(query)
@@ -391,18 +395,7 @@ export class ReportService {
      * 6. Faculty Workload Report
      */
     static async generateFacultyWorkloadReport(filters) {
-        const facultyQuery = {};
-        if (filters.school) facultyQuery.school = filters.school;
-        if (filters.programme) {
-            const programValues = Array.isArray(filters.programme)
-                ? filters.programme
-                : [filters.programme];
-            facultyQuery.program = {
-                $in: programValues.map(value => this._exactMatchRegex(value))
-            };
-        }
-        // Faculty school and program matching
-
+        const facultyQuery = await this._buildFacultyQuery(filters);
         const facultyList = await Faculty.find(facultyQuery).lean();
         const results = [];
 
@@ -507,8 +500,9 @@ export class ReportService {
      * 8. Marks Distribution Analysis
      */
     static async generateMarksDistributionReport(filters) {
-        const query = this._buildMatchQuery(filters);
-        // We need effective scores per student, not raw marks
+        const query = await this._buildMarksQuery(filters);
+        // Historical marks may carry the faculty's programme. Scope through
+        // their students so those records are included in the correct report.
         const marks = await Marks.find(query).lean();
 
         // Group by student to get effective total score
@@ -585,6 +579,35 @@ export class ReportService {
         // Reusing comprehensive for now as it covers the basics (Reg, Name, Project, Marks)
     }
 
+    static async _buildMarksQuery(filters) {
+        const context = this._buildMatchQuery(filters);
+        if (Object.keys(context).length === 0) return {};
+        const students = await Student.find(context).select("_id").lean();
+        return { student: { $in: students.map(student => student._id) } };
+    }
+
+    static async _buildFacultyQuery(filters) {
+        const context = this._buildMatchQuery(filters);
+        if (Object.keys(context).length === 0) return {};
+        const [projects, panels] = await Promise.all([
+            Project.find(context).select("guideFaculty").lean(),
+            Panel.find(context).select("members.faculty").lean(),
+        ]);
+        const assignedIds = [
+            ...projects.map(project => project.guideFaculty),
+            ...panels.flatMap(panel => (panel.members || []).map(member => member.faculty)),
+        ].filter(Boolean);
+        const profileContext = { ...context };
+        delete profileContext.academicYear;
+        const assignments = { _id: { $in: assignedIds } };
+        // Profiles do not have an academic year. An assignment proves that a
+        // faculty member belongs in the selected programme even if their
+        // profile lists IDP or a different school.
+        return Object.keys(profileContext).length
+            ? { $or: [profileContext, assignments] }
+            : assignments;
+    }
+
     // Helper to standardise filters
     static _buildMatchQuery(filters) {
         const query = {};
@@ -611,22 +634,16 @@ export class ReportService {
             query.academicYear = this._exactMatchRegex(yearValue);
         }
 
-        // Log the constructed query for debugging
-        console.log('[REPORT QUERY]', JSON.stringify(query));
-
         return query;
     }
 
     static async _resolveProgramFilter(filters) {
         const selectedPrograms = filters.programme ?? filters.program;
-        if (!selectedPrograms) return filters;
+        if (!selectedPrograms && !filters.school) return filters;
 
-        const selectedValues = (Array.isArray(selectedPrograms) ? selectedPrograms : [selectedPrograms])
+        const selectedValues = (Array.isArray(selectedPrograms) ? selectedPrograms : [selectedPrograms || ""])
             .map(value => String(value).trim())
             .filter(Boolean);
-        if (selectedValues.length === 0 || selectedValues.some(value => value.toLowerCase() === "all")) {
-            return filters;
-        }
 
         const masterData = await MasterData.findOne().select("schools programs").lean();
         if (!masterData) return filters;
@@ -655,20 +672,22 @@ export class ReportService {
             return matchesProgram && matchesSchool;
         });
 
-        if (matchingPrograms.length === 0) return filters;
-
         const programValues = new Set(selectedValues);
         for (const program of matchingPrograms) {
             programValues.add(String(program.name).trim());
             programValues.add(String(program.code).trim());
         }
 
-        return { ...filters, programme: [...programValues] };
+        return {
+            ...filters,
+            ...(schoolValues.size ? { school: [...schoolValues] } : {}),
+            ...(programValues.size ? { programme: [...programValues] } : {}),
+        };
     }
 
     static _exactMatchRegex(value) {
-        const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`^${escaped}$`, "i");
+        const escaped = String(value).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`^\\s*${escaped}\\s*$`, "i");
     }
 
     /**

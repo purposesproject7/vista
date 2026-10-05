@@ -280,13 +280,17 @@ const AdminReports = () => {
       showToast(`Generating ${report.name}...`, 'loading');
 
       // Fetch data from backend
-      const response = await adminApi.fetchReportData(selectedReport, filters);
+      const response = await adminApi.fetchReportData(selectedReport, report.isMaster ? {} : filters);
 
       if (!response.success || !response.data) {
         throw new Error(response.message || 'No data received');
       }
 
       const reportData = response.data;
+      if (Array.isArray(reportData) && reportData.length === 0) {
+        showToast('No matching records for the selected filters. Try a different context or report.', 'error');
+        return;
+      }
 
       // Handle Excel Generation
       const wb = XLSX.utils.book_new();

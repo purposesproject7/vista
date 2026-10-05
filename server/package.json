@@ -27,6 +27,6 @@
     "dev": "nodemon index.js",
     "setup-admin": "node scripts/setupAdmin001.js",
     "setup-test-accounts": "node scripts/setupTestAccounts.js",
-    "test": "node --test --test-concurrency=1 tests/"
+    "test": "node --test --test-concurrency=1 tests/*.test.js"
   }
 }

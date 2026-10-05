@@ -203,6 +203,10 @@ const CoordinatorReports = () => {
             }
 
             const reportData = response.data;
+            if (Array.isArray(reportData) && reportData.length === 0) {
+                showToast('No matching records for the selected filters. Try a different context or report.', 'error');
+                return;
+            }
 
             // Handle Excel Generation
             const wb = XLSX.utils.book_new();

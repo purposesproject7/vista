@@ -1,5 +1,8 @@
 import ActivityLog from "../models/activityLogSchema.js";
 import Faculty from "../models/facultySchema.js";
+import Student from "../models/studentSchema.js";
+import Project from "../models/projectSchema.js";
+import Marks from "../models/marksSchema.js";
 
 export default class ActivityLogService {
     /**
@@ -59,8 +62,12 @@ export default class ActivityLogService {
     static async getTimeSheetData(filters) {
         const query = {};
 
-        if (filters.academicYear) query.academicYear = this._exactMatchRegex(filters.academicYear);
-        if (filters.school) query.school = this._exactMatchRegex(filters.school);
+        const year = filters.year || filters.academicYear;
+        if (year) query.academicYear = this._exactMatchRegex(year);
+        if (filters.school) {
+            const schools = Array.isArray(filters.school) ? filters.school : [filters.school];
+            query.school = { $in: schools.map(value => this._exactMatchRegex(value)) };
+        }
 
         const programValue = filters.programme ?? filters.program;
         if (programValue) {
@@ -69,18 +76,44 @@ export default class ActivityLogService {
             query.program = programRegexes.length === 1 ? programRegexes[0] : { $in: programRegexes };
         }
 
+        const dateQuery = {};
         if (filters.startDate && filters.endDate) {
-            query.createdAt = {
+            dateQuery.createdAt = {
                 $gte: new Date(filters.startDate),
                 $lte: new Date(filters.endDate),
             };
         }
 
-        // Fetch logs with faculty details
-        const logs = await ActivityLog.find(query)
-            .populate("faculty", "name employeeId emailId")
-            .sort({ createdAt: -1 })
-            .lean();
+        // Older mark activities were labelled with the faculty's first
+        // programme and an Unknown year. Resolve the referenced entity before
+        // filtering, so history is readable without rewriting audit records.
+        const lookup = (model, localField, as) => ({
+            $lookup: { from: model.collection.name, localField, foreignField: "_id", as },
+        });
+        const logs = await ActivityLog.aggregate([
+            { $match: dateQuery },
+            lookup(Marks, "details.targetId", "__marks"),
+            lookup(Student, "__marks.student", "__markStudents"),
+            lookup(Student, "details.targetId", "__students"),
+            lookup(Project, "details.targetId", "__projects"),
+            { $set: { __context: { $switch: {
+                branches: [
+                    { case: { $eq: ["$details.targetModel", "Marks"] }, then: {
+                        $ifNull: [{ $arrayElemAt: ["$__markStudents", 0] }, { $arrayElemAt: ["$__marks", 0] }],
+                    } },
+                    { case: { $eq: ["$details.targetModel", "Student"] }, then: { $arrayElemAt: ["$__students", 0] } },
+                    { case: { $eq: ["$details.targetModel", "Project"] }, then: { $arrayElemAt: ["$__projects", 0] } },
+                ],
+                default: null,
+            } } } },
+            { $set: Object.fromEntries(["school", "program", "academicYear"].map(field => [
+                field, { $ifNull: [`$__context.${field}`, `$${field}`] },
+            ])) },
+            { $match: query },
+            { $sort: { createdAt: -1 } },
+            { $unset: ["__marks", "__markStudents", "__students", "__projects", "__context"] },
+        ]);
+        await ActivityLog.populate(logs, { path: "faculty", select: "name employeeId emailId" });
 
         return logs.map((log) => ({
             date: new Date(log.createdAt).toISOString().split("T")[0],
@@ -96,7 +129,7 @@ export default class ActivityLogService {
     }
 
     static _exactMatchRegex(value) {
-        const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`^${escaped}$`, "i");
+        const escaped = String(value).trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`^\\s*${escaped}\\s*$`, "i");
     }
 }

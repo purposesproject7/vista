@@ -54,7 +54,8 @@ test("school admin cannot read or change another school's settings", async () =>
   // Asking for SENSE is answered with SCOPE's scope: nothing of SENSE leaks.
   assert.notEqual((await get("scopeadmin", SENSE)).body.data?.school, "SENSE");
 
-  const senseId = String((await ProgramConfig.findOne({ school: "SENSE" }))._id);
+  const before = await ProgramConfig.findOne({ school: "SENSE" }).lean();
+  const senseId = String(before._id);
   const put = await call("scopeadmin", "PUT", `/admin/program-config/${senseId}`, { ...SENSE, maxTeamSize: 9 });
   assert.equal(put.status, 403);
   const lock = await call("scopeadmin", "PATCH", `/admin/program-config/${senseId}/feature-lock`, {
@@ -65,7 +66,7 @@ test("school admin cannot read or change another school's settings", async () =>
   const sense = await ProgramConfig.findById(senseId).lean();
   assert.equal(sense.school, "SENSE");
   assert.equal(sense.maxTeamSize, 3);
-  assert.equal(sense.featureLocks?.length ?? 0, 0);
+  assert.deepEqual(sense.featureLocks, before.featureLocks);
 });
 
 test("nobody can move a config to another school, program or year", async () => {

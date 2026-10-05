@@ -313,14 +313,14 @@ export async function submitMarks(req, res) {
       req.user._id,
       "MARK_ENTRY",
       {
-        school: req.user.school,
-        program: req.user.program,
-        academicYear: req.body.academicYear || "Unknown",
+        school: marks.school,
+        program: marks.program,
+        academicYear: marks.academicYear,
       },
       {
         targetId: marks._id,
         targetModel: "Marks",
-        description: `Submitted marks for student ${req.body.studentId}`,
+        description: `Submitted marks for student ${marks.student}`,
       },
       req
     );
@@ -351,9 +351,9 @@ export async function updateMarks(req, res) {
       req.user._id,
       "MARK_UPDATE",
       {
-        school: req.user.school,
-        program: req.user.program,
-        academicYear: "Unknown",
+        school: marks.school,
+        program: marks.program,
+        academicYear: marks.academicYear,
       },
       {
         targetId: marks._id,
@@ -402,6 +402,7 @@ export async function approvePPT(req, res) {
     console.log("DEBUG: approvePPT body:", req.body);
 
     await ApprovalService.approvePPT(req.user._id, studentId, reviewType, sdgGoal);
+    const student = await Student.findById(studentId).select("school program academicYear");
 
     res.status(200).json({
       success: true,
@@ -412,11 +413,13 @@ export async function approvePPT(req, res) {
       req.user._id,
       "PPT_APPROVAL",
       {
-        school: req.user.school,
-        program: req.user.program,
-        academicYear: "Unknown",
+        school: student.school,
+        program: student.program,
+        academicYear: student.academicYear,
       },
       {
+        targetId: studentId,
+        targetModel: "Student",
         description: `Approved PPT for student ${studentId} (${reviewType})`,
       },
       req
@@ -436,6 +439,7 @@ export async function approveDraft(req, res) {
   try {
     const { studentId, reviewType } = req.body;
     await ApprovalService.approveDraft(req.user._id, studentId, reviewType);
+    const student = await Student.findById(studentId).select("school program academicYear");
 
     res.status(200).json({
       success: true,
@@ -446,11 +450,13 @@ export async function approveDraft(req, res) {
       req.user._id,
       "DRAFT_APPROVAL",
       {
-        school: req.user.school,
-        program: req.user.program,
-        academicYear: "Unknown",
+        school: student.school,
+        program: student.program,
+        academicYear: student.academicYear,
       },
       {
+        targetId: studentId,
+        targetModel: "Student",
         description: `Approved Draft for student ${studentId} (${reviewType})`,
       },
       req

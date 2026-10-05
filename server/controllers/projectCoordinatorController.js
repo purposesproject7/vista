@@ -2596,13 +2596,15 @@ export async function deleteBroadcast(req, res) {
 
 export async function getOverviewReport(req, res) {
   try {
-    const context = getCoordinatorContext(req);
+    const filters = await ReportService._resolveProgramFilter(getCoordinatorContext(req));
+    const context = ReportService._buildMatchQuery(filters);
+    const facultyQuery = await ReportService._buildFacultyQuery(filters);
 
     const [totalProjects, totalStudents, totalFaculty, totalPanels] =
       await Promise.all([
         Project.countDocuments({ ...context, status: "active" }),
         Student.countDocuments(context),
-        Faculty.countDocuments(context),
+        Faculty.countDocuments(facultyQuery),
         Panel.countDocuments({ ...context, isActive: true }),
       ]);
 
@@ -2888,17 +2890,19 @@ export async function getProjectMarks(req, res) {
 
 export async function getFacultyWorkloadReport(req, res) {
   try {
-    const context = getCoordinatorContext(req);
+    const filters = await ReportService._resolveProgramFilter(getCoordinatorContext(req));
+    const context = ReportService._buildMatchQuery(filters);
+    const facultyQuery = await ReportService._buildFacultyQuery(filters);
 
-    const faculty = await Faculty.find(context)
+    const faculty = await Faculty.find(facultyQuery)
       .select("name employeeId")
       .lean();
 
     const workload = await Promise.all(
       faculty.map(async (f) => {
         const [asGuide, asPanelMember] = await Promise.all([
-          Project.countDocuments({ guideFaculty: f._id, status: "active" }),
-          Panel.countDocuments({ "members.faculty": f._id, isActive: true }),
+          Project.countDocuments({ ...context, guideFaculty: f._id, status: "active" }),
+          Panel.countDocuments({ ...context, "members.faculty": f._id, isActive: true }),
         ]);
 
         return {

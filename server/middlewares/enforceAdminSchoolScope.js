@@ -23,8 +23,14 @@ export function enforceAdminSchoolScope(req, res, next) {
                 });
             }
             
-            // Override query completely
-            req.query.school = req.user.school;
+            // Express 5 exposes query through a getter which reparses on each
+            // access. Mutating req.query.school does not persist for controllers.
+            Object.defineProperty(req, "query", {
+                value: { ...req.query, school: req.user.school },
+                writable: true,
+                configurable: true,
+                enumerable: true,
+            });
 
             // Also enforce on body for POST/PUT/PATCH requests
             if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {

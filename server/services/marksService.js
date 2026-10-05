@@ -5,7 +5,6 @@ import Project from "../models/projectSchema.js";
 import {
   assertReviewable,
   getFacultyTypeForProject,
-  extractPrimaryContext,
 } from "../utils/facultyHelpers.js";
 import { logger } from "../utils/logger.js";
 
@@ -78,15 +77,9 @@ export class MarksService {
       }
     }
 
-    let { school, program } = extractPrimaryContext(facultyDoc);
-
-    // Fallback to student context if faculty context is missing
-    if (!school) school = studentDoc.school;
-    if (!program) program = studentDoc.program;
-
-    // if (!school || !program) {
-    //   throw new Error(`Faculty profile incomplete: School or Program missing. (School: ${school}, Program: ${program})`);
-    // }
+    // A faculty member can evaluate several programmes. The mark belongs to
+    // the student's academic context, not the faculty's first programme.
+    const { school, program } = studentDoc;
 
     if (!studentDoc.academicYear) {
       throw new Error("Student profile incomplete: Academic Year missing.");
@@ -99,6 +92,7 @@ export class MarksService {
       marks.faculty = facultyId;
       marks.school = school;
       marks.program = program;
+      marks.academicYear = studentDoc.academicYear;
       marks.componentMarks = componentMarks;
       marks.totalMarks = totalMarks;
       marks.maxTotalMarks = maxTotalMarks;
@@ -210,6 +204,12 @@ export class MarksService {
         "Marks not found or you don't have permission to update."
       );
     }
+
+    const student = await Student.findById(marks.student).select("school program academicYear");
+    if (!student) throw new Error("Student not found.");
+    marks.school = student.school;
+    marks.program = student.program;
+    marks.academicYear = student.academicYear;
 
     // Update allowed fields
     if (updates.componentMarks) marks.componentMarks = updates.componentMarks;
