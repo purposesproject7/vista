@@ -159,7 +159,6 @@ router.post(
     "password",
     "role",
     "school",
-    "program",
     "phoneNumber",
     "specialization",
   ]),

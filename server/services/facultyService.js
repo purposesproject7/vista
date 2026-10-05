@@ -1,9 +1,20 @@
 import Faculty from "../models/facultySchema.js";
+import MasterData from "../models/masterDataSchema.js";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger.js";
 import { buildCoordinatorFilterQuery, warnOnFilterMismatch } from "../utils/filterHelpers.js";
 
 export class FacultyService {
+  /**
+   * A faculty's programmes are every programme configured for their school.
+   */
+  static async schoolPrograms(school) {
+    const masterData = await MasterData.findOne().select("programs").lean();
+    return (masterData?.programs || [])
+      .filter((p) => p.school === school)
+      .map((p) => p.name);
+  }
+
   /**
    * Validate faculty data
    */
@@ -76,9 +87,7 @@ export class FacultyService {
       throw new Error(validationErrors.join(", "));
     }
 
-    const incomingPrograms = Array.isArray(data.program)
-      ? data.program.map(p => p.trim())
-      : data.program ? [data.program.trim()] : [];
+    const incomingPrograms = await this.schoolPrograms(data.school?.trim());
 
     // Check duplicate
     const existing = await this.checkDuplicate(
@@ -130,7 +139,7 @@ export class FacultyService {
       phoneNumber: data.phoneNumber?.toString().trim(),
       role: data.role || "faculty",
       school: data.school ? data.school.trim() : "",
-      program: Array.isArray(data.program) ? data.program : (data.program ? [data.program.trim()] : []),
+      program: incomingPrograms,
       specialization: data.specialization ? data.specialization.trim() : "",
       isDefaultPassword: true,
     });
@@ -289,8 +298,10 @@ export class FacultyService {
     if (updates.emailId) faculty.emailId = updates.emailId.trim().toLowerCase();
     if (updates.phoneNumber) faculty.phoneNumber = updates.phoneNumber;
     if (updates.role) faculty.role = updates.role;
-    if (updates.school) faculty.school = updates.school;
-    if (updates.program) faculty.program = Array.isArray(updates.program) ? updates.program : [updates.program];
+    if (updates.school && updates.school !== faculty.school) {
+      faculty.school = updates.school;
+      faculty.program = await this.schoolPrograms(updates.school);
+    }
     if (updates.specialization) faculty.specialization = updates.specialization;
     if (updates.imageUrl !== undefined) faculty.imageUrl = updates.imageUrl;
     if (updates.isProjectCoordinator !== undefined) faculty.isProjectCoordinator = updates.isProjectCoordinator;

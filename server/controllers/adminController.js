@@ -2314,6 +2314,7 @@ export async function createMasterDataBulk(req, res) {
 
     // Process programs (supports 'programs' or legacy 'departments' input)
     const programsInput = req.body.programs;
+    const createdPrograms = [];
 
     if (Array.isArray(programsInput)) {
       for (const prog of programsInput) {
@@ -2352,6 +2353,7 @@ export async function createMasterDataBulk(req, res) {
               specializations: prog.specializations || [],
             });
             results.programs.created++;
+            createdPrograms.push(prog);
           }
         } catch (error) {
           results.programs.errors.push({
@@ -2393,6 +2395,11 @@ export async function createMasterDataBulk(req, res) {
 
     // Save all at once
     await masterData.save();
+
+    // Faculty belong to every programme of their school
+    for (const prog of createdPrograms) {
+      await Faculty.updateMany({ school: prog.school }, { $addToSet: { program: prog.name } });
+    }
 
     logger.info("master_data_bulk_created", {
       results,
@@ -2688,6 +2695,9 @@ export async function createProgram(req, res) {
     });
     await masterData.save();
 
+    // Faculty belong to every programme of their school
+    await Faculty.updateMany({ school }, { $addToSet: { program: name } });
+
     logger.info("program_created", {
       name,
       code,
@@ -2779,11 +2789,21 @@ export async function updateProgram(req, res) {
       });
     }
 
+    const oldName = program.name;
+    const oldSchool = program.school;
     program.name = name;
     program.code = code;
     program.school = school;
     if (specializations) program.specializations = specializations;
     await masterData.save();
+
+    // Keep faculty programme lists (= their school's programmes) in step
+    if (oldSchool !== school) {
+      await Faculty.updateMany({ school: oldSchool }, { $pull: { program: oldName } });
+      await Faculty.updateMany({ school }, { $addToSet: { program: name } });
+    } else if (oldName !== name) {
+      await Faculty.updateMany({ school, program: oldName }, { $set: { "program.$": name } });
+    }
 
     logger.info("program_updated", {
       programId: id,

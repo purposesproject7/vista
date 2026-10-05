@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Select from "../../../shared/components/Select";
 import Card from "../../../shared/components/Card";
 import { AcademicCapIcon, CheckCircleIcon, LockClosedIcon } from "@heroicons/react/24/outline";
-import { getMasterData } from "../services/facultyApi";
+import { getMasterData, getTeamPrograms } from "../services/facultyApi";
 
 const FacultyAcademicContextSelector = ({ currentFilters, onFilterChange, className = "", lockedSchool = null }) => {
     const [loading, setLoading] = useState(false);
@@ -68,26 +68,46 @@ const FacultyAcademicContextSelector = ({ currentFilters, onFilterChange, classN
         }
     }, [lockedSchool, currentFilters.school]);
 
-    // Sync programs when school changes
+    // Sync programs when school changes: only programmes in which this
+    // faculty has teams (as guide or panel member)
+    const [programsLoaded, setProgramsLoaded] = useState(false);
     useEffect(() => {
         const activeSchool = lockedSchool || currentFilters.school;
+        setProgramsLoaded(false);
 
-        if (activeSchool && masterData.programs) {
-            const programs = masterData.programs
-                ?.filter(p => {
-                    const selected = masterData.schools.find(s => [s.code, s.name].some(v => String(v).toLowerCase() === String(activeSchool).toLowerCase()));
-                    return [activeSchool, selected?.name, selected?.code].some(v => v && String(v).toLowerCase() === String(p.school).toLowerCase());
-                })
-                ?.map(p => ({
-                    value: p.name, // programs are stored by name
-                    label: p.name,
-                })) || [];
-
-            setOptions(prev => ({ ...prev, programs }));
-        } else {
+        if (!activeSchool || !masterData.programs.length) {
             setOptions(prev => ({ ...prev, programs: [] }));
+            return;
         }
+
+        // The school may be given by code or name
+        const selected = masterData.schools.find(s => [s.code, s.name].some(v => String(v).toLowerCase() === String(activeSchool).toLowerCase()));
+        const inSchool = p => [activeSchool, selected?.name, selected?.code].some(v => v && String(v).toLowerCase() === String(p.school).toLowerCase());
+
+        let cancelled = false;
+        getTeamPrograms(selected?.code || activeSchool)
+            .catch(() => new Set())
+            .then(teamPrograms => {
+                if (cancelled) return;
+                const programs = masterData.programs
+                    .filter(p => inSchool(p) && teamPrograms.has(p.name))
+                    .map(p => ({
+                        value: p.name, // programs are stored by name
+                        label: p.name,
+                    }));
+                setOptions(prev => ({ ...prev, programs }));
+                setProgramsLoaded(true);
+            });
+        return () => { cancelled = true; };
     }, [currentFilters.school, lockedSchool, masterData.programs]);
+
+    // Keep the selected program within the list (default to the first)
+    useEffect(() => {
+        if (!programsLoaded) return;
+        if (options.programs.some(o => o.value === currentFilters.program)) return;
+        const first = options.programs[0]?.value || "";
+        if (currentFilters.program !== first) onFilterChange({ ...currentFilters, program: first });
+    }, [programsLoaded, options.programs, currentFilters.program]);
 
     const steps = [
         { key: "school", label: "School", options: options.schools, enabled: !lockedSchool, locked: !!lockedSchool },

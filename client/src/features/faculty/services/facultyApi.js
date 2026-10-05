@@ -59,3 +59,14 @@ export const acceptTitleAbstract = async (projectId) => {
   const response = await api.put(`/project/${projectId}/accept-title-abstract`);
   return response.data;
 };
+
+/**
+ * Names of the programmes in which the logged-in faculty has teams (as guide
+ * or panel member) in the given school.
+ */
+export const getTeamPrograms = async (school) => {
+  const response = await api.get("/faculty/projects", { params: { school } });
+  const data = response.data.data || {};
+  const projects = Array.isArray(data) ? data : [...(data.guideProjects || []), ...(data.panelProjects || [])];
+  return new Set(projects.map((p) => p.program));
+};
