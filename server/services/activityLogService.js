@@ -59,9 +59,15 @@ export default class ActivityLogService {
     static async getTimeSheetData(filters) {
         const query = {};
 
-        if (filters.academicYear) query.academicYear = filters.academicYear;
-        if (filters.school) query.school = filters.school;
-        if (filters.program) query.program = filters.program; // Backend usually expects 'program'
+        if (filters.academicYear) query.academicYear = this._exactMatchRegex(filters.academicYear);
+        if (filters.school) query.school = this._exactMatchRegex(filters.school);
+
+        const programValue = filters.programme ?? filters.program;
+        if (programValue) {
+            const programValues = Array.isArray(programValue) ? programValue : [programValue];
+            const programRegexes = programValues.map(value => this._exactMatchRegex(value));
+            query.program = programRegexes.length === 1 ? programRegexes[0] : { $in: programRegexes };
+        }
 
         if (filters.startDate && filters.endDate) {
             query.createdAt = {
@@ -87,5 +93,10 @@ export default class ActivityLogService {
             description: log.details?.description || "-",
             ip: log.ip || "-",
         }));
+    }
+
+    static _exactMatchRegex(value) {
+        const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`^${escaped}$`, "i");
     }
 }

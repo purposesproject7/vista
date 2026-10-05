@@ -3,6 +3,7 @@ import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
 import Marks from "../models/marksSchema.js";
 import Panel from "../models/panelSchema.js";
+import MasterData from "../models/masterDataSchema.js";
 import mongoose from "mongoose";
 import ActivityLogService from "./activityLogService.js";
 
@@ -10,7 +11,9 @@ export class ReportService {
     /**
      * Main entry point to generate reports based on type works
      */
-    static async generateReport(type, filters) {
+    static async generateReport(type, filters = {}) {
+        filters = await this._resolveProgramFilter(filters);
+
         switch (type) {
             case "master-report":
                 return this.generateMasterReport(filters);
@@ -390,7 +393,14 @@ export class ReportService {
     static async generateFacultyWorkloadReport(filters) {
         const facultyQuery = {};
         if (filters.school) facultyQuery.school = filters.school;
-        if (filters.programme) facultyQuery.program = filters.programme;
+        if (filters.programme) {
+            const programValues = Array.isArray(filters.programme)
+                ? filters.programme
+                : [filters.programme];
+            facultyQuery.program = {
+                $in: programValues.map(value => this._exactMatchRegex(value))
+            };
+        }
         // Faculty school and program matching
 
         const facultyList = await Faculty.find(facultyQuery).lean();
@@ -581,30 +591,84 @@ export class ReportService {
 
         if (filters.school) {
             if (Array.isArray(filters.school)) {
-                query.school = { $in: filters.school.map(s => new RegExp(`^${String(s).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i')) };
+                query.school = { $in: filters.school.map(value => this._exactMatchRegex(value)) };
             } else {
-                query.school = { $regex: new RegExp(`^${String(filters.school).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+                query.school = this._exactMatchRegex(filters.school);
             }
         }
 
         const programValue = filters.programme ?? filters.program;
         if (programValue) {
             if (Array.isArray(programValue)) {
-                query.program = { $in: programValue.map(p => new RegExp(`^${String(p).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i')) };
+                query.program = { $in: programValue.map(value => this._exactMatchRegex(value)) };
             } else {
-                query.program = { $regex: new RegExp(`^${String(programValue).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+                query.program = this._exactMatchRegex(programValue);
             }
         }
 
         const yearValue = filters.year ?? filters.academicYear;
         if (yearValue) {
-            query.academicYear = { $regex: new RegExp(`^${String(yearValue).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') };
+            query.academicYear = this._exactMatchRegex(yearValue);
         }
 
         // Log the constructed query for debugging
         console.log('[REPORT QUERY]', JSON.stringify(query));
 
         return query;
+    }
+
+    static async _resolveProgramFilter(filters) {
+        const selectedPrograms = filters.programme ?? filters.program;
+        if (!selectedPrograms) return filters;
+
+        const selectedValues = (Array.isArray(selectedPrograms) ? selectedPrograms : [selectedPrograms])
+            .map(value => String(value).trim())
+            .filter(Boolean);
+        if (selectedValues.length === 0 || selectedValues.some(value => value.toLowerCase() === "all")) {
+            return filters;
+        }
+
+        const masterData = await MasterData.findOne().select("schools programs").lean();
+        if (!masterData) return filters;
+
+        const selectedSchools = filters.school
+            ? (Array.isArray(filters.school) ? filters.school : [filters.school])
+                .map(value => String(value).trim().toLowerCase())
+            : [];
+        const schoolValues = new Set(selectedSchools);
+        for (const school of masterData.schools || []) {
+            if (selectedSchools.includes(String(school.code).trim().toLowerCase()) ||
+                selectedSchools.includes(String(school.name).trim().toLowerCase())) {
+                schoolValues.add(String(school.code).trim().toLowerCase());
+                schoolValues.add(String(school.name).trim().toLowerCase());
+            }
+        }
+
+        const matchingPrograms = (masterData.programs || []).filter(program => {
+            const matchesProgram = selectedValues.some(value =>
+                [program.name, program.code].some(candidate =>
+                    String(candidate).trim().toLowerCase() === value.toLowerCase()
+                )
+            );
+            const matchesSchool = schoolValues.size === 0 ||
+                schoolValues.has(String(program.school).trim().toLowerCase());
+            return matchesProgram && matchesSchool;
+        });
+
+        if (matchingPrograms.length === 0) return filters;
+
+        const programValues = new Set(selectedValues);
+        for (const program of matchingPrograms) {
+            programValues.add(String(program.name).trim());
+            programValues.add(String(program.code).trim());
+        }
+
+        return { ...filters, programme: [...programValues] };
+    }
+
+    static _exactMatchRegex(value) {
+        const escaped = String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return new RegExp(`^${escaped}$`, "i");
     }
 
     /**
