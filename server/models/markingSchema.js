@@ -1,3 +1,5 @@
+import { assertReviewIdentitiesPreserved } from "../utils/reviewConfiguration.js";
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const subComponentSchema = new mongoose.Schema(
@@ -80,6 +82,25 @@ markingSchemaModel.index(
   { school: 1, program: 1, academicYear: 1 },
   { unique: true }
 );
+
+// Covers coordinator saves as well as the admin service.
+markingSchemaModel.pre("validate", async function() {
+  if (!this.isModified('reviews')) return;
+  const seen = new Set();
+  for (const review of this.reviews) {
+    const id = String(review.reviewName).trim().toLowerCase();
+    if (seen.has(id)) throw new Error('Duplicate review identifier.');
+    seen.add(id);
+    if (review.deadline?.from && review.deadline?.to && review.deadline.from >= review.deadline.to) throw new Error("Review window start must be before its end.");
+    for (const component of review.components) if (!Number.isFinite(component.maxMarks) || component.maxMarks < 0) throw new Error('Review component maxima must be finite and non-negative.');
+  }
+  if (!this.isNew) {
+    const previous = await this.constructor.collection.findOne({ _id: this._id });
+    if (previous) await assertReviewIdentitiesPreserved(previous, this.reviews);
+  }
+});
+
+markingSchemaModel.plugin(academicContextPlugin, { uniqueContext: true });
 
 const MarkingSchemaModel = mongoose.model("MarkingSchema", markingSchemaModel);
 export default MarkingSchemaModel;

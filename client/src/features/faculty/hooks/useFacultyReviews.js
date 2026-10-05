@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../../services/api';
+import { reviewNamesMatch } from '../../../shared/utils/reviewHelpers';
 import { isDeadlinePassed, isReviewActive } from '../../../shared/utils/dateHelpers';
 
 export const useFacultyReviews = (facultyId, filters = {}) => {
@@ -7,6 +8,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [configuredReviews, setConfiguredReviews] = useState([]);
     const [assignments, setAssignments] = useState({ panel: [], guide: [] });
 
     const refreshReviews = useCallback(() => {
@@ -14,6 +16,16 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
     }, []);
 
     useEffect(() => {
+        let cancelled = false;
+        const controller = new AbortController();
+        setReviews([]);
+        setConfiguredReviews([]);
+        setAssignments({ panel: [], guide: [] });
+        setError(null);
+        if (!facultyId || !filters.school || !filters.year || !filters.program || filters.program === 'All Programs') {
+            setLoading(false);
+            return () => controller.abort();
+        }
         const fetchReviews = async () => {
             try {
                 setLoading(true);
@@ -23,6 +35,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                     // Only fetch schema if a valid program is selected
                     (filters.program && filters.program !== 'All Programs')
                         ? api.get('/faculty/marking-schema', {
+                            signal: controller.signal,
                             params: {
                                 academicYear: filters.year,
                                 school: filters.school,
@@ -32,6 +45,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         : Promise.resolve({ data: { success: true, data: null } }),
 
                     api.get('/faculty/projects', {
+                        signal: controller.signal,
                         params: {
                             academicYear: filters.year,
                             school: filters.school,
@@ -39,20 +53,19 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         }
                     }),
 
-                    api.get('/faculty/marks', { params: { _t: Date.now() } }),
+                    api.get('/faculty/marks', { signal: controller.signal, params: { _t: Date.now() } }),
 
-                    api.get('/faculty/requests', { params: { _t: Date.now() } })
+                    api.get('/faculty/requests', { signal: controller.signal, params: { _t: Date.now() } })
                 ]);
 
-                // Handle Schema
-                if (schemaRes.status === 'rejected' || !schemaRes.value?.data?.data) {
-                    console.warn('Marking schema not found or failed', schemaRes);
-                    setReviews([]);
-                    setLoading(false);
-                    return;
+                if (cancelled) return;
+                for (const result of [schemaRes, projectsRes, marksRes, requestsRes]) {
+                    if (result.status === 'rejected') throw result.reason;
+                    if (result.value?.data?.success === false) throw new Error(result.value.data.message);
                 }
+                if (!schemaRes.value?.data?.data) throw new Error('Reviews are not configured for this programme and academic year.');
                 const schema = schemaRes.value.data.data;
-                console.log(`[useFacultyReviews] Marking Schema reviews found: ${schema.reviews?.length || 0}`);
+
 
                 // Handle Requests
                 const myRequests = requestsRes.status === 'fulfilled' ? requestsRes.value.data.data : [];
@@ -88,7 +101,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         });
                     }
                 }
-                console.log(`[useFacultyReviews] TOTAL_PROJECTS_FETCHED: ${projects.length} for ${effectiveFacultyId} (${effectiveEmpId})`);
+
 
                 // Handle Marks
                 const submittedMarks = marksRes.status === 'fulfilled' ? marksRes.value.data.data.student_marks || marksRes.value.data.data : [];
@@ -96,9 +109,10 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                 const marksList = Array.isArray(submittedMarks) ? submittedMarks : [];
 
                 // Transform Data
-                const adaptedReviews = schema.reviews.map(reviewSchema => {
+                setConfiguredReviews((schema.reviews || []).filter(r => r.isActive !== false));
+                const adaptedReviews = (schema.reviews || []).filter(r => r.isActive !== false).map(reviewSchema => {
                     const reviewId = reviewSchema.reviewName; // e.g., "Review 1"
-                    console.log(`[useFacultyReviews] Checking Review: ${reviewId} (FacultyType: ${reviewSchema.facultyType})`);
+
 
                     // Filter teams relevant to this review
                     const relevantTeams = projects.filter(project => {
@@ -110,15 +124,15 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         const isGuide = guideId === String(effectiveFacultyId);
 
                         // 2. Is faculty in the panel for THIS specific review?
-                        const reviewPanelAssignment = project.reviewPanels?.find(rp => rp.reviewType === reviewId);
-                        const assignedPanel = reviewPanelAssignment?.panel || project.panel;
+                        const reviewPanelAssignment = project.reviewPanels?.find(rp => reviewNamesMatch(rp.reviewType, reviewId));
+                        const assignedPanel = reviewPanelAssignment ? reviewPanelAssignment.panel : project.panel;
 
                         const panelMembers = assignedPanel?.members || [];
                         const panelEmpIds = assignedPanel?.facultyEmployeeIds || [];
 
                         const isInPanelMember = panelMembers.some(m => String(m.faculty?._id || m.faculty) === String(effectiveFacultyId));
                         const isInPanelEmp = effectiveEmpId && panelEmpIds.some(eid => String(eid) === String(effectiveEmpId));
-                        const isInPanel = isInPanelMember || isInPanelEmp;
+                        const isInPanel = assignedPanel?.isActive !== false && (isInPanelMember || isInPanelEmp);
 
                         // Match against review schema type
                         const canBeGuide = String(reviewSchema.facultyType).toLowerCase() === 'guide' || String(reviewSchema.facultyType).toLowerCase() === 'both';
@@ -141,14 +155,15 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         // A team is "marked" if every student has a submitted mark entry
                         const projectMarks = marksList.filter(m =>
                             String(m.project?._id || m.project) === String(project._id) &&
-                            m.reviewType === reviewId
+                            reviewNamesMatch(m.reviewType, reviewId)
                         );
 
-                        const activeStudents = project.students;
+                        const activeStudents = project.students || [];
+                        const isGuideForTeam = String(project.guideFaculty?._id || project.guideFaculty) === String(effectiveFacultyId);
+                        const currentRole = filters.role === 'panel' ? 'panel' : (isGuideForTeam ? 'guide' : 'panel');
                         
                         const allStudentsMarked = activeStudents.length > 0 && activeStudents.every(student => {
                             const sId = String(student._id || student);
-                            const currentRole = filters.role === 'panel' ? 'panel' : 'guide';
                             return projectMarks.some(m =>
                                 String(m.student?._id || m.student) === sId &&
                                 m.isSubmitted &&
@@ -158,22 +173,22 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                         const isGuide = String(project.guideFaculty?._id || project.guideFaculty) === String(effectiveFacultyId);
 
-                        const reviewPanelAssignment = project.reviewPanels?.find(rp => rp.reviewType === reviewId);
+                        const reviewPanelAssignment = project.reviewPanels?.find(rp => reviewNamesMatch(rp.reviewType, reviewId));
                         const isTempPanel = reviewPanelAssignment?.panel?.members?.some(m => String(m.faculty?._id || m.faculty) === String(effectiveFacultyId)) ||
                             (effectiveEmpId && reviewPanelAssignment?.panel?.facultyEmployeeIds?.includes(effectiveEmpId));
 
                         let roleLabel = 'Guide';
-                        if (isTempPanel) roleLabel = 'Temporary Panel';
-                        else if (!isGuide) roleLabel = 'Panel';
+                        if (currentRole === 'panel' && isTempPanel) roleLabel = 'Temporary Panel';
+                        else if (currentRole === 'panel') roleLabel = 'Panel';
 
-                        const activePanel = reviewPanelAssignment?.panel || project.panel;
+                        const activePanel = reviewPanelAssignment ? reviewPanelAssignment.panel : project.panel;
 
                         // Find Request Status
                         // We need to see if ANY student in this team has a pending request for this review?
                         // Or since we now do team-based requests (cascading), checking just one is enough but filtering by project/review is safer.
                         const activeRequest = myRequests.find(r =>
                             String(r.project?._id || r.project) === String(project._id) &&
-                            r.reviewType === reviewId &&
+                            reviewNamesMatch(r.reviewType, reviewId) &&
                             r.requestType === 'mark_edit' // Only care about edit requests
                         );
 
@@ -186,8 +201,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             projectTitle: project.name,
                             students: activeStudents.map(s => {
                                 const sId = String(s._id || s);
-                                const currentRole = filters.role === 'panel' ? 'panel' : 'guide';
-                                const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === currentRole);
+                                    const studentMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === currentRole);
                                 const guideMark = projectMarks.find(m => String(m.student?._id || m.student) === sId && m.facultyType === 'guide');
 
                                 const isGuidePAT = s.PAT || guideMark?.pat || guideMark?.remarks?.includes('[PAT]') || false;
@@ -216,7 +230,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                             panelName: activePanel?.panelName || activePanel?.name || 'TBD',
                             venue: isGuide ? null : (activePanel?.venue || 'TBD'),
                             reviewDateTime: activePanel?.dateTime || null,
-                            role: isGuide ? 'guide' : 'panel',
+                            role: currentRole,
                             roleLabel: roleLabel, // "Temporary Panel", "Panel", "Guide"
                             sdgGoal: project.sdgGoal || null,
                             pptApprovals: project.pptApprovals || [], // Pass PPT approvals to UI
@@ -226,11 +240,10 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                         };
                     });
 
-                    console.log(`[useFacultyReviews] Review ${reviewId} - Relevant Teams: ${relevantTeams.length}`);
 
                     // Adapt components/rubrics and generate levels
-                    const rubrics = reviewSchema.components.map(comp => {
-                        const maxMarks = comp.maxMarks || 20;
+                    const rubrics = (reviewSchema.components || []).map(comp => {
+                        const maxMarks = comp.maxMarks ?? 20;
                         const steps = 5;
                         const levels = [];
 
@@ -270,8 +283,8 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
                     return {
                         id: reviewId,
                         name: reviewSchema.displayName,
-                        startDate: reviewSchema.deadline.from,
-                        endDate: reviewSchema.deadline.to,
+                        startDate: reviewSchema.deadline?.from,
+                        endDate: reviewSchema.deadline?.to,
                         type: filters.role && filters.role !== 'All Roles' ? filters.role.toLowerCase() : (reviewSchema.facultyType === 'both' ? 'both' : reviewSchema.facultyType),
                         facultyType: reviewSchema.facultyType,
                         pptRequired: reviewSchema.pptRequired || false,
@@ -304,15 +317,19 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
                 setError(null);
             } catch (err) {
-                console.error('Error fetching reviews:', err);
-                setError('Failed to load reviews');
+                if (cancelled) return;
+                setReviews([]);
+                setConfiguredReviews([]);
+                setAssignments({ panel: [], guide: [] });
+                setError(err.response?.data?.message || err.message || 'Failed to load reviews. Please retry.');
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
         fetchReviews();
-    }, [facultyId, filters, refreshTrigger]);
+        return () => { cancelled = true; controller.abort(); };
+    }, [facultyId, filters.school, filters.program, filters.year, filters.role, refreshTrigger]);
 
     // ---------------------------------------------------------------------------
     // Section classification is done at TEAM level, not review level.
@@ -350,6 +367,7 @@ export const useFacultyReviews = (facultyId, filters = {}) => {
 
     return {
         reviews,
+        configuredReviews,
         active,
         deadlinePassed,
         past,

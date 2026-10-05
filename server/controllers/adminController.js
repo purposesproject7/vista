@@ -1,3 +1,4 @@
+import { resolveReview, reviewNamesMatch } from "../utils/reviewIdentity.js";
 import mongoose from "mongoose";
 import Project from "../models/projectSchema.js";
 import Panel from "../models/panelSchema.js";
@@ -9,7 +10,7 @@ import MarkingSchema from "../models/markingSchema.js";
 import Marks from "../models/marksSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
-import { canAdminSchool } from "../utils/facultyHelpers.js";
+import { canAdminSchool, isMasterAdmin } from "../utils/facultyHelpers.js";
 import MasterData from "../models/masterDataSchema.js";
 import { FacultyService } from "../services/facultyService.js";
 import { PanelService } from "../services/panelService.js";
@@ -1409,7 +1410,7 @@ export async function getAllStudents(req, res) {
  */
 export async function getStudentByRegNo(req, res) {
   try {
-    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+    const student = await StudentService.getStudentByRegNo(req.params.regNo, req.query.academicYear);
 
     if (!student) {
       return res.status(404).json({
@@ -1439,7 +1440,7 @@ export async function createStudent(req, res) {
       req.body;
 
     // Check if student already exists
-    const existing = await StudentService.getStudentByRegNo(regNo);
+    const existing = await StudentService.getStudentByRegNo(regNo, req.body.academicYear);
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -1457,7 +1458,7 @@ export async function createStudent(req, res) {
     );
 
     if (result.created === 1) {
-      const student = await StudentService.getStudentByRegNo(regNo);
+      const student = await StudentService.getStudentByRegNo(regNo, req.body.academicYear);
 
       res.status(201).json({
         success: true,
@@ -1574,7 +1575,8 @@ export async function updateStudent(req, res) {
     const student = await StudentService.updateStudent(
       req.params.regNo,
       req.body,
-      req.user._id
+      req.user._id,
+      req.query.academicYear || req.body.academicYear
     );
 
     res.status(200).json({
@@ -1597,7 +1599,8 @@ export async function undoStudentPAT(req, res) {
   try {
     const student = await StudentService.undoStudentPAT(
       req.params.regNo,
-      req.user._id
+      req.user._id,
+      req.query.academicYear
     );
 
     res.status(200).json({
@@ -1621,7 +1624,8 @@ export async function updateStudentMarks(req, res) {
     const student = await StudentService.updateStudentMarks(
       req.params.regNo,
       req.body.reviews,
-      req.user._id
+      req.user._id,
+      req.query.academicYear || req.body.academicYear
     );
 
     res.status(200).json({
@@ -1642,7 +1646,7 @@ export async function updateStudentMarks(req, res) {
  */
 export async function deleteStudent(req, res) {
   try {
-    await StudentService.deleteStudent(req.params.regNo, req.user._id);
+    await StudentService.deleteStudent(req.params.regNo, req.user._id, req.query.academicYear);
 
     res.status(200).json({
       success: true,
@@ -2227,7 +2231,7 @@ export async function bulkAssignPanels(req, res) {
       return res.status(400).json({ success: false, message: "No assignments provided." });
     }
 
-    const result = await PanelService.bulkAssignPanelsToProjects(assignments, req.user._id);
+    const result = await PanelService.bulkAssignPanelsToProjects(assignments, req.user._id, { ...req.query, ...req.body });
 
     res.status(200).json({
       success: true,
@@ -3193,14 +3197,15 @@ export async function updateFeatureLock(req, res) {
 export async function forcePPTApproval(req, res) {
   try {
     // Verify super admin
-    if (req.user.employeeId !== "ADMIN001") {
+    if (!isMasterAdmin(req.user)) {
       return res.status(403).json({
         success: false,
         message: "Access denied. This feature is only available to super admin.",
       });
     }
 
-    const { school, program, academicYear, reviewType } = req.body;
+    const { school, program, academicYear } = req.body;
+    let { reviewType } = req.body;
 
     // Validate required fields
     if (!school || !program || !academicYear || !reviewType) {
@@ -3209,6 +3214,11 @@ export async function forcePPTApproval(req, res) {
         message: "School, program, academicYear, and reviewType are required.",
       });
     }
+
+    const schema = await MarkingSchema.findOne({ school, program, academicYear }).lean();
+    const review = schema && resolveReview(schema.reviews, reviewType);
+    if (!review) return res.status(400).json({ success: false, message: 'Select a configured review for this academic context.' });
+    reviewType = review.reviewName;
 
     // Find all projects matching the academic context
     const projects = await Project.find({
@@ -3228,7 +3238,7 @@ export async function forcePPTApproval(req, res) {
     // Filter projects that don't already have PPT approval for this review
     const projectsToUpdate = projects.filter((project) => {
       const existingApproval = project.pptApprovals?.find(
-        (a) => a.reviewType === reviewType
+        (a) => reviewNamesMatch(a.reviewType, reviewType)
       );
       return !existingApproval || !existingApproval.isApproved;
     });
@@ -3252,7 +3262,7 @@ export async function forcePPTApproval(req, res) {
     for (const project of projectsToUpdate) {
       try {
         const existingApprovalIndex = project.pptApprovals.findIndex(
-          (a) => a.reviewType === reviewType
+          (a) => reviewNamesMatch(a.reviewType, reviewType)
         );
 
         if (existingApprovalIndex > -1) {

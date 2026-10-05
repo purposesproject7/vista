@@ -1,3 +1,5 @@
+import { resolveReview, reviewNamesMatch } from "../utils/reviewIdentity.js";
+import MarkingSchema from "../models/markingSchema.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import { logger } from "../utils/logger.js";
@@ -22,10 +24,16 @@ export class ApprovalService {
     }
 
     await assertReviewable(project);
+    const schema = await MarkingSchema.findOne({ school: project.school, program: project.program, academicYear: project.academicYear }).lean();
+    if (schema) {
+      const review = resolveReview(schema.reviews, reviewType);
+      if (!review || review.isActive === false) throw new Error("Review is not active or configured for this academic context.");
+      reviewType = review.reviewName;
+    }
 
     // Update Project PPT Approvals (Team-level)
     const existingApprovalIndex = project.pptApprovals.findIndex(
-      (a) => a.reviewType === reviewType
+      (a) => reviewNamesMatch(a.reviewType, reviewType)
     );
 
     if (existingApprovalIndex > -1) {
@@ -71,6 +79,14 @@ export class ApprovalService {
 
     if (!project || project.guideFaculty?.toString() !== facultyId.toString()) {
       throw new Error("Only the guide can approve draft.");
+    }
+
+    await assertReviewable(project);
+    const schema = await MarkingSchema.findOne({ school: project.school, program: project.program, academicYear: project.academicYear }).lean();
+    if (schema) {
+      const review = resolveReview(schema.reviews, reviewType);
+      if (!review || review.isActive === false) throw new Error("Review is not active or configured for this academic context.");
+      reviewType = review.reviewName;
     }
 
     // Update approvals

@@ -166,6 +166,8 @@ export class FacultyService {
     // Build case-insensitive coordinator dimension filters
     const { query: coordQuery, appliedFilters } = buildCoordinatorFilterQuery(filters, CONTEXT);
     // Faculty schema: 'school' is String, 'program' is [String] — $regex works for both
+    // Faculty membership is independent of academic year; assignments carry it.
+    delete coordQuery.academicYear;
     Object.assign(query, coordQuery);
 
     if (filters.specialization && filters.specialization !== "all") {
@@ -218,10 +220,7 @@ export class FacultyService {
     }
 
     if (filters.program && filters.program !== "all") {
-      const progStr = Array.isArray(filters.program)
-        ? filters.program.map(p => p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026')).join('|')
-        : filters.program.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$\u0026');
-      query.program = { $regex: new RegExp(`^(${progStr})$`, 'i') };
+      query.program = buildCoordinatorFilterQuery({ program: filters.program }, "AdminList").query.program;
     }
 
     const sort = sortOptions.sortBy

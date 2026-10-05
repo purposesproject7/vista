@@ -1,3 +1,4 @@
+import { reviewNamesMatch } from "../../../../shared/utils/reviewHelpers";
 // src/features/admin/components/settings/ForcePPTApproval.jsx
 import React, { useState, useEffect } from 'react';
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
@@ -84,7 +85,7 @@ const ForcePPTApproval = ({ schools, programs, years }) => {
                     // Filter projects that don't have PPT approval for this review
                     const projectsNeedingApproval = allProjects.filter((project) => {
                         const existingApproval = project.pptApprovals?.find(
-                            (a) => a.reviewType === selectedReview
+                            (a) => reviewNamesMatch(a.reviewType, selectedReview)
                         );
                         return !existingApproval || !existingApproval.isApproved;
                     });

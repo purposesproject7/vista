@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const requestSchema = new mongoose.Schema(
@@ -70,6 +71,8 @@ const requestSchema = new mongoose.Schema(
 requestSchema.index({ faculty: 1, academicYear: 1 });
 requestSchema.index({ student: 1, academicYear: 1 });
 requestSchema.index({ status: 1, createdAt: -1 });
+
+requestSchema.plugin(academicContextPlugin);
 
 const Request = mongoose.model("Request", requestSchema);
 export default Request;

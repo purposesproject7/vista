@@ -1,3 +1,6 @@
+import { readMasterContext, expandContextQuery } from "./academicContext.js";
+import Panel from "../models/panelSchema.js";
+import Project from "../models/projectSchema.js";
 import BroadcastMessage from "../models/broadcastMessageSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
@@ -18,12 +21,16 @@ export async function audienceOf(userId, role) {
     const s = await Student.findById(userId).select("school program academicYear").lean();
     return s ? { students: true, schools: list(s.school), programs: list(s.program), years: list(s.academicYear) } : null;
   }
-  if (role === "project_coordinator") {
-    const c = await ProjectCoordinator.findOne({ faculty: userId }).select("school program").lean();
-    return c ? { schools: list(c.school), programs: list(c.program) } : null;
-  }
-  const f = await Faculty.findById(userId).select("school program").lean();
-  return f ? { schools: list(f.school), programs: list(f.program) } : null;
+  const f = await Faculty.findById(userId).select("school program employeeId").lean();
+  if (!f) return null;
+  const coordinators = await ProjectCoordinator.find({ faculty: userId, isActive: true }).select("school program").lean();
+  const panels = await Panel.find({ isActive: true, $or: [{ "members.faculty": userId }, { facultyEmployeeIds: f.employeeId }] }).select("_id").lean();
+  const panelIds = panels.map(panel => panel._id);
+  const projects = await Project.find({ status: 'active', $or: [{ guideFaculty: userId }, { panel: { $in: panelIds } }, { "reviewPanels.panel": { $in: panelIds } }] }).select("school program").lean();
+  // Target the programmes the faculty actually evaluates as well as their
+  // profile membership, which can be IDP even for B.Tech assignments.
+  const contexts = [f, ...coordinators, ...projects];
+  return { schools: [...new Set(contexts.flatMap(c => list(c.school)))], programs: [...new Set(contexts.flatMap(c => list(c.program)))] };
 }
 
 /** Active, unexpired broadcasts addressed to this audience (empty target = everyone). */
@@ -37,6 +44,12 @@ export async function activeBroadcastsFilter({ students, schools, programs, year
   } catch (error) {
     logger.warn("broadcast_auto_deactivate_failed", { error: error.message });
   }
+  const master = await readMasterContext();
+  const expanded = expandContextQuery({ school: { $in: schools }, program: { $in: programs } }, master);
+  const values = condition => condition instanceof RegExp ? [condition] : condition?.$in || [];
+  schools = values(expanded.school);
+  programs = values(expanded.program);
+  if (years) years = values(expandContextQuery({ academicYear: { $in: years } }, master).academicYear);
   const and = [
     // Missing audience = saved before students could be targeted = faculty.
     students ? { audience: { $in: ["students", "all"] } } : { audience: { $ne: "students" } },

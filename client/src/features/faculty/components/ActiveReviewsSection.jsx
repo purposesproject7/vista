@@ -3,14 +3,14 @@ import Button from '../../../shared/components/Button';
 import TeamsModal from './TeamsModal';
 import { PlayCircleIcon, CalendarIcon } from '@heroicons/react/24/outline';
 
-const ActiveReviewsSection = ({ reviews, onEnterMarks }) => {
+const ActiveReviewsSection = ({ reviews, onEnterMarks, emptyMessage = "No active reviews at the moment." }) => {
     const [selectedReview, setSelectedReview] = useState(null);
     const [isTeamsModalOpen, setIsTeamsModalOpen] = useState(false);
 
     if (!reviews || reviews.length === 0) {
         return (
             <div className="bg-white border rounded-lg p-8 text-center text-slate-500">
-                <p>No active reviews at the moment.</p>
+                <p>{emptyMessage}</p>
             </div>
         );
     }

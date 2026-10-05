@@ -1,3 +1,4 @@
+import { normalizeMasterData } from "../shared/utils/academicContext";
 import axios from "axios";
 import { API_BASE_URL } from "../shared/constants/config";
 
@@ -24,7 +25,12 @@ api.interceptors.request.use(
 
 // Response interceptor - handle errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.config.url?.split('?')[0].endsWith('/master-data') && response.data?.success) {
+      response.data.data = normalizeMasterData(response.data.data);
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       // Skip when verifying a token, and on login itself: a 401 there means

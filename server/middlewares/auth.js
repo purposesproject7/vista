@@ -1,3 +1,4 @@
+import { readMasterContext, contextValue } from "../utils/academicContext.js";
 import jwt from "jsonwebtoken";
 import Faculty from "../models/facultySchema.js";
 import Student from "../models/studentSchema.js";
@@ -53,6 +54,8 @@ export async function authenticate(req, res, next) {
       });
     }
 
+    const master = await readMasterContext();
+    const ownSchool = master.schools?.find(s => [s.name, s.code].some(v => contextValue(v) === contextValue(faculty.school)));
     // Attach to request
     req.user = {
       _id: faculty._id,
@@ -61,6 +64,7 @@ export async function authenticate(req, res, next) {
       employeeId: faculty.employeeId,
       role: faculty.role,
       school: faculty.school,
+      schoolAliases: ownSchool ? [ownSchool.name, ownSchool.code] : [faculty.school],
       program: faculty.program,
       specialization: faculty.specialization,
       isProjectCoordinator: faculty.isProjectCoordinator, // ✅ Include flag
@@ -68,9 +72,9 @@ export async function authenticate(req, res, next) {
 
     next();
   } catch (error) {
-    res.status(401).json({
+    res.status(error.statusCode || 401).json({
       success: false,
-      message: "Invalid or expired token.",
+      message: error.statusCode ? error.message : "Invalid or expired token.",
     });
   }
 }

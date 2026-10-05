@@ -1,3 +1,5 @@
+import { validateProjectAssignments } from "../utils/assignmentContext.js";
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const projectHistorySchema = new mongoose.Schema(
@@ -200,6 +202,10 @@ projectSchema.index({ panel: 1, academicYear: 1 });
 projectSchema.index({ "reviewPanels.panel": 1 });
 projectSchema.index({ status: 1 });
 projectSchema.index({ specialization: 1, school: 1, program: 1 });
+
+projectSchema.plugin(academicContextPlugin);
+projectSchema.pre("validate", validateProjectAssignments);
+projectSchema.pre("save", validateProjectAssignments);
 
 const Project = mongoose.model("Project", projectSchema);
 export default Project;

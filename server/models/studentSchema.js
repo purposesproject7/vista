@@ -1,3 +1,5 @@
+import { validateStudentAssignment } from "../utils/assignmentContext.js";
+import { academicContextPlugin, contextError } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const studentSchema = new mongoose.Schema(
@@ -73,6 +75,19 @@ const studentSchema = new mongoose.Schema(
 studentSchema.index({ regNo: 1, academicYear: 1 }, { unique: true });
 studentSchema.index({ school: 1, program: 1, academicYear: 1 });
 studentSchema.index({ emailId: 1 }, { unique: true });
+
+// regNo is unique per academic year, not globally. Never select an arbitrary
+// semester for reads or mutations when the same registration number repeats.
+studentSchema.pre(['findOne', 'findOneAndUpdate', 'updateOne', 'deleteOne', 'findOneAndDelete'], async function() {
+  const query = this.getFilter();
+  if (query._id || query.academicYear || (!query.regNo && !query.emailId)) return;
+  const matches = await this.model.collection.find(query).project({ _id: 1 }).limit(2).toArray();
+  if (matches.length > 1) throw contextError('Student identity spans multiple academic years. Select the academic year or use the student ID.');
+});
+
+studentSchema.plugin(academicContextPlugin);
+studentSchema.pre("validate", validateStudentAssignment);
+studentSchema.pre("save", validateStudentAssignment);
 
 const Student = mongoose.model("Student", studentSchema);
 export default Student;

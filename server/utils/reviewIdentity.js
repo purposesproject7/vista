@@ -27,8 +27,3 @@ export function resolveReview(reviews, value) {
   if (matches.length > 1) throw new Error(`Ambiguous review identifier: ${value}. Use the review ID.`);
   return matches[0];
 }
-
-export const findPPTApproval = (approvals, reviewId) => {
-  if (!Array.isArray(approvals) || !reviewId) return undefined;
-  return approvals.find(approval => reviewNamesMatch(approval.reviewType, reviewId));
-};

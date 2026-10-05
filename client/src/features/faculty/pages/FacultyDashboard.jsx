@@ -1,3 +1,4 @@
+import { gradingReviewsForRole, reviewAvailabilityMessage } from "../../../shared/utils/facultyReviewState";
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../../shared/components/Navbar';
 import { useFacultyReviews } from '../hooks/useFacultyReviews';
@@ -30,6 +31,7 @@ const FacultyDashboard = () => {
     });
 
     const {
+        configuredReviews,
         active,
         deadlinePassed,
         past,
@@ -40,6 +42,7 @@ const FacultyDashboard = () => {
         refreshReviews
     } = useFacultyReviews(authUser?._id || authUser?.employeeId || 'FAC_001', filters);
     const [loadingFilters, setLoadingFilters] = useState(true);
+    const [filterError, setFilterError] = useState(null);
 
     // Initial Data Fetch
     useEffect(() => {
@@ -60,7 +63,8 @@ const FacultyDashboard = () => {
                     school: p.school
                 }));
 
-                const initialSchool = schools[0] || '';
+                const ownSchool = data.schools.find(s => [s.code, s.name].some(v => String(v).trim().toLowerCase() === String(authUser?.school).trim().toLowerCase()));
+                const initialSchool = ownSchool?.code || schools[0] || '';
                 const initialPrograms = allPrograms.filter(p => p.school === initialSchool);
 
                 setFilterOptions({
@@ -74,20 +78,20 @@ const FacultyDashboard = () => {
                 // Set defaults if available
                 setFilters(prev => ({
                     ...prev,
-                    year: years.find(y => y === '2024-2025') || years[0] || '',
+                    year: data.academicYears.find(y => y.isActive && y.isCurrent)?.year || years[0] || '',
                     school: initialSchool,
                     program: initialPrograms[0]?.name || 'All Programs', // Default to first program (by name, matching the selector value)
                     role: 'guide'
                 }));
             } catch (err) {
-                console.error("Failed to load filter options", err);
+                setFilterError(err.response?.data?.message || "Unable to load academic context options. Refresh to retry.");
             } finally {
                 setLoadingFilters(false);
             }
         };
 
         fetchFilters();
-    }, []);
+    }, [authUser?.school]);
 
     // Update programs when school changes
     useEffect(() => {
@@ -101,7 +105,7 @@ const FacultyDashboard = () => {
             // Reset program selection if current selection is invalid for new school
             // Default to first program of the new school
             const firstProgram = relevantPrograms[0]?.name || 'All Programs';
-            setFilters(prev => ({ ...prev, program: firstProgram }));
+            setFilters(prev => relevantPrograms.some(p => p.name === prev.program) ? prev : ({ ...prev, program: firstProgram }));
         }
     }, [filters.school, filterOptions.allPrograms]);
 
@@ -133,8 +137,9 @@ const FacultyDashboard = () => {
     };
 
     // --- DASHBOARD VIEW ---
-    if (loading || loadingFilters) return <div className="flex h-screen items-center justify-center p-8 text-slate-500">Loading Dashboard...</div>;
-    if (error) return <div className="p-8 text-red-500">Error: {error}</div>;
+    if (loadingFilters) return <div className="flex h-screen items-center justify-center p-8 text-slate-500">Loading Dashboard...</div>;
+    const gradingReviews = items => gradingReviewsForRole(items, filters.role);
+    const emptyMessage = reviewAvailabilityMessage(configuredReviews, filters);
 
     return (
         <div className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans">
@@ -153,7 +158,7 @@ const FacultyDashboard = () => {
                             className="flex-1"
                             currentFilters={filters}
                             onFilterChange={(newFilters) => setFilters(newFilters)}
-                            lockedSchool={authUser?.school || 'SCOPE'} // Lock to user school
+                            lockedSchool={filters.school || authUser?.school} // Lock to user school
                         />
 
                         {/* Role Selector Card */}
@@ -181,6 +186,9 @@ const FacultyDashboard = () => {
 
 
 
+                    {loading && <p role="status" className="mb-6 text-slate-500">Loading reviews for the selected context…</p>}
+                    {(error || filterError) && <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">{error || filterError} <button className="ml-3 underline" onClick={refreshReviews}>Retry</button></div>}
+                    {!loading && !error && <>
                     {/* Title/abstract submissions awaiting the guide, with similarity scores */}
                     {filters.role === 'guide' && (
                         <TitleAbstractApprovals
@@ -290,11 +298,8 @@ const FacultyDashboard = () => {
                     {/* Active Reviews (Always Open) */}
                     <section className="animate-slideUp">
                         <ActiveReviewsSection
-                            reviews={active.filter(r => {
-                                // If viewing as Guide, hide reviews that are STRICTLY Panel-only (no guide grading)
-                                if (filters.role === 'guide' && r.facultyType === 'panel') return false;
-                                return true;
-                            })}
+                            reviews={gradingReviews(active)}
+                            emptyMessage={emptyMessage}
                             onEnterMarks={(review, team) => handleEnterMarks(review, team)}
                         />
                     </section>
@@ -360,15 +365,16 @@ const FacultyDashboard = () => {
                     {/* Collapsible Sections */}
                     <section className="space-y-6 mt-8 animate-slideUp delay-100">
                         <DeadlinePassedSection
-                            reviews={deadlinePassed}
+                            reviews={gradingReviews(deadlinePassed)}
                             onEnterMarks={handleEnterMarks}
                         />
 
                         <PastReviewsSection
-                            reviews={past}
+                            reviews={gradingReviews(past)}
                             onEnterMarks={handleEnterMarks}
                         />
                     </section>
+                    </>}
                 </div>
 
             </div>

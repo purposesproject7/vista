@@ -1,3 +1,5 @@
+import { canonicalContext, contextError, readMasterContext, contextFields, contextValue } from "../utils/academicContext.js";
+import { reviewNamesMatch } from "../utils/reviewIdentity.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import Request from "../models/requestSchema.js";
@@ -20,8 +22,8 @@ export class StudentService {
   /**
    * Get student by registration number
    */
-  static async getStudentByRegNo(regNo) {
-    const student = await Student.findOne({ regNo })
+  static async getStudentByRegNo(regNo, academicYear) {
+    const student = await Student.findOne({ regNo, ...(academicYear ? { academicYear } : {}) })
       .populate({
         path: 'guideMarks',
         select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
@@ -56,7 +58,7 @@ export class StudentService {
         });
       }
     } catch (err) {
-      logger.error("Error fetching schema for student details marks calculation", err);
+      throw err;
     }
 
     // Process Maps to Objects
@@ -148,37 +150,20 @@ export class StudentService {
     } catch (e) { /* non-fatal – best-effort validation */ }
 
 
-    // Fetch schema map if context is available
-    let reviewTypes = null;
-    let schemaReviews = [];
-    if (filters.school && filters.program && filters.academicYear) {
-      try {
-        const { query: schemaQuery } = buildCoordinatorFilterQuery(filters, `${CONTEXT}:SchemaLookup`);
-
-        const schemas = await MarkingSchema.find(schemaQuery).lean();
-        logger.info(`[${CONTEXT}:SchemaLookup] Found ${schemas.length} marking schema(s)`, {
-          expected: { school: filters.school, program: filters.program, academicYear: filters.academicYear },
-          schemasFound: schemas.map(s => ({ school: s.school, program: s.program, academicYear: s.academicYear })),
-        });
-        if (schemas && schemas.length > 0) {
-          reviewTypes = new Map();
-          schemas.forEach(schema => {
-            if (schema.reviews) {
-              schema.reviews.forEach(r => {
-                const rName = r.reviewName || r.name;
-                if (rName) {
-                  reviewTypes.set(rName, r.facultyType);
-                }
-                if (!schemaReviews.find(sr => (sr.reviewName || sr.name) === rName)) {
-                  schemaReviews.push(r);
-                }
-              });
-            }
-          });
-        }
-      } catch (err) {
-        logger.error(`[${CONTEXT}] Error fetching marking schema`, { error: err.message });
-      }
+    // Each student uses their own context's rubric. Combining review IDs from
+    // different programmes/years would attach the wrong components and roles.
+    const master = await readMasterContext();
+    const schemaQuery = buildCoordinatorFilterQuery(filters, `${CONTEXT}:SchemaLookup`).query;
+    const schemas = await MarkingSchema.find(schemaQuery).lean();
+    const key = record => {
+      const canonical = canonicalContext(record, master, { strict: false });
+      return contextFields.map(field => contextValue(canonical[field])).join('|');
+    };
+    const schemasByContext = new Map();
+    for (const schema of schemas) {
+      const schemaKey = key(schema);
+      if (schemasByContext.has(schemaKey)) throw contextError('Conflicting marking schemas exist for an academic context.');
+      schemasByContext.set(schemaKey, schema);
     }
 
     // Fetch students with populated marks
@@ -270,7 +255,7 @@ export class StudentService {
     return students.map((student) => {
       const projectDetails = studentProjectMap[student._id.toString()] || {};
       return {
-        ...this.processStudentData(student, reviewTypes, schemaReviews),
+        ...this.processStudentData(student, null, schemasByContext.get(key(student))?.reviews || []),
         guide: projectDetails.guide || "N/A",
         panelMember: projectDetails.panelMember || "N/A",
         projectTitle: projectDetails.projectTitle,
@@ -283,7 +268,7 @@ export class StudentService {
   /**
    * Update student details
    */
-  static async updateStudent(regNo, updates, userId) {
+  static async updateStudent(regNo, updates, userId, academicYear) {
     const allowedFields = [
       "name",
       "emailId",
@@ -302,7 +287,7 @@ export class StudentService {
 
     // Validate school/program change
     if (updates.school || updates.program) {
-      const student = await Student.findOne({ regNo });
+      const student = await Student.findOne({ regNo, ...(academicYear ? { academicYear } : {}) });
       if (!student) {
         throw new Error("Student not found.");
       }
@@ -313,6 +298,7 @@ export class StudentService {
       const markingSchema = await MarkingSchema.findOne({
         school: newSchool,
         program: newProgram,
+        academicYear: student.academicYear,
       });
 
       if (!markingSchema) {
@@ -338,7 +324,7 @@ export class StudentService {
     }
 
     const updatedStudent = await Student.findOneAndUpdate(
-      { regNo },
+      { regNo, ...(academicYear ? { academicYear } : {}) },
       { $set: validUpdates },
       { new: true, runValidators: true }
     );
@@ -359,8 +345,8 @@ export class StudentService {
   /**
    * Undo PAT for a student
    */
-  static async undoStudentPAT(regNo, userId) {
-    const student = await Student.findOne({ regNo });
+  static async undoStudentPAT(regNo, userId, academicYear) {
+    const student = await Student.findOne({ regNo, ...(academicYear ? { academicYear } : {}) });
     if (!student) throw new Error("Student not found.");
 
     const marksDocs = await Marks.find({ student: student._id, remarks: /\[PAT\]/i });
@@ -374,7 +360,7 @@ export class StudentService {
     // Use findOneAndUpdate to avoid full-document validation (which requires
     // the `password` field and causes a validation error on student.save())
     const updatedStudent = await Student.findOneAndUpdate(
-      { regNo },
+      { regNo, ...(academicYear ? { academicYear } : {}) },
       { $set: { PAT: false } },
       { new: true }
     );
@@ -394,8 +380,8 @@ export class StudentService {
   /**
    * Delete student
    */
-  static async deleteStudent(regNo, userId) {
-    const student = await Student.findOne({ regNo });
+  static async deleteStudent(regNo, userId, academicYear) {
+    const student = await Student.findOne({ regNo, ...(academicYear ? { academicYear } : {}) });
 
     if (!student) {
       throw new Error("Student not found.");
@@ -435,8 +421,8 @@ export class StudentService {
   /**
    * Update student marks (ADMIN001 only)
    */
-  static async updateStudentMarks(regNo, reviewsData, userId) {
-    const student = await Student.findOne({ regNo })
+  static async updateStudentMarks(regNo, reviewsData, userId, academicYear) {
+    const student = await Student.findOne({ regNo, ...(academicYear ? { academicYear } : {}) })
       .populate({
         path: 'guideMarks',
         select: 'reviewType totalMarks componentMarks isSubmitted facultyType'
@@ -462,7 +448,7 @@ export class StudentService {
     if (reviewsData) {
       for (const [reviewName, reviewData] of Object.entries(reviewsData)) {
         // Find matching marks doc
-        const marksDoc = allMarks.find(m => m.reviewType === reviewName);
+        const marksDoc = allMarks.find(m => reviewNamesMatch(m.reviewType, reviewName));
 
         if (marksDoc) {
           let hasChanges = false;
@@ -537,7 +523,7 @@ export class StudentService {
     const allMarks = [
       ...(student.guideMarks || []),
       ...(student.panelMarks || [])
-    ];
+    ].filter(mark => mark && mark.isSubmitted);
 
     // Helper to calculate average of an array of numbers
     const calculateAverage = (arr) => {
@@ -558,7 +544,7 @@ export class StudentService {
         const facultyType = schemaReview.facultyType;
 
         // Find matching marks docs - CAN BE MULTIPLE FOR PANEL
-        const matchingMarks = allMarks.filter(m => m.reviewType === reviewName);
+        const matchingMarks = allMarks.filter(m => m.isSubmitted && reviewNamesMatch(m.reviewType, reviewName) && (facultyType === "both" || m.facultyType === facultyType));
 
         // Initialize review data
         const reviewData = {
@@ -573,49 +559,23 @@ export class StudentService {
         if (matchingMarks.length > 0) {
           issubmitted = matchingMarks.some(m => m.isSubmitted);
 
-          if (facultyType === 'panel') {
-            // Filter only submitted marks for Panel
-            const validPanelMarks = matchingMarks.filter(m => m.isSubmitted);
-
-            if (validPanelMarks.length > 0) {
-              // 1. Average Total Marks
-              const totalScores = validPanelMarks.map(m => m.totalMarks || 0);
-              reviewData.total = calculateAverage(totalScores);
-
-              // 2. Average Component Marks
-              const componentMap = {};
-
-              validPanelMarks.forEach(markDoc => {
-                if (markDoc.componentMarks) {
-                  markDoc.componentMarks.forEach(comp => {
-                    if (!componentMap[comp.componentName]) {
-                      componentMap[comp.componentName] = [];
-                    }
-                    componentMap[comp.componentName].push(comp.componentTotal || comp.marks || 0);
-                  });
-                }
-              });
-
-              Object.keys(componentMap).forEach(compName => {
-                reviewData.marks[compName] = calculateAverage(componentMap[compName]);
-              });
-            }
-          } else {
-            // Guide or others
-            const marksDoc = matchingMarks[0];
-            reviewData.total = marksDoc.totalMarks || 0;
-
-            if (marksDoc.componentMarks) {
-              marksDoc.componentMarks.forEach(comp => {
-                reviewData.marks[comp.componentName] = comp.componentTotal || comp.marks || 0;
-              });
+          const guideEntries = matchingMarks.filter(m => m.facultyType === 'guide');
+          const panelEntries = matchingMarks.filter(m => m.facultyType === 'panel');
+          const guideScore = guideEntries[0]?.totalMarks || 0;
+          const panelScore = calculateAverage(panelEntries.map(m => m.totalMarks || 0));
+          const groups = facultyType === 'both' ? [guideEntries.slice(0, 1), panelEntries] : facultyType === 'panel' ? [panelEntries] : [guideEntries.slice(0, 1)];
+          for (const group of groups) {
+            if (!group.length) continue;
+            reviewData.total += calculateAverage(group.map(m => m.totalMarks || 0));
+            const names = new Set(group.flatMap(m => (m.componentMarks || []).map(c => c.componentName)));
+            for (const name of names) {
+              const scores = group.map(m => m.componentMarks?.find(c => c.componentName === name)).filter(Boolean).map(c => c.componentTotal ?? c.marks ?? 0);
+              reviewData.marks[name] = (reviewData.marks[name] || 0) + calculateAverage(scores);
             }
           }
-
-          // Add to totals
           totalMarks += reviewData.total;
-          if (facultyType === 'guide') guideMarks += reviewData.total;
-          if (facultyType === 'panel') panelMarks += reviewData.total;
+          if (facultyType !== 'panel') guideMarks += guideScore;
+          if (facultyType !== 'guide') panelMarks += panelScore;
 
           if (issubmitted) status = "submitted";
 
@@ -624,7 +584,7 @@ export class StudentService {
         // Check explicit approval from student.approvals map
         if (processedApprovals) {
           const approvalKey = Object.keys(processedApprovals).find(
-            k => k.toLowerCase() === reviewName.toLowerCase()
+            k => reviewNamesMatch(k, reviewName)
           );
 
           if (approvalKey && processedApprovals[approvalKey]?.approved) {
@@ -840,7 +800,7 @@ export class StudentService {
         }
 
         // Check if student already exists
-        const existing = await Student.findOne({ regNo: studentData.regNo });
+        const existing = await Student.findOne({ regNo: studentData.regNo, academicYear });
 
         if (existing) {
           // Update existing student

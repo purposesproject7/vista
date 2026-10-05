@@ -1,3 +1,4 @@
+import { reviewNamesMatch } from "../utils/reviewIdentity.js";
 import Student from "../models/studentSchema.js";
 import Project from "../models/projectSchema.js";
 import MarkingSchema from "../models/markingSchema.js";
@@ -14,7 +15,7 @@ export async function getProfile(req, res) {
   try {
     const { regNo } = req.params;
 
-    const student = await StudentService.getStudentByRegNo(regNo);
+    const student = await StudentService.getStudentByRegNo(regNo, req.user.academicYear);
 
     if (!student) {
       return res.status(404).json({
@@ -42,7 +43,7 @@ export async function getProject(req, res) {
   try {
     const { regNo } = req.params;
 
-    const student = await Student.findOne({ regNo }).select("_id");
+    const student = await Student.findOne({ _id: req.user._id, regNo }).select("_id");
 
     if (!student) {
       return res.status(404).json({
@@ -104,7 +105,7 @@ async function reviewScheduleFor(project) {
       const panel =
         r.facultyType === "guide"
           ? null
-          : project.reviewPanels?.find((rp) => rp.reviewType === r.reviewName)?.panel || project.panel;
+          : project.reviewPanels?.find((rp) => reviewNamesMatch(rp.reviewType, r.reviewName))?.panel || project.panel;
       return {
         reviewName: r.reviewName,
         displayName: r.displayName,
@@ -124,7 +125,7 @@ export async function getMarks(req, res) {
   try {
     const { regNo } = req.params;
 
-    const student = await Student.findOne({ regNo })
+    const student = await Student.findOne({ _id: req.user._id, regNo })
       .populate("guideMarks")
       .populate("panelMarks")
       .lean();
@@ -171,7 +172,7 @@ export async function getApprovals(req, res) {
   try {
     const { regNo } = req.params;
 
-    const student = await Student.findOne({ regNo }).lean();
+    const student = await Student.findOne({ _id: req.user._id, regNo }).lean();
 
     if (!student) {
       return res.status(404).json({

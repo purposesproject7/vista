@@ -1,3 +1,4 @@
+import { canonicalContext, contextValue, readMasterContext } from "../utils/academicContext.js";
 import Faculty from "../models/facultySchema.js";
 import ProjectCoordinator from "../models/projectCoordinatorSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
@@ -61,12 +62,16 @@ const eq = (a, b) => String(a ?? "").trim().toLowerCase() === String(b ?? "").tr
  * year) in the request's query or body. Null when none was asked for, more
  * than one program was asked for, or the coordinator holds no such assignment.
  */
-export function findRequestedAssignment(coordinators, req) {
-  const program = req.query?.program ?? req.body?.program;
+export function findRequestedAssignment(coordinators, req, master = {}) {
+  const selected = { ...req.query, ...req.body };
+  const { program, academicYear, school } = selected;
   if (!program || Array.isArray(program)) return null;
-  const year = req.query?.academicYear ?? req.body?.academicYear;
-  const matches = coordinators.filter((c) => eq(c.program, program));
-  return matches.find((c) => year && eq(c.academicYear, year)) || matches[0] || null;
+  const context = canonicalContext({ program, ...(school ? { school } : {}) }, master, { strict: false });
+  const matches = coordinators.filter(c => {
+    const own = canonicalContext(c, master, { strict: false });
+    return eq(own.program, context.program) && (!school || eq(own.school, context.school)) && (!academicYear || eq(own.academicYear, academicYear));
+  });
+  return matches.length === 1 ? matches[0] : null;
 }
 
 /**
@@ -102,8 +107,12 @@ export async function requireProjectCoordinator(req, res, next) {
     // coordinator's program dropdown), so lists, ownership checks, school and
     // permissions all follow the selection. Only assignments the coordinator
     // actually holds can be selected; otherwise fall back to the primary one.
+    const master = await readMasterContext();
+    for (const coordinator of coordinators) coordinator.$locals.masterContext = master;
+    const requested = findRequestedAssignment(coordinators, req, master);
+    if ((req.query?.program || req.body?.program) && !requested) return res.status(403).json({ success: false, message: "No unambiguous coordinator assignment matches the selected school, programme and academic year." });
     const selectedCoordinator =
-      findRequestedAssignment(coordinators, req) ||
+      requested ||
       coordinators.find((c) => c.isPrimary) ||
       coordinators[0];
     req.coordinator = selectedCoordinator;
@@ -157,10 +166,10 @@ export async function requireProjectCoordinator(req, res, next) {
 /**
  * Validate coordinator context
  */
-export function validateCoordinatorContext(req, res, next) {
+export async function validateCoordinatorContext(req, res, next) {
   try {
     const { academicYear, school, program } =
-      req.body || req.query || req.params;
+      { ...req.params, ...req.query, ...req.body };
 
     if (!academicYear || !school || !program) {
       return res.status(400).json({
@@ -170,12 +179,12 @@ export function validateCoordinatorContext(req, res, next) {
     }
 
     // Find matching coordinator assignment
-    const coordinator = req.coordinators.find(
-      (c) =>
-        c.academicYear === academicYear &&
-        c.school === school &&
-        c.program === program
-    );
+    const master = await readMasterContext();
+    const desired = canonicalContext({ school, program, academicYear }, master);
+    const coordinator = req.coordinators.find(c => {
+      const own = canonicalContext(c, master);
+      return ['school', 'program', 'academicYear'].every(field => eq(own[field], desired[field]));
+    });
 
     if (!coordinator) {
       return res.status(403).json({

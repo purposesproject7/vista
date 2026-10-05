@@ -14,26 +14,13 @@ export class RequestService {
     if (academicYear) query.academicYear = academicYear;
     if (status) query.status = status;
 
-    // Build faculty match for populate
-    const facultyMatch = {};
-    if (school) facultyMatch.school = { $in: [school] };
-    if (program) facultyMatch.program = { $in: [program] };
-
-    const requests = await Request.find(query)
-      .populate({
-        path: "faculty",
-        select: "name employeeId school program",
-        match: Object.keys(facultyMatch).length > 0 ? facultyMatch : undefined,
-      })
+    if (school) query.school = school;
+    if (program) query.program = program;
+    return Request.find(query)
+      .populate("faculty", "name employeeId school program")
       .populate("student", "name regNo emailId")
       .populate("project", "name")
-      .lean();
-
-    // Filter out null faculty (didn't match)
-    const filteredRequests = requests.filter((req) => req.faculty !== null);
-
-    // Return flat list
-    return filteredRequests;
+      .sort({ createdAt: -1 }).lean();
   }
 
   /**

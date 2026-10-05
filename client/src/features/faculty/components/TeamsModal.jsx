@@ -75,7 +75,7 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
               const pptApprovalsArray = Array.isArray(team.pptApprovals) ? team.pptApprovals : [];
               const pptApproval = findPPTApproval(pptApprovalsArray, review.id);
               const isPPTApproved = pptApproval && pptApproval.isApproved;
-              const isBlockedByPPT = isPanelRole && !isPPTApproved;
+              const isBlockedByPPT = isPanelRole && review.pptRequired && !isPPTApproved;
 
               const effectivelyLocked = !team.isUnlocked && (isLocked || team.marksEntered || (team.existingMeta && team.existingMeta.isSubmitted));
 
@@ -255,6 +255,7 @@ const TeamsModal = ({ isOpen, onClose, review, onEnterMarks }) => {
                   student: student.student_id,
                   project: requestTeam.id,
                   reviewType: review.id,
+                  facultyType: requestTeam.role,
                   requestType: 'mark_edit',
                   reason: reason
                 });

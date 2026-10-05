@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const activityLogSchema = new mongoose.Schema(
@@ -58,6 +59,8 @@ activityLogSchema.index({ school: 1, program: 1, academicYear: 1 });
 activityLogSchema.index({ faculty: 1 });
 activityLogSchema.index({ action: 1 });
 activityLogSchema.index({ createdAt: 1 });
+
+activityLogSchema.plugin(academicContextPlugin, { historical: true });
 
 const ActivityLog = mongoose.model("ActivityLog", activityLogSchema);
 

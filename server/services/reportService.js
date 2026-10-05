@@ -1,3 +1,6 @@
+import MarkingSchema from "../models/markingSchema.js";
+import { resolveReview, reviewNamesMatch } from "../utils/reviewIdentity.js";
+import { canonicalContext, contextFields, contextValue, contextError, readMasterContext } from "../utils/academicContext.js";
 import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
@@ -114,6 +117,8 @@ export class ReportService {
             .populate("project", "name")
             .lean();
 
+        await this._normalizeReviewIds(marks);
+
         // 1. Group marks by student
         const studentMarksMap = {};
         marks.forEach(m => {
@@ -143,7 +148,7 @@ export class ReportService {
             Object.values(data.reviews).forEach(reviewMarks => {
                 // reviewMarks is array of Mark docs for ONE review type
                 // Separate Guide vs Panel
-                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
+                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide' && r.isSubmitted);
                 const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel' && r.isSubmitted);
 
                 let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
@@ -152,8 +157,7 @@ export class ReportService {
                 let panelScore = 0;
                 // let panelMax = 0;
                 if (panelMarksParam.length > 0) {
-                    const nonZeroMarks = panelMarksParam.filter(m => (m.totalMarks || 0) > 0);
-                    const validForAvg = nonZeroMarks.length > 0 ? nonZeroMarks : panelMarksParam;
+                    const validForAvg = panelMarksParam;
                     const pSum = validForAvg.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
                     panelScore = pSum / validForAvg.length; // Average
                     // panelMax = panelMarksParam[0].maxTotalMarks || 100;
@@ -186,50 +190,44 @@ export class ReportService {
      * 3. Panel Marks Entry Status
      */
     static async generatePanelStatusReport(filters) {
-        const query = this._buildMatchQuery(filters);
-
-        // Get all panels
-        const panels = await Panel.find(query)
-            .populate("members.faculty", "name email")
-            .lean();
-
+        const panels = await Panel.find(this._buildMatchQuery(filters)).populate("members.faculty", "name employeeId").lean();
         const results = [];
-
         for (const panel of panels) {
-            // Get projects assigned to this panel
-            const projects = await Project.find({ panel: panel._id }).lean();
-            const projectIds = projects.map(p => p._id);
-
-            // Count total students in these projects
-            let totalStudents = 0;
-            projects.forEach(p => totalStudents += p.students.length);
-
-            // Count marks submitted by this panel (facultyType: 'panel') for these projects
-            const submittedMarksCount = await Marks.countDocuments({
-                project: { $in: projectIds },
-                facultyType: 'panel'
-            });
-
-            // Calculate expected marks: (Students * Panel Members)
-            // If no members or no students, expected is 0.
-            const totalMembers = panel.members ? panel.members.length : 0;
-            const expectedMarks = totalStudents * totalMembers;
-
-            // Status is completed if submitted >= expected (and expected > 0)
-            // Handle edge case where expected is 0 (no members or no students) -> marked as N/A or Completed?
-            const isComplete = totalStudents > 0 && totalMembers > 0 && submittedMarksCount >= expectedMarks;
-
-            results.push({
-                panelName: panel.panelName,
-                members: panel.members?.map(m => m.faculty?.name || "Unknown").join(", ") || "",
-                totalProjects: projects.length,
-                totalStudents: totalStudents,
-                marksSubmitted: submittedMarksCount,
-                pending: Math.max(0, expectedMarks - submittedMarksCount),
-                status: isComplete ? "Completed" : "Pending"
-            });
+            const context = { school: panel.school, program: panel.program, academicYear: panel.academicYear };
+            const [projects, schema, employeeMembers] = await Promise.all([
+                Project.find({ ...context, $or: [{ panel: panel._id }, { 'reviewPanels.panel': panel._id }] }).lean(),
+                MarkingSchema.findOne(context).lean(),
+                Faculty.find({ employeeId: { $in: panel.facultyEmployeeIds || [] } }).select('name employeeId').lean(),
+            ]);
+            const members = new Map([...employeeMembers, ...(panel.members || []).map(member => member.faculty).filter(Boolean)].map(member => [String(member._id || member), member]));
+            const facultyIds = [...members.keys()];
+            const studentIds = [...new Set(projects.flatMap(project => (project.students || []).map(String)))];
+            const marks = await Marks.find({ project: { $in: projects.map(project => project._id) }, student: { $in: studentIds }, faculty: { $in: facultyIds }, facultyType: 'panel', isSubmitted: true }).lean();
+            let expectedMarks, submittedMarksCount;
+            if (schema) {
+                const expected = new Set(), submitted = new Set();
+                const reviews = (schema.reviews || []).filter(review => review.isActive !== false && ['panel', 'both'].includes(review.facultyType));
+                for (const project of projects) {
+                    for (const review of reviews) {
+                        const override = project.reviewPanels?.find(assignment => reviewNamesMatch(assignment.reviewType, review.reviewName));
+                        const assigned = override ? override.panel : project.panel;
+                        if (String(assigned?._id || assigned) !== String(panel._id)) continue;
+                        for (const student of project.students || []) for (const faculty of facultyIds) expected.add(`${project._id}|${student}|${review.reviewName}|${faculty}`);
+                    }
+                }
+                for (const mark of marks) {
+                    const review = resolveReview(schema.reviews, mark.reviewType);
+                    if (!review) continue;
+                    const key = `${mark.project}|${mark.student}|${review.reviewName}|${mark.faculty}`;
+                    if (expected.has(key)) submitted.add(key);
+                }
+                expectedMarks = expected.size; submittedMarksCount = submitted.size;
+            } else {
+                expectedMarks = studentIds.length * members.size;
+                submittedMarksCount = marks.length;
+            }
+            results.push({ panelName: panel.panelName, members: [...members.values()].map(member => member.name || member.employeeId || 'Unknown').join(', '), totalProjects: projects.length, totalStudents: studentIds.length, marksSubmitted: submittedMarksCount, pending: Math.max(0, expectedMarks - submittedMarksCount), status: expectedMarks > 0 && submittedMarksCount >= expectedMarks ? 'Completed' : 'Pending' });
         }
-
         return results;
     }
 
@@ -289,6 +287,8 @@ export class ReportService {
             Marks.find({ student: { $in: studentIds } }).lean()
         ]);
         
+        await this._normalizeReviewIds(allMarks, students);
+
         console.log('[COMPREHENSIVE MARKS] Found projects:', allProjects.length);
         console.log('[COMPREHENSIVE MARKS] Found marks:', allMarks.length);
 
@@ -328,7 +328,7 @@ export class ReportService {
                         panelMarks: []
                     };
                 }
-                if (m.facultyType === 'guide') {
+                if (m.facultyType === 'guide' && m.isSubmitted) {
                     marksByReview[m.reviewType].guideMark = m;
                 } else if (m.facultyType === 'panel') {
                     marksByReview[m.reviewType].panelMarks.push(m);
@@ -362,8 +362,7 @@ export class ReportService {
                     // Filter for submitted/assigned panel marks only
                     const submittedPanelMarks = reviewData.panelMarks.filter(m => m.isSubmitted);
                     
-                    const nonZeroMarks = submittedPanelMarks.filter(m => (m.totalMarks || 0) > 0);
-                    const validPanelMarks = nonZeroMarks.length > 0 ? nonZeroMarks : submittedPanelMarks;
+                    const validPanelMarks = submittedPanelMarks;
 
                     if (validPanelMarks.length > 0) {
                         const sum = validPanelMarks.reduce((acc, curr) => acc + (curr.totalMarks || 0), 0);
@@ -412,12 +411,12 @@ export class ReportService {
             // Count panels they are part of
             const panelCount = await Panel.countDocuments({
                 ...projectPanelQuery,
-                "members.faculty": f._id
+                $or: [{ "members.faculty": f._id }, { facultyEmployeeIds: f.employeeId }]
             });
 
             results.push({
                 name: f.name,
-                email: f.email,
+                email: f.emailId,
                 designation: f.designation,
                 projectsGuided: guideCount,
                 panelsAssigned: panelCount,
@@ -505,6 +504,8 @@ export class ReportService {
         // their students so those records are included in the correct report.
         const marks = await Marks.find(query).lean();
 
+        await this._normalizeReviewIds(marks);
+
         // Group by student to get effective total score
         const studentScores = {};
         marks.forEach(m => {
@@ -529,7 +530,7 @@ export class ReportService {
             let grandMax = 0;
 
             Object.values(studentData.reviews).forEach(reviewMarks => {
-                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide');
+                const guideMarkParam = reviewMarks.find(r => r.facultyType === 'guide' && r.isSubmitted);
                 const panelMarksParam = reviewMarks.filter(r => r.facultyType === 'panel' && r.isSubmitted);
 
                 let guideScore = guideMarkParam ? (guideMarkParam.totalMarks || 0) : 0;
@@ -538,8 +539,7 @@ export class ReportService {
                 let panelScore = 0;
                 let panelMax = 0;
                 if (panelMarksParam.length > 0) {
-                    const nonZeroMarks = panelMarksParam.filter(m => (m.totalMarks || 0) > 0);
-                    const validForAvg = nonZeroMarks.length > 0 ? nonZeroMarks : panelMarksParam;
+                    const validForAvg = panelMarksParam;
                     const pSum = validForAvg.reduce((sum, m) => sum + (m.totalMarks || 0), 0);
                     panelScore = pSum / validForAvg.length;
                     panelMax = validForAvg[0].maxTotalMarks || 100;
@@ -579,6 +579,33 @@ export class ReportService {
         // Reusing comprehensive for now as it covers the basics (Reg, Name, Project, Marks)
     }
 
+    static async _normalizeReviewIds(marks, studentRows = []) {
+        if (!marks.length) return;
+        if (!studentRows.length) {
+            const ids = marks.map(mark => mark.student?._id || mark.student).filter(Boolean);
+            studentRows = await Student.find({ _id: { $in: ids } }).select('school program academicYear').lean();
+        }
+        const master = await readMasterContext();
+        const key = record => {
+            const context = canonicalContext(record, master, { strict: false });
+            return contextFields.map(field => contextValue(context[field])).join('|');
+        };
+        const students = new Map(studentRows.map(student => [String(student._id), student]));
+        const contexts = new Set(studentRows.map(key));
+        const schemas = new Map();
+        for (const schema of await MarkingSchema.find({}).lean()) {
+            const schemaKey = key(schema);
+            if (!contexts.has(schemaKey)) continue;
+            if (schemas.has(schemaKey)) throw contextError('Conflicting marking schemas exist for this report context.');
+            schemas.set(schemaKey, schema);
+        }
+        for (const mark of marks) {
+            const student = students.get(String(mark.student?._id || mark.student));
+            const schema = student && schemas.get(key(student));
+            if (schema) mark.reviewType = resolveReview(schema.reviews, mark.reviewType)?.reviewName || mark.reviewType;
+        }
+    }
+
     static async _buildMarksQuery(filters) {
         const context = this._buildMatchQuery(filters);
         if (Object.keys(context).length === 0) return {};
@@ -591,7 +618,7 @@ export class ReportService {
         if (Object.keys(context).length === 0) return {};
         const [projects, panels] = await Promise.all([
             Project.find(context).select("guideFaculty").lean(),
-            Panel.find(context).select("members.faculty").lean(),
+            Panel.find(context).select("members.faculty facultyEmployeeIds").lean(),
         ]);
         const assignedIds = [
             ...projects.map(project => project.guideFaculty),
@@ -599,7 +626,8 @@ export class ReportService {
         ].filter(Boolean);
         const profileContext = { ...context };
         delete profileContext.academicYear;
-        const assignments = { _id: { $in: assignedIds } };
+        const employeeIds = panels.flatMap(panel => panel.facultyEmployeeIds || []);
+        const assignments = { $or: [{ _id: { $in: assignedIds } }, { employeeId: { $in: employeeIds } }] };
         // Profiles do not have an academic year. An assignment proves that a
         // faculty member belongs in the selected programme even if their
         // profile lists IDP or a different school.

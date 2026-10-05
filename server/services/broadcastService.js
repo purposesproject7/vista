@@ -1,3 +1,4 @@
+import { readMasterContext, expandContextQuery } from "../utils/academicContext.js";
 import BroadcastMessage from "../models/broadcastMessageSchema.js";
 import Faculty from "../models/facultySchema.js";
 import { EmailService } from "./emailService.js";
@@ -131,19 +132,22 @@ export class BroadcastService {
 
     // Filter by audience if specified
     if (school || program || academicYear) {
+      const master = await readMasterContext();
+      const expanded = expandContextQuery({ ...(school ? { school } : {}), ...(program ? { school, program } : {}), ...(academicYear ? { academicYear } : {}) }, master);
+      const matches = (targets, condition) => (condition instanceof RegExp ? [condition] : condition?.$in || []).some(regex => targets.some(value => regex.test(value)));
       broadcasts = broadcasts.filter((b) => {
         const matchSchool =
           !school ||
           b.targetSchools.length === 0 ||
-          b.targetSchools.includes(school);
+          matches(b.targetSchools, expanded.school);
         const matchProgram =
           !program ||
           b.targetPrograms.length === 0 ||
-          b.targetPrograms.includes(program);
+          matches(b.targetPrograms, expanded.program);
         const matchYear =
           !academicYear ||
           b.targetAcademicYears.length === 0 ||
-          b.targetAcademicYears.includes(academicYear);
+          matches(b.targetAcademicYears, expanded.academicYear);
         return matchSchool && matchProgram && matchYear;
       });
     }

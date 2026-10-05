@@ -31,7 +31,7 @@ export const createReview = async (reviewData) => {
 };
 
 export const getComponentLibrary = async (params) => {
-  const response = await api.get("/admin/component-library", { params });
+  const response = await api.get("/faculty/component-library", { params });
   return response.data;
 };
 

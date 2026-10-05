@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const subComponentMarkSchema = new mongoose.Schema(
@@ -114,6 +115,8 @@ marksSchema.pre("save", async function () {
     }
   }
 });
+
+marksSchema.plugin(academicContextPlugin);
 
 const Marks = mongoose.model("Marks", marksSchema);
 export default Marks;

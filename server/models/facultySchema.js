@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 // models/facultySchema.js
 import mongoose from "mongoose";
 
@@ -34,6 +35,8 @@ const facultySchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+facultySchema.plugin(academicContextPlugin);
 
 const Faculty = mongoose.model("Faculty", facultySchema);
 export default Faculty;

@@ -64,7 +64,7 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
 
         // Force select the user's school if they are a regular admin
         if (!sudo && user?.school) {
-          updateAcademicContext({ school: user.school });
+          updateAcademicContext({ school: data.schools?.find(s => [s.code, s.name].some(v => String(v).trim().toLowerCase() === String(user.school).trim().toLowerCase()))?.code || user.school });
         }
       }
     } catch (error) {

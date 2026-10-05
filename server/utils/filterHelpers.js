@@ -1,23 +1,7 @@
-/**
- * filterHelpers.js
- *
- * Centralized utilities for building MongoDB filter queries with:
- *  - Case-insensitive matching
- *  - Detailed debug logging showing what was expected vs. what the server got
- *
- * IMPORTANT — Array field compatibility:
- *   Faculty.program is stored as [String] (array). MongoDB's { $regex } operator
- *   is automatically applied to each element of an array field, so it works for
- *   both scalar String fields (Student.program, Student.school) and [String] array
- *   fields (Faculty.program). The older { $in: [/regex1/, /regex2/] } approach only
- *   works against scalar String fields and silently returns 0 results when the DB
- *   field is an array — that was the root cause of coordinators seeing empty faculty
- *   and student lists despite data existing in the database.
- *
- * Used by studentService, facultyService, panelService, projectCoordinatorController, etc.
- */
+/** Exact, case-insensitive academic filters; the model boundary expands configured codes and names. */
 
 import { logger } from "./logger.js";
+import { exactContextRegex, isAllContext } from "./academicContext.js";
 
 /**
  * Escape special regex characters in a string so it can be used literally in RegExp.
@@ -28,29 +12,12 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/**
- * Build a case-insensitive partial-match (contains) MongoDB query value for a single
- * string or an array of strings.
- *
- * Always uses { $regex } — never { $in: [regex, ...] } — because:
- *   { $regex: /pattern/i } works on BOTH scalar String fields AND [String] array fields.
- *   MongoDB automatically tests the regex against every element of an array field.
- *   By contrast, { $in: [/regex/i] } only works on scalar String fields and silently
- *   returns no results when the DB field is an array (e.g. Faculty.program).
- *
- * - Single string  →  { $regex: /escapedValue/i }
- * - Array          →  { $regex: /(val1|val2|...)/i }  (alternation, works for both field types)
- *
- * @param {string|string[]} value  The filter value from the request.
- * @param {string} fieldName       The DB field name (used for logging).
- * @param {string} [context]       Optional label for log messages (e.g. "StudentService").
- * @returns {Object}               A MongoDB query operator object.
- */
+/** MongoDB regex queries match both scalar strings and elements of string arrays. */
 export function buildCaseInsensitiveFilter(value, fieldName, context = "Filter") {
   if (Array.isArray(value)) {
     // Combine all values into a single alternation regex.
     // This correctly matches both scalar String fields and [String] array fields in MongoDB.
-    const pattern = new RegExp(value.map((v) => escapeRegex(String(v))).join("|"), "i");
+    const pattern = new RegExp(`^\\s*(?:${value.map((v) => escapeRegex(String(v).trim())).join("|") || "(?!)"})\\s*$`, "i");
     logger.debug(`[${context}] ${fieldName} filter (array→combined $regex, case-insensitive)`, {
       expected: value,
       regexPattern: String(pattern),
@@ -58,7 +25,7 @@ export function buildCaseInsensitiveFilter(value, fieldName, context = "Filter")
     return { $regex: pattern };
   }
 
-  const pattern = new RegExp(escapeRegex(String(value)), "i");
+  const pattern = exactContextRegex(value);
   logger.debug(`[${context}] ${fieldName} filter (string, case-insensitive)`, {
     expected: value,
     regexPattern: String(pattern),
@@ -81,11 +48,11 @@ export function warnOnFilterMismatch(requested, dbValues, fieldName, context = "
 
   requestedArr.forEach((reqVal) => {
     const matchFound = dbValues.some(
-      (dbVal) => typeof dbVal === "string" && dbVal.toLowerCase().includes(reqVal.toLowerCase())
+      (dbVal) => typeof dbVal === "string" && dbVal.trim().toLowerCase() === String(reqVal).trim().toLowerCase()
     );
 
     if (!matchFound) {
-      logger.warn(`[${context}] Possible mismatch on '${fieldName}': no DB value contains the requested filter`, {
+      logger.warn(`[${context}] Possible mismatch on '${fieldName}': no DB value equals the requested filter (configured aliases may still match)`, {
         requested: reqVal,
         availableInDB: dbValues,
         hint: "Check if the coordinator program/school/academicYear name differs from what is stored in the DB.",
@@ -110,19 +77,19 @@ export function buildCoordinatorFilterQuery(filters, context = "CoordinatorFilte
   const appliedFilters = {};
 
   // -- school ---------------------------------------------------------------
-  if (filters.school && filters.school !== "all") {
+  if (filters.school && !isAllContext(filters.school)) {
     query.school = buildCaseInsensitiveFilter(filters.school, "school", context);
     appliedFilters.school = filters.school;
   }
 
   // -- program --------------------------------------------------------------
-  if (filters.program && filters.program !== "all") {
+  if (filters.program && !isAllContext(filters.program)) {
     query.program = buildCaseInsensitiveFilter(filters.program, "program", context);
     appliedFilters.program = filters.program;
   }
 
   // -- academicYear ---------------------------------------------------------
-  if (filters.academicYear && filters.academicYear !== "all") {
+  if (filters.academicYear && !isAllContext(filters.academicYear)) {
     query.academicYear = buildCaseInsensitiveFilter(filters.academicYear, "academicYear", context);
     appliedFilters.academicYear = filters.academicYear;
   }

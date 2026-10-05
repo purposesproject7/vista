@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const permissionSchema = new mongoose.Schema(
@@ -43,6 +44,8 @@ projectCoordinatorSchema.index(
     partialFilterExpression: { isPrimary: true },
   }
 );
+
+projectCoordinatorSchema.plugin(academicContextPlugin);
 
 const ProjectCoordinator = mongoose.model(
   "ProjectCoordinator",

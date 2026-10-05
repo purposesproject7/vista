@@ -25,6 +25,7 @@ export const useCoordinatorScope = () => {
     return {
         school: academicContext.school || user?.school,
         program: academicContext.program || user?.program,
+        academicYear: academicContext.academicYearSemester || user?.academicYear,
     };
 };
 

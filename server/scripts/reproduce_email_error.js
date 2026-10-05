@@ -28,7 +28,7 @@ async function testEmail() {
 
         console.log("Attempting to send test email...");
         const info = await transporter.sendMail({
-            from: \`VIT Faculty Portal <\${process.env.EMAIL_USER}>\`,
+            from: `VIT Faculty Portal <${process.env.EMAIL_USER}>`,
       to: process.env.EMAIL_USER, // Send to self
       subject: "Test Email from Reproduction Script",
       text: "This is a test email to verify nodemailer configuration.",

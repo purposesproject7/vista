@@ -36,9 +36,9 @@ before(async () => {
     phoneNumber: "9000000000", password, school: SCHOOL, role: "admin",
   });
   await MasterData.create({
-    schools: [{ name: SCHOOL, code: "REPORT" }],
-    programs: PROGRAMS.map(([name, code]) => ({ school: "REPORT", name, code })),
-    academicYears: [{ year: YEAR }],
+    schools: [{ name: SCHOOL, code: "REPORT" }, { name: "Other school", code: "OTHER" }],
+    programs: [...PROGRAMS.map(([name, code]) => ({ school: "REPORT", name, code })), { school: "OTHER", name: "B.Tech", code: "B.TECH" }],
+    academicYears: [{ year: YEAR }, { year: "Prior Year" }],
   });
   for (const [program, code] of PROGRAMS) {
     const ctx = { school: SCHOOL, program, academicYear: YEAR };
@@ -157,7 +157,7 @@ test("new marks use the student's context even when the guide only lists IDP", a
 
 test("updating an old mark corrects its programme and logs the real year", async () => {
   const team = teams[1];
-  const res = await call("reportguide", "PUT", `/faculty/marks/${team.mark._id}`, { totalMarks: 35 });
+  const res = await call("reportguide", "PUT", `/faculty/marks/${team.mark._id}`, { totalMarks: 35, maxTotalMarks: 50, componentMarks: [{ componentId: new mongoose.Types.ObjectId(), componentName: "Eval", componentTotal: 35, componentMaxTotal: 50 }] });
   assert.equal(res.status, 200, res.body.message);
   assert.equal(res.body.data.program, "B.Tech");
   assert.equal(res.body.data.academicYear, YEAR);

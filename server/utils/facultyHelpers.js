@@ -1,3 +1,5 @@
+import MarkingSchema from "../models/markingSchema.js";
+import { resolveReview, reviewNamesMatch } from "./reviewIdentity.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
@@ -39,70 +41,38 @@ export function extractPrimaryContext(faculty) {
 /**
  * Determine faculty type for a project (guide or panel)
  */
-export async function getFacultyTypeForProject(
-  facultyId,
-  projectId,
-  reviewType = null
-) {
-  const project = await Project.findById(projectId)
-    .populate("panel")
-    .populate({
-      path: "reviewPanels.panel",
-      populate: { path: "members.faculty", select: "_id" },
-    });
-
-  if (!project) {
-    throw new Error("Project not found.");
-  }
-
-  // Check if guide
-  if (project.guideFaculty?.toString() === facultyId.toString()) {
-    return { facultyType: "guide", project };
-  }
-
-  // Check if panel member (Main Panel)
-  const isMainPanelMember = project.panel?.members?.some(
-    (m) => m.faculty.toString() === facultyId.toString()
+export async function getFacultyTypeForProject(facultyId, projectId, reviewType = null, requestedRole = null) {
+  const project = await Project.findById(projectId).populate("panel").populate("reviewPanels.panel");
+  if (!project) throw new Error("Project not found.");
+  const faculty = await Faculty.findById(facultyId).select("employeeId");
+  const id = value => String(value?._id || value || "");
+  const belongs = panel => panel?.isActive !== false && (
+    panel?.members?.some(member => id(member.faculty) === id(facultyId)) ||
+    (faculty?.employeeId && panel?.facultyEmployeeIds?.some(employee => String(employee) === faculty.employeeId))
   );
-
-  if (isMainPanelMember) {
-    return { facultyType: "panel", project };
-  }
-
-  // Check review-specific panels
-  if (project.reviewPanels && project.reviewPanels.length > 0) {
-    // If reviewType is provided, check specifically for that review
-    if (reviewType) {
-      const reviewPanelAssignment = project.reviewPanels.find(
-        (rp) => rp.reviewType === reviewType
-      );
-
-      if (reviewPanelAssignment && reviewPanelAssignment.panel) {
-        const isReviewPanelMember =
-          reviewPanelAssignment.panel.members?.some(
-            (m) => m.faculty._id.toString() === facultyId.toString()
-          );
-
-        if (isReviewPanelMember) {
-          return { facultyType: "panel", project };
-        }
-      }
-    } else {
-      // If no reviewType provided, check if member of ANY assigned review panel
-      // (This is useful for general access checks)
-      const isAnyReviewPanelMember = project.reviewPanels.some((rp) =>
-        rp.panel?.members?.some(
-          (m) => m.faculty._id.toString() === facultyId.toString()
-        )
-      );
-
-      if (isAnyReviewPanelMember) {
-        return { facultyType: "panel", project };
-      }
+  const isGuide = id(project.guideFaculty) === id(facultyId);
+  let review;
+  if (reviewType) {
+    const schema = await MarkingSchema.findOne({ school: project.school, program: project.program, academicYear: project.academicYear }).lean();
+    if (schema) {
+      review = resolveReview(schema.reviews, reviewType);
+      if (!review) throw new Error("Review is not configured for this project's academic context.");
+      if (review.isActive === false) throw new Error("This review is inactive.");
     }
   }
-
-  throw new Error("You are not assigned to this project.");
+  const canonicalReviewType = review?.reviewName || reviewType;
+  const override = canonicalReviewType && project.reviewPanels?.find(rp => reviewNamesMatch(rp.reviewType, canonicalReviewType));
+  // A review-specific panel replaces the main panel for this review.
+  const isPanel = reviewType ? belongs(override ? override.panel : project.panel) :
+    belongs(project.panel) || project.reviewPanels?.some(rp => belongs(rp.panel));
+  const allowedGuide = isGuide && (!review || ['guide', 'both'].includes(review.facultyType));
+  const allowedPanel = isPanel && (!review || ['panel', 'both'].includes(review.facultyType));
+  if (requestedRole && !['guide', 'panel'].includes(requestedRole)) throw new Error("Choose guide or panel evaluation mode.");
+  const facultyType = requestedRole || (allowedGuide ? 'guide' : allowedPanel ? 'panel' : null);
+  if ((facultyType === 'guide' && !allowedGuide) || (facultyType === 'panel' && !allowedPanel) || !facultyType) {
+    throw new Error("You are not assigned to evaluate this review in the selected role.");
+  }
+  return { facultyType, project, review, reviewType: canonicalReviewType };
 }
 
 /**
@@ -118,7 +88,7 @@ export function masterAdminId() {
 export function canAdminSchool(user, school) {
   if (isMasterAdmin(user)) return true;
   const own = String(user?.school ?? "").trim().toLowerCase();
-  return own !== "" && own === String(school ?? "").trim().toLowerCase();
+  return own !== "" && [user.school, ...(user.schoolAliases || [])].some(value => String(value).trim().toLowerCase() === String(school ?? "").trim().toLowerCase());
 }
 
 export function isMasterAdmin(user) {

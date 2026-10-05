@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const featureLockSchema = new mongoose.Schema(
@@ -120,6 +121,8 @@ programConfigSchema.index(
   { academicYear: 1, school: 1, program: 1 },
   { unique: true }
 );
+
+programConfigSchema.plugin(academicContextPlugin, { uniqueContext: true });
 
 const ProgramConfig = mongoose.model("ProgramConfig", programConfigSchema);
 

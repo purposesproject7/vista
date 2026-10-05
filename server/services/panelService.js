@@ -1,3 +1,4 @@
+import { canonicalContext, contextFields, contextValue, readMasterContext, exactContextRegex } from "../utils/academicContext.js";
 import Panel from "../models/panelSchema.js";
 import Faculty from "../models/facultySchema.js";
 import Project from "../models/projectSchema.js";
@@ -275,10 +276,10 @@ export class PanelService {
     if (!project) throw new Error("Project not found.");
 
     // Verify same academic context
-    if (
-      panel.school !== project.school ||
-      panel.program !== project.program
-    ) {
+    const master = await readMasterContext();
+    const projectContext = canonicalContext(project, master, { strict: false });
+    const panelContext = canonicalContext(panel, master, { strict: false });
+    if (contextFields.some(field => contextValue(projectContext[field]) !== contextValue(panelContext[field]))) {
       throw new Error(
         "Panel and project must belong to the same academic context."
       );
@@ -729,11 +730,10 @@ export class PanelService {
     if (!newPanel) throw new Error("Target panel not found.");
 
     // Verify context
-    if (
-      project.academicYear !== newPanel.academicYear ||
-      project.school !== newPanel.school ||
-      project.program !== newPanel.program
-    ) {
+    const master = await readMasterContext();
+    const projectContext = canonicalContext(project, master, { strict: false });
+    const panelContext = canonicalContext(newPanel, master, { strict: false });
+    if (contextFields.some(field => contextValue(projectContext[field]) !== contextValue(panelContext[field]))) {
       throw new Error(
         "Project and panel must be in the same academic context."
       );
@@ -805,13 +805,14 @@ export class PanelService {
   /**
    * Bulk assign panels to projects based on Excel upload data
    */
-  static async bulkAssignPanelsToProjects(assignments, assignedBy = null) {
+  static async bulkAssignPanelsToProjects(assignments, assignedBy = null, filters = {}) {
     const results = {
       assignedCount: 0,
       errors: 0,
       details: [],
     };
 
+    const scope = Object.fromEntries(contextFields.filter(field => filters[field]).map(field => [field, filters[field]]));
     for (const [index, row] of assignments.entries()) {
       try {
         const projectName = row.ProjectTitle || row.projectName || row["Project Title"];
@@ -829,9 +830,11 @@ export class PanelService {
         // Find Project
         let project = null;
         if (studentRegNo) {
-          const student = await Student.findOne({ regNo: { $regex: new RegExp(`^${studentRegNo}$`, "i") } });
+          const student = await Student.findOne({ ...scope, regNo: exactContextRegex(studentRegNo) });
           if (!student) throw new Error(`Student ${studentRegNo} not found`);
-          project = await Project.findOne({ students: student._id, status: { $ne: "archived" } });
+          const matches = await Project.find({ ...scope, name: exactContextRegex(projectName), status: { $ne: "archived" } }).limit(2);
+          if (matches.length > 1) throw new Error("Project title matches multiple contexts. Select school, programme and year or identify its student.");
+          project = matches[0];
         } else if (projectName) {
           project = await Project.findOne({ 
             name: { $regex: new RegExp(`^${projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") },
@@ -844,9 +847,9 @@ export class PanelService {
         }
 
         // Find Panel
-        const panel = await Panel.findOne({ 
-          panelName: { $regex: new RegExp(`^${panelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") } 
-        });
+        const matches = await Panel.find({ school: project.school, program: project.program, academicYear: project.academicYear, panelName: exactContextRegex(panelName), isActive: true }).limit(2);
+        if (matches.length > 1) throw new Error("Panel name is ambiguous in this academic context. Use its ID.");
+        const panel = matches[0];
         
         if (!panel) {
           throw new Error(`Panel '${panelName}' not found`);

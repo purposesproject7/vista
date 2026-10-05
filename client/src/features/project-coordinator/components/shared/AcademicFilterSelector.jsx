@@ -102,7 +102,7 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
     const { program, academicYear } = localFilters;
 
     if (program && academicYear) {
-      const assignment = assignments.find(a => a.program === program);
+      const assignment = assignments.find(a => a.program === program && a.academicYear === academicYear);
 
       if (assignment) {
         // Shared with every coordinator screen (useCoordinatorScope).
@@ -174,7 +174,7 @@ const AcademicFilterSelector = ({ onFilterComplete, className = "" }) => {
           label="Academic Year"
           value={localFilters.academicYear}
           onChange={(val) => handleFilterChange('academicYear', val)}
-          options={academicYearOptions}
+          options={academicYearOptions.filter(option => assignments.some(a => a.academicYear === option.value && (!localFilters.program || a.program === localFilters.program)))}
           placeholder="Select Academic Year"
           disabled={loading}
         />

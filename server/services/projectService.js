@@ -1,3 +1,5 @@
+import MarkingSchema from "../models/markingSchema.js";
+import { resolveReview, reviewNamesMatch } from "../utils/reviewIdentity.js";
 import mongoose from "mongoose";
 import Project from "../models/projectSchema.js";
 import Student from "../models/studentSchema.js";
@@ -5,6 +7,7 @@ import Faculty from "../models/facultySchema.js";
 import Panel from "../models/panelSchema.js";
 import ProgramConfig from "../models/programConfigSchema.js";
 import { logger } from "../utils/logger.js";
+import { readMasterContext, canonicalContext, contextValue } from "../utils/academicContext.js";
 
 export class ProjectService {
   /**
@@ -52,9 +55,6 @@ export class ProjectService {
    * Get guide projects
    */
   static async getGuideProjects(filters = {}) {
-    // Ensure visibility across slight context mismatches
-    if (filters.academicYear) delete filters.academicYear;
-
     const query = {};
     if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
@@ -93,9 +93,6 @@ export class ProjectService {
    * Get panel projects
    */
   static async getPanelProjects(filters = {}) {
-    // Ensure visibility across slight context mismatches
-    if (filters.academicYear) delete filters.academicYear;
-
     const query = {};
     if (filters.academicYear) query.academicYear = { $regex: new RegExp(`^${filters.academicYear.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
     if (filters.school) query.school = filters.school;
@@ -270,10 +267,15 @@ export class ProjectService {
     const configs = await ProgramConfig.find({ requireTitleAbstractApproval: true })
       .select("academicYear school program")
       .lean();
-    const gated = new Set(configs.map((c) => `${c.academicYear}|${c.school}|${c.program}`));
+    const master = await readMasterContext();
+    const key = context => {
+      const canonical = canonicalContext(context, master, { strict: false });
+      return `${canonical.academicYear}|${canonical.school}|${canonical.program}`.toLowerCase();
+    };
+    const gated = new Set(configs.map(key));
     for (const p of projects) {
       p.reviewsLocked =
-        gated.has(`${p.academicYear}|${p.school}|${p.program}`) &&
+        gated.has(key(p)) &&
         p.titleAbstractStatus !== "accepted";
     }
   }
@@ -448,6 +450,26 @@ export class ProjectService {
 
     if (projectsToCreate.length === 0) return results;
 
+    const batchMaster = await readMasterContext();
+    const groups = new Map();
+    for (const row of projectsToCreate) {
+      const context = canonicalContext(row, batchMaster);
+      const key = `${context.school}|${context.program}|${context.academicYear}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ ...row, ...context });
+    }
+    if (groups.size > 1) {
+      for (const rows of groups.values()) {
+        const group = await this.bulkCreateProjects(rows, createdBy, { ignoreDepartmentMismatch });
+        results.created += group.created;
+        results.failed += group.failed;
+        results.errors.push(...group.errors);
+        results.projects.push(...group.projects);
+      }
+      return results;
+    }
+    projectsToCreate = [...groups.values()][0];
+
     // ── Batch prefetch ──────────────────────────────────────────────────────
     // Collect all unique guide employee IDs
     const uniqueGuideEmpIds = [
@@ -477,12 +499,12 @@ export class ProjectService {
       await Promise.all([
         Faculty.find({ employeeId: { $in: uniqueGuideEmpIds } }).lean(),
         allRegNos.length
-          ? Student.find({ regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } }).lean()
+          ? Student.find({ academicYear, regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } }).lean()
           : Promise.resolve([]),
         ProgramConfig.findOne({ academicYear, school, program }).lean(),
         // Fetch all active projects that contain any of these students
         allRegNos.length
-          ? Student.find({ regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } })
+          ? Student.find({ academicYear, regNo: { $in: allRegNos.map(r => new RegExp(`^${r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) } })
               .select("_id regNo")
               .lean()
               .then((foundStudents) => {
@@ -561,13 +583,11 @@ export class ProjectService {
           );
         }
 
-        if (!ignoreDepartmentMismatch && (
-          guide.school.toLowerCase() !== pSchool.toLowerCase() ||
-          !guide.program.some(p => p.toLowerCase().includes(pProgram.toLowerCase()) || pProgram.toLowerCase().includes(p.toLowerCase()))
-        )) {
-          throw new Error(
-            "Guide must belong to the same school and program as the project."
-          );
+        const master = await readMasterContext();
+        const guideContext = canonicalContext(guide, master, { strict: false });
+        const projectContext = canonicalContext({ school: pSchool, program: pProgram }, master);
+        if (!ignoreDepartmentMismatch && (guideContext.school !== projectContext.school || !guideContext.program.includes(projectContext.program))) {
+          throw new Error("Guide must belong to the same school and program as the project.");
         }
 
         // Team size validation (use shared config; projects share one academic context)
@@ -617,6 +637,8 @@ export class ProjectService {
             );
           }
 
+          const studentContext = canonicalContext(student, batchMaster);
+          if (studentContext.school !== projectContext.school || studentContext.program !== projectContext.program || studentContext.academicYear !== pYear) throw new Error(`Student ${regNo} does not belong to the project's academic context.`);
           studentIds.push(student._id);
         }
 
@@ -704,13 +726,11 @@ export class ProjectService {
       throw new Error(`Guide faculty with ID ${guideFacultyEmpId} not found.`);
     }
 
-    if (!ignoreDepartmentMismatch && (
-      guide.school.toLowerCase() !== school.toLowerCase() ||
-      !guide.program.some(p => p.toLowerCase().includes(program.toLowerCase()) || program.toLowerCase().includes(p.toLowerCase()))
-    )) {
-      throw new Error(
-        "Guide must belong to the same school and program as the project."
-      );
+    const master = await readMasterContext();
+    const guideContext = canonicalContext(guide, master, { strict: false });
+    const projectContext = canonicalContext({ school, program }, master);
+    if (!ignoreDepartmentMismatch && (guideContext.school !== projectContext.school || !guideContext.program.includes(projectContext.program))) {
+      throw new Error("Guide must belong to the same school and program as the project.");
     }
 
     // Validate specialization match
@@ -773,7 +793,7 @@ export class ProjectService {
       }
 
       // 1. Check if student exists
-      let student = await Student.findOne({ regNo });
+      let student = await Student.findOne({ regNo, academicYear });
 
       // 2. If valid object provided and student not found, create them
       if (
@@ -831,6 +851,8 @@ export class ProjectService {
         );
       }
 
+      const studentContext = canonicalContext(student, master);
+      if (studentContext.school !== projectContext.school || studentContext.program !== projectContext.program || contextValue(studentContext.academicYear) !== contextValue(academicYear)) throw new Error(`Student ${regNo} does not belong to the project's academic context.`);
       studentIds.push(student._id);
     }
 
@@ -1069,13 +1091,10 @@ export class ProjectService {
         }
 
         // Ensure same academic context
-        // Skip check if ignoreSpecialization is true
-        if (
-          !ignoreSpecialization &&
-          (newPanel.academicYear !== project.academicYear ||
-            newPanel.school !== project.school ||
-            newPanel.program !== project.program)
-        ) {
+        const master = await readMasterContext();
+        const projectContext = canonicalContext(project, master, { strict: false });
+        const panelContext = canonicalContext(newPanel, master, { strict: false });
+        if (['school', 'program', 'academicYear'].some(field => contextValue(projectContext[field]) !== contextValue(panelContext[field]))) {
           throw new Error(
             "Panel must belong to the same academic context as the project."
           );
@@ -1130,33 +1149,36 @@ export class ProjectService {
     // ---------- Review-specific panel assignments ----------
     if (Array.isArray(reviewPanelsUpdates) && reviewPanelsUpdates.length > 0) {
       for (const update of reviewPanelsUpdates) {
-        const { reviewType, panelId: reviewPanelId } = update;
+        let { reviewType, panelId: reviewPanelId } = update;
         if (!reviewType || !reviewPanelId) continue;
+        const schema = await MarkingSchema.findOne({ school: project.school, program: project.program, academicYear: project.academicYear }).lean();
+        const review = schema && resolveReview(schema.reviews, reviewType);
+        if (!review) throw new Error('Select a configured review for this academic context.');
+        reviewType = review.reviewName;
 
         const newPanel = await Panel.findById(reviewPanelId);
         if (!newPanel) {
           throw new Error(`Panel not found for reviewType '${reviewType}'.`);
         }
 
-        if (
-          !ignoreSpecialization &&
-          (newPanel.academicYear !== project.academicYear ||
-            newPanel.school !== project.school ||
-            newPanel.program !== project.program)
-        ) {
+        const master = await readMasterContext();
+        const projectContext = canonicalContext(project, master, { strict: false });
+        const panelContext = canonicalContext(newPanel, master, { strict: false });
+        if (['school', 'program', 'academicYear'].some(field => contextValue(projectContext[field]) !== contextValue(panelContext[field]))) {
           throw new Error(
             `Review panel for '${reviewType}' must be in same academic context as project.`
           );
         }
 
         const existingIndex = project.reviewPanels.findIndex(
-          (rp) => rp.reviewType === reviewType
+          (rp) => reviewNamesMatch(rp.reviewType, reviewType)
         );
 
         let previousPanel = null;
 
         if (existingIndex >= 0) {
           previousPanel = project.reviewPanels[existingIndex].panel;
+          project.reviewPanels[existingIndex].reviewType = reviewType;
           project.reviewPanels[existingIndex].panel = newPanel._id;
           project.reviewPanels[existingIndex].assignedAt = new Date();
           project.reviewPanels[existingIndex].assignedBy = updatedBy;
@@ -1191,7 +1213,7 @@ export class ProjectService {
     let updatedStudents = 0;
     if (studentUpdates && Array.isArray(studentUpdates)) {
       for (const studentData of studentUpdates) {
-        const student = await Student.findOne({ regNo: studentData.regNo });
+        const student = await Student.findOne({ regNo: studentData.regNo, _id: { $in: project.students } });
 
         if (student) {
           Object.assign(student, studentData);

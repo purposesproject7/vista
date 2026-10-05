@@ -1,3 +1,4 @@
+import { schoolMatches, sameContextValue } from "../../../shared/utils/academicContext";
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from '../../../shared/components/Modal';
 import Button from '../../../shared/components/Button';
@@ -5,6 +6,12 @@ import { UserGroupIcon, ExclamationTriangleIcon, TrashIcon, XMarkIcon, PlusIcon 
 import api from '../../../services/api';
 
 const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess }) => {
+    const [schools, setSchools] = useState([]);
+    useEffect(() => {
+        let active = true;
+        api.get("/faculty/master-data").then(res => { if (active) setSchools(res.data.data.schools || []); }).catch(() => {});
+        return () => { active = false; };
+    }, []);
     const [selectedStudentIds, setSelectedStudentIds] = useState([]);
     const [newProjectName, setNewProjectName] = useState('');
     const [selectedPanelId, setSelectedPanelId] = useState('');
@@ -32,11 +39,11 @@ const MergeTeamsModal = ({ isOpen, onClose, context, projects = [], onSuccess })
     const contextProjects = useMemo(() => {
         return projects.filter(p =>
             p.status !== 'archived' &&
-            p.school === context.school &&
-            p.program === context.program &&
-            p.academicYear === context.year
+            schoolMatches(p.school, context.school, schools) &&
+            sameContextValue(p.program, context.program) &&
+            sameContextValue(p.academicYear, context.year)
         );
-    }, [projects, context]);
+    }, [projects, context, schools]);
 
     // Derived: All Students for Dropdown
     const allStudents = useMemo(() => {

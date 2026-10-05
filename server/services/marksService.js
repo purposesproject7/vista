@@ -1,3 +1,5 @@
+import { reviewNamesMatch } from "../utils/reviewIdentity.js";
+import { canonicalContext, contextFields, readMasterContext } from "../utils/academicContext.js";
 import Marks from "../models/marksSchema.js";
 import Student from "../models/studentSchema.js";
 import Faculty from "../models/facultySchema.js";
@@ -16,7 +18,7 @@ export class MarksService {
     const {
       student,
       project,
-      reviewType,
+      reviewType: requestedReviewType,
       componentMarks,
       totalMarks,
       maxTotalMarks,
@@ -26,10 +28,11 @@ export class MarksService {
     } = data;
 
     // Determine faculty type
-    const { facultyType, project: projectDoc } = await getFacultyTypeForProject(
+    const { facultyType, project: projectDoc, review, reviewType } = await getFacultyTypeForProject(
       facultyId,
       project,
-      reviewType
+      requestedReviewType,
+      data.facultyType
     );
 
     await assertReviewable(projectDoc);
@@ -69,9 +72,12 @@ export class MarksService {
       throw new Error("Student, Faculty, or Project not found.");
     }
 
+    await this.validateStudentProject(studentDoc, projectDocFull);
+    this.validateScores(data, review);
+
     // --- PPT Approval Check (Panel Only) ---
-    if (facultyType === 'panel') {
-      const pptApproval = projectDocFull.pptApprovals?.find(p => p.reviewType === reviewType);
+    if (facultyType === 'panel' && (!review || review.pptRequired)) {
+      const pptApproval = projectDocFull.pptApprovals?.find(p => reviewNamesMatch(p.reviewType, reviewType));
       if (!pptApproval || !pptApproval.isApproved) {
         throw new Error(`PPT Approval Pending. Guide must approve the PPT before panel can enter marks.`);
       }
@@ -143,7 +149,7 @@ export class MarksService {
     const hasPat = await Marks.exists({ student, remarks: /\[PAT\]/i });
 
     await Student.findByIdAndUpdate(student, {
-      $push: { [updateField]: marks._id },
+      $addToSet: { [updateField]: marks._id },
       PAT: !!hasPat
     });
 
@@ -152,7 +158,7 @@ export class MarksService {
       let projectUpdated = false;
       if (pptApproved) {
         const existingApprovalIndex = projectDocFull.pptApprovals.findIndex(
-          (a) => a.reviewType === reviewType
+          (a) => reviewNamesMatch(a.reviewType, reviewType)
         );
 
         if (existingApprovalIndex > -1) {
@@ -207,6 +213,11 @@ export class MarksService {
 
     const student = await Student.findById(marks.student).select("school program academicYear");
     if (!student) throw new Error("Student not found.");
+    const assignment = await getFacultyTypeForProject(facultyId, marks.project, marks.reviewType, marks.facultyType);
+    await assertReviewable(assignment.project);
+    await this.validateStudentProject(student, assignment.project);
+    this.validateScores({ componentMarks: marks.componentMarks, totalMarks: marks.totalMarks, maxTotalMarks: marks.maxTotalMarks, ...updates }, assignment.review);
+    marks.reviewType = assignment.reviewType;
     marks.school = student.school;
     marks.program = student.program;
     marks.academicYear = student.academicYear;
@@ -234,7 +245,7 @@ export class MarksService {
         let projectUpdated = false;
         if (updates.pptApproved) {
           const existingApprovalIndex = projectDoc.pptApprovals.findIndex(
-            (a) => a.reviewType === marks.reviewType
+            (a) => reviewNamesMatch(a.reviewType, marks.reviewType)
           );
 
           if (existingApprovalIndex > -1) {
@@ -267,6 +278,35 @@ export class MarksService {
     });
 
     return marks;
+  }
+
+  static async validateStudentProject(student, project) {
+    if (!project.students.some(value => String(value?._id || value) === String(student._id))) throw new Error("Student does not belong to this project.");
+    const master = await readMasterContext();
+    const studentContext = canonicalContext(student, master);
+    const projectContext = canonicalContext(project, master);
+    if (contextFields.some(field => studentContext[field] !== projectContext[field])) throw new Error("Student and project academic contexts do not match.");
+  }
+
+  static validateScores(data, review) {
+    const components = data.componentMarks;
+    if (!Array.isArray(components) || !components.length) throw new Error("Component marks are required.");
+    const ids = new Set();
+    let total = 0, maximum = 0;
+    for (const component of components) {
+      const id = String(component.componentId);
+      if (ids.has(id)) throw new Error("Duplicate mark component.");
+      ids.add(id);
+      const score = component.componentTotal, max = component.componentMaxTotal;
+      if (!Number.isFinite(score) || !Number.isFinite(max) || score < 0 || max < 0 || score > max) throw new Error("Component marks must be between zero and their maximum.");
+      if (review) {
+        const configured = review.components.find(value => String(value.componentId) === id);
+        if (!configured || max !== configured.maxMarks) throw new Error("Mark components do not match the configured review rubric.");
+      }
+      total += score; maximum += max;
+    }
+    if (review && ids.size !== review.components.length) throw new Error("All configured review components must be supplied.");
+    if (!Number.isFinite(data.totalMarks) || !Number.isFinite(data.maxTotalMarks) || Math.abs(total - data.totalMarks) > 0.001 || Math.abs(maximum - data.maxTotalMarks) > 0.001) throw new Error("Mark totals must equal the sum of component marks and maxima.");
   }
 
   /**

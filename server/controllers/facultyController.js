@@ -1,3 +1,5 @@
+import { reviewNamesMatch } from "../utils/reviewIdentity.js";
+import ComponentLibrary from "../models/componentLibrarySchema.js";
 import Faculty from "../models/facultySchema.js";
 import Marks from "../models/marksSchema.js";
 import Project from "../models/projectSchema.js";
@@ -17,6 +19,7 @@ import {
 import { logger } from "../utils/logger.js";
 import { audienceOf, activeBroadcastsFilter } from "../utils/broadcastAudience.js";
 import MasterData from "../models/masterDataSchema.js";
+import { MarkingSchemaService } from "../services/markingSchemaService.js";
 
 /**
  * Get faculty profile
@@ -145,34 +148,8 @@ export async function updateProfile(req, res) {
  */
 export async function getMarkingSchema(req, res) {
   try {
-    const faculty = await Faculty.findById(req.user._id);
-
-    if (!faculty) {
-      return res.status(404).json({
-        success: false,
-        message: "Faculty not found.",
-      });
-    }
-
-    let { school, program } = extractPrimaryContext(faculty);
-
-    // Override with query params if provided (for filters)
-    // Treat empty strings as undefined
-    if (req.query.school && req.query.school.trim() !== '') school = req.query.school;
-    if (req.query.program && req.query.program.trim() !== '' && req.query.program !== "All Programs") program = req.query.program;
-
-    if (!school || !program) {
-      return res.status(400).json({
-        success: false,
-        message: "School or program not specified.",
-      });
-    }
-
-    const { academicYear } = req.query;
-    const query = { school, program };
-    if (academicYear) query.academicYear = academicYear;
-
-    const schema = await MarkingSchema.findOne(query).lean();
+    const { school, program, academicYear } = req.query;
+    const schema = await MarkingSchemaService.getMarkingSchema(academicYear, school, program);
 
     if (!schema) {
       return res.status(404).json({
@@ -186,7 +163,7 @@ export async function getMarkingSchema(req, res) {
       data: schema,
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
       message: error.message,
     });
@@ -474,7 +451,7 @@ export async function approveDraft(req, res) {
  */
 export async function createRequest(req, res) {
   try {
-    const { student, project, reviewType, requestType, reason } = req.body;
+    const { student, project, reviewType: requestedReviewType, requestType, reason } = req.body;
 
     // DEBUG LOGGING
     logger.info("DEBUG: createRequest received", { body: req.body });
@@ -482,10 +459,11 @@ export async function createRequest(req, res) {
 
     const facultyId = req.user._id;
 
-    const { facultyType } = await getFacultyTypeForProject(
+    const { facultyType, project: assignedProject, reviewType } = await getFacultyTypeForProject(
       facultyId,
       project,
-      reviewType
+      requestedReviewType,
+      req.body.facultyType
     );
 
     const [studentDoc] = await Promise.all([Student.findById(student)]);
@@ -497,6 +475,7 @@ export async function createRequest(req, res) {
       });
     }
 
+    await MarksService.validateStudentProject(studentDoc, assignedProject);
     const request = new Request({
       faculty: facultyId,
       facultyType,
@@ -641,7 +620,7 @@ export async function getFacultyReviews(req, res) {
     const isUnlocked = (projectId, reviewType) => {
       return approvedRequests.some(r =>
         r.project.toString() === projectId.toString() &&
-        r.reviewType === reviewType
+        reviewNamesMatch(r.reviewType, reviewType)
       );
     };
 
@@ -799,4 +778,14 @@ export async function mergeProjects(req, res) {
       message: error.message,
     });
   }
+}
+
+export async function getComponentLibrary(req, res) {
+  try {
+    const { school, program, academicYear } = req.query;
+    if (!school || !program || !academicYear) return res.status(400).json({ success: false, message: "Select school, programme and academic year." });
+    const library = await ComponentLibrary.findOne({ school, program, academicYear }).lean();
+    if (!library) return res.status(404).json({ success: false, message: "Component library not configured for this academic context." });
+    res.json({ success: true, data: library });
+  } catch (error) { res.status(error.statusCode || 500).json({ success: false, message: error.message }); }
 }

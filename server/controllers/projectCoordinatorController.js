@@ -1,3 +1,5 @@
+import { resolveReview, reviewNamesMatch } from "../utils/reviewIdentity.js";
+import { canonicalContext, contextValue } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 import { FacultyService } from "../services/facultyService.js";
 import { PanelService } from "../services/panelService.js";
@@ -81,19 +83,12 @@ function getCoordinatorContext(req) {
  * Helper: Verify context ownership
  */
 function verifyContext(item, coordinator) {
-  // If item has an academicYear field, it must match
-  if (item.academicYear && String(item.academicYear).toLowerCase() !== String(coordinator.academicYear).toLowerCase()) {
-    return false;
-  }
-
-  // item.program may be a single String (Project/Panel/ProjectCoordinator/etc.)
-  // or an array of Strings (Faculty, who can belong to multiple programs).
-  const coordProgram = String(coordinator.program).toLowerCase();
-  const programMatches = Array.isArray(item.program)
-    ? item.program.some(p => String(p).toLowerCase() === coordProgram)
-    : String(item.program).toLowerCase() === coordProgram;
-
-  return String(item.school).toLowerCase() === String(coordinator.school).toLowerCase() && programMatches;
+  const master = coordinator.$locals?.masterContext || {};
+  const own = canonicalContext(coordinator, master, { strict: false });
+  const candidate = canonicalContext(item, master, { strict: false });
+  const programs = Array.isArray(candidate.program) ? candidate.program : [candidate.program];
+  return contextValue(candidate.school) === contextValue(own.school) && programs.some(p => contextValue(p) === contextValue(own.program)) &&
+    (!item.academicYear || contextValue(candidate.academicYear) === contextValue(own.academicYear));
 }
 
 // ==================== Profile & Permissions ====================
@@ -683,7 +678,7 @@ export async function getStudentList(req, res) {
  */
 export async function getStudentByRegNo(req, res) {
   try {
-    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+    const student = await StudentService.getStudentByRegNo(req.params.regNo, req.coordinator.academicYear);
 
     if (!student) {
       return res.status(404).json({
@@ -726,7 +721,7 @@ export async function createStudent(req, res) {
     const { regNo, name, emailId, phoneNumber } = req.body;
 
     // Check if student already exists
-    const existing = await StudentService.getStudentByRegNo(regNo);
+    const existing = await StudentService.getStudentByRegNo(regNo, req.coordinator.academicYear);
     if (existing) {
       return res.status(400).json({
         success: false,
@@ -744,7 +739,7 @@ export async function createStudent(req, res) {
     );
 
     if (result.created === 1) {
-      const student = await StudentService.getStudentByRegNo(regNo);
+      const student = await StudentService.getStudentByRegNo(regNo, req.coordinator.academicYear);
 
       res.status(201).json({
         success: true,
@@ -814,7 +809,7 @@ export async function updateStudent(req, res) {
     }
 
     const coordinator = req.coordinator;
-    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+    const student = await StudentService.getStudentByRegNo(req.params.regNo, req.coordinator.academicYear);
 
     if (!student) {
       return res.status(404).json({
@@ -838,7 +833,7 @@ export async function updateStudent(req, res) {
     const updatedStudent = await StudentService.updateStudent(
       req.params.regNo,
       req.body,
-      req.user._id
+      req.user._id, req.coordinator.academicYear
     );
 
     res.status(200).json({
@@ -867,7 +862,7 @@ export async function deleteStudent(req, res) {
     }
 
     const coordinator = req.coordinator;
-    const student = await StudentService.getStudentByRegNo(req.params.regNo);
+    const student = await StudentService.getStudentByRegNo(req.params.regNo, req.coordinator.academicYear);
 
     if (!student) {
       return res.status(404).json({
@@ -888,7 +883,7 @@ export async function deleteStudent(req, res) {
       });
     }
 
-    await StudentService.deleteStudent(req.params.regNo, req.user._id);
+    await StudentService.deleteStudent(req.params.regNo, req.user._id, req.coordinator.academicYear);
 
     res.status(200).json({
       success: true,
@@ -1841,7 +1836,7 @@ export async function bulkAssignPanels(req, res) {
       return res.status(400).json({ success: false, message: "No assignments provided." });
     }
 
-    const result = await PanelService.bulkAssignPanelsToProjects(assignments, req.user._id);
+    const result = await PanelService.bulkAssignPanelsToProjects(assignments, req.user._id, req.coordinator);
 
     res.status(200).json({
       success: true,
@@ -1858,7 +1853,7 @@ export async function bulkAssignPanels(req, res) {
 
 export async function assignReviewPanel(req, res) {
   try {
-    const { projectId, reviewType, panelId, memberEmployeeIds } = req.body;
+    let { projectId, reviewType, panelId, memberEmployeeIds } = req.body;
     const context = getCoordinatorContext(req);
 
     let targetPanelId = panelId;
@@ -1931,9 +1926,7 @@ export async function assignReviewPanel(req, res) {
 
     // Validate review type exists in marking schema
     const schema = await MarkingSchema.findOne(getCoordinatorContext(req));
-    const validReview = schema?.reviews.find(
-      (r) => r.reviewName === reviewType
-    );
+    const validReview = schema && resolveReview(schema.reviews, reviewType);
 
     if (!validReview) {
       return res.status(400).json({
@@ -1943,13 +1936,16 @@ export async function assignReviewPanel(req, res) {
       });
     }
 
+    reviewType = validReview.reviewName;
+
     // Update or add review panel
     project.reviewPanels = project.reviewPanels || [];
     const existingIdx = project.reviewPanels.findIndex(
-      (rp) => rp.reviewType === reviewType
+      (rp) => reviewNamesMatch(rp.reviewType, reviewType)
     );
 
     if (existingIdx >= 0) {
+      project.reviewPanels[existingIdx].reviewType = reviewType;
       project.reviewPanels[existingIdx].panel = targetPanelId;
       project.reviewPanels[existingIdx].assignedBy = req.user._id;
       project.reviewPanels[existingIdx].assignedAt = new Date();
@@ -2313,21 +2309,7 @@ export async function saveMarkingSchema(req, res) {
     const context = getCoordinatorContext(req);
     const { reviews } = req.body;
 
-    let schema = await MarkingSchema.findOne(context);
-    if (!schema) {
-      schema = new MarkingSchema({ ...context, reviews: [] });
-    } else {
-      // Verify context just in case, though findOne(context) ensures it
-      if (!verifyContext(schema, req.coordinator)) {
-        return res.status(403).json({
-          success: false,
-          message: "Not authorized to update this marking schema.",
-        });
-      }
-    }
-
-    schema.reviews = reviews;
-    await schema.save();
+    const schema = await MarkingSchemaService.createOrUpdateMarkingSchema({ ...req.body, ...context, reviews }, req.user._id);
 
     logger.info("marking_schema_updated_by_coordinator", {
       schemaId: schema._id,
@@ -2734,7 +2716,7 @@ export async function getPrograms(req, res) {
 
     const programs = masterData.programs
       ? masterData.programs
-        .filter((p) => p.school === school)
+        .filter(p => contextValue(canonicalContext({ school: p.school }, masterData, { strict: false }).school) === contextValue(canonicalContext({ school }, masterData, { strict: false }).school))
         .map((p) => ({ name: p.name, code: p.code }))
       : [];
 

@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const panelMemberSchema = new mongoose.Schema(
@@ -61,6 +62,8 @@ panelSchema.index({ school: 1, program: 1, academicYear: 1 });
 panelSchema.index({ specializations: 1 });
 panelSchema.index({ isActive: 1, assignedProjectsCount: 1 });
 panelSchema.index({ facultyEmployeeIds: 1 });
+
+panelSchema.plugin(academicContextPlugin);
 
 const Panel = mongoose.model("Panel", panelSchema);
 export default Panel;

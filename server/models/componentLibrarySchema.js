@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const predefinedSubComponentSchema = new mongoose.Schema(
@@ -62,6 +63,8 @@ componentLibrarySchema.index(
 );
 componentLibrarySchema.index({ "components.name": 1 });
 componentLibrarySchema.index({ "components.category": 1 });
+
+componentLibrarySchema.plugin(academicContextPlugin, { uniqueContext: true });
 
 const ComponentLibrary = mongoose.model(
   "ComponentLibrary",

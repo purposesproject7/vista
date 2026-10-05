@@ -64,7 +64,7 @@ const FacultyAcademicContextSelector = ({ currentFilters, onFilterChange, classN
         if (lockedSchool && currentFilters.school !== lockedSchool) {
             // Force update if not already set, but be careful not to trigger infinite loops
             // Only update if it's different and we have assurance it's a valid school (optional check)
-            onFilterChange({ ...currentFilters, school: lockedSchool, program: "All Programs" });
+            onFilterChange({ ...currentFilters, school: lockedSchool, program: currentFilters.program });
         }
     }, [lockedSchool, currentFilters.school]);
 
@@ -74,7 +74,10 @@ const FacultyAcademicContextSelector = ({ currentFilters, onFilterChange, classN
 
         if (activeSchool && masterData.programs) {
             const programs = masterData.programs
-                ?.filter(p => p.school === activeSchool)
+                ?.filter(p => {
+                    const selected = masterData.schools.find(s => [s.code, s.name].some(v => String(v).toLowerCase() === String(activeSchool).toLowerCase()));
+                    return [activeSchool, selected?.name, selected?.code].some(v => v && String(v).toLowerCase() === String(p.school).toLowerCase());
+                })
                 ?.map(p => ({
                     value: p.name, // programs are stored by name
                     label: p.name,

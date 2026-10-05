@@ -1,3 +1,4 @@
+import { academicContextPlugin } from "../utils/academicContext.js";
 import mongoose from "mongoose";
 
 const accessRequestSchema = new mongoose.Schema(
@@ -73,6 +74,8 @@ accessRequestSchema.index({ featureName: 1, status: 1 });
 accessRequestSchema.index({ priority: 1, status: 1 });
 accessRequestSchema.index({ submittedAt: -1 });
 accessRequestSchema.index({ approvalDeadline: 1 });
+
+accessRequestSchema.plugin(academicContextPlugin);
 
 const AccessRequest = mongoose.model("AccessRequest", accessRequestSchema);
 export default AccessRequest;

@@ -1,3 +1,5 @@
+import { assertReviewIdentitiesPreserved } from "../utils/reviewConfiguration.js";
+import { isAllContext } from "../utils/academicContext.js";
 import MarkingSchema from "../models/markingSchema.js";
 import ComponentLibrary from "../models/componentLibrarySchema.js";
 import { logger } from "../utils/logger.js";
@@ -8,6 +10,7 @@ export class MarkingSchemaService {
    */
   static validateMarkingSchema(data) {
     const errors = [];
+    const reviewIds = new Set();
 
     if (!data.academicYear) {
       errors.push("Academic year is required");
@@ -27,13 +30,15 @@ export class MarkingSchemaService {
     }
 
     // Validate reviews if they exist
-    if (data.reviews && data.reviews.length > 0) {
+    if (Array.isArray(data.reviews) && data.reviews.length > 0) {
       data.reviews.forEach((review, index) => {
         const reviewNum = index + 1;
 
         if (!review.reviewName) {
           errors.push(`Review ${reviewNum}: reviewName is required`);
         }
+        if (reviewIds.has(review.reviewName)) errors.push(`Review ${reviewNum}: duplicate review identifier ${review.reviewName}`);
+        reviewIds.add(review.reviewName);
 
         if (!review.displayName) {
           errors.push(`Review ${reviewNum}: displayName is required`);
@@ -70,7 +75,7 @@ export class MarkingSchemaService {
               errors.push(
                 `Review ${reviewNum}, Component ${compNum}: maxMarks is required`
               );
-            } else if (typeof comp.maxMarks !== "number" || comp.maxMarks < 0) {
+            } else if (!Number.isFinite(comp.maxMarks) || comp.maxMarks < 0) {
               errors.push(
                 `Review ${reviewNum}, Component ${compNum}: maxMarks must be a positive number`
               );
@@ -79,7 +84,7 @@ export class MarkingSchemaService {
             // Validate componentId if provided
             if (
               comp.componentId &&
-              !comp.componentId.match(/^[0-9a-fA-F]{24}$/)
+              !String(comp.componentId).match(/^[0-9a-fA-F]{24}$/)
             ) {
               errors.push(
                 `Review ${reviewNum}, Component ${compNum}: invalid componentId format`
@@ -89,12 +94,15 @@ export class MarkingSchemaService {
         }
 
         // Validate deadline if provided
+        if (!review.deadline?.from || !review.deadline?.to) {
+          errors.push(`Review ${reviewNum}: both review window dates are required`);
+        }
         if (review.deadline) {
           if (review.deadline.from && review.deadline.to) {
             const from = new Date(review.deadline.from);
             const to = new Date(review.deadline.to);
 
-            if (from >= to) {
+            if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from >= to) {
               errors.push(
                 `Review ${reviewNum}: deadline 'from' must be before 'to'`
               );
@@ -153,8 +161,10 @@ export class MarkingSchemaService {
       academicYear,
       reviews,
       requiresContribution,
-      contributionType,
+      contributionTypes,
     } = data;
+
+    if (!Array.isArray(reviews)) throw new Error("Reviews must be an array.");
 
     // Auto-generate reviewName if missing
     reviews.forEach((review) => {
@@ -223,8 +233,8 @@ export class MarkingSchemaService {
       program,
       academicYear,
       reviews: cleanedReviews,
-      requiresContribution: requiresContribution || false,
-      contributionType: contributionType || "none",
+      ...(requiresContribution !== undefined ? { requiresContribution } : {}),
+      ...(contributionTypes !== undefined ? { contributionTypes } : {}),
     };
 
     // Check if schema already exists
@@ -236,6 +246,7 @@ export class MarkingSchemaService {
 
     let schema;
     if (existingSchema) {
+      await this.assertReviewIdentitiesPreserved(existingSchema, cleanedReviews);
       // Update existing schema
       Object.assign(existingSchema, schemaData);
       schema = await existingSchema.save();
@@ -274,6 +285,11 @@ export class MarkingSchemaService {
    * Get marking schema
    */
   static async getMarkingSchema(academicYear, school, program) {
+    if (!academicYear || !school || !program || [academicYear, school, program].some(isAllContext)) {
+      const error = new Error("Select school, programme and academic year to load reviews.");
+      error.statusCode = 400;
+      throw error;
+    }
     const schema = await MarkingSchema.findOne({
       academicYear,
       school,
@@ -281,7 +297,9 @@ export class MarkingSchemaService {
     }).lean();
 
     if (!schema) {
-      throw new Error("Marking schema not found for this program.");
+      const error = new Error("Marking schema not found for this programme and academic year.");
+      error.statusCode = 404;
+      throw error;
     }
 
     return schema;
@@ -340,6 +358,10 @@ export class MarkingSchemaService {
       }
     }
 
+    if (updates.reviews) await this.assertReviewIdentitiesPreserved(schema, updates.reviews);
+    if (['school', 'program', 'academicYear'].some(field => updates[field] && updates[field] !== schema[field])) {
+      await this.assertReviewIdentitiesPreserved(schema, []);
+    }
     // Apply updates
     Object.assign(schema, updates);
     await schema.save();
@@ -355,15 +377,22 @@ export class MarkingSchemaService {
     return schema;
   }
 
+  static async assertReviewIdentitiesPreserved(schema, nextReviews) {
+    return assertReviewIdentitiesPreserved(schema, nextReviews);
+  }
+
   /**
    * Delete marking schema
    */
   static async deleteMarkingSchema(id, deletedBy = null) {
-    const schema = await MarkingSchema.findByIdAndDelete(id);
+    const schema = await MarkingSchema.findById(id);
 
     if (!schema) {
       throw new Error("Marking schema not found.");
     }
+
+    await this.assertReviewIdentitiesPreserved(schema, []);
+    await schema.deleteOne();
 
     if (deletedBy) {
       logger.info("marking_schema_deleted", {
